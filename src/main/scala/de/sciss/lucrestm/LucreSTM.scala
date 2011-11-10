@@ -5,10 +5,59 @@ import concurrent.stm.ccstm.CCSTM
 import actors.threadpool.TimeUnit
 import concurrent.stm.Txn.Status
 import collection.mutable.Builder
-import concurrent.stm.{CommitBarrier, TxnExecutor, TxnLocal, TMap, TSet, MaybeTxn, TArray, InTxnEnd, InTxn, Ref}
+import concurrent.stm.{Txn, CommitBarrier, TxnExecutor, TxnLocal, TMap, TSet, MaybeTxn, TArray, InTxnEnd, InTxn, Ref}
+import com.sleepycat.je.{Database, Environment, TransactionConfig, Transaction}
 
-final class LucreSTM extends STMImpl {
+final class LucreSTM( env: Environment, txnCfg: TransactionConfig, private[lucrestm] val db: Database )
+extends STMImpl {
    private val peer = new CCSTM()
+
+   private val idCnt = peer.newRef( 0 )
+
+   private val dbTxnRef = TxnLocal( initialValue = initDBTxn( _ ))
+
+   private[lucrestm] def txnHandle( implicit txn: InTxnEnd ) : Transaction = dbTxnRef.get
+
+   private def initDBTxn( implicit txn: InTxn ) : Transaction = {
+      Txn.setExternalDecider( Decider )
+      val dbTxn = env.beginTransaction( null, txnCfg )
+      Txn.afterRollback { status =>
+         try {
+            dbTxn.abort()
+         } catch {
+            case _ =>
+         }
+      }
+      dbTxn
+   }
+
+   private object Decider extends Txn.ExternalDecider {
+      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
+         val h = dbTxnRef.get
+         try {
+            h.commit()
+            true
+         } catch {
+            case e =>
+               try {
+                  h.abort()
+               } catch {
+                  case _ =>
+               }
+               false
+         }
+      }
+   }
+
+   private[lucrestm] def newID() : Array[ Byte ] = {
+      val id   = idCnt.single.transformAndGet( _ + 1 )
+      val arr  = new Array[ Byte ]( 4 )
+      arr( 0 ) = (id >> 24).toByte
+      arr( 1 ) = (id >> 16).toByte
+      arr( 2 ) = (id >>  8).toByte
+      arr( 3 ) = id.toByte
+      arr
+   }
 
    private def notYetImplemented : Nothing = sys.error( "Not yet implemented" )
 
