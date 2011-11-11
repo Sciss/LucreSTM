@@ -6,17 +6,22 @@ import actors.threadpool.TimeUnit
 import concurrent.stm.Txn.Status
 import collection.mutable.Builder
 import concurrent.stm.{Txn, CommitBarrier, TxnExecutor, TxnLocal, TMap, TSet, MaybeTxn, TArray, InTxnEnd, InTxn, Ref}
-import com.sleepycat.je.{Database, Environment, TransactionConfig, Transaction}
+import com.sleepycat.je.{DatabaseEntry, Database, Environment, TransactionConfig, Transaction}
+import com.sleepycat.bind.tuple.{TupleInput, TupleOutput}
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.io.{ObjectOutputStream, ObjectInputStream}
 
-final class LucreSTM( env: Environment, txnCfg: TransactionConfig, private[lucrestm] val db: Database )
+final class LucreSTM( env: Environment, txnCfg: TransactionConfig, db: Database )
 extends STMImpl {
-   private val peer = new CCSTM()
+   private val peer     = new CCSTM()
 
-   private val idCnt = peer.newRef( 0 )
+   private val idCnt    = peer.newRef( 0 )
 
    private val dbTxnRef = TxnLocal( initialValue = initDBTxn( _ ))
 
-   private[lucrestm] def txnHandle( implicit txn: InTxnEnd ) : Transaction = dbTxnRef.get
+   private val ioQueue  = new ConcurrentLinkedQueue[ IO ]
+
+   private def txnHandle( implicit txn: InTxnEnd ) : Transaction = dbTxnRef.get
 
    private def initDBTxn( implicit txn: InTxn ) : Transaction = {
       Txn.setExternalDecider( Decider )
@@ -29,6 +34,48 @@ extends STMImpl {
          }
       }
       dbTxn
+   }
+
+   private[lucrestm] def withIO( fun: IO => Unit ) {
+      val ioOld   = ioQueue.poll()
+      val io      = if( ioOld != null ) ioOld else new IO
+      try {
+         fun( io )
+      } finally {
+         ioQueue.offer( io )
+      }
+   }
+
+   private[lucrestm] final class IO {
+      private val keyArr   = new Array[ Byte ]( 4 )
+      private val keyE     = new DatabaseEntry( keyArr )
+      private val valueE   = new DatabaseEntry()
+//      private val ti       = new TupleInput()
+      private val to       = new TupleOutput()
+//      private val is       = new ObjectInputStream( ti )
+      private val os       = new ObjectOutputStream( to )
+
+//      def beginRead() : ObjectInputStream = {
+//         ti.reset()
+//         is
+//      }
+
+      def beginWrite() : ObjectOutputStream = {
+         to.reset()
+         os
+      }
+
+      def endWrite( key: Int )( implicit tx: InTxn ) {
+         val h    = txnHandle
+         val a    = keyArr
+         a( 0 )   = (key >> 24).toByte
+         a( 1 )   = (key >> 16).toByte
+         a( 2 )   = (key >>  8).toByte
+         a( 3 )   = key.toByte
+         os.flush()
+         valueE.setData( to.toByteArray )
+         db.put( h, keyE, valueE )
+      }
    }
 
    private object Decider extends Txn.ExternalDecider {
@@ -49,15 +96,17 @@ extends STMImpl {
       }
    }
 
-   private[lucrestm] def newID() : Array[ Byte ] = {
-      val id   = idCnt.single.transformAndGet( _ + 1 )
-      val arr  = new Array[ Byte ]( 4 )
-      arr( 0 ) = (id >> 24).toByte
-      arr( 1 ) = (id >> 16).toByte
-      arr( 2 ) = (id >>  8).toByte
-      arr( 3 ) = id.toByte
-      arr
-   }
+//   private[lucrestm] def newID() : Array[ Byte ] = {
+//      val id   = idCnt.single.transformAndGet( _ + 1 )
+//      val arr  = new Array[ Byte ]( 4 )
+//      arr( 0 ) = (id >> 24).toByte
+//      arr( 1 ) = (id >> 16).toByte
+//      arr( 2 ) = (id >>  8).toByte
+//      arr( 3 ) = id.toByte
+//      arr
+//   }
+
+   private[lucrestm] def newID() : Int = idCnt.single.transformAndGet( _ + 1 )
 
    private def notYetImplemented : Nothing = sys.error( "Not yet implemented" )
 
