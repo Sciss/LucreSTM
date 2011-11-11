@@ -6,10 +6,10 @@ import actors.threadpool.TimeUnit
 import concurrent.stm.Txn.Status
 import collection.mutable.Builder
 import concurrent.stm.{Txn, CommitBarrier, TxnExecutor, TxnLocal, TMap, TSet, MaybeTxn, TArray, InTxnEnd, InTxn, Ref}
-import com.sleepycat.je.{DatabaseEntry, Database, Environment, TransactionConfig, Transaction}
 import com.sleepycat.bind.tuple.{TupleInput, TupleOutput}
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.io.{ObjectOutputStream, ObjectInputStream}
+import com.sleepycat.je.{OperationStatus, DatabaseEntry, Database, Environment, TransactionConfig, Transaction}
+import java.io.{IOException, ObjectOutputStream, ObjectInputStream}
 
 final class LucreSTM( env: Environment, txnCfg: TransactionConfig, db: Database )
 extends STMImpl {
@@ -48,17 +48,23 @@ extends STMImpl {
       }
    }
 
-//   private[lucrestm] def withIO( fun: IO => Unit ) {
-//      val ioOld   = ioQueue.poll()
-//      val io      = if( ioOld != null ) ioOld else new IO
-//      try {
-//         fun( io )
-//      } finally {
-//         ioQueue.offer( io )
-//      }
-//   }
+   private[lucrestm] def read[ A ]( id: Int )( valueFun: ObjectInputStream => A )( implicit tx: InTxn ) : A = {
+      val ioOld   = ioQueue.poll()
+      val io      = if( ioOld != null ) ioOld else new IO
+      try {
+         val in = io.read( id )
+         if( in != null ) {
+            valueFun( in )
+         } else {
+//            Txn.retry
+            throw new IOException()
+         }
+      } finally {
+         ioQueue.offer( io )
+      }
+   }
 
-   private[lucrestm] final class IO {
+   private final class IO {
       private val keyArr   = new Array[ Byte ]( 4 )
       private val keyE     = new DatabaseEntry( keyArr )
       private val valueE   = new DatabaseEntry()
@@ -75,6 +81,17 @@ extends STMImpl {
       def beginWrite() : ObjectOutputStream = {
          to.reset()
          os
+      }
+
+      def read( key: Int )( implicit tx: InTxn ) : ObjectInputStream = {
+         val h    = txnHandle
+         val ve   = valueE
+         if( db.get( h, keyE, ve, null ) == OperationStatus.SUCCESS ) {
+            val ti = new TupleInput( ve.getData, ve.getOffset, ve.getSize )
+            new ObjectInputStream( ti )
+         } else {
+            null
+         }
       }
 
       def endWrite( key: Int )( implicit tx: InTxn ) {
