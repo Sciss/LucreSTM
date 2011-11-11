@@ -36,15 +36,27 @@ extends STMImpl {
       dbTxn
    }
 
-   private[lucrestm] def withIO( fun: IO => Unit ) {
+   private[lucrestm] def write( id: Int )( valueFun: ObjectOutputStream => Unit )( implicit tx: InTxn ) {
       val ioOld   = ioQueue.poll()
       val io      = if( ioOld != null ) ioOld else new IO
       try {
-         fun( io )
+         val out = io.beginWrite()
+         valueFun( out )
+         io.endWrite( id )
       } finally {
          ioQueue.offer( io )
       }
    }
+
+//   private[lucrestm] def withIO( fun: IO => Unit ) {
+//      val ioOld   = ioQueue.poll()
+//      val io      = if( ioOld != null ) ioOld else new IO
+//      try {
+//         fun( io )
+//      } finally {
+//         ioQueue.offer( io )
+//      }
+//   }
 
    private[lucrestm] final class IO {
       private val keyArr   = new Array[ Byte ]( 4 )

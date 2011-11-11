@@ -2,14 +2,11 @@ package de.sciss.lucrestm
 
 import concurrent.stm.{InTxn, Ref}
 import concurrent.stm.Ref.View
-import com.sleepycat.bind.tuple.TupleOutput
-import java.io.ObjectOutputStream
-import com.sleepycat.je.DatabaseEntry
 
 final class LucreRef[ /* @specialized */ A ]( lucre: LucreSTM ) extends Ref[ A ] {
    private def notYetImplemented : Nothing = sys.error( "Not yet implemented" )
 
-   private lazy val id: Int = lucre.newID()
+   lazy val id: Int = lucre.newID()
 
    def swap( v: A )( implicit txn: InTxn ) : A = notYetImplemented // peer.swap( v )( txn )
 
@@ -19,11 +16,7 @@ final class LucreRef[ /* @specialized */ A ]( lucre: LucreSTM ) extends Ref[ A ]
       notYetImplemented // peer.transformIfDefined( pf )( txn )
 
    def set( v: A )( implicit txn: InTxn ) {
-      lucre.withIO { io =>
-         val out = io.beginWrite()
-         out.writeObject( v )
-         io.endWrite( id )
-      }
+      lucre.write( id )( _.writeObject( v ))
    }
 
    def trySet( v: A )( implicit txn: InTxn ) : Boolean = notYetImplemented // peer.trySet( v )( txn )
