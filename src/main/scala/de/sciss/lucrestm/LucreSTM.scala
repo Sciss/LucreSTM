@@ -8,10 +8,32 @@ import collection.mutable.Builder
 import concurrent.stm.{Txn, CommitBarrier, TxnExecutor, TxnLocal, TMap, TSet, MaybeTxn, TArray, InTxnEnd, InTxn, Ref}
 import com.sleepycat.bind.tuple.{TupleInput, TupleOutput}
 import java.util.concurrent.ConcurrentLinkedQueue
-import com.sleepycat.je.{OperationStatus, DatabaseEntry, Database, Environment, TransactionConfig, Transaction}
 import java.io.{IOException, ObjectOutputStream, ObjectInputStream}
+import com.sleepycat.je.{DatabaseConfig, OperationStatus, DatabaseEntry, Database, Environment, TransactionConfig, Transaction}
 
-final class LucreSTM( env: Environment, txnCfg: TransactionConfig, db: Database )
+object LucreSTM {
+   def open( env: Environment, name: String, dbCfg: DatabaseConfig, txnCfg: TransactionConfig ) : LucreSTM = {
+      val envCfg  = env.getConfig
+      require( envCfg.getTransactional && dbCfg.getTransactional && !dbCfg.getSortedDuplicates )
+
+      val txn  = env.beginTransaction( null, txnCfg )
+      var ok   = false
+      try {
+         txn.setName( "Open '" + name + "'" )
+         val db = env.openDatabase( txn, name, dbCfg )
+         try {
+            val res = fun( ctx, db )
+            ok = true
+            res
+         } finally {
+            if( !ok ) db.close()
+         }
+      } finally {
+         if( ok ) txn.commit() else txn.abort()
+      }
+   }
+}
+final class LucreSTM private ( env: Environment, txnCfg: TransactionConfig, db: Database )
 extends STMImpl {
    private val peer     = new CCSTM()
 
@@ -36,22 +58,40 @@ extends STMImpl {
       dbTxn
    }
 
-   private[lucrestm] def write( id: Int )( valueFun: ObjectOutputStream => Unit )( implicit tx: InTxn ) {
+   private[lucrestm] def newID( implicit tx: InTxn) : Int = {
+      val id = idCnt.transformAndGet( _ + 1 )
+      withIO { io =>
+         val out = io.beginWrite()
+         out.writeInt( id )
+         io.endWrite( 0 )
+      }
+      id
+   }
+
+   private def withIO[ A ]( fun: IO => A ) : A = {
       val ioOld   = ioQueue.poll()
       val io      = if( ioOld != null ) ioOld else new IO
       try {
-         val out = io.beginWrite()
-         valueFun( out )
-         io.endWrite( id )
+         fun( io )
       } finally {
          ioQueue.offer( io )
       }
    }
 
+   private[lucrestm] def write( id: Int )( valueFun: ObjectOutputStream => Unit )( implicit tx: InTxn ) {
+      withIO { io =>
+         val out = io.beginWrite()
+         valueFun( out )
+         io.endWrite( id )
+      }
+   }
+
+   private[lucrestm] def remove( id: Int )( implicit tx: InTxn ) {
+      withIO( _.remove( id ))
+   }
+
    private[lucrestm] def read[ A ]( id: Int )( valueFun: ObjectInputStream => A )( implicit tx: InTxn ) : A = {
-      val ioOld   = ioQueue.poll()
-      val io      = if( ioOld != null ) ioOld else new IO
-      try {
+      withIO { io =>
          val in = io.read( id )
          if( in != null ) {
             valueFun( in )
@@ -59,8 +99,6 @@ extends STMImpl {
 //            Txn.retry
             throw new IOException()
          }
-      } finally {
-         ioQueue.offer( io )
       }
    }
 
@@ -92,6 +130,16 @@ extends STMImpl {
          } else {
             null
          }
+      }
+
+      def remove( key: Int )( implicit tx: InTxn ) {
+         val h    = txnHandle
+         val a    = keyArr
+         a( 0 )   = (key >> 24).toByte
+         a( 1 )   = (key >> 16).toByte
+         a( 2 )   = (key >>  8).toByte
+         a( 3 )   = key.toByte
+         db.delete( h, keyE )
       }
 
       def endWrite( key: Int )( implicit tx: InTxn ) {
@@ -135,20 +183,18 @@ extends STMImpl {
 //      arr
 //   }
 
-   private[lucrestm] def newID() : Int = idCnt.single.transformAndGet( _ + 1 )
-
    private def notYetImplemented : Nothing = sys.error( "Not yet implemented" )
 
-   def newRef( v0: Boolean ) : Ref[ Boolean ]   = notYetImplemented
-   def newRef( v0: Byte ) : Ref[ Byte ]         = notYetImplemented
-   def newRef( v0: Short ) : Ref[ Short ]       = notYetImplemented
-   def newRef( v0: Char ) : Ref[ Char ]         = notYetImplemented
-   def newRef( v0: Int ) : Ref[ Int ]           = notYetImplemented
-   def newRef( v0: Float ) : Ref[ Float ]       = notYetImplemented
-   def newRef( v0: Long ) : Ref[ Long ]         = notYetImplemented
-   def newRef( v0: Double ) : Ref[ Double ]     = notYetImplemented
-   def newRef( v0: Unit ) : Ref[ Unit ]         = notYetImplemented
-   def newRef[ A ]( v0: A )( implicit mf: ClassManifest[ A ]) : Ref[ A ] = notYetImplemented
+   def newRef( v0: Boolean ) : Ref[ Boolean ]   = LucreRef[ Boolean ]( this, v0 )
+   def newRef( v0: Byte    ) : Ref[ Byte    ]   = LucreRef[ Byte    ]( this, v0 )
+   def newRef( v0: Short   ) : Ref[ Short   ]   = LucreRef[ Short   ]( this, v0 )
+   def newRef( v0: Char    ) : Ref[ Char    ]   = LucreRef[ Char    ]( this, v0 )
+   def newRef( v0: Int     ) : Ref[ Int     ]   = LucreRef[ Int     ]( this, v0 )
+   def newRef( v0: Float   ) : Ref[ Float   ]   = LucreRef[ Float   ]( this, v0 )
+   def newRef( v0: Long    ) : Ref[ Long    ]   = LucreRef[ Long    ]( this, v0 )
+   def newRef( v0: Double  ) : Ref[ Double  ]   = LucreRef[ Double  ]( this, v0 )
+   def newRef( v0: Unit    ) : Ref[ Unit    ]   = LucreRef[ Unit    ]( this, v0 )
+   def newRef[ A ]( v0: A )( implicit mf: ClassManifest[ A ]) : Ref[ A ] = LucreRef[ A ]( this, v0 )
 
    def newTxnLocal[ A ]( init: => A, initialValue: (InTxn) => A, beforeCommit: (InTxn) => Unit,
                          whilePreparing: (InTxnEnd) => Unit, whileCommitting: (InTxnEnd) => Unit,

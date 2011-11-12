@@ -1,15 +1,24 @@
 package de.sciss.lucrestm
 
-import concurrent.stm.{InTxn, Ref}
 import concurrent.stm.Ref.View
+import concurrent.stm.{MaybeTxn, InTxn, Ref}
 
+object LucreRef {
+   def apply[ A ]( lucre: LucreSTM, init: A )( implicit tx: MaybeTxn ) : LucreRef[ A ] = {
+      val res = new LucreRef[ A ]( lucre, lucre.newID() )
+      lucre.apply { implicit tx: InTxn =>
+         res.set( init )
+      }
+      res
+   }
+}
 /**
  * A plain database backed up reference. This does not offer any sort of caching.
  */
-final class LucreRef[ /* @specialized */ A ]( lucre: LucreSTM ) extends Ref[ A ] {
+final class LucreRef[ /* @specialized */ A ]( lucre: LucreSTM, id: Int ) extends Ref[ A ] {
    private def notYetImplemented : Nothing = sys.error( "Not yet implemented" )
 
-   lazy val id: Int = lucre.newID()
+//   private lazy val id: Int = lucre.newID()
 
    def swap( v: A )( implicit txn: InTxn ) : A = {
       val res = get
@@ -30,7 +39,11 @@ final class LucreRef[ /* @specialized */ A ]( lucre: LucreSTM ) extends Ref[ A ]
    }
 
    def set( v: A )( implicit txn: InTxn ) {
-      lucre.write( id )( _.writeObject( v ))
+      if( v != null ) {
+         lucre.write( id )( _.writeObject( v ))
+      } else {
+         lucre.remove( id )
+      }
    }
 
    def trySet( v: A )( implicit txn: InTxn ) : Boolean = {
