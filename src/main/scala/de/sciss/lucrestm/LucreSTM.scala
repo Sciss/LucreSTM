@@ -5,7 +5,7 @@ import concurrent.stm.ccstm.CCSTM
 import actors.threadpool.TimeUnit
 import concurrent.stm.Txn.Status
 import collection.mutable.Builder
-import concurrent.stm.{Txn, CommitBarrier, TxnExecutor, TxnLocal, TMap, TSet, MaybeTxn, TArray, InTxnEnd, InTxn, Ref}
+import concurrent.stm.{Txn, CommitBarrier, TxnExecutor, TxnLocal, TMap, TSet, MaybeTxn, TArray, InTxnEnd, InTxn, Ref => STMRef}
 import com.sleepycat.bind.tuple.{TupleInput, TupleOutput}
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.io.{IOException, ObjectOutputStream, ObjectInputStream}
@@ -13,24 +13,25 @@ import com.sleepycat.je.{DatabaseConfig, OperationStatus, DatabaseEntry, Databas
 
 object LucreSTM {
    def open( env: Environment, name: String, dbCfg: DatabaseConfig, txnCfg: TransactionConfig ) : LucreSTM = {
-      val envCfg  = env.getConfig
-      require( envCfg.getTransactional && dbCfg.getTransactional && !dbCfg.getSortedDuplicates )
-
-      val txn  = env.beginTransaction( null, txnCfg )
-      var ok   = false
-      try {
-         txn.setName( "Open '" + name + "'" )
-         val db = env.openDatabase( txn, name, dbCfg )
-         try {
-            val res = fun( ctx, db )
-            ok = true
-            res
-         } finally {
-            if( !ok ) db.close()
-         }
-      } finally {
-         if( ok ) txn.commit() else txn.abort()
-      }
+      sys.error( "TODO" )
+//      val envCfg  = env.getConfig
+//      require( envCfg.getTransactional && dbCfg.getTransactional && !dbCfg.getSortedDuplicates )
+//
+//      val txn  = env.beginTransaction( null, txnCfg )
+//      var ok   = false
+//      try {
+//         txn.setName( "Open '" + name + "'" )
+//         val db = env.openDatabase( txn, name, dbCfg )
+//         try {
+//            val res = fun( ctx, db )
+//            ok = true
+//            res
+//         } finally {
+//            if( !ok ) db.close()
+//         }
+//      } finally {
+//         if( ok ) txn.commit() else txn.abort()
+//      }
    }
 }
 final class LucreSTM private ( env: Environment, txnCfg: TransactionConfig, db: Database )
@@ -39,11 +40,11 @@ extends STMImpl {
 
    private val idCnt    = peer.newRef( 0 )
 
-   private val dbTxnRef = TxnLocal( initialValue = initDBTxn( _ ))
+   private val dbTxnSTMRef = TxnLocal( initialValue = initDBTxn( _ ))
 
    private val ioQueue  = new ConcurrentLinkedQueue[ IO ]
 
-   private def txnHandle( implicit txn: InTxnEnd ) : Transaction = dbTxnRef.get
+   private def txnHandle( implicit txn: InTxnEnd ) : Transaction = dbTxnSTMRef.get
 
    private def initDBTxn( implicit txn: InTxn ) : Transaction = {
       Txn.setExternalDecider( Decider )
@@ -58,8 +59,10 @@ extends STMImpl {
       dbTxn
    }
 
-   private[lucrestm] def newID( implicit tx: InTxn) : Int = {
-      val id = idCnt.transformAndGet( _ + 1 )
+   private[lucrestm] def newID( implicit tx: InTxn ) : Int = {
+//      val id = idCnt.transformAndGet( _ + 1 )
+      val id = idCnt.get + 1
+      idCnt.set( id )
       withIO { io =>
          val out = io.beginWrite()
          out.writeInt( id )
@@ -157,7 +160,7 @@ extends STMImpl {
 
    private object Decider extends Txn.ExternalDecider {
       def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
-         val h = dbTxnRef.get
+         val h = dbTxnSTMRef.get
          try {
             h.commit()
             true
@@ -185,16 +188,16 @@ extends STMImpl {
 
    private def notYetImplemented : Nothing = sys.error( "Not yet implemented" )
 
-   def newRef( v0: Boolean ) : Ref[ Boolean ]   = LucreRef[ Boolean ]( this, v0 )
-   def newRef( v0: Byte    ) : Ref[ Byte    ]   = LucreRef[ Byte    ]( this, v0 )
-   def newRef( v0: Short   ) : Ref[ Short   ]   = LucreRef[ Short   ]( this, v0 )
-   def newRef( v0: Char    ) : Ref[ Char    ]   = LucreRef[ Char    ]( this, v0 )
-   def newRef( v0: Int     ) : Ref[ Int     ]   = LucreRef[ Int     ]( this, v0 )
-   def newRef( v0: Float   ) : Ref[ Float   ]   = LucreRef[ Float   ]( this, v0 )
-   def newRef( v0: Long    ) : Ref[ Long    ]   = LucreRef[ Long    ]( this, v0 )
-   def newRef( v0: Double  ) : Ref[ Double  ]   = LucreRef[ Double  ]( this, v0 )
-   def newRef( v0: Unit    ) : Ref[ Unit    ]   = LucreRef[ Unit    ]( this, v0 )
-   def newRef[ A ]( v0: A )( implicit mf: ClassManifest[ A ]) : Ref[ A ] = LucreRef[ A ]( this, v0 )
+   def newRef( v0: Boolean ) : STMRef[ Boolean ]   = LucreRef[ Boolean ]( this, v0 )
+   def newRef( v0: Byte    ) : STMRef[ Byte    ]   = LucreRef[ Byte    ]( this, v0 )
+   def newRef( v0: Short   ) : STMRef[ Short   ]   = LucreRef[ Short   ]( this, v0 )
+   def newRef( v0: Char    ) : STMRef[ Char    ]   = LucreRef[ Char    ]( this, v0 )
+   def newRef( v0: Int     ) : STMRef[ Int     ]   = LucreRef[ Int     ]( this, v0 )
+   def newRef( v0: Float   ) : STMRef[ Float   ]   = LucreRef[ Float   ]( this, v0 )
+   def newRef( v0: Long    ) : STMRef[ Long    ]   = LucreRef[ Long    ]( this, v0 )
+   def newRef( v0: Double  ) : STMRef[ Double  ]   = LucreRef[ Double  ]( this, v0 )
+   def newRef( v0: Unit    ) : STMRef[ Unit    ]   = LucreRef[ Unit    ]( this, v0 )
+   def newRef[ A ]( v0: A )( implicit mf: ClassManifest[ A ]) : STMRef[ A ] = LucreRef[ A ]( this, v0 )
 
    def newTxnLocal[ A ]( init: => A, initialValue: (InTxn) => A, beforeCommit: (InTxn) => Unit,
                          whilePreparing: (InTxnEnd) => Unit, whileCommitting: (InTxnEnd) => Unit,
@@ -216,10 +219,10 @@ extends STMImpl {
 
    def pushAlternative[ Z ]( mt: MaybeTxn, block: (InTxn) => Z ) : Boolean = peer.pushAlternative[ Z ]( mt, block )
 
-   def compareAndSet[ A, B ]( a: Ref[ A ], a0: A, a1: A, b: Ref[ B ], b0: B, b1: B ) : Boolean =
+   def compareAndSet[ A, B ]( a: STMRef[ A ], a0: A, a1: A, b: STMRef[ B ], b0: B, b1: B ) : Boolean =
       peer.compareAndSet[ A, B ]( a, a0, a1, b, b0, b1 )
 
-   def compareAndSetIdentity[ A <: AnyRef, B <: AnyRef ]( a: Ref[ A ], a0: A, a1: A, b: Ref[ B ], b0: B, b1: B ) : Boolean =
+   def compareAndSetIdentity[ A <: AnyRef, B <: AnyRef ]( a: STMRef[ A ], a0: A, a1: A, b: STMRef[ B ], b0: B, b1: B ) : Boolean =
       peer.compareAndSetIdentity[ A, B ]( a, a0, a1, b, b0, b1 )
 
    def retryTimeoutNanos : Option[ Long ] = peer.retryTimeoutNanos

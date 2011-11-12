@@ -1,21 +1,20 @@
 package de.sciss.lucrestm
 
-import concurrent.stm.Ref.View
-import concurrent.stm.{MaybeTxn, InTxn, Ref}
+import concurrent.stm.{MaybeTxn, InTxn, Ref => STMRef}
 
 object LucreRef {
    def apply[ A ]( lucre: LucreSTM, init: A )( implicit tx: MaybeTxn ) : LucreRef[ A ] = {
-      val res = new LucreRef[ A ]( lucre, lucre.newID() )
       lucre.apply { implicit tx: InTxn =>
+         val res = new LucreRef[ A ]( lucre, lucre.newID )
          res.set( init )
+         res
       }
-      res
    }
 }
 /**
  * A plain database backed up reference. This does not offer any sort of caching.
  */
-final class LucreRef[ /* @specialized */ A ]( lucre: LucreSTM, id: Int ) extends Ref[ A ] {
+final class LucreRef[ /* @specialized */ A ]( lucre: LucreSTM, id: Int ) extends STMRef[ A ] {
    private def notYetImplemented : Nothing = sys.error( "Not yet implemented" )
 
 //   private lazy val id: Int = lucre.newID()
@@ -60,5 +59,5 @@ final class LucreRef[ /* @specialized */ A ]( lucre: LucreSTM, id: Int ) extends
       notYetImplemented
    }
 
-   def single : View[ A ] = notYetImplemented
+   def single : STMRef.View[ A ] = notYetImplemented
 }
