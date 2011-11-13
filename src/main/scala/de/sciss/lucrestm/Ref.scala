@@ -1,6 +1,11 @@
 package de.sciss.lucrestm
 
-trait Ref[ A, S <: Sys[ S ]] {
-   def set( v: A )( implicit tx: S#Tx ) : Unit
-   def get( implicit tx: S#Tx ) : A
+trait Sink[ Txn, -A ] {
+   def set( v: A )( implicit tx: Txn ) : Unit
 }
+
+trait Source[ Txn, +A ] {
+   def get( implicit tx: Txn ) : A
+}
+
+trait Ref[ Txn, A ] extends Sink[ Txn, A ] with Source[ Txn, A ]
