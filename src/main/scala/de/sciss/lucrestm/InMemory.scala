@@ -2,7 +2,6 @@ package de.sciss.lucrestm
 
 import de.sciss.lucrestm.{Ref => STMRef}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
-import java.io.{ObjectOutputStream, ObjectInputStream}
 
 object InMemory {
    final class Ref[ A ] private[InMemory] ( peer: ScalaRef[ A ] /*, private[InMemory] val ref: Serializer[ A ] */)
@@ -43,11 +42,11 @@ final class InMemory extends Sys[ InMemory ] {
       TxnExecutor.defaultAtomic[ Z ]( block )
    }
 
-   def readRef[ A ]( is: ObjectInputStream )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
+   def readRef[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
       sys.error( "Operation not supported: readRef" )
    }
 
-   def writeRef[ A ]( ref: Ref[ A ], os: ObjectOutputStream ) {
+   def writeRef[ A ]( ref: Ref[ A ], out: DataOutput ) {
       sys.error( "Operation not supported: writeRef" )
    }
 

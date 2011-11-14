@@ -1,16 +1,14 @@
 package de.sciss.lucrestm
 
-import java.io.{ObjectInputStream, ObjectOutputStream}
-
 object Serializer {
    implicit object Int extends Serializer[ scala.Int ] {
-      def write( v: scala.Int, os: ObjectOutputStream ) {
-         os.writeInt( v )
+      def write( v: scala.Int, out: DataOutput ) {
+         out.writeInt( v )
       }
-      def read( is: ObjectInputStream ) : scala.Int = is.readInt()
+      def read( in: DataInput ) : scala.Int = in.readInt()
    }
 }
 trait Serializer[ @specialized A ] {
-   def write( v: A, os: ObjectOutputStream ) : Unit
-   def read( is: ObjectInputStream ) : A
+   def write( v: A, out: DataOutput ) : Unit
+   def read( in: DataInput ) : A
 }

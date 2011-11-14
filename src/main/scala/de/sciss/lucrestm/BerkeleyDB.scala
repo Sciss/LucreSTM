@@ -1,11 +1,10 @@
 package de.sciss.lucrestm
 
 import de.sciss.lucrestm.{Ref => STMRef}
-import com.sleepycat.bind.tuple.{TupleInput, TupleOutput}
 import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{TxnLocal, Txn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
 import com.sleepycat.je.{DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus, DatabaseEntry}
-import java.io.{FileNotFoundException, File, ObjectInputStream, ObjectOutputStream, IOException}
+import java.io.{FileNotFoundException, File, IOException}
 
 object BerkeleyDB {
    private val DB_CONSOLE_LOG_LEVEL   = "OFF" // "ALL"
@@ -62,13 +61,13 @@ object BerkeleyDB {
 
       def newRefArray[ A ]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
 
-      def readRef[ A ]( is: ObjectInputStream )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
-         val id = is.readInt()
+      def readRef[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
+         val id = in.readInt()
          new RefImpl[ A ]( id, ser )
       }
 
-      def writeRef[ A ]( ref: Ref[ A ], os: ObjectOutputStream ) {
-         os.writeInt( ref.id )
+      def writeRef[ A ]( ref: Ref[ A ], out: DataOutput ) {
+         out.writeInt( ref.id )
       }
 
       def disposeRef[ A ]( ref: Ref[ A ])( implicit tx: InTxn ) {
@@ -116,7 +115,7 @@ object BerkeleyDB {
          }
       }
 
-      def write( id: Int )( valueFun: ObjectOutputStream => Unit )( implicit tx: InTxn ) {
+      def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: InTxn ) {
          withIO { io =>
             val out = io.beginWrite()
             valueFun( out )
@@ -128,7 +127,7 @@ object BerkeleyDB {
          withIO( _.remove( id ))
       }
 
-      def read[ A ]( id: Int )( valueFun: ObjectInputStream => A )( implicit tx: InTxn ) : A = {
+      def read[ A ]( id: Int )( valueFun: DataInput => A )( implicit tx: InTxn ) : A = {
          withIO { io =>
             val in = io.read( id )
             if( in != null ) {
@@ -155,20 +154,18 @@ object BerkeleyDB {
          private val keyArr   = new Array[ Byte ]( 4 )
          private val keyE     = new DatabaseEntry( keyArr )
          private val valueE   = new DatabaseEntry()
-         private val to       = new TupleOutput()
-         private val os       = new ObjectOutputStream( to )
+         private val out      = new DataOutput()
 
-         def beginWrite() : ObjectOutputStream = {
-            to.reset()
-            os
+         def beginWrite() : DataOutput = {
+            out.reset()
+            out
          }
 
-         def read( key: Int )( implicit tx: InTxn ) : ObjectInputStream = {
+         def read( key: Int )( implicit tx: InTxn ) : DataInput = {
             val h    = txnHandle
             val ve   = valueE
             if( db.get( h, keyE, ve, null ) == OperationStatus.SUCCESS ) {
-               val ti = new TupleInput( ve.getData, ve.getOffset, ve.getSize )
-               new ObjectInputStream( ti )
+               new DataInput( ve.getData, ve.getOffset, ve.getSize )
             } else {
                null
             }
@@ -191,8 +188,8 @@ object BerkeleyDB {
             a( 1 )   = (key >> 16).toByte
             a( 2 )   = (key >>  8).toByte
             a( 3 )   = key.toByte
-            os.flush()
-            valueE.setData( to.toByteArray )
+            out.flush()
+            valueE.setData( out.toByteArray )
             db.put( h, keyE, valueE )
          }
       }
