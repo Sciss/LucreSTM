@@ -19,9 +19,9 @@ object BerkeleyDB {
       val dbCfg   = new DatabaseConfig()
 
       envCfg.setTransactional( true )
-      envCfg.setAllowCreate( true )
+      envCfg.setAllowCreate( createIfNecessary )
       dbCfg.setTransactional( true )
-      dbCfg.setAllowCreate( true )
+      dbCfg.setAllowCreate( createIfNecessary )
 
       val dir     = file.getParentFile
       val name    = file.getName
