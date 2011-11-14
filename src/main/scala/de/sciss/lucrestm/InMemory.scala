@@ -15,7 +15,7 @@ object InMemory {
 /**
  * A thin wrapper around scala-stm.
  */
-class InMemory extends Sys[ InMemory ] {
+final class InMemory extends Sys[ InMemory ] {
    type Ref[ A ]  = InMemory.Ref[ A ]
    type Tx        = InTxn
 
