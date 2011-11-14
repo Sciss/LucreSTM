@@ -43,23 +43,10 @@ object BerkeleyDB {
       new System( env, db, txnCfg )
    }
 
-   final class Ref[ A ] private[BerkeleyDB] ( sys: System, private[BerkeleyDB] val id: Int, ser: Serializer[ A ])
-   extends STMRef[ InTxn, A ] {
-      def set( v: A )( implicit txn: InTxn ) {
-//         if( v != null ) {
-            sys.write( id )( ser.write( v, _ ))
-//         } else {
-//            sys.remove( id )
-//         }
-      }
-
-      def get( implicit txn: InTxn ) : A = {
-         sys.read[ A ]( id )( ser.read( _ ))
-      }
-   }
-
    private final class System( env: Environment, db: Database, txnCfg: TransactionConfig )
    extends BerkeleyDB with Txn.ExternalDecider {
+      sys =>
+
 //      private val peer        = new CCSTM()
       private val idCnt       = ScalaRef( 0 ) // peer.newRef( 0 )
       private val dbTxnSTMRef = TxnLocal( initialValue = initDBTxn( _ ))
@@ -68,14 +55,25 @@ object BerkeleyDB {
       def atomic[ Z ]( block: InTxn => Z ) : Z = TxnExecutor.defaultAtomic( block )
 
       def newRef[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] = {
-         val res = new BerkeleyDB.Ref[ A ]( this, newID, ser )
+         val res = new RefImpl[ A ]( newID, ser )
          res.set( init )
          res
       }
 
-      def disposeRef[ A ]( ref: Ref[ A ])( implicit tx: InTxn ) { remove( ref.id )}
-
       def newRefArray[ A ]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
+
+      def readRef[ A ]( is: ObjectInputStream )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
+         val id = is.readInt()
+         new RefImpl[ A ]( id, ser )
+      }
+
+      def writeRef[ A ]( ref: Ref[ A ], os: ObjectOutputStream ) {
+         os.writeInt( ref.id )
+      }
+
+      def disposeRef[ A ]( ref: Ref[ A ])( implicit tx: InTxn ) {
+         remove( ref.id )
+      }
 
       def close() { db.close() }
 
@@ -142,6 +140,17 @@ object BerkeleyDB {
          }
       }
 
+      private final class RefImpl[ A ]( val id: Int, ser: Serializer[ A ])
+      extends Ref[ A ] {
+         def set( v: A )( implicit txn: InTxn ) {
+            sys.write( id )( ser.write( v, _ ))
+         }
+
+         def get( implicit txn: InTxn ) : A = {
+            sys.read[ A ]( id )( ser.read( _ ))
+         }
+      }
+
       private final class IO {
          private val keyArr   = new Array[ Byte ]( 4 )
          private val keyE     = new DatabaseEntry( keyArr )
@@ -203,6 +212,10 @@ object BerkeleyDB {
                false
          }
       }
+   }
+
+   sealed trait Ref[ A ] extends STMRef[ InTxn, A ] {
+      private[BerkeleyDB] def id: Int
    }
 }
 sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
