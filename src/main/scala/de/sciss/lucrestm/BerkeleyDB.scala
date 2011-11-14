@@ -161,8 +161,17 @@ object BerkeleyDB {
             out
          }
 
+         private def keyToArray( key: Int ) {
+            val a    = keyArr
+            a( 0 )   = (key >> 24).toByte
+            a( 1 )   = (key >> 16).toByte
+            a( 2 )   = (key >>  8).toByte
+            a( 3 )   = key.toByte
+         }
+
          def read( key: Int )( implicit tx: InTxn ) : DataInput = {
             val h    = txnHandle
+            keyToArray( key )
             val ve   = valueE
             if( db.get( h, keyE, ve, null ) == OperationStatus.SUCCESS ) {
                new DataInput( ve.getData, ve.getOffset, ve.getSize )
@@ -173,21 +182,13 @@ object BerkeleyDB {
 
          def remove( key: Int )( implicit tx: InTxn ) {
             val h    = txnHandle
-            val a    = keyArr
-            a( 0 )   = (key >> 24).toByte
-            a( 1 )   = (key >> 16).toByte
-            a( 2 )   = (key >>  8).toByte
-            a( 3 )   = key.toByte
+            keyToArray( key )
             db.delete( h, keyE )
          }
 
          def endWrite( key: Int )( implicit tx: InTxn ) {
             val h    = txnHandle
-            val a    = keyArr
-            a( 0 )   = (key >> 24).toByte
-            a( 1 )   = (key >> 16).toByte
-            a( 2 )   = (key >>  8).toByte
-            a( 3 )   = key.toByte
+            keyToArray( key )
             out.flush()
             valueE.setData( out.toByteArray )
             db.put( h, keyE, valueE )
