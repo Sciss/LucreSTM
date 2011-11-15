@@ -8,4 +8,6 @@ trait Source[ Txn, +A ] {
    def get( implicit tx: Txn ) : A
 }
 
-trait Ref[ Txn, A ] extends Sink[ Txn, A ] with Source[ Txn, A ]
+trait Ref[ Txn, A ] extends Sink[ Txn, A ] with Source[ Txn, A ] {
+   def debug() : Unit
+}

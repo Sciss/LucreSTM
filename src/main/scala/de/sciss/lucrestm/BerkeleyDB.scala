@@ -3,8 +3,8 @@ package de.sciss.lucrestm
 import de.sciss.lucrestm.{Ref => STMRef}
 import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{TxnLocal, Txn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
-import com.sleepycat.je.{DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus, DatabaseEntry}
 import java.io.{FileNotFoundException, File, IOException}
+import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus}
 
 object BerkeleyDB {
    private val DB_CONSOLE_LOG_LEVEL   = "OFF" // "ALL"
@@ -30,26 +30,46 @@ object BerkeleyDB {
       envCfg.setConfigParam( EnvironmentConfig.CONSOLE_LOGGING_LEVEL, DB_CONSOLE_LOG_LEVEL )
       val env     = new Environment( dir, envCfg )
       val txn     = env.beginTransaction( null, txnCfg )
-      val db      = try {
+      try {
          txn.setName( "Open '" + name + "'" )
-         env.openDatabase( txn, name, dbCfg )
+         val db      = env.openDatabase( txn, name, dbCfg )
+         val ke      = new DatabaseEntry( Array[ Byte ]( 0, 0, 0, 0 ))  // key for last-key
+         val ve      = new DatabaseEntry()
+         val cnt     = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
+            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
+            in.readInt()
+         } else 0
+         txn.commit()
+         new System( env, db, txnCfg, ScalaRef( cnt ))
       } catch {
          case e =>
             txn.abort()
             throw e
       }
-      txn.commit()
-      new System( env, db, txnCfg )
    }
 
-   private final class System( env: Environment, db: Database, txnCfg: TransactionConfig )
+   private final class System( env: Environment, db: Database, txnCfg: TransactionConfig, idCnt: ScalaRef[ Int ])
    extends BerkeleyDB with Txn.ExternalDecider {
       sys =>
 
 //      private val peer        = new CCSTM()
-      private val idCnt       = ScalaRef( 0 ) // peer.newRef( 0 )
+//      private val idCnt       = ScalaRef( 0 ) // peer.newRef( 0 )
       private val dbTxnSTMRef = TxnLocal( initialValue = initDBTxn( _ ))
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
+
+      def root[ A ]( init: => A )( implicit tx: InTxn, ser: Serializer[ A ]) : A = {
+         val rootID = 1
+         tryRead[ A ]( rootID )( ser.read( _ )).getOrElse {
+println( "HERE CALLING NEWID" )
+            val id   = newID
+println( "DID CALL NEWID" )
+            require( id == rootID, "Root can only be initialized on an empty database" )
+println( "CALLING INIT" )
+            val res  = init
+            write( id )( ser.write( res, _ ))
+            res
+         }
+      }
 
       def atomic[ Z ]( block: InTxn => Z ) : Z = TxnExecutor.defaultAtomic( block )
 
@@ -139,6 +159,13 @@ object BerkeleyDB {
          }
       }
 
+      def tryRead[ A ]( id: Int )( valueFun: DataInput => A )( implicit tx: InTxn ) : Option[ A ] = {
+         withIO { io =>
+            val in = io.read( id )
+            if( in != null ) Some( valueFun( in )) else None
+         }
+      }
+
       private final class RefImpl[ A ]( val id: Int, ser: Serializer[ A ])
       extends Ref[ A ] {
          def set( v: A )( implicit txn: InTxn ) {
@@ -214,6 +241,9 @@ object BerkeleyDB {
 
    sealed trait Ref[ A ] extends STMRef[ InTxn, A ] {
       private[BerkeleyDB] def id: Int
+      def debug() {
+         println( "ID = " + id )
+      }
    }
 }
 sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
@@ -229,4 +259,11 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
     * Reports the current number of references stored in the database.
     */
    def numRefs : Long
+
+   /**
+    * Reads the root object representing the stored datastructure,
+    * or provides a newly initialized one via the `init` argument,
+    * if no root has been stored yet.
+    */
+   def root[ A ]( init: => A )( implicit tx: Tx, ser: Serializer[ A ]) : A
 }
