@@ -60,11 +60,11 @@ object BerkeleyDB {
       def root[ A ]( init: => A )( implicit tx: InTxn, ser: Serializer[ A ]) : A = {
          val rootID = 1
          tryRead[ A ]( rootID )( ser.read( _ )).getOrElse {
-println( "HERE CALLING NEWID" )
+//println( "HERE CALLING NEWID" )
             val id   = newID
-println( "DID CALL NEWID" )
+//println( "DID CALL NEWID" )
             require( id == rootID, "Root can only be initialized on an empty database" )
-println( "CALLING INIT" )
+//println( "CALLING INIT" )
             val res  = init
             write( id )( ser.write( res, _ ))
             res
