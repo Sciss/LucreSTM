@@ -168,13 +168,15 @@ object BerkeleyDB {
 
       private final class RefImpl[ A ]( val id: Int, ser: Serializer[ A ])
       extends Ref[ A ] {
-         def set( v: A )( implicit txn: InTxn ) {
+         def set( v: A )( implicit tx: InTxn ) {
             sys.write( id )( ser.write( v, _ ))
          }
 
-         def get( implicit txn: InTxn ) : A = {
+         def get( implicit tx: InTxn ) : A = {
             sys.read[ A ]( id )( ser.read( _ ))
          }
+
+         def transform( f: A => A )( implicit tx: InTxn ) { set( f( get ))}
       }
 
       private final class IO {

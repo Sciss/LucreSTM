@@ -9,5 +9,6 @@ trait Source[ Txn, +A ] {
 }
 
 trait Ref[ Txn, A ] extends Sink[ Txn, A ] with Source[ Txn, A ] {
+   def transform( f: A => A )( implicit tx: Txn ) : Unit
    def debug() : Unit
 }

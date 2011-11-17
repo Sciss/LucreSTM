@@ -8,6 +8,7 @@ object InMemory {
    extends STMRef[ InTxn, A ] {
       def set( v: A )( implicit tx: InTxn ) { peer.set( v )}
       def get( implicit tx: InTxn ) : A = peer.get
+      def transform( f: A => A )( implicit tx: InTxn ) { peer.transform( f )}
 
       def debug() {}
 //      def update( v: A )( implicit tx: InTxn ) { peer.set( v )}
