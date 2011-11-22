@@ -30,6 +30,11 @@ object InMemory {
    sealed trait Mut[ A ] extends Mutable[ InTxn, A ]
 
    private final class MutImpl[ A <: Disposable[ InTxn ]]( value: A ) extends Mut[ A ] {
+      def isEmpty   : Boolean = false
+      def isDefined : Boolean = true
+
+      def orNull[ A1 >: A ]( implicit tx: InTxn, ev: <:<[ Null, A1 ]) : A1 = get
+
       def get( implicit tx: InTxn ) : A = value
       def write( out: DataOutput ) {
          opNotSupported( "write" )
@@ -55,34 +60,38 @@ object InMemory {
  * A thin wrapper around scala-stm.
  */
 final class InMemory extends Sys[ InMemory ] {
-   type Ref[ A ]  = InMemory.Ref[ A ]
+   type Val[ A ]  = InMemory.Ref[ A ]
    type Mut[ A ]  = InMemory.Mut[ A ]
    type Tx        = InTxn
 
-   def newVal[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : InMemory.Ref[ A ] = {
+   def newVal[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Val[ A ] = {
       val peer = ScalaRef[ A ]( init )
       new InMemory.ValImpl[ A ]( peer )
    }
 
-   def newRef[ A <: Disposable[ InTxn ]]( init: Mut[ A ])( implicit tx: InTxn, ser: Serializer[ A ]) : InMemory.Ref[ Mut[ A ]] = {
+   def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] = newRef[ A ]( null )
+
+   def newRef[ A <: Disposable[ InTxn ]]( init: Mut[ A ])( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] = {
       val peer = ScalaRef[ Mut[ A ]]( init )
       new InMemory.RefImpl[ A ]( peer )
    }
 
-   def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : InMemory.Mut[ A ] =
+   def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] =
       new InMemory.MutImpl[ A ]( init )
 
-   def newRefArray[ A ]( size: Int ) = new Array[ InMemory.Ref[ A ]]( size )
+   def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
+
+   def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
 
    def atomic[ Z ]( block: InTxn => Z ) : Z = {
       TxnExecutor.defaultAtomic[ Z ]( block )
    }
 
-   def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
+   def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
       InMemory.opNotSupported( "readVal" )
    }
 
-   def readRef[ A <: Disposable[ InTxn ]]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ Mut[ A ]] = {
+   def readRef[ A <: Disposable[ InTxn ]]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
       InMemory.opNotSupported( "readRef" )
    }
 
