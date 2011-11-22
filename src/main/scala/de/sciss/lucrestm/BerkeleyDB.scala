@@ -73,25 +73,40 @@ object BerkeleyDB {
 
       def atomic[ Z ]( block: InTxn => Z ) : Z = TxnExecutor.defaultAtomic( block )
 
-      def newRef[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] = {
+      def newVal[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] = {
+         val res = new ValImpl[ A ]( newID, ser )
+         res.set( init )
+         res
+      }
+
+      def newRef[ A <: Disposable[ InTxn ]]( init: Mut[ A ])( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ Mut[ A ]] = {
          val res = new RefImpl[ A ]( newID, ser )
          res.set( init )
          res
       }
 
       def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] = {
-         sys.error( "TODO" )
+         val id   = newID
+         val res  = new MutImpl[ A ]( id, ser )
+         write( id )( ser.write( init, _ ))
+         res
       }
 
       def newRefArray[ A ]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
 
-      def readRef[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
+      def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
+         val id = in.readInt()
+         new ValImpl[ A ]( id, ser )
+      }
+
+      def readRef[ A <: Disposable[ InTxn ]]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ Mut[ A ]] = {
          val id = in.readInt()
          new RefImpl[ A ]( id, ser )
       }
 
       def readMut[ A <: Disposable[ InTxn ]]( in: DataInput )( implicit ser: Serializer[ A ]) : Mut[ A ] = {
-         sys.error( "TODO" )
+         val id = in.readInt()
+         new MutImpl[ A ]( id, ser )
       }
 
 //      def writeRef[ A ]( ref: Ref[ A ], out: DataOutput ) {
@@ -174,14 +189,30 @@ object BerkeleyDB {
          }
       }
 
-      private final class RefImpl[ A ]( val id: Int, ser: Serializer[ A ])
-      extends Ref[ A ] {
-         def set( v: A )( implicit tx: InTxn ) {
-            system.write( id )( ser.write( v, _ ))
+      private sealed trait SourceImpl[ A ] {
+         protected def id: Int
+         protected def ser: Reader[ A ]
+
+         final def get( implicit tx: InTxn ) : A = {
+//            peer.get( v )
+            system.read[ A ]( id )( ser.read( _ ))
          }
 
-         def get( implicit tx: InTxn ) : A = {
-            system.read[ A ]( id )( ser.read( _ ))
+         final def write( out: DataOutput ) {
+            out.writeInt( id )
+         }
+      }
+
+      private final class MutSer[ A <: Disposable[ InTxn ]]( ser: Serializer[ A ]) extends Serializer[ Mut[ A ]] {
+         def read( in: DataInput ) : Mut[ A ] = system.readMut[ A ]( in )( ser )
+         def write( m: Mut[ A ], out: DataOutput ) { m.write( out )}
+      }
+
+      private final class ValImpl[ A ]( /* peer: ScalaRef[ A ] */ protected val id: Int, protected val ser: Serializer[ A ])
+      extends Ref[ A ] with SourceImpl[ A ] {
+         def set( v: A )( implicit tx: InTxn ) {
+//            peer.set( v )
+            system.write( id )( ser.write( v, _ ))
          }
 
          def transform( f: A => A )( implicit tx: InTxn ) { set( f( get ))}
@@ -189,9 +220,32 @@ object BerkeleyDB {
          def dispose()( implicit tx: InTxn ) {
             system.remove( id )
          }
+      }
 
-         def write( out: DataOutput ) {
-            out.writeInt( id )
+      private final class RefImpl[ A <: Disposable[ InTxn ]]( protected val id: Int, peerSer: Serializer[ A ])
+      extends Ref[ Mut[ A ]] with SourceImpl[ Mut[ A ]] with Serializer[ Mut[ A ]] {
+         protected def ser: Serializer[ Mut[ A ]] = this
+
+         def set( v: Mut[ A ])( implicit tx: InTxn ) {
+//            peer.set( v )
+            system.write( id )( v.write( _ ))
+         }
+
+         def transform( f: Mut[ A ] => Mut[ A ])( implicit tx: InTxn ) { set( f( get ))}
+
+         def dispose()( implicit tx: InTxn ) {
+            system.remove( id )
+         }
+
+         def read( in: DataInput ) : Mut[ A ] = system.readMut[ A ]( in )( peerSer )
+         def write( m: Mut[ A ], out: DataOutput ) { m.write( out )}
+      }
+
+      private final class MutImpl[ A <: Disposable[ InTxn ]]( protected val id: Int, protected val ser: Reader[ A ])
+      extends Mut[ A ] with SourceImpl[ A ] {
+         def dispose()( implicit tx: InTxn ) {
+            get.dispose()
+            system.remove( id )
          }
       }
 
@@ -258,13 +312,16 @@ object BerkeleyDB {
    }
 
    sealed trait Ref[ A ] extends _Ref[ InTxn, A ] {
-      private[BerkeleyDB] def id: Int
+//      private[BerkeleyDB] def id: Int
+      protected def id: Int
       def debug() {
          println( "ID = " + id )
       }
    }
 
-   sealed trait Mut[ A ] extends Mutable[ InTxn, A ]
+   sealed trait Mut[ A ] extends Mutable[ InTxn, A ] {
+//      protected def id: Int
+   }
 }
 sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
    type Ref[ A ]  = BerkeleyDB.Ref[ A ]

@@ -13,6 +13,6 @@ trait Ref[ -Tx, A ] extends Sink[ Tx, A ] with Source[ Tx, A ] {
    def debug() : Unit
 }
 
-trait Mutable[ -Tx, A ] extends Source[ Tx, A ] {
+trait Mutable[ -Tx, +A ] extends Source[ Tx, A ] /* with Writer[ A ] */ /* with Disposable[ Tx ] */ {
 //   def write( out: DataOutput ) : Unit
 }
