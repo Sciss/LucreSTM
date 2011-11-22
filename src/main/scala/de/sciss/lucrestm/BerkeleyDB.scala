@@ -1,6 +1,6 @@
 package de.sciss.lucrestm
 
-import de.sciss.lucrestm.{Ref => STMRef}
+import de.sciss.lucrestm.{Ref => _Ref}
 import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{TxnLocal, Txn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
 import java.io.{FileNotFoundException, File, IOException}
@@ -50,7 +50,7 @@ object BerkeleyDB {
 
    private final class System( env: Environment, db: Database, txnCfg: TransactionConfig, idCnt: ScalaRef[ Int ])
    extends BerkeleyDB with Txn.ExternalDecider {
-      sys =>
+      system =>
 
 //      private val peer        = new CCSTM()
 //      private val idCnt       = ScalaRef( 0 ) // peer.newRef( 0 )
@@ -79,6 +79,10 @@ object BerkeleyDB {
          res
       }
 
+      def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] = {
+         sys.error( "TODO" )
+      }
+
       def newRefArray[ A ]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
 
       def readRef[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
@@ -86,13 +90,17 @@ object BerkeleyDB {
          new RefImpl[ A ]( id, ser )
       }
 
-      def writeRef[ A ]( ref: Ref[ A ], out: DataOutput ) {
-         out.writeInt( ref.id )
+      def readMut[ A <: Disposable[ InTxn ]]( in: DataInput )( implicit ser: Serializer[ A ]) : Mut[ A ] = {
+         sys.error( "TODO" )
       }
 
-      def disposeRef[ A ]( ref: Ref[ A ])( implicit tx: InTxn ) {
-         remove( ref.id )
-      }
+//      def writeRef[ A ]( ref: Ref[ A ], out: DataOutput ) {
+//         out.writeInt( ref.id )
+//      }
+
+//      def disposeRef[ A ]( ref: Ref[ A ])( implicit tx: InTxn ) {
+//         remove( ref.id )
+//      }
 
       def close() { db.close() }
 
@@ -169,14 +177,22 @@ object BerkeleyDB {
       private final class RefImpl[ A ]( val id: Int, ser: Serializer[ A ])
       extends Ref[ A ] {
          def set( v: A )( implicit tx: InTxn ) {
-            sys.write( id )( ser.write( v, _ ))
+            system.write( id )( ser.write( v, _ ))
          }
 
          def get( implicit tx: InTxn ) : A = {
-            sys.read[ A ]( id )( ser.read( _ ))
+            system.read[ A ]( id )( ser.read( _ ))
          }
 
          def transform( f: A => A )( implicit tx: InTxn ) { set( f( get ))}
+
+         def dispose()( implicit tx: InTxn ) {
+            system.remove( id )
+         }
+
+         def write( out: DataOutput ) {
+            out.writeInt( id )
+         }
       }
 
       private final class IO {
@@ -241,15 +257,18 @@ object BerkeleyDB {
       }
    }
 
-   sealed trait Ref[ A ] extends STMRef[ InTxn, A ] {
+   sealed trait Ref[ A ] extends _Ref[ InTxn, A ] {
       private[BerkeleyDB] def id: Int
       def debug() {
          println( "ID = " + id )
       }
    }
+
+   sealed trait Mut[ A ] extends Mutable[ InTxn, A ]
 }
 sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
    type Ref[ A ]  = BerkeleyDB.Ref[ A ]
+   type Mut[ A ]  = BerkeleyDB.Mut[ A ]
    type Tx        = InTxn
 
    /**
