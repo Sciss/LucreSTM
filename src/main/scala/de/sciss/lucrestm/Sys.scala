@@ -1,12 +1,12 @@
 package de.sciss.lucrestm
 
-import de.sciss.lucrestm.{Ref => _Ref}
+import de.sciss.lucrestm.{Ref => _Ref, Val => _Val}
 import concurrent.stm.InTxn
 
 trait Sys[ S <: Sys[ S ]] {
-   type Val[ A ] <: _Ref[ S#Tx, A ]
+   type Val[ A ] <: _Val[ S#Tx, A ]
    type Mut[ A ] <: Mutable[ S#Tx, A ]
-   type Ref[ A ] = S#Val[ S#Mut[ A ]]
+   type Ref[ A ] <: _Ref[ S#Tx, S#Mut, A ]
    type Tx <: InTxn
 
    def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ]

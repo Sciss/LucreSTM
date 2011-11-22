@@ -1,6 +1,6 @@
 package de.sciss.lucrestm
 
-import de.sciss.lucrestm.{Ref => _Ref}
+import de.sciss.lucrestm.{Ref => _Ref, Val => _Val}
 import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{TxnLocal, Txn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
 import java.io.{FileNotFoundException, File, IOException}
@@ -225,17 +225,27 @@ object BerkeleyDB {
          def dispose()( implicit tx: InTxn ) {
             system.remove( id )
          }
+
+         def debug() {
+            println( "Val(" + id + ")" )
+         }
       }
 
       private final class RefImpl[ A <: Disposable[ InTxn ]]( protected val id: Int, peerSer: Serializer[ A ])
       extends Ref[ A ] with SourceImpl[ Mut[ A ]] with Serializer[ Mut[ A ]] {
          protected def ser: Serializer[ Mut[ A ]] = this
 
+         def debug() {
+            println( "Ref(" + id + ")" )
+         }
+
          def set( v: Mut[ A ])( implicit tx: InTxn ) {
             system.write( id ) { out =>
                /* if( v.isDefined ) */ v.write( out ) /* else out.writeInt( - 1 ) */
             }
          }
+
+         def getOrNull( implicit tx: InTxn ) : A = get.orNull
 
          def transform( f: Mut[ A ] => Mut[ A ])( implicit tx: InTxn ) { set( f( get ))}
 
@@ -253,7 +263,7 @@ object BerkeleyDB {
          def get( implicit tx: InTxn ) : Nothing = sys.error( "Get on an empty mutable" )
          def dispose()( implicit tx: InTxn ) {}
          def write( out: DataOutput ) { out.writeInt( -1 )}
-         def orNull[ A1 >: Nothing ]( implicit tx: Tx, ev: <:<[ Null, A1 ]) : A1 = null.asInstanceOf[ A1 ]
+         def orNull[ A1 >: Nothing ]( implicit tx: Tx /*, ev: <:<[ Null, A1 ]*/) : A1 = null.asInstanceOf[ A1 ]
       }
 
       private final class MutImpl[ A <: Disposable[ InTxn ]]( protected val id: Int, protected val ser: Reader[ A ])
@@ -261,7 +271,7 @@ object BerkeleyDB {
          def isEmpty   : Boolean = false
          def isDefined : Boolean = true
 
-         def orNull[ A1 >: A ]( implicit tx: Tx, ev: <:<[ Null, A1 ]) : A1 = get
+         def orNull[ A1 >: A ]( implicit tx: Tx /*, ev: <:<[ Null, A1 ]*/) : A1 = get
 
          def dispose()( implicit tx: InTxn ) {
             get.dispose()
@@ -331,20 +341,20 @@ object BerkeleyDB {
       }
    }
 
-   sealed trait Ref[ A ] extends _Ref[ InTxn, A ] {
+   sealed trait Ref[ A ] extends _Ref[ InTxn, Mut, A ] {
 //      private[BerkeleyDB] def id: Int
-      protected def id: Int
-      def debug() {
-         println( "ID = " + id )
-      }
+//      protected def id: Int
+//      def debug() {
+//         println( "ID = " + id )
+//      }
    }
 
-   sealed trait Mut[ +A ] extends Mutable[ InTxn, A ] {
-//      protected def id: Int
-   }
+   sealed trait Mut[ +A ] extends Mutable[ InTxn, A ]
+   sealed trait Val[ A ] extends _Val[ InTxn, A ]
 }
 sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
-   type Val[ A ]  = BerkeleyDB.Ref[ A ]
+   type Val[ A ]  = BerkeleyDB.Val[ A ]
+   type Ref[ A ]  = BerkeleyDB.Ref[ A ]
    type Mut[ A ]  = BerkeleyDB.Mut[ A ]
    type Tx        = InTxn
 
