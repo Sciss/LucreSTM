@@ -7,7 +7,7 @@ import java.io.{FileNotFoundException, File, IOException}
 import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus}
 
 object BerkeleyDB {
-   private val DB_CONSOLE_LOG_LEVEL   = "OFF" // "ALL"
+   /* private val */ var DB_CONSOLE_LOG_LEVEL   = "OFF" // "ALL"
 
    def open( file: File, createIfNecessary: Boolean = true ) : BerkeleyDB = {
       val exists = file.isFile
