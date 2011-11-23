@@ -16,8 +16,8 @@ trait Val[ -Tx, A ] extends RefLike[ Tx, A ] {
    def transform( f: A => A )( implicit tx: Tx ) : Unit
 }
 
-trait Ref[ -Tx, M[ _ ], A ] extends RefLike[ Tx, M[ A ]] {
-   def getOrNull( implicit tx: Tx ) : A
+trait Ref[ -Tx, /* M[ _ ],*/ A ] extends RefLike[ Tx, A /*M[ A ]*/] {
+//   def getOrNull( implicit tx: Tx ) : A
 }
 
 //object Mutable {
@@ -29,10 +29,20 @@ trait Ref[ -Tx, M[ _ ], A ] extends RefLike[ Tx, M[ A ]] {
 //      def write( out: DataOutput ) {}
 //   }
 //}
-trait Mutable[ -Tx, +A ] extends Source[ Tx, A ] /* with Writer[ A ] */ /* with Disposable[ Tx ] */ {
-   def isEmpty : Boolean
-   def isDefined : Boolean
+trait Mutable[ S <: Sys[ S ], +A ] extends Writer[ A ] with Disposable[ S#Tx ] /* extends Source[ Tx, A ] */ /* with Writer[ A ] */ /* with Disposable[ Tx ] */ {
+   def id: S#ID
+
+   final def dispose( implicit tx: S#Tx ) {
+      id.dispose()
+      disposeData()
+   }
+
+   protected def disposeData()( implicit tx: S#Tx ) : Unit
+
+//   def isEmpty : Boolean
+//   def isDefined : Boolean
 //   def orNull( implicit tx: Tx ) : A
 //   def write( out: DataOutput ) : Unit
-   def orNull[ A1 >: A ]( implicit tx: Tx /*, ev: <:<[ Null, A1 ]*/) : A1
+//   def orNull[ A1 >: A ] : A1 // ( implicit tx: Tx /*, ev: <:<[ Null, A1 ]*/) : A1
+//   def value: A
 }

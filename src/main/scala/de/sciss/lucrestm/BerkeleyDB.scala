@@ -9,6 +9,14 @@ import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, Trans
 object BerkeleyDB {
    /* private val */ var DB_CONSOLE_LOG_LEVEL   = "OFF" // "ALL"
 
+   sealed trait ID extends Disposable[ InTxn ]
+
+   private final class IDImpl( sys: System, id: Int ) extends ID {
+      def dispose()( implicit tx: InTxn ) {
+         sys.remove( id )
+      }
+   }
+
    def open( file: File, createIfNecessary: Boolean = true ) : BerkeleyDB = {
       val exists = file.isFile
       if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
@@ -61,7 +69,7 @@ object BerkeleyDB {
          val rootID = 1
          tryRead[ A ]( rootID )( ser.read( _ )).getOrElse {
 //println( "HERE CALLING NEWID" )
-            val id   = newID
+            val id   = newIDValue
 //println( "DID CALL NEWID" )
             require( id == rootID, "Root can only be initialized on an empty database" )
 //println( "CALLING INIT" )
@@ -74,26 +82,26 @@ object BerkeleyDB {
       def atomic[ Z ]( block: InTxn => Z ) : Z = TxnExecutor.defaultAtomic( block )
 
       def newVal[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Val[ A ] = {
-         val res = new ValImpl[ A ]( newID, ser )
+         val res = new ValImpl[ A ]( newIDValue, ser )
          res.set( init )
          res
       }
 
-      def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] =
-         newRef[ A ]( EmptyMut )
+//      def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] =
+//         newRef[ A ]( EmptyMut )
 
-      def newRef[ A <: Disposable[ InTxn ]]( init: Mut[ A ])( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] = {
-         val res = new RefImpl[ A ]( newID, ser )
+      def newRef[ A <: Mutable[ BerkeleyDB, A ]]( init: A )( implicit tx: InTxn, reader: Reader[ A ]) : Ref[ A ] = {
+         val res = new RefImpl[ A ]( newIDValue, reader )
          res.set( init )
          res
       }
 
-      def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] = {
-         val id   = newID
-         val res  = new MutImpl[ A ]( id, ser )
-         write( id )( ser.write( init, _ ))
-         res
-      }
+//      def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] = {
+//         val id   = newID
+//         val res  = new MutImpl[ A ]( id, ser )
+//         write( id )( ser.write( init, _ ))
+//         res
+//      }
 
       def newValArray[ A ]( size: Int ) : Array[ Val[ A ]] = new Array[ Val[ A ]]( size )
 
@@ -104,14 +112,15 @@ object BerkeleyDB {
          new ValImpl[ A ]( id, ser )
       }
 
-      def readRef[ A <: Disposable[ InTxn ]]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
+      def readRef[ A <: Mutable[ BerkeleyDB, A ]]( in: DataInput )( implicit reader: Reader[ A ]) : Ref[ A ] = {
          val id = in.readInt()
-         new RefImpl[ A ]( id, ser )
+         new RefImpl[ A ]( id, reader )
       }
 
-      def readMut[ A <: Disposable[ InTxn ]]( in: DataInput )( implicit ser: Serializer[ A ]) : Mut[ A ] = {
-         val id = in.readInt()
-         if( id == -1 ) EmptyMut else new MutImpl[ A ]( id, ser )
+      def readMut[ A <: Mutable[ BerkeleyDB, A ]]( in: DataInput )( constr: ID => A ) : A = {
+         val id = new IDImpl( this, in.readInt() )
+//         if( id == -1 ) EmptyMut else new MutImpl[ A ]( id, ser )
+         constr( id )
       }
 
 //      def writeRef[ A ]( ref: Ref[ A ], out: DataOutput ) {
@@ -141,7 +150,7 @@ object BerkeleyDB {
          dbTxn
       }
 
-      private def newID( implicit tx: InTxn ) : Int = {
+      private def newIDValue( implicit tx: InTxn ) : Int = {
 //      val id = idCnt.transformAndGet( _ + 1 )
          val id = idCnt.get + 1
          idCnt.set( id )
@@ -152,6 +161,8 @@ object BerkeleyDB {
          }
          id
       }
+
+      def newID( implicit tx: InTxn ) : ID = new IDImpl( this, newIDValue )
 
       private def withIO[ A ]( fun: IO => A ) : A = {
          val ioOld   = ioQueue.poll()
@@ -196,11 +207,11 @@ object BerkeleyDB {
 
       private sealed trait SourceImpl[ A ] {
          protected def id: Int
-         protected def ser: Reader[ A ]
+         protected def reader: Reader[ A ]
 
          final def get( implicit tx: InTxn ) : A = {
 //            peer.get( v )
-            system.read[ A ]( id )( ser.read( _ ))
+            system.read[ A ]( id )( reader.read( _ ))
          }
 
          final def write( out: DataOutput ) {
@@ -213,11 +224,11 @@ object BerkeleyDB {
 //         def write( m: Mut[ A ], out: DataOutput ) { m.write( out )}
 //      }
 
-      private final class ValImpl[ A ]( /* peer: ScalaRef[ A ] */ protected val id: Int, protected val ser: Serializer[ A ])
+      private final class ValImpl[ A ]( /* peer: ScalaRef[ A ] */ protected val id: Int, protected val reader: Serializer[ A ])
       extends Val[ A ] with SourceImpl[ A ] {
          def set( v: A )( implicit tx: InTxn ) {
 //            peer.set( v )
-            system.write( id )( ser.write( v, _ ))
+            system.write( id )( reader.write( v, _ ))
          }
 
          def transform( f: A => A )( implicit tx: InTxn ) { set( f( get ))}
@@ -231,53 +242,53 @@ object BerkeleyDB {
          }
       }
 
-      private final class RefImpl[ A <: Disposable[ InTxn ]]( protected val id: Int, peerSer: Serializer[ A ])
-      extends Ref[ A ] with SourceImpl[ Mut[ A ]] with Serializer[ Mut[ A ]] {
-         protected def ser: Serializer[ Mut[ A ]] = this
+      private final class RefImpl[ A <: Mutable[ BerkeleyDB, A ]]( protected val id: Int, protected val reader: Reader[ A ])
+      extends Ref[ A ] with SourceImpl[ A ] /* with Serializer[ Mut[ A ]] */ {
+//         protected def ser: Serializer[ Mut[ A ]] = this
 
          def debug() {
             println( "Ref(" + id + ")" )
          }
 
-         def set( v: Mut[ A ])( implicit tx: InTxn ) {
+         def set( v: A )( implicit tx: InTxn ) {
             system.write( id ) { out =>
                /* if( v.isDefined ) */ v.write( out ) /* else out.writeInt( - 1 ) */
             }
          }
 
-         def getOrNull( implicit tx: InTxn ) : A = get.orNull
+//         def getOrNull( implicit tx: InTxn ) : A = get.orNull
 
-         def transform( f: Mut[ A ] => Mut[ A ])( implicit tx: InTxn ) { set( f( get ))}
+         def transform( f: A => A )( implicit tx: InTxn ) { set( f( get ))}
 
          def dispose()( implicit tx: InTxn ) {
             system.remove( id )
          }
 
-         def read( in: DataInput ) : Mut[ A ] = system.readMut[ A ]( in )( peerSer )
-         def write( m: Mut[ A ], out: DataOutput ) { m.write( out )}
+//         def read( in: DataInput ) : Mut[ A ] = system.readMut[ A ]( in )( peerSer )
+//         def write( m: Mut[ A ], out: DataOutput ) { m.write( out )}
       }
 
-      private case object EmptyMut extends Mut[ Nothing ] {
-         def isEmpty   = true
-         def isDefined = false
-         def get( implicit tx: InTxn ) : Nothing = sys.error( "Get on an empty mutable" )
-         def dispose()( implicit tx: InTxn ) {}
-         def write( out: DataOutput ) { out.writeInt( -1 )}
-         def orNull[ A1 >: Nothing ]( implicit tx: Tx /*, ev: <:<[ Null, A1 ]*/) : A1 = null.asInstanceOf[ A1 ]
-      }
+//      private case object EmptyMut extends Mut[ Nothing ] {
+//         def isEmpty   = true
+//         def isDefined = false
+//         def get( implicit tx: InTxn ) : Nothing = sys.error( "Get on an empty mutable" )
+//         def dispose()( implicit tx: InTxn ) {}
+//         def write( out: DataOutput ) { out.writeInt( -1 )}
+//         def orNull[ A1 >: Nothing ]( implicit tx: Tx /*, ev: <:<[ Null, A1 ]*/) : A1 = null.asInstanceOf[ A1 ]
+//      }
 
-      private final class MutImpl[ A <: Disposable[ InTxn ]]( protected val id: Int, protected val ser: Reader[ A ])
-      extends Mut[ A ] with SourceImpl[ A ] {
-         def isEmpty   : Boolean = false
-         def isDefined : Boolean = true
-
-         def orNull[ A1 >: A ]( implicit tx: Tx /*, ev: <:<[ Null, A1 ]*/) : A1 = get
-
-         def dispose()( implicit tx: InTxn ) {
-            get.dispose()
-            system.remove( id )
-         }
-      }
+//      private final class MutImpl[ A <: Disposable[ InTxn ]]( protected val id: Int, protected val ser: Reader[ A ])
+//      extends Mut[ A ] with SourceImpl[ A ] {
+//         def isEmpty   : Boolean = false
+//         def isDefined : Boolean = true
+//
+//         def orNull[ A1 >: A ]( implicit tx: Tx /*, ev: <:<[ Null, A1 ]*/) : A1 = get
+//
+//         def dispose()( implicit tx: InTxn ) {
+//            get.dispose()
+//            system.remove( id )
+//         }
+//      }
 
       private final class IO {
          private val keyArr   = new Array[ Byte ]( 4 )
@@ -341,7 +352,7 @@ object BerkeleyDB {
       }
    }
 
-   sealed trait Ref[ A ] extends _Ref[ InTxn, Mut, A ] {
+   sealed trait Ref[ A ] extends _Ref[ InTxn, /* Mut, */ A ] {
 //      private[BerkeleyDB] def id: Int
 //      protected def id: Int
 //      def debug() {
@@ -349,13 +360,14 @@ object BerkeleyDB {
 //      }
    }
 
-   sealed trait Mut[ +A ] extends Mutable[ InTxn, A ]
+//   sealed trait Mut[ +A ] extends Mutable[ InTxn, A ]
    sealed trait Val[ A ] extends _Val[ InTxn, A ]
 }
 sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
    type Val[ A ]  = BerkeleyDB.Val[ A ]
    type Ref[ A ]  = BerkeleyDB.Ref[ A ]
-   type Mut[ +A ] = BerkeleyDB.Mut[ A ]
+//   type Mut[ +A ] = BerkeleyDB.Mut[ A ]
+   type ID        = BerkeleyDB.ID
    type Tx        = InTxn
 
    /**

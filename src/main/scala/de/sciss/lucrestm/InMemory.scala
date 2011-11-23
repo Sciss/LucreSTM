@@ -4,9 +4,9 @@ import de.sciss.lucrestm.{Ref => _Ref, Val => _Val}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 
 object InMemory {
-   sealed trait Mut[ +A ] extends Mutable[ InTxn, A ]
+//   sealed trait Mut[ +A ] extends Mutable[ InTxn, A ]
    sealed trait Val[ A ] extends _Val[ InTxn, A ]
-   sealed trait Ref[ A ] extends _Ref[ InTxn, Mut, A ]
+   sealed trait Ref[ A ] extends _Ref[ InTxn, /* Mut, */ A ]
 
    private sealed trait SourceImpl[ A ] {
       protected def peer: ScalaRef[ A ]
@@ -21,35 +21,35 @@ object InMemory {
 //      def apply()( implicit tx: InTxn ) : A = peer.get
    }
 
-   private final class RefImpl[ A ]( protected val peer: ScalaRef[ Mut[ A ]])
-   extends Ref[ A ] with SourceImpl[ Mut[ A ]] {
-      def getOrNull( implicit tx: InTxn ) : A = get.orNull
+   private final class RefImpl[ A ]( protected val peer: ScalaRef[ A ])
+   extends Ref[ A ] with SourceImpl[ A ] {
+//      def getOrNull( implicit tx: InTxn ) : A = get.orNull
    }
 
    private final class ValImpl[ A ]( protected val peer: ScalaRef[ A ])
    extends Val[ A ] with SourceImpl[ A ]
 
-   private case object EmptyMut extends Mut[ Nothing ] {
-      def isEmpty   = true
-      def isDefined = false
-      def get( implicit tx: InTxn ) : Nothing = sys.error( "Get on an empty mutable" )
-      def dispose()( implicit tx: InTxn ) {}
-      def write( out: DataOutput ) { out.writeInt( -1 )}
-      def orNull[ A1 >: Nothing ]( implicit tx: InTxn ) : A1 = null.asInstanceOf[ A1 ]
-   }
-
-   private final class MutImpl[ A <: Disposable[ InTxn ]]( value: A ) extends Mut[ A ] {
-      def isEmpty   : Boolean = false
-      def isDefined : Boolean = true
-
-      def orNull[ A1 >: A ]( implicit tx: InTxn /*, ev: <:<[ Null, A1 ]*/) : A1 = get
-
-      def get( implicit tx: InTxn ) : A = value
-      def write( out: DataOutput ) {
-         opNotSupported( "write" )
-      }
-      def dispose()( implicit tx: InTxn ) { value.dispose }
-   }
+//   private case object EmptyMut extends Mut[ Nothing ] {
+//      def isEmpty   = true
+//      def isDefined = false
+//      def get( implicit tx: InTxn ) : Nothing = sys.error( "Get on an empty mutable" )
+//      def dispose()( implicit tx: InTxn ) {}
+//      def write( out: DataOutput ) { out.writeInt( -1 )}
+//      def orNull[ A1 >: Nothing ]( implicit tx: InTxn ) : A1 = null.asInstanceOf[ A1 ]
+//   }
+//
+//   private final class MutImpl[ A <: Disposable[ InTxn ]]( value: A ) extends Mut[ A ] {
+//      def isEmpty   : Boolean = false
+//      def isDefined : Boolean = true
+//
+//      def orNull[ A1 >: A ]( implicit tx: InTxn /*, ev: <:<[ Null, A1 ]*/) : A1 = get
+//
+//      def get( implicit tx: InTxn ) : A = value
+//      def write( out: DataOutput ) {
+//         opNotSupported( "write" )
+//      }
+//      def dispose()( implicit tx: InTxn ) { value.dispose }
+//   }
 
 //   private final class RefSer[ A ]( serA: Serializer[ A ]) extends Serializer[ Ref[ A ]] {
 //      def read( is: ObjectInputStream ) : Ref[ A ] = {
@@ -63,6 +63,12 @@ object InMemory {
 //   }
 
    private def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )
+
+   sealed trait ID extends Disposable[ InTxn ]
+
+   private object IDImpl extends ID {
+      def dispose()( implicit tx: InTxn ) {}
+   }
 }
 
 /**
@@ -71,7 +77,8 @@ object InMemory {
 final class InMemory extends Sys[ InMemory ] {
    type Val[ A ]  = InMemory.Val[ A ]
    type Ref[ A ]  = InMemory.Ref[ A ]
-   type Mut[ +A ] = InMemory.Mut[ A ]
+   type ID        = InMemory.ID
+//   type Mut[ +A ] = InMemory.Mut[ A ]
    type Tx        = InTxn
 
    def newVal[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Val[ A ] = {
@@ -79,16 +86,18 @@ final class InMemory extends Sys[ InMemory ] {
       new InMemory.ValImpl[ A ]( peer )
    }
 
-   def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] =
-      newRef[ A ]( InMemory.EmptyMut )
+//   def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] =
+//      newRef[ A ]( InMemory.EmptyMut )
 
-   def newRef[ A <: Disposable[ InTxn ]]( init: Mut[ A ])( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] = {
-      val peer = ScalaRef[ Mut[ A ]]( init )
+   def newRef[ A <: Mutable[ InMemory, A ]]( init: A )( implicit tx: InTxn, reader: Reader[ A ]) : Ref[ A ] = {
+      val peer = ScalaRef[ A ]( init )
       new InMemory.RefImpl[ A ]( peer )
    }
 
-   def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] =
-      new InMemory.MutImpl[ A ]( init )
+   def newID( implicit tx: InTxn ) : ID = InMemory.IDImpl
+
+//   def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] =
+//      new InMemory.MutImpl[ A ]( init )
 
    def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
 
@@ -102,11 +111,11 @@ final class InMemory extends Sys[ InMemory ] {
       InMemory.opNotSupported( "readVal" )
    }
 
-   def readRef[ A <: Disposable[ InTxn ]]( in: DataInput )( implicit ser: Serializer[ A ]) : Ref[ A ] = {
+   def readRef[ A <: Mutable[ InMemory, A ]]( in: DataInput )( implicit reader: Reader[ A ]) : Ref[ A ] = {
       InMemory.opNotSupported( "readRef" )
    }
 
-   def readMut[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Mut[ A ] = {
+   def readMut[ A <: Mutable[ InMemory, A ]]( in: DataInput )( constr: ID => A ) : A = {
       InMemory.opNotSupported( "readMut" )
    }
 
