@@ -71,7 +71,7 @@ object InMemory {
 final class InMemory extends Sys[ InMemory ] {
    type Val[ A ]  = InMemory.Val[ A ]
    type Ref[ A ]  = InMemory.Ref[ A ]
-   type Mut[ A ]  = InMemory.Mut[ A ]
+   type Mut[ +A ] = InMemory.Mut[ A ]
    type Tx        = InTxn
 
    def newVal[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Val[ A ] = {

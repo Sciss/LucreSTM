@@ -355,7 +355,7 @@ object BerkeleyDB {
 sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
    type Val[ A ]  = BerkeleyDB.Val[ A ]
    type Ref[ A ]  = BerkeleyDB.Ref[ A ]
-   type Mut[ A ]  = BerkeleyDB.Mut[ A ]
+   type Mut[ +A ] = BerkeleyDB.Mut[ A ]
    type Tx        = InTxn
 
    /**

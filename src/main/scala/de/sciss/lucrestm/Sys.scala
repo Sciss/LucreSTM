@@ -5,7 +5,7 @@ import concurrent.stm.InTxn
 
 trait Sys[ S <: Sys[ S ]] {
    type Val[ A ] <: _Val[ S#Tx, A ]
-   type Mut[ A ] <: Mutable[ S#Tx, A ]
+   type Mut[ +A ] <: Mutable[ S#Tx, A ]
    type Ref[ A ] <: _Ref[ S#Tx, S#Mut, A ]
    type Tx <: InTxn
 
