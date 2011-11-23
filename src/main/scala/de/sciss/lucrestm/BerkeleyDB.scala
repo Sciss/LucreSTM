@@ -149,19 +149,15 @@ object BerkeleyDB {
          new RefImpl[ A ]( id, reader )
       }
 
-      def readMut[ A <: Mutable[ BerkeleyDB ]]( in: DataInput )( constr: ID => A ) : A = {
+//      def readMut[ A <: Mutable[ BerkeleyDB ]]( in: DataInput )( constr: ID => A ) : A = {
+//         val id = new IDImpl( in.readInt() )
+//         constr( id )
+//      }
+
+      def readMut[ A <: Mutable[ BerkeleyDB ]]( in: DataInput )( implicit reader: MutableReader[ BerkeleyDB, A ]) : A = {
          val id = new IDImpl( in.readInt() )
-//         if( id == -1 ) EmptyMut else new MutImpl[ A ]( id, ser )
-         constr( id )
+         reader.readData( in, id )
       }
-
-//      def writeRef[ A ]( ref: Ref[ A ], out: DataOutput ) {
-//         out.writeInt( ref.id )
-//      }
-
-//      def disposeRef[ A ]( ref: Ref[ A ])( implicit tx: InTxn ) {
-//         remove( ref.id )
-//      }
 
       def close() { db.close() }
 

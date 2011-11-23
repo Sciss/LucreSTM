@@ -152,7 +152,11 @@ final class InMemory extends Sys[ InMemory ] {
       InMemory.opNotSupported( "readRef" )
    }
 
-   def readMut[ A <: Mutable[ InMemory ]]( in: DataInput )( constr: ID => A ) : A = {
+//   def readMut[ A <: Mutable[ InMemory ]]( in: DataInput )( constr: ID => A ) : A = {
+//      InMemory.opNotSupported( "readMut" )
+//   }
+
+   def readMut[ A <: Mutable[ InMemory ]]( in: DataInput )( implicit reader: MutableReader[ InMemory, A ]) : A = {
       InMemory.opNotSupported( "readMut" )
    }
 }

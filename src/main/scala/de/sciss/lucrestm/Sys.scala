@@ -47,5 +47,6 @@ trait Sys[ S <: Sys[ S ]] {
    def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : S#Val[ A ]
    def readInt( in: DataInput ) : S#Val[ Int ]
    def readRef[ A >: Null <: Mutable[ S ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : S#Ref[ A ]
-   def readMut[ A >: Null <: Mutable[ S ]]( in: DataInput )( constr: S#ID => A ) : A
+//   def readMut[ A >: Null <: Mutable[ S ]]( in: DataInput )( constr: S#ID => A ) : A
+   def readMut[ A >: Null <: Mutable[ S ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : A
 }
