@@ -1,5 +1,5 @@
 /*
- *  Serializer.scala
+ *  Mutable.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
@@ -25,30 +25,23 @@
 
 package de.sciss.lucrestm
 
-trait Writer {
-   def write( out: DataOutput ) : Unit
-}
+trait Mutable[ S <: Sys[ S ], +A ] extends Writer with Disposable[ S#Tx ] {
+   def id: S#ID
 
-trait Reader[ @specialized +A ] {
-   def read( in: DataInput ) : A
-}
-
-object Serializer {
-   implicit object Int extends Serializer[ scala.Int ] {
-      def write( v: scala.Int, out: DataOutput ) {
-         out.writeInt( v )
-      }
-      def read( in: DataInput ) : scala.Int = in.readInt()
+   final def dispose()( implicit tx: S#Tx ) {
+      id.dispose()
+      disposeData()
    }
 
-   implicit def fromReader[ A <: Writer ]( implicit reader: Reader[ A ]) : Serializer[ A ] = new ReaderWrapper( reader )
-
-   private final class ReaderWrapper[ A <: Writer ]( reader: Reader[ A ]) extends Serializer[ A ] {
-      def write( v: A, out: DataOutput ) { v.write( out )}
-      def read( in: DataInput ) : A = reader.read( in )
+   final def write( out: DataOutput ) {
+      id.write( out )
+      writeData( out )
    }
+
+   protected def disposeData()( implicit tx: S#Tx ) : Unit
+   protected def writeData( out: DataOutput ) : Unit
 }
-trait Serializer[ @specialized A ] extends Reader[ A ] {
-   def write( v: A, out: DataOutput ) : Unit
-//   def read( in: DataInput ) : A
+
+trait MutableReader[ S <: Sys[ S ], A ] {
+   def readData( in: DataInput, id: S#ID ) : A
 }

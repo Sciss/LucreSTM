@@ -1,5 +1,5 @@
 /*
- *  Serializer.scala
+ *  Identifier.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
@@ -25,30 +25,4 @@
 
 package de.sciss.lucrestm
 
-trait Writer {
-   def write( out: DataOutput ) : Unit
-}
-
-trait Reader[ @specialized +A ] {
-   def read( in: DataInput ) : A
-}
-
-object Serializer {
-   implicit object Int extends Serializer[ scala.Int ] {
-      def write( v: scala.Int, out: DataOutput ) {
-         out.writeInt( v )
-      }
-      def read( in: DataInput ) : scala.Int = in.readInt()
-   }
-
-   implicit def fromReader[ A <: Writer ]( implicit reader: Reader[ A ]) : Serializer[ A ] = new ReaderWrapper( reader )
-
-   private final class ReaderWrapper[ A <: Writer ]( reader: Reader[ A ]) extends Serializer[ A ] {
-      def write( v: A, out: DataOutput ) { v.write( out )}
-      def read( in: DataInput ) : A = reader.read( in )
-   }
-}
-trait Serializer[ @specialized A ] extends Reader[ A ] {
-   def write( v: A, out: DataOutput ) : Unit
-//   def read( in: DataInput ) : A
-}
+trait Identifier[ Tx ] extends Disposable[ Tx ] with Writer

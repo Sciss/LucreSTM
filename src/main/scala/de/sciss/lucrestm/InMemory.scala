@@ -1,3 +1,28 @@
+/*
+ *  InMemory.scala
+ *  (LucreSTM)
+ *
+ *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License
+ *  as published by the Free Software Foundation; either
+ *  version 2, june 1991 of the License, or (at your option) any later version.
+ *
+ *  This software is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *  General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public
+ *  License (gpl.txt) along with this software; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.lucrestm
 
 import de.sciss.lucrestm.{Ref => _Ref, Val => _Val}
@@ -5,10 +30,10 @@ import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 
 object InMemory {
 //   sealed trait Mut[ +A ] extends Mutable[ InTxn, A ]
-   sealed trait Val[ A ] extends _Val[ InTxn, A ]
+   sealed trait Val[ @specialized A ] extends _Val[ InTxn, A ]
    sealed trait Ref[ A ] extends _Ref[ InTxn, /* Mut, */ A ]
 
-   private sealed trait SourceImpl[ A ] {
+   private sealed trait SourceImpl[ @specialized A ] {
       protected def peer: ScalaRef[ A ]
       def set( v: A )( implicit tx: InTxn ) { peer.set( v )}
       def get( implicit tx: InTxn ) : A = peer.get
@@ -26,7 +51,7 @@ object InMemory {
 //      def getOrNull( implicit tx: InTxn ) : A = get.orNull
    }
 
-   private final class ValImpl[ A ]( protected val peer: ScalaRef[ A ])
+   private final class ValImpl[ @specialized A ]( protected val peer: ScalaRef[ A ])
    extends Val[ A ] with SourceImpl[ A ]
 
 //   private case object EmptyMut extends Mut[ Nothing ] {
@@ -64,9 +89,10 @@ object InMemory {
 
    private def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )
 
-   sealed trait ID extends Disposable[ InTxn ]
+   sealed trait ID extends Identifier[ InTxn ]
 
    private object IDImpl extends ID {
+      def write( out: DataOutput ) {}
       def dispose()( implicit tx: InTxn ) {}
    }
 }
@@ -75,7 +101,7 @@ object InMemory {
  * A thin wrapper around scala-stm.
  */
 final class InMemory extends Sys[ InMemory ] {
-   type Val[ A ]  = InMemory.Val[ A ]
+   type Val[ @specialized A ]  = InMemory.Val[ A ]
    type Ref[ A ]  = InMemory.Ref[ A ]
    type ID        = InMemory.ID
 //   type Mut[ +A ] = InMemory.Mut[ A ]
@@ -86,10 +112,16 @@ final class InMemory extends Sys[ InMemory ] {
       new InMemory.ValImpl[ A ]( peer )
    }
 
+   def newInt( init: Int )( implicit tx: InTxn ) : Val[ Int ] = {
+      val peer = ScalaRef( init )
+      new InMemory.ValImpl( peer )
+   }
+
 //   def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] =
 //      newRef[ A ]( InMemory.EmptyMut )
 
-   def newRef[ A <: Mutable[ InMemory, A ]]( init: A )( implicit tx: InTxn, reader: Reader[ A ]) : Ref[ A ] = {
+   def newRef[ A >: Null <: Mutable[ InMemory, A ]]( init: A )( implicit tx: InTxn,
+                                                                reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
       val peer = ScalaRef[ A ]( init )
       new InMemory.RefImpl[ A ]( peer )
    }
@@ -101,7 +133,7 @@ final class InMemory extends Sys[ InMemory ] {
 
    def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
 
-   def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
+   def newRefArray[ A >: Null <: Mutable[ InMemory, A ]]( size: Int ) = new Array[ Ref[ A ]]( size )
 
    def atomic[ Z ]( block: InTxn => Z ) : Z = {
       TxnExecutor.defaultAtomic[ Z ]( block )
@@ -111,7 +143,12 @@ final class InMemory extends Sys[ InMemory ] {
       InMemory.opNotSupported( "readVal" )
    }
 
-   def readRef[ A <: Mutable[ InMemory, A ]]( in: DataInput )( implicit reader: Reader[ A ]) : Ref[ A ] = {
+   def readInt( in: DataInput ) : Val[ Int ] = {
+      InMemory.opNotSupported( "readIntVal" )
+   }
+
+   def readRef[ A >: Null <: Mutable[ InMemory, A ]]( in: DataInput )
+                                                    ( implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
       InMemory.opNotSupported( "readRef" )
    }
 

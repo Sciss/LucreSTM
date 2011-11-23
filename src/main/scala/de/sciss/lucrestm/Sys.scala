@@ -1,34 +1,51 @@
+/*
+ *  Sys.scala
+ *  (LucreSTM)
+ *
+ *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License
+ *  as published by the Free Software Foundation; either
+ *  version 2, june 1991 of the License, or (at your option) any later version.
+ *
+ *  This software is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *  General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public
+ *  License (gpl.txt) along with this software; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.lucrestm
 
 import de.sciss.lucrestm.{Ref => _Ref, Val => _Val}
 import concurrent.stm.InTxn
 
 trait Sys[ S <: Sys[ S ]] {
-   type Val[ A ] <: _Val[ S#Tx, A ]
-//   type Mut[ +A ] <: Mutable[ S#Tx, A ]
-   type Ref[ A <: Mutable[ S, A ]] <: _Ref[ S#Tx, /* S#Mut,*/ A ]
+   type Val[ @specialized A ] <: _Val[ S#Tx, A ]
+   type Ref[ A ] <: _Ref[ S#Tx, A ]
    type Tx <: InTxn
-   type ID <: Disposable[ S#Tx ]
+   type ID <: Identifier[ S#Tx ]
 
    def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ]
-//   def newRef[ A <: Disposable[ S#Tx ]]()( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Ref[ A ]
-//   def newRef[ A <: Disposable[ S#Tx ]]( init: S#Mut[ A ])( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Ref[ A ]
-   def newRef[ A <: Mutable[ S, A ]]( init: A )( implicit tx: S#Tx, reader: Reader[ A ]) : S#Ref[ A ]
-//   def newMut[ A <: Disposable[ S#Tx ]]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Mut[ A ]
+   def newInt( init: Int )( implicit tx: S#Tx ) : S#Val[ Int ]
+   def newRef[ A >: Null <: Mutable[ S, A ]]( init: A )( implicit tx: S#Tx, reader: MutableReader[ S, A ]) : S#Ref[ A ]
    def newID( implicit tx: S#Tx ) : ID
 
    def atomic[ Z ]( block: S#Tx => Z ) : Z
+
    def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
-   def newRefArray[ A <: Mutable[ S, A ]]( size: Int ) : Array[ S#Ref[ A ]]
-//   def serRef[ A : Serializer ] : Serializer[ S#Ref[ A ]]
+   def newRefArray[ A >: Null <: Mutable[ S, A ]]( size: Int ) : Array[ S#Ref[ A ]]
+
    def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : S#Val[ A ]
-   def readRef[ A <: Mutable[ S, A ]]( in: DataInput )( implicit reader: Reader[ A ]) : S#Ref[ A ]
-//   def readMut[ A <: Disposable[ S#Tx ]]( in: DataInput )( implicit ser: Serializer[ A ]) : S#Mut[ A ]
-
-//   def readMut[ A <: Mutable[ S, A ]]( in: DataInput )( implicit ser: Serializer[ A ]) : A // S#Mut[ A ]
-
-   def readMut[ A <: Mutable[ S, A ]]( in: DataInput )( constr: S#ID => A ) : A // S#Mut[ A ]
-
-//   def writeRef[ A ]( ref: S#Ref[ A ], out: DataOutput ) : Unit
-//   def disposeRef[ A ]( ref: S#Ref[ A ])( implicit tx: S#Tx ) : Unit
+   def readInt( in: DataInput ) : S#Val[ Int ]
+   def readRef[ A >: Null <: Mutable[ S, A ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : S#Ref[ A ]
+   def readMut[ A >: Null <: Mutable[ S, A ]]( in: DataInput )( constr: S#ID => A ) : A
 }

@@ -1,10 +1,35 @@
+/*
+ *  Ref.scala
+ *  (LucreSTM)
+ *
+ *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License
+ *  as published by the Free Software Foundation; either
+ *  version 2, june 1991 of the License, or (at your option) any later version.
+ *
+ *  This software is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *  General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public
+ *  License (gpl.txt) along with this software; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.lucrestm
 
-sealed trait Sink[ -Tx, -A ] {
+sealed trait Sink[ -Tx, @specialized -A ] {
    def set( v: A )( implicit tx: Tx ) : Unit
 }
 
-sealed trait Source[ -Tx, +A ] extends Writer[ A ] with Disposable[ Tx ] {
+sealed trait Source[ -Tx, @specialized +A ] extends Writer with Disposable[ Tx ] {
    def get( implicit tx: Tx ) : A
 }
 
@@ -12,7 +37,7 @@ sealed trait RefLike[ -Tx, A ] extends Sink[ Tx, A ] with Source[ Tx, A ] {
    def debug() : Unit
 }
 
-trait Val[ -Tx, A ] extends RefLike[ Tx, A ] {
+trait Val[ -Tx, @specialized A ] extends RefLike[ Tx, A ] {
    def transform( f: A => A )( implicit tx: Tx ) : Unit
 }
 
@@ -29,20 +54,3 @@ trait Ref[ -Tx, /* M[ _ ],*/ A ] extends RefLike[ Tx, A /*M[ A ]*/] {
 //      def write( out: DataOutput ) {}
 //   }
 //}
-trait Mutable[ S <: Sys[ S ], +A ] extends Writer[ A ] with Disposable[ S#Tx ] /* extends Source[ Tx, A ] */ /* with Writer[ A ] */ /* with Disposable[ Tx ] */ {
-   def id: S#ID
-
-   final def dispose( implicit tx: S#Tx ) {
-      id.dispose()
-      disposeData()
-   }
-
-   protected def disposeData()( implicit tx: S#Tx ) : Unit
-
-//   def isEmpty : Boolean
-//   def isDefined : Boolean
-//   def orNull( implicit tx: Tx ) : A
-//   def write( out: DataOutput ) : Unit
-//   def orNull[ A1 >: A ] : A1 // ( implicit tx: Tx /*, ev: <:<[ Null, A1 ]*/) : A1
-//   def value: A
-}
