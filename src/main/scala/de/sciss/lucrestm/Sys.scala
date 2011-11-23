@@ -36,16 +36,16 @@ trait Sys[ S <: Sys[ S ]] {
 
    def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ]
    def newInt( init: Int )( implicit tx: S#Tx ) : S#Val[ Int ]
-   def newRef[ A >: Null <: Mutable[ S, A ]]( init: A )( implicit tx: S#Tx, reader: MutableReader[ S, A ]) : S#Ref[ A ]
+   def newRef[ A >: Null <: Mutable[ S ]]( init: A )( implicit tx: S#Tx, reader: MutableReader[ S, A ]) : S#Ref[ A ]
    def newID( implicit tx: S#Tx ) : ID
 
    def atomic[ Z ]( block: S#Tx => Z ) : Z
 
    def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
-   def newRefArray[ A >: Null <: Mutable[ S, A ]]( size: Int ) : Array[ S#Ref[ A ]]
+   def newRefArray[ A >: Null <: Mutable[ S ]]( size: Int ) : Array[ S#Ref[ A ]]
 
    def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : S#Val[ A ]
    def readInt( in: DataInput ) : S#Val[ Int ]
-   def readRef[ A >: Null <: Mutable[ S, A ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : S#Ref[ A ]
-   def readMut[ A >: Null <: Mutable[ S, A ]]( in: DataInput )( constr: S#ID => A ) : A
+   def readRef[ A >: Null <: Mutable[ S ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : S#Ref[ A ]
+   def readMut[ A >: Null <: Mutable[ S ]]( in: DataInput )( constr: S#ID => A ) : A
 }

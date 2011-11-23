@@ -120,8 +120,8 @@ final class InMemory extends Sys[ InMemory ] {
 //   def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] =
 //      newRef[ A ]( InMemory.EmptyMut )
 
-   def newRef[ A >: Null <: Mutable[ InMemory, A ]]( init: A )( implicit tx: InTxn,
-                                                                reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
+   def newRef[ A >: Null <: Mutable[ InMemory ]]( init: A )( implicit tx: InTxn,
+                                                             reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
       val peer = ScalaRef[ A ]( init )
       new InMemory.RefImpl[ A ]( peer )
    }
@@ -133,7 +133,7 @@ final class InMemory extends Sys[ InMemory ] {
 
    def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
 
-   def newRefArray[ A >: Null <: Mutable[ InMemory, A ]]( size: Int ) = new Array[ Ref[ A ]]( size )
+   def newRefArray[ A >: Null <: Mutable[ InMemory ]]( size: Int ) = new Array[ Ref[ A ]]( size )
 
    def atomic[ Z ]( block: InTxn => Z ) : Z = {
       TxnExecutor.defaultAtomic[ Z ]( block )
@@ -147,18 +147,12 @@ final class InMemory extends Sys[ InMemory ] {
       InMemory.opNotSupported( "readIntVal" )
    }
 
-   def readRef[ A >: Null <: Mutable[ InMemory, A ]]( in: DataInput )
-                                                    ( implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
+   def readRef[ A >: Null <: Mutable[ InMemory ]]( in: DataInput )
+                                                 ( implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
       InMemory.opNotSupported( "readRef" )
    }
 
-   def readMut[ A <: Mutable[ InMemory, A ]]( in: DataInput )( constr: ID => A ) : A = {
+   def readMut[ A <: Mutable[ InMemory ]]( in: DataInput )( constr: ID => A ) : A = {
       InMemory.opNotSupported( "readMut" )
    }
-
-//   def writeRef[ A ]( ref: Ref[ A ], out: DataOutput ) {
-//      sys.error( "Operation not supported: writeRef" )
-//   }
-
-//   def disposeRef[ A ]( ref: InMemory.Ref[ A ])( implicit tx: InTxn ) {}
 }

@@ -115,7 +115,7 @@ object BerkeleyDB {
 //      def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] =
 //         newRef[ A ]( EmptyMut )
 
-      def newRef[ A >: Null <: Mutable[ BerkeleyDB, A ]]( init: A )( implicit tx: InTxn,
+      def newRef[ A >: Null <: Mutable[ BerkeleyDB ]]( init: A )( implicit tx: InTxn,
                                                              reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
          val res = new RefImpl[ A ]( newIDValue, reader )
          res.set( init )
@@ -131,7 +131,7 @@ object BerkeleyDB {
 
       def newValArray[ A ]( size: Int ) : Array[ Val[ A ]] = new Array[ Val[ A ]]( size )
 
-      def newRefArray[ A >: Null <: Mutable[ BerkeleyDB, A ]]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
+      def newRefArray[ A >: Null <: Mutable[ BerkeleyDB ]]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
 
       def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
          val id = in.readInt()
@@ -143,13 +143,13 @@ object BerkeleyDB {
          new IntVal( id )
       }
 
-      def readRef[ A >: Null <: Mutable[ BerkeleyDB, A ]]( in: DataInput )
-                                                 ( implicit reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
+      def readRef[ A >: Null <: Mutable[ BerkeleyDB ]]( in: DataInput )
+                                                      ( implicit reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
          val id = in.readInt()
          new RefImpl[ A ]( id, reader )
       }
 
-      def readMut[ A <: Mutable[ BerkeleyDB, A ]]( in: DataInput )( constr: ID => A ) : A = {
+      def readMut[ A <: Mutable[ BerkeleyDB ]]( in: DataInput )( constr: ID => A ) : A = {
          val id = new IDImpl( in.readInt() )
 //         if( id == -1 ) EmptyMut else new MutImpl[ A ]( id, ser )
          constr( id )
@@ -287,8 +287,8 @@ object BerkeleyDB {
       }
 
 
-      private final class RefImpl[ A >: Null <: Mutable[ BerkeleyDB, A ]]( protected val id: Int,
-                                                                           val reader: MutableReader[ BerkeleyDB, A ])
+      private final class RefImpl[ A >: Null <: Mutable[ BerkeleyDB ]]( protected val id: Int,
+                                                                        val reader: MutableReader[ BerkeleyDB, A ])
       extends Ref[ A ] with BasicSource {
          def debug() {
             println( "Ref(" + id + ")" )

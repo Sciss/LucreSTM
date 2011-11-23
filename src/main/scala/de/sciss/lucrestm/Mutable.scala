@@ -25,7 +25,7 @@
 
 package de.sciss.lucrestm
 
-trait Mutable[ S <: Sys[ S ], +A ] extends Writer with Disposable[ S#Tx ] {
+trait Mutable[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
    def id: S#ID
 
    final def dispose()( implicit tx: S#Tx ) {
