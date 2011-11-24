@@ -41,11 +41,22 @@ object Serializer {
       def read( in: DataInput ) : scala.Int = in.readInt()
    }
 
-   implicit def fromReader[ A <: Writer ]( implicit reader: Reader[ A ]) : Serializer[ A ] = new ReaderWrapper( reader )
+   implicit def fromReader[ A <: Writer ]( implicit reader: Reader[ A ]) : Serializer[ A ] =  new ReaderWrapper( reader )
+
+   implicit def fromMutableReader[ S <: Sys[ S ], A >: Null <: Mutable[ S ]]( implicit reader: MutableReader[ S, A ],
+                                                                              system: S ) : Serializer[ A ] =
+      new MutableReaderWrapper[ S, A ]
 
    private final class ReaderWrapper[ A <: Writer ]( reader: Reader[ A ]) extends Serializer[ A ] {
       def write( v: A, out: DataOutput ) { v.write( out )}
       def read( in: DataInput ) : A = reader.read( in )
+   }
+
+   private final class MutableReaderWrapper[ S <: Sys[ S ], A >: Null <: Mutable[ S ]](
+      implicit reader: MutableReader[ S, A ], system: S ) extends Serializer[ A ] {
+
+      def write( v: A, out: DataOutput ) { v.write( out )}
+      def read( in: DataInput ) : A = system.readMut[ A ]( in )
    }
 }
 trait Serializer[ @specialized A ] extends Reader[ A ] {
