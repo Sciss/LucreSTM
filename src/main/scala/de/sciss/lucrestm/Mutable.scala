@@ -46,6 +46,7 @@ trait Mutable[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
 //   final def sameAs( that: Mutable[ S ]) = id == that.id
 
    override def equals( that: Any ) : Boolean = {
+      // note: microbenchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
       /* (that != null) && */ (if( that.isInstanceOf[ Mutable[ _ ]]) {
          id == that.asInstanceOf[ Mutable[ _ ]].id
       } else super.equals( that ))
