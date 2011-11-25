@@ -26,6 +26,8 @@
 package de.sciss.lucrestm
 
 trait Mutable[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
+   //AnyRef =>
+
    def id: S#ID
 
    final def dispose()( implicit tx: S#Tx ) {
@@ -40,6 +42,14 @@ trait Mutable[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
 
    protected def disposeData()( implicit tx: S#Tx ) : Unit
    protected def writeData( out: DataOutput ) : Unit
+
+//   final def sameAs( that: Mutable[ S ]) = id == that.id
+
+   override def equals( that: Any ) : Boolean = {
+      /* (that != null) && */ (if( that.isInstanceOf[ Mutable[ _ ]]) {
+         id == that.asInstanceOf[ Mutable[ _ ]].id
+      } else super.equals( that ))
+   }
 }
 
 trait MutableReader[ S <: Sys[ S ], A ] {

@@ -245,8 +245,12 @@ object BerkeleyDB {
          }
       }
 
-      private final class IDImpl( id: Int ) extends ID {
+      private final class IDImpl( val id: Int ) extends ID {
          def write( out: DataOutput ) { out.writeInt( id )}
+
+         override def equals( that: Any ) : Boolean = {
+            /* (that != null) && */ that.isInstanceOf[ IDImpl ] && (id == that.asInstanceOf[ IDImpl ].id)
+         }
 
          def dispose()( implicit tx: InTxn ) {
             system.remove( id )

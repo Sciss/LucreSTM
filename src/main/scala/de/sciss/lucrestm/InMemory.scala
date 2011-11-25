@@ -91,7 +91,12 @@ object InMemory {
 
    sealed trait ID extends Identifier[ InTxn ]
 
-   private object IDImpl extends ID {
+//   private object IDImpl extends ID {
+//      def write( out: DataOutput ) {}
+//      def dispose()( implicit tx: InTxn ) {}
+//   }
+
+   private final class IDImpl extends ID {
       def write( out: DataOutput ) {}
       def dispose()( implicit tx: InTxn ) {}
    }
@@ -126,7 +131,7 @@ final class InMemory extends Sys[ InMemory ] {
       new InMemory.RefImpl[ A ]( peer )
    }
 
-   def newID( implicit tx: InTxn ) : ID = InMemory.IDImpl
+   def newID( implicit tx: InTxn ) : ID = new InMemory.IDImpl
 
 //   def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] =
 //      new InMemory.MutImpl[ A ]( init )
