@@ -161,7 +161,8 @@ object BerkeleyDB {
 
       def close() { db.close() }
 
-      def numRefs : Long = db.count()
+      def numRecords : Long = db.count()
+      def numUserRecords : Long = math.max( 0L, db.count() - 1 )
 
       private def txnHandle( implicit txn: InTxnEnd ) : Transaction = dbTxnSTMRef.get
 
@@ -402,9 +403,16 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
    def close() : Unit
 
    /**
-    * Reports the current number of references stored in the database.
+    * Reports the current number of records stored in the database.
     */
-   def numRefs : Long
+   def numRecords: Long
+
+   /**
+    * Reports the current number of user records stored in the database.
+    * That is the number of records minus those records used for
+    * database maintenance.
+    */
+   def numUserRecords : Long
 
    /**
     * Reads the root object representing the stored datastructure,
