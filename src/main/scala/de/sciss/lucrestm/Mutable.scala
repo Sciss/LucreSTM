@@ -51,6 +51,8 @@ trait Mutable[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
          id == that.asInstanceOf[ Mutable[ _ ]].id
       } else super.equals( that ))
    }
+
+   override def toString = super.toString + id.toString
 }
 
 trait MutableReader[ S <: Sys[ S ], A ] {

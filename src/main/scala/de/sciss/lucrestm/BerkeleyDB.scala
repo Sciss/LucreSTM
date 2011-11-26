@@ -100,6 +100,15 @@ object BerkeleyDB {
 
       def atomic[ Z ]( block: InTxn => Z ) : Z = TxnExecutor.defaultAtomic( block )
 
+      def debugListUserRecords()( implicit tx: InTxn ) : Seq[ ID ] = {
+         val b   = Seq.newBuilder[ ID ]
+         val cnt = idCnt.get
+         var i = 1; while( i < cnt ) {
+            if( tryRead[ Unit ]( i )( _ => () ).isDefined ) b += new IDImpl( i )
+         i += 1 }
+         b.result()
+      }
+
       def newVal[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Val[ A ] = {
          val res = new ValImpl[ A ]( newIDValue, ser )
          res.set( init )
@@ -256,6 +265,8 @@ object BerkeleyDB {
          def dispose()( implicit tx: InTxn ) {
             system.remove( id )
          }
+
+         override def toString = "<" + id + ">"
       }
 
       private final class ValImpl[ A ]( protected val id: Int, ser: Serializer[ A ])
@@ -413,6 +424,8 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
     * database maintenance.
     */
    def numUserRecords : Long
+
+   def debugListUserRecords()( implicit tx: InTxn) : Seq[ ID ]
 
    /**
     * Reads the root object representing the stored datastructure,

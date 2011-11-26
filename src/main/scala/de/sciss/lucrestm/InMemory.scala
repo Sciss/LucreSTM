@@ -99,6 +99,7 @@ object InMemory {
    private final class IDImpl extends ID {
       def write( out: DataOutput ) {}
       def dispose()( implicit tx: InTxn ) {}
+      override def toString = "<" + hashCode().toHexString + ">"
    }
 }
 
