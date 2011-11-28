@@ -25,14 +25,23 @@
 
 package de.sciss.lucrestm
 
-sealed trait MutableOption[ +S ]
+sealed trait MutableOption[ +S ] {
+//   def toOption: Option[ Mutable[ S ]]
+//   def orNull: Mutable[ S ]
+}
 
-trait EmptyMutable extends MutableOption[ Nothing ]
+trait EmptyMutable extends MutableOption[ Nothing ] {
+//   final def toOption = None
+//   final def orNull   = null
+}
 
 trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Disposable[ S#Tx ] {
    //AnyRef =>
 
    def id: S#ID
+
+//   final def toOption   = Some( this )
+//   final def orNull     = this
 
    final def dispose()( implicit tx: S#Tx ) {
       id.dispose()

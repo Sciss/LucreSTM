@@ -145,7 +145,7 @@ final class InMemory extends Sys[ InMemory ] {
 
    def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
 
-   def newRefArray[ A <: Mutable[ InMemory ]]( size: Int ) = new Array[ Ref[ A ]]( size )
+   def newRefArray[ A /* <: Mutable[ InMemory ]*/]( size: Int ) = new Array[ Ref[ A ]]( size )
 
    def atomic[ Z ]( block: InTxn => Z ) : Z = {
       TxnExecutor.defaultAtomic[ Z ]( block )

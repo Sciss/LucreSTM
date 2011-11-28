@@ -43,7 +43,7 @@ trait Sys[ S <: Sys[ S ]] {
    def atomic[ Z ]( block: S#Tx => Z ) : Z
 
    def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
-   def newRefArray[ A <: Mutable[ S ]]( size: Int ) : Array[ S#Ref[ A ]]
+   def newRefArray[ A /* <: Mutable[ S ]*/]( size: Int ) : Array[ S#Ref[ A ]]
 
    def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : S#Val[ A ]
    def readInt( in: DataInput ) : S#Val[ Int ]

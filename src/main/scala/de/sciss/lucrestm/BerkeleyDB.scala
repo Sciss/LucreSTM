@@ -147,7 +147,7 @@ object BerkeleyDB {
 
       def newValArray[ A ]( size: Int ) : Array[ Val[ A ]] = new Array[ Val[ A ]]( size )
 
-      def newRefArray[ A <: Mutable[ BerkeleyDB ]]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
+      def newRefArray[ A /*<: Mutable[ BerkeleyDB ]*/]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
 
       def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
          val id = in.readInt()
