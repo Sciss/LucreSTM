@@ -126,8 +126,14 @@ final class InMemory extends Sys[ InMemory ] {
 //   def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] =
 //      newRef[ A ]( InMemory.EmptyMut )
 
-   def newRef[ A >: Null <: Mutable[ InMemory ]]( init: A )( implicit tx: InTxn,
-                                                             reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
+   def newRef[ A <: Mutable[ InMemory ]]( init: A )( implicit tx: InTxn,
+                                                     reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
+      val peer = ScalaRef[ A ]( init )
+      new InMemory.RefImpl[ A ]( peer )
+   }
+
+   def newOptionRef[ A <: MutableOption[ InMemory ]]( init: A )( implicit tx: InTxn,
+                                                                 reader: MutableOptionReader[ InMemory, A ]) : Ref[ A ] = {
       val peer = ScalaRef[ A ]( init )
       new InMemory.RefImpl[ A ]( peer )
    }
@@ -139,7 +145,7 @@ final class InMemory extends Sys[ InMemory ] {
 
    def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
 
-   def newRefArray[ A >: Null <: Mutable[ InMemory ]]( size: Int ) = new Array[ Ref[ A ]]( size )
+   def newRefArray[ A <: Mutable[ InMemory ]]( size: Int ) = new Array[ Ref[ A ]]( size )
 
    def atomic[ Z ]( block: InTxn => Z ) : Z = {
       TxnExecutor.defaultAtomic[ Z ]( block )
@@ -153,9 +159,14 @@ final class InMemory extends Sys[ InMemory ] {
       InMemory.opNotSupported( "readIntVal" )
    }
 
-   def readRef[ A >: Null <: Mutable[ InMemory ]]( in: DataInput )
-                                                 ( implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
+   def readRef[ A <: Mutable[ InMemory ]]( in: DataInput )
+                                         ( implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
       InMemory.opNotSupported( "readRef" )
+   }
+
+   def readOptionRef[ A <: MutableOption[ InMemory ]]( in: DataInput )
+                                                     ( implicit reader: MutableOptionReader[ InMemory, A ]) : Ref[ A ] = {
+      InMemory.opNotSupported( "readOptionRef" )
    }
 
 //   def readMut[ A <: Mutable[ InMemory ]]( in: DataInput )( constr: ID => A ) : A = {
@@ -164,5 +175,10 @@ final class InMemory extends Sys[ InMemory ] {
 
    def readMut[ A <: Mutable[ InMemory ]]( in: DataInput )( implicit reader: MutableReader[ InMemory, A ]) : A = {
       InMemory.opNotSupported( "readMut" )
+   }
+
+   def readOptionMut[ A <: MutableOption[ InMemory ]]( in: DataInput )
+                                                     ( implicit reader: MutableOptionReader[ InMemory, A ]) : A = {
+      InMemory.opNotSupported( "readOptionMut" )
    }
 }

@@ -25,7 +25,11 @@
 
 package de.sciss.lucrestm
 
-trait Mutable[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
+sealed trait MutableOption[ +S ]
+
+trait EmptyMutable extends MutableOption[ Nothing ]
+
+trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Disposable[ S#Tx ] {
    //AnyRef =>
 
    def id: S#ID
@@ -55,6 +59,14 @@ trait Mutable[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
    override def toString = super.toString + id.toString
 }
 
-trait MutableReader[ S <: Sys[ S ], A ] {
+/**
+ * Note: Sicne a reader goes along with `A` implementing the writer,
+ * it does not make sense to make `MutableReader` covariant in `A`.
+ */
+trait MutableReader[ S <: Sys[ S ], /* + */ A ] {
    def readData( in: DataInput, id: S#ID ) : A
+}
+
+trait MutableOptionReader[ S <: Sys[ S ], /* + */ A ] extends MutableReader[ S, A ] {
+   def empty: A
 }
