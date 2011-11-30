@@ -107,7 +107,7 @@ object BerkeleyDB {
       def debugListUserRecords()( implicit tx: InTxn ) : Seq[ ID ] = {
          val b   = Seq.newBuilder[ ID ]
          val cnt = idCnt.get
-         var i = 1; while( i < cnt ) {
+         var i = 1; while( i <= cnt ) {
             if( tryRead[ Unit ]( i )( _ => () ).isDefined ) b += new IDImpl( i )
          i += 1 }
          b.result()
