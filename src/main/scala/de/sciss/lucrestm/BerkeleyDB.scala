@@ -30,8 +30,12 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{TxnLocal, Txn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
 import java.io.{FileNotFoundException, File, IOException}
 import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus}
+import annotation.elidable
+import elidable.CONFIG
 
 object BerkeleyDB {
+   import LucreSTM.logConfig
+
    /* private val */ var DB_CONSOLE_LOG_LEVEL   = "OFF" // "ALL"
 
    sealed trait ID extends Identifier[ InTxn ]
@@ -111,13 +115,13 @@ object BerkeleyDB {
 
       def newVal[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Val[ A ] = {
          val res = new ValImpl[ A ]( newIDValue, ser )
-         res.set( init )
+         res.setInit( init )
          res
       }
 
       def newInt( init: Int )( implicit tx: InTxn ) : Val[ Int ] = {
          val res = new IntVal( newIDValue )
-         res.set( init )
+         res.setInit( init )
          res
       }
 
@@ -127,14 +131,14 @@ object BerkeleyDB {
       def newRef[ A <: Mutable[ BerkeleyDB ]]( init: A )( implicit tx: InTxn,
                                                           reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
          val res = new RefImpl[ A ]( newIDValue, reader )
-         res.set( init )
+         res.setInit( init )
          res
       }
 
       def newOptionRef[ A <: MutableOption[ BerkeleyDB ]]( init: A )( implicit tx: InTxn,
                                                            reader: MutableOptionReader[ BerkeleyDB, A ]) : Ref[ A ] = {
          val res = new OptionRefImpl[ A ]( newIDValue, reader )
-         res.set( init )
+         res.setInit( init )
          res
       }
 
@@ -199,8 +203,10 @@ object BerkeleyDB {
       private def initDBTxn( implicit txn: InTxn ) : Transaction = {
          Txn.setExternalDecider( this )
          val dbTxn = env.beginTransaction( null, txnCfg )
+         logConfig( "txn begin " + dbTxn.getId )
          Txn.afterRollback { status =>
             try {
+               logConfig( "txn rollback " + dbTxn.getId )
                dbTxn.abort()
             } catch {
                case _ =>
@@ -212,6 +218,7 @@ object BerkeleyDB {
       private def newIDValue( implicit tx: InTxn ) : Int = {
 //      val id = idCnt.transformAndGet( _ + 1 )
          val id = idCnt.get + 1
+         logConfig( "new " + id )
          idCnt.set( id )
          withIO { io =>
             val out = io.beginWrite()
@@ -234,6 +241,7 @@ object BerkeleyDB {
       }
 
       def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: InTxn ) {
+         logConfig( "write " + id )
          withIO { io =>
             val out = io.beginWrite()
             valueFun( out )
@@ -242,10 +250,12 @@ object BerkeleyDB {
       }
 
       def remove( id: Int )( implicit tx: InTxn ) {
+         logConfig( "remove " + id )
          withIO( _.remove( id ))
       }
 
       def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: InTxn ) : A = {
+         logConfig( "read " + id )
          withIO { io =>
             val in = io.read( id )
             if( in != null ) {
@@ -258,6 +268,7 @@ object BerkeleyDB {
       }
 
       def tryRead[ A ]( id: Int )( valueFun: DataInput => A )( implicit tx: InTxn ) : Option[ A ] = {
+//         logConfig( "try-read " + id )
          withIO { io =>
             val in = io.read( id )
             if( in != null ) Some( valueFun( in )) else None
@@ -273,6 +284,10 @@ object BerkeleyDB {
 
          final def dispose()( implicit tx: InTxn ) {
             system.remove( id )
+         }
+
+         @elidable(CONFIG) protected final def assertExists()( implicit tx: InTxn ) {
+            require( system.tryRead[ Unit ]( id )( _ => () ).isDefined, "trying to write disposed ref " + id )
          }
       }
 
@@ -296,7 +311,12 @@ object BerkeleyDB {
             system.read[ A ]( id )( ser.read( _ ))
          }
 
+         def setInit( v: A )( implicit tx: InTxn ) {
+            system.write( id )( ser.write( v, _ ))
+         }
+
          def set( v: A )( implicit tx: InTxn ) {
+            assertExists()
             system.write( id )( ser.write( v, _ ))
          }
 
@@ -308,9 +328,18 @@ object BerkeleyDB {
       }
 
       private final class IntVal( protected val id: Int ) extends Val[ Int ] with BasicSource {
-         def get( implicit tx: InTxn ) : Int = system.read[ Int ]( id )( _.readInt() )
+         def get( implicit tx: InTxn ) : Int = {
+            system.read[ Int ]( id )( _.readInt() )
+         }
 
-         def set( v: Int )( implicit tx: InTxn ) { system.write( id )( _.writeInt( v ))}
+         def setInit( v: Int )( implicit tx: InTxn ) {
+            system.write( id )( _.writeInt( v ))
+         }
+
+         def set( v: Int )( implicit tx: InTxn ) {
+            assertExists()
+            system.write( id )( _.writeInt( v ))
+         }
 
          def transform( f: Int => Int )( implicit tx: InTxn ) { set( f( get ))}
 
@@ -321,7 +350,7 @@ object BerkeleyDB {
 
 
       private final class RefImpl[ A <: Mutable[ BerkeleyDB ]]( protected val id: Int,
-                                                                        val reader: MutableReader[ BerkeleyDB, A ])
+                                                                val reader: MutableReader[ BerkeleyDB, A ])
       extends Ref[ A ] with BasicSource {
          def debug() {
             println( "Ref(" + id + ")" )
@@ -334,14 +363,13 @@ object BerkeleyDB {
             }
          }
 
+         def setInit( v: A )( implicit tx: InTxn ) {
+            system.write( id )( v.write( _ ))
+         }
+
          def set( v: A )( implicit tx: InTxn ) {
-            system.write( id ) { out =>
-               if( v == null ) {
-                  out.writeInt( -1 )
-               } else {
-                  v.write( out )
-               }
-            }
+            assertExists()
+            system.write( id )( v.write( _ ))
          }
 
          def transform( f: A => A )( implicit tx: InTxn ) { set( f( get ))}
@@ -363,7 +391,17 @@ object BerkeleyDB {
             }
          }
 
+         def setInit( v: A )( implicit tx: InTxn ) {
+            system.write( id ) { out =>
+               v match {
+                  case m: Mutable[ _ ] => m.write( out )
+                  case _: EmptyMutable => out.writeInt( -1 )
+               }
+            }
+         }
+
          def set( v: A )( implicit tx: InTxn ) {
+            assertExists()
             system.write( id ) { out =>
                v match {
                   case m: Mutable[ _ ] => m.write( out )
@@ -423,11 +461,13 @@ object BerkeleyDB {
       def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
          val h = dbTxnSTMRef.get
          try {
+            logConfig( "txn commit " + h.getId )
             h.commit()
             true
          } catch {
             case e =>
                try {
+                  logConfig( "txn abort " + h.getId )
                   h.abort()
                } catch {
                   case _ =>
