@@ -203,10 +203,10 @@ object BerkeleyDB {
       private def initDBTxn( implicit txn: InTxn ) : Transaction = {
          Txn.setExternalDecider( this )
          val dbTxn = env.beginTransaction( null, txnCfg )
-         logConfig( "txn begin " + dbTxn.getId )
+         logConfig( "txn begin <" + dbTxn.getId + ">" )
          Txn.afterRollback { status =>
             try {
-               logConfig( "txn rollback " + dbTxn.getId )
+               logConfig( "txn rollback <" + dbTxn.getId + ">" )
                dbTxn.abort()
             } catch {
                case _ =>
@@ -241,7 +241,7 @@ object BerkeleyDB {
       }
 
       def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: InTxn ) {
-         logConfig( "write " + id )
+         logConfig( "write <" + id + ">" )
          withIO { io =>
             val out = io.beginWrite()
             valueFun( out )
@@ -250,12 +250,12 @@ object BerkeleyDB {
       }
 
       def remove( id: Int )( implicit tx: InTxn ) {
-         logConfig( "remove " + id )
+         logConfig( "remove <" + id + ">" )
          withIO( _.remove( id ))
       }
 
       def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: InTxn ) : A = {
-         logConfig( "read " + id )
+         logConfig( "read <" + id + ">" )
          withIO { io =>
             val in = io.read( id )
             if( in != null ) {
@@ -459,16 +459,16 @@ object BerkeleyDB {
       }
 
       def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
-         val h = dbTxnSTMRef.get
+         val dbTxn = dbTxnSTMRef.get
          try {
-            logConfig( "txn commit " + h.getId )
-            h.commit()
+            logConfig( "txn commit <" + dbTxn.getId + ">" )
+            dbTxn.commit()
             true
          } catch {
             case e =>
                try {
-                  logConfig( "txn abort " + h.getId )
-                  h.abort()
+                  logConfig( "txn abort <" + dbTxn.getId + ">" )
+                  dbTxn.abort()
                } catch {
                   case _ =>
                }
