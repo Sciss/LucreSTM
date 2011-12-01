@@ -38,7 +38,7 @@ trait Sys[ S <: Sys[ S ]] {
    def newInt( init: Int )( implicit tx: S#Tx ) : S#Val[ Int ]
    def newRef[ A <: Mutable[ S ]]( init: A )( implicit tx: S#Tx, reader: MutableReader[ S, A ]) : S#Ref[ A ]
    def newOptionRef[ A <: MutableOption[ S ]]( init: A )( implicit tx: S#Tx, reader: MutableOptionReader[ S, A ]) : S#Ref[ A ]
-   def newID( implicit tx: S#Tx ) : ID
+   def newID()( implicit tx: S#Tx ) : ID
 
    def atomic[ Z ]( block: S#Tx => Z ) : Z
 

@@ -92,7 +92,7 @@ object BerkeleyDB {
          val rootID = 1
          tryRead[ A ]( rootID )( ser.read( _ )).getOrElse {
 //println( "HERE CALLING NEWID" )
-            val id   = newIDValue
+            val id   = newIDValue()
 //println( "DID CALL NEWID" )
             require( id == rootID, "Root can only be initialized on an empty database" )
 //println( "CALLING INIT" )
@@ -114,13 +114,13 @@ object BerkeleyDB {
       }
 
       def newVal[ A ]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Val[ A ] = {
-         val res = new ValImpl[ A ]( newIDValue, ser )
+         val res = new ValImpl[ A ]( newIDValue(), ser )
          res.setInit( init )
          res
       }
 
       def newInt( init: Int )( implicit tx: InTxn ) : Val[ Int ] = {
-         val res = new IntVal( newIDValue )
+         val res = new IntVal( newIDValue() )
          res.setInit( init )
          res
       }
@@ -130,14 +130,14 @@ object BerkeleyDB {
 
       def newRef[ A <: Mutable[ BerkeleyDB ]]( init: A )( implicit tx: InTxn,
                                                           reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
-         val res = new RefImpl[ A ]( newIDValue, reader )
+         val res = new RefImpl[ A ]( newIDValue(), reader )
          res.setInit( init )
          res
       }
 
       def newOptionRef[ A <: MutableOption[ BerkeleyDB ]]( init: A )( implicit tx: InTxn,
                                                            reader: MutableOptionReader[ BerkeleyDB, A ]) : Ref[ A ] = {
-         val res = new OptionRefImpl[ A ]( newIDValue, reader )
+         val res = new OptionRefImpl[ A ]( newIDValue(), reader )
          res.setInit( init )
          res
       }
@@ -215,7 +215,7 @@ object BerkeleyDB {
          dbTxn
       }
 
-      private def newIDValue( implicit tx: InTxn ) : Int = {
+      private def newIDValue()( implicit tx: InTxn ) : Int = {
 //      val id = idCnt.transformAndGet( _ + 1 )
          val id = idCnt.get + 1
          logConfig( "new " + id )
@@ -228,7 +228,7 @@ object BerkeleyDB {
          id
       }
 
-      def newID( implicit tx: InTxn ) : ID = new IDImpl( newIDValue )
+      def newID()( implicit tx: InTxn ) : ID = new IDImpl( newIDValue() )
 
       private def withIO[ A ]( fun: IO => A ) : A = {
          val ioOld   = ioQueue.poll()
