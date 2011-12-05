@@ -140,8 +140,6 @@ final class InMemory extends Sys[ InMemory ] {
 
    def newID()( implicit tx: InTxn ) : ID = new InMemory.IDImpl
 
-   "gaga".size
-
 //   def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] =
 //      new InMemory.MutImpl[ A ]( init )
 
