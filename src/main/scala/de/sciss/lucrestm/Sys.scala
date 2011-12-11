@@ -26,13 +26,17 @@
 package de.sciss.lucrestm
 
 import de.sciss.lucrestm.{Ref => _Ref, Val => _Val}
-import concurrent.stm.InTxn
 
+object Sys {
+// this produces 'diverging fuckyourself' messages
+//   implicit def fromTxn[ S <: Sys[ S ]]( implicit tx: S#Tx ) : S = tx.system
+   implicit def manifest[ S <: Sys[ S ]]( implicit system: S ) : Manifest[ S ] = system.manifest
+}
 trait Sys[ S <: Sys[ S ]] {
    type Val[ @specialized A ] <: _Val[ S#Tx, A ]
    type Ref[ A ] <: _Ref[ S#Tx, A ]
-   type Tx <: InTxn
-//   type Tx <: Txn[ S ]
+//   type Tx <: InTxn
+   type Tx <: Txn[ S ]
    type ID <: Identifier[ S#Tx ]
 
    def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ]
@@ -52,4 +56,6 @@ trait Sys[ S <: Sys[ S ]] {
    def readOptionRef[ A <: MutableOption[ S ]]( in: DataInput )( implicit reader: MutableOptionReader[ S, A ]) : S#Ref[ A ]
    def readMut[ A <: Mutable[ S ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : A
    def readOptionMut[ A <: MutableOption[ S ]]( in: DataInput )( implicit reader: MutableOptionReader[ S, A ]) : A
+
+   def manifest: Manifest[ S ]
 }
