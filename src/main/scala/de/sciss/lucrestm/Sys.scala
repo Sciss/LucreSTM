@@ -32,6 +32,7 @@ trait Sys[ S <: Sys[ S ]] {
    type Val[ @specialized A ] <: _Val[ S#Tx, A ]
    type Ref[ A ] <: _Ref[ S#Tx, A ]
    type Tx <: InTxn
+//   type Tx <: Txn[ S ]
    type ID <: Identifier[ S#Tx ]
 
    def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ]

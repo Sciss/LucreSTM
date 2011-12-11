@@ -25,9 +25,9 @@
 
 package de.sciss.lucrestm
 
-import de.sciss.lucrestm.{Ref => _Ref, Val => _Val}
+import de.sciss.lucrestm.{Ref => _Ref, Val => _Val, Txn => _Txn}
 import java.util.concurrent.ConcurrentLinkedQueue
-import concurrent.stm.{TxnLocal, Txn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
+import concurrent.stm.{TxnLocal, Txn => ScalaTxn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
 import java.io.{FileNotFoundException, File, IOException}
 import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus}
 import annotation.elidable
@@ -80,7 +80,7 @@ object BerkeleyDB {
    }
 
    private final class System( env: Environment, db: Database, txnCfg: TransactionConfig, idCnt: ScalaRef[ Int ])
-   extends BerkeleyDB with Txn.ExternalDecider {
+   extends BerkeleyDB with ScalaTxn.ExternalDecider {
       system =>
 
 //      private val peer        = new CCSTM()
@@ -201,10 +201,10 @@ object BerkeleyDB {
       private def txnHandle( implicit txn: InTxnEnd ) : Transaction = dbTxnSTMRef.get
 
       private def initDBTxn( implicit txn: InTxn ) : Transaction = {
-         Txn.setExternalDecider( this )
+         ScalaTxn.setExternalDecider( this )
          val dbTxn = env.beginTransaction( null, txnCfg )
          logConfig( "txn begin <" + dbTxn.getId + ">" )
-         Txn.afterRollback { status =>
+         ScalaTxn.afterRollback { status =>
             try {
                logConfig( "txn rollback <" + dbTxn.getId + ">" )
                dbTxn.abort()
@@ -261,7 +261,7 @@ object BerkeleyDB {
             if( in != null ) {
                valueFun( in )
             } else {
-//            Txn.retry
+//            ScalaTxn.retry
                throw new IOException()
             }
          }
@@ -493,7 +493,7 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
    type Ref[ A ]  = BerkeleyDB.Ref[ A ]
 //   type Mut[ +A ] = BerkeleyDB.Mut[ A ]
    type ID        = BerkeleyDB.ID
-   type Tx        = InTxn
+   type Tx        = InTxn // BerkeleyDB.Txn // InTxn
 
    /**
     * Closes the underlying database. The STM cannot be used beyond this call.
