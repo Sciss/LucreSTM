@@ -73,26 +73,26 @@ object InMemory {
    private final class TxnImpl( val system: InMemory, val peer: InTxn ) extends Txn {
       private[lucrestm] def newVal[ A ]( id: ID, init: A )( implicit ser: Serializer[ A ]) : Val[ A ] = {
          val peer = ScalaRef[ A ]( init )
-         new InMemory.ValImpl[ A ]( peer )
+         new ValImpl[ A ]( peer )
       }
 
       private[lucrestm] def newInt( id: ID, init: Int ) : Val[ Int ] = {
          val peer = ScalaRef( init )
-         new InMemory.ValImpl( peer )
+         new ValImpl( peer )
       }
 
       private[lucrestm] def newRef[ A <: Mutable[ InMemory ]]( id: ID, init: A )(
          implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
 
          val peer = ScalaRef[ A ]( init )
-         new InMemory.RefImpl[ A ]( peer )
+         new RefImpl[ A ]( peer )
       }
 
       private[lucrestm] def newOptionRef[ A <: MutableOption[ InMemory ]]( id: ID, init: A )(
          implicit reader: MutableOptionReader[ InMemory, A ]) : Ref[ A ] = {
 
          val peer = ScalaRef[ A ]( init )
-         new InMemory.RefImpl[ A ]( peer )
+         new RefImpl[ A ]( peer )
       }
 
       private[lucrestm] def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
@@ -104,6 +104,8 @@ object InMemory {
  * A thin wrapper around scala-stm.
  */
 final class InMemory extends Sys[ InMemory ] {
+   import InMemory._
+
    type Val[ @specialized A ]  = InMemory.Val[ A ]
    type Ref[ A ]  = InMemory.Ref[ A ]
    type ID        = InMemory.ID
@@ -111,36 +113,36 @@ final class InMemory extends Sys[ InMemory ] {
 
    def manifest: Manifest[ InMemory ] = Manifest.classType( classOf[ InMemory ])
 
-   def newID()( implicit tx: Tx ) : ID = new InMemory.IDImpl
+   def newID()( implicit tx: Tx ) : ID = new IDImpl
 
    def atomic[ Z ]( block: Tx => Z ) : Z = {
-      TxnExecutor.defaultAtomic[ Z ]( itx => block( new InMemory.TxnImpl( this, itx )))
+      TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
    }
 
    def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
-      InMemory.opNotSupported( "readVal" )
+      opNotSupported( "readVal" )
    }
 
    def readInt( in: DataInput ) : Val[ Int ] = {
-      InMemory.opNotSupported( "readIntVal" )
+      opNotSupported( "readIntVal" )
    }
 
    def readRef[ A <: Mutable[ InMemory ]]( in: DataInput )
                                          ( implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
-      InMemory.opNotSupported( "readRef" )
+      opNotSupported( "readRef" )
    }
 
    def readOptionRef[ A <: MutableOption[ InMemory ]]( in: DataInput )
                                                      ( implicit reader: MutableOptionReader[ InMemory, A ]) : Ref[ A ] = {
-      InMemory.opNotSupported( "readOptionRef" )
+      opNotSupported( "readOptionRef" )
    }
 
    def readMut[ A <: Mutable[ InMemory ]]( in: DataInput )( implicit reader: MutableReader[ InMemory, A ]) : A = {
-      InMemory.opNotSupported( "readMut" )
+      opNotSupported( "readMut" )
    }
 
    def readOptionMut[ A <: MutableOption[ InMemory ]]( in: DataInput )
                                                      ( implicit reader: MutableOptionReader[ InMemory, A ]) : A = {
-      InMemory.opNotSupported( "readOptionMut" )
+      opNotSupported( "readOptionMut" )
    }
 }
