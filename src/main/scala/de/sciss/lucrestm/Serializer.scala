@@ -91,7 +91,7 @@ object Serializer {
 
    // ---- incremental build-up ----
 
-   implicit def fromReader[ A <: Writer ]( implicit reader: Reader[ A ]) : Serializer[ A ] =  new ReaderWrapper( reader )
+   implicit def fromReader[ A <: Writer ]( implicit reader: Reader[ A ]) : Serializer[ A ] = new ReaderWrapper( reader )
 
    private final class ReaderWrapper[ A <: Writer ]( reader: Reader[ A ]) extends Serializer[ A ] {
       def write( v: A, out: DataOutput ) { v.write( out )}
