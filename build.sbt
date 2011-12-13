@@ -2,7 +2,7 @@ name := "lucrestm"
 
 ideaProjectName := "LucreSTM"
 
-version := "0.11-SNAPSHOT"
+version := "0.11"
 
 organization := "de.sciss"
 
