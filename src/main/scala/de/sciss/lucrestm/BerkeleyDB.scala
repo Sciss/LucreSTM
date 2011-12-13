@@ -27,7 +27,7 @@ package de.sciss.lucrestm
 
 import de.sciss.lucrestm.{Ref => _Ref, Val => _Val, Txn => _Txn}
 import java.util.concurrent.ConcurrentLinkedQueue
-import concurrent.stm.{TxnLocal, Txn => ScalaTxn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
+import concurrent.stm.{Txn => ScalaTxn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
 import java.io.{FileNotFoundException, File, IOException}
 import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus}
 import annotation.elidable
@@ -85,19 +85,13 @@ object BerkeleyDB {
 
       def manifest: Manifest[ BerkeleyDB ] = Manifest.classType( classOf[ BerkeleyDB ])
 
-//      private val peer        = new CCSTM()
-//      private val idCnt       = ScalaRef( 0 ) // peer.newRef( 0 )
-//      private val dbTxnSTMRef = TxnLocal( initialValue = initDBTxn( _ ))
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
 
       def root[ A ]( init: => A )( implicit tx: Txn, ser: Serializer[ A ]) : A = {
          val rootID = 1
          tryRead[ A ]( rootID )( ser.read( _ )).getOrElse {
-//println( "HERE CALLING NEWID" )
             val id   = newIDValue()
-//println( "DID CALL NEWID" )
             require( id == rootID, "Root can only be initialized on an empty database" )
-//println( "CALLING INIT" )
             val res  = init
             write( id )( ser.write( res, _ ))
             res
@@ -114,46 +108,6 @@ object BerkeleyDB {
          i += 1 }
          b.result()
       }
-
-      def newVal[ A ]( init: A )( implicit tx: Txn, ser: Serializer[ A ]) : Val[ A ] = {
-         val res = new ValImpl[ A ]( newIDValue(), ser )
-         res.setInit( init )
-         res
-      }
-
-      def newInt( init: Int )( implicit tx: Txn ) : Val[ Int ] = {
-         val res = new IntVal( newIDValue() )
-         res.setInit( init )
-         res
-      }
-
-//      def newRef[ A <: Disposable[ InTxn ]]()( implicit tx: InTxn, ser: Serializer[ A ]) : Ref[ A ] =
-//         newRef[ A ]( EmptyMut )
-
-      def newRef[ A <: Mutable[ BerkeleyDB ]]( init: A )( implicit tx: Txn,
-                                                          reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
-         val res = new RefImpl[ A ]( newIDValue(), reader )
-         res.setInit( init )
-         res
-      }
-
-      def newOptionRef[ A <: MutableOption[ BerkeleyDB ]]( init: A )( implicit tx: Txn,
-                                                           reader: MutableOptionReader[ BerkeleyDB, A ]) : Ref[ A ] = {
-         val res = new OptionRefImpl[ A ]( newIDValue(), reader )
-         res.setInit( init )
-         res
-      }
-
-//      def newMut[ A <: Disposable[ InTxn ]]( init: A )( implicit tx: InTxn, ser: Serializer[ A ]) : Mut[ A ] = {
-//         val id   = newID
-//         val res  = new MutImpl[ A ]( id, ser )
-//         write( id )( ser.write( init, _ ))
-//         res
-//      }
-
-      def newValArray[ A ]( size: Int ) : Array[ Val[ A ]] = new Array[ Val[ A ]]( size )
-
-      def newRefArray[ A /*<: Mutable[ BerkeleyDB ]*/]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
 
       def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
          val id = in.readInt()
@@ -217,7 +171,7 @@ object BerkeleyDB {
 //         dbTxn
 //      }
 
-      private def newIDValue()( implicit tx: Txn ) : Int = {
+      def newIDValue()( implicit tx: Txn ) : Int = {
 //      val id = idCnt.transformAndGet( _ + 1 )
          val itx = tx.peer
          val id  = idCnt.get( itx ) + 1
@@ -270,157 +224,15 @@ object BerkeleyDB {
          }
       }
 
+      // XXX this can be implemented more efficient, using the no-data reading strategy of BDB
+      def exists( id: Int )( implicit tx: Txn ) : Boolean = tryRead[ Unit ]( id )( _ => () ).isDefined
+
       def tryRead[ A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Txn ) : Option[ A ] = {
 //         logConfig( "try-read " + id )
          withIO { io =>
             val in = io.read( id )
             if( in != null ) Some( valueFun( in )) else None
          }
-      }
-
-      private sealed trait BasicSource {
-         protected def id: Int
-
-         final def write( out: DataOutput ) {
-            out.writeInt( id )
-         }
-
-         final def dispose()( implicit tx: Txn ) {
-            system.remove( id )
-         }
-
-         @elidable(CONFIG) protected final def assertExists()( implicit tx: Txn ) {
-            require( system.tryRead[ Unit ]( id )( _ => () ).isDefined, "trying to write disposed ref " + id )
-         }
-      }
-
-      private final class IDImpl( val id: Int ) extends ID {
-         def write( out: DataOutput ) { out.writeInt( id )}
-
-         override def equals( that: Any ) : Boolean = {
-            /* (that != null) && */ that.isInstanceOf[ IDImpl ] && (id == that.asInstanceOf[ IDImpl ].id)
-         }
-
-         def dispose()( implicit tx: Txn ) {
-            system.remove( id )
-         }
-
-         override def toString = "<" + id + ">"
-      }
-
-      private final class ValImpl[ A ]( protected val id: Int, ser: Serializer[ A ])
-      extends Val[ A ] with BasicSource {
-         def get( implicit tx: Txn ) : A = {
-            system.read[ A ]( id )( ser.read( _ ))
-         }
-
-         def setInit( v: A )( implicit tx: Txn ) {
-            system.write( id )( ser.write( v, _ ))
-         }
-
-         def set( v: A )( implicit tx: Txn ) {
-            assertExists()
-            system.write( id )( ser.write( v, _ ))
-         }
-
-         def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
-
-         override def toString = "Val(" + id + ")"
-
-//         def debug() {
-//            println( toString )
-//         }
-      }
-
-      private final class IntVal( protected val id: Int ) extends Val[ Int ] with BasicSource {
-         def get( implicit tx: Txn ) : Int = {
-            system.read[ Int ]( id )( _.readInt() )
-         }
-
-         def setInit( v: Int )( implicit tx: Txn ) {
-            system.write( id )( _.writeInt( v ))
-         }
-
-         def set( v: Int )( implicit tx: Txn ) {
-            assertExists()
-            system.write( id )( _.writeInt( v ))
-         }
-
-         def transform( f: Int => Int )( implicit tx: Txn ) { set( f( get ))}
-
-         override def toString = "Val[Int](" + id + ")"
-
-//         def debug() {
-//            println( toString )
-//         }
-      }
-
-      private final class RefImpl[ A <: Mutable[ BerkeleyDB ]]( protected val id: Int,
-                                                                val reader: MutableReader[ BerkeleyDB, A ])
-      extends Ref[ A ] with BasicSource {
-         override def toString = "Ref(" + id + ")"
-
-//         def debug() {
-//            println( toString )
-//         }
-
-         def get( implicit tx: Txn ) : A = {
-            system.read[ A ]( id ) { in =>
-               val mid = in.readInt()
-               reader.readData( in, new IDImpl( mid ))
-            }
-         }
-
-         def setInit( v: A )( implicit tx: Txn ) {
-            system.write( id )( v.write( _ ))
-         }
-
-         def set( v: A )( implicit tx: Txn ) {
-            assertExists()
-            system.write( id )( v.write( _ ))
-         }
-
-         def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
-      }
-
-      private final class OptionRefImpl[ A <: MutableOption[ BerkeleyDB ]](
-         protected val id: Int, val reader: MutableOptionReader[ BerkeleyDB, A ])
-      extends Ref[ A ] with BasicSource {
-         override def toString = "Ref(" + id + ")"
-
-//         def debug() {
-//            println( toString )
-//         }
-
-         def get( implicit tx: Txn ) : A = {
-            system.read[ A ]( id ) { in =>
-               val mid = in.readInt()
-               if( mid == -1 ) reader.empty else {
-                  reader.readData( in, new IDImpl( mid ))
-               }
-            }
-         }
-
-         def setInit( v: A )( implicit tx: Txn ) {
-            system.write( id ) { out =>
-               v match {
-                  case m: Mutable[ _ ] => m.write( out )
-                  case _: EmptyMutable => out.writeInt( -1 )
-               }
-            }
-         }
-
-         def set( v: A )( implicit tx: Txn ) {
-            assertExists()
-            system.write( id ) { out =>
-               v match {
-                  case m: Mutable[ _ ] => m.write( out )
-                  case _: EmptyMutable => out.writeInt( -1 )
-               }
-            }
-         }
-
-         def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
       }
 
       private final class IO {
@@ -469,6 +281,140 @@ object BerkeleyDB {
       }
    }
 
+   private final class IDImpl( val id: Int ) extends ID {
+      def write( out: DataOutput ) { out.writeInt( id )}
+
+      override def equals( that: Any ) : Boolean = {
+         /* (that != null) && */ that.isInstanceOf[ IDImpl ] && (id == that.asInstanceOf[ IDImpl ].id)
+      }
+
+      def dispose()( implicit tx: Txn ) {
+         tx.system.remove( id )
+      }
+
+      override def toString = "<" + id + ">"
+   }
+
+   private sealed trait BasicSource {
+      protected def id: Int
+
+      final def write( out: DataOutput ) {
+         out.writeInt( id )
+      }
+
+      final def dispose()( implicit tx: Txn ) {
+         tx.system.remove( id )
+      }
+
+      @elidable(CONFIG) protected final def assertExists()( implicit tx: Txn ) {
+         require( tx.system.exists( id ), "trying to write disposed ref " + id )
+      }
+   }
+
+   private final class ValImpl[ A ]( protected val id: Int, ser: Serializer[ A ])
+   extends Val[ A ] with BasicSource {
+      def get( implicit tx: Txn ) : A = {
+         tx.system.read[ A ]( id )( ser.read( _ ))
+      }
+
+      def setInit( v: A )( implicit tx: Txn ) {
+         tx.system.write( id )( ser.write( v, _ ))
+      }
+
+      def set( v: A )( implicit tx: Txn ) {
+         assertExists()
+         tx.system.write( id )( ser.write( v, _ ))
+      }
+
+      def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
+
+      override def toString = "Val(" + id + ")"
+   }
+
+   private final class IntVal( protected val id: Int )
+   extends Val[ Int ] with BasicSource {
+      def get( implicit tx: Txn ) : Int = {
+         tx.system.read[ Int ]( id )( _.readInt() )
+      }
+
+      def setInit( v: Int )( implicit tx: Txn ) {
+         tx.system.write( id )( _.writeInt( v ))
+      }
+
+      def set( v: Int )( implicit tx: Txn ) {
+         assertExists()
+         tx.system.write( id )( _.writeInt( v ))
+      }
+
+      def transform( f: Int => Int )( implicit tx: Txn ) { set( f( get ))}
+
+      override def toString = "Val[Int](" + id + ")"
+   }
+
+   private final class RefImpl[ A <: Mutable[ BerkeleyDB ]]( protected val id: Int,
+                                                                         val reader: MutableReader[ BerkeleyDB, A ])
+   extends Ref[ A ] with BasicSource {
+      override def toString = "Ref(" + id + ")"
+
+//         def debug() {
+//            println( toString )
+//         }
+
+      def get( implicit tx: Txn ) : A = {
+         tx.system.read[ A ]( id ) { in =>
+            val mid = in.readInt()
+            reader.readData( in, new IDImpl( mid ))
+         }
+      }
+
+      def setInit( v: A )( implicit tx: Txn ) {
+         tx.system.write( id )( v.write( _ ))
+      }
+
+      def set( v: A )( implicit tx: Txn ) {
+         assertExists()
+         tx.system.write( id )( v.write( _ ))
+      }
+
+      def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
+   }
+
+   private final class OptionRefImpl[ A <: MutableOption[ BerkeleyDB ]](
+      protected val id: Int, val reader: MutableOptionReader[ BerkeleyDB, A ])
+   extends Ref[ A ] with BasicSource {
+      override def toString = "Ref(" + id + ")"
+
+      def get( implicit tx: Txn ) : A = {
+         tx.system.read[ A ]( id ) { in =>
+            val mid = in.readInt()
+            if( mid == -1 ) reader.empty else {
+               reader.readData( in, new IDImpl( mid ))
+            }
+         }
+      }
+
+      def setInit( v: A )( implicit tx: Txn ) {
+         tx.system.write( id ) { out =>
+            v match {
+               case m: Mutable[ _ ] => m.write( out )
+               case _: EmptyMutable => out.writeInt( -1 )
+            }
+         }
+      }
+
+      def set( v: A )( implicit tx: Txn ) {
+         assertExists()
+         tx.system.write( id ) { out =>
+            v match {
+               case m: Mutable[ _ ] => m.write( out )
+               case _: EmptyMutable => out.writeInt( -1 )
+            }
+         }
+      }
+
+      def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
+   }
+
    sealed trait Ref[ A ] extends _Ref[ Txn, A ]
 
    sealed trait Val[ @specialized A ] extends _Val[ Txn, A ]
@@ -498,6 +444,38 @@ object BerkeleyDB {
          })( peer )
          res
       }
+
+      private[lucrestm] def newVal[ A ]( id: ID, init: A )( implicit ser: Serializer[ A ]) : Val[ A ] = {
+         val res = new ValImpl[ A ]( system.newIDValue()( this ), ser )
+         res.setInit( init )( this )
+         res
+      }
+
+      private[lucrestm] def newInt( id: ID, init: Int ) : Val[ Int ] = {
+         val res = new IntVal( system.newIDValue()( this ) )
+         res.setInit( init )( this )
+         res
+      }
+
+      private[lucrestm] def newRef[ A <: Mutable[ BerkeleyDB ]]( id: ID, init: A )(
+         implicit reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
+
+         val res = new RefImpl[ A ]( system.newIDValue()( this ), reader )
+         res.setInit( init )( this )
+         res
+      }
+
+      private[lucrestm] def newOptionRef[ A <: MutableOption[ BerkeleyDB ]]( id: ID, init: A )(
+         implicit reader: MutableOptionReader[ BerkeleyDB, A ]) : Ref[ A ] = {
+
+         val res = new OptionRefImpl[ A ]( system.newIDValue()( this ), reader )
+         res.setInit( init )( this )
+         res
+      }
+
+      private[lucrestm] def newValArray[ A ]( size: Int ) : Array[ Val[ A ]] = new Array[ Val[ A ]]( size )
+
+      private[lucrestm] def newRefArray[ A ]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
 
       // ---- ExternalDecider ----
       def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
@@ -550,4 +528,10 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
     * if no root has been stored yet.
     */
    def root[ A ]( init: => A )( implicit tx: Tx, ser: Serializer[ A ]) : A
+
+   private[lucrestm] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: BerkeleyDB#Tx ) : A
+   private[lucrestm] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: BerkeleyDB#Tx ) : Unit
+   private[lucrestm] def remove( id: Int )( implicit tx: BerkeleyDB#Tx ) : Unit
+   private[lucrestm] def exists( id: Int )( implicit tx: BerkeleyDB#Tx ) : Boolean
+   private[lucrestm] def newIDValue()( implicit tx: BerkeleyDB#Tx ) : Int
 }

@@ -30,4 +30,15 @@ import concurrent.stm.InTxn
 trait Txn[ S <: Sys[ S ]] {
    def system: S
    def peer: InTxn
+
+   private[lucrestm] def newVal[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ A ]) : S#Val[ A ]
+   private[lucrestm] def newInt( id: S#ID, init: Int ) : S#Val[ Int ]
+   private[lucrestm] def newRef[ A <: Mutable[ S ]]( id: S#ID, init: A )(
+      implicit reader: MutableReader[ S, A ]) : S#Ref[ A ]
+
+   private[lucrestm] def newOptionRef[ A <: MutableOption[ S ]]( id: S#ID, init: A )(
+      implicit reader: MutableOptionReader[ S, A ]) : S#Ref[ A ]
+
+   private[lucrestm] def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
+   private[lucrestm] def newRefArray[ A ]( size: Int ) : Array[ S#Ref[ A ]]
 }

@@ -35,20 +35,20 @@ object Sys {
 trait Sys[ S <: Sys[ S ]] {
    type Val[ @specialized A ] <: _Val[ S#Tx, A ]
    type Ref[ A ] <: _Ref[ S#Tx, A ]
-//   type Tx <: InTxn
    type Tx <: Txn[ S ]
    type ID <: Identifier[ S#Tx ]
 
-   def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ]
-   def newInt( init: Int )( implicit tx: S#Tx ) : S#Val[ Int ]
-   def newRef[ A <: Mutable[ S ]]( init: A )( implicit tx: S#Tx, reader: MutableReader[ S, A ]) : S#Ref[ A ]
-   def newOptionRef[ A <: MutableOption[ S ]]( init: A )( implicit tx: S#Tx, reader: MutableOptionReader[ S, A ]) : S#Ref[ A ]
-   def newID()( implicit tx: S#Tx ) : ID
+//   def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ]
+//   def newInt( init: Int )( implicit tx: S#Tx ) : S#Val[ Int ]
+//   def newRef[ A <: Mutable[ S ]]( init: A )( implicit tx: S#Tx, reader: MutableReader[ S, A ]) : S#Ref[ A ]
+//   def newOptionRef[ A <: MutableOption[ S ]]( init: A )( implicit tx: S#Tx, reader: MutableOptionReader[ S, A ]) : S#Ref[ A ]
+//
+//   def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
+//   def newRefArray[ A /* <: Mutable[ S ]*/]( size: Int ) : Array[ S#Ref[ A ]]
+
+   def newID()( implicit tx: S#Tx ) : S#ID
 
    def atomic[ Z ]( block: S#Tx => Z ) : Z
-
-   def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
-   def newRefArray[ A /* <: Mutable[ S ]*/]( size: Int ) : Array[ S#Ref[ A ]]
 
    def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : S#Val[ A ]
    def readInt( in: DataInput ) : S#Val[ Int ]
