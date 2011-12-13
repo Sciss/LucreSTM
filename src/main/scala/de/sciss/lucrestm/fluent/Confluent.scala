@@ -2,11 +2,15 @@ package de.sciss.lucrestm
 package fluent
 
 import de.sciss.lucrestm.{ Txn => _Txn, Ref => _Ref, Val => _Val }
-import concurrent.stm.{InTxn, TxnExecutor, Ref => ScalaRef}
+import concurrent.stm.{InTxn, TxnExecutor}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object Confluent {
-   sealed trait ID extends Identifier[ Txn ]
+   sealed trait ID extends Identifier[ Txn ] {
+      private[Confluent] def id: Int
+      private[Confluent] def path: IIdxSeq[ Int ]
+   }
+
    sealed trait Txn extends _Txn[ Confluent ]
    sealed trait Val[ @specialized A ] extends _Val[ Txn, A ]
    sealed trait Ref[ A ] extends _Ref[ Txn, A ]
@@ -19,10 +23,14 @@ object Confluent {
 
    private[Confluent] def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )
 
-   private final class IDImpl( id: Int, path: IIdxSeq[ Int ]) extends ID {
-      def write(  out: DataOutput ) {
-         opNotSupported( "ID.write" )
+   private final class IDImpl( val id: Int, val path: IIdxSeq[ Int ]) extends ID {
+      def write( out: DataOutput ) {
+         out.writeInt( id )
+         out.writeInt( path.size )
+         path.foreach( out.writeInt( _ ))
       }
+
+      override def toString = "<"  + id + path.mkString( " @ ", ",", ">" )
 
       def dispose()( implicit tx: Txn ) {}
    }
@@ -54,8 +62,10 @@ object Confluent {
 
    private sealed trait SourceImpl[ @specialized A ] {
       protected def ser: Serializer[ A ]
+      protected def id: ID
 
-      final var bytes: Array[ Byte ] = null
+//      final var bytes: Array[ Byte ] = null
+      private final var set = Map.empty[ IIdxSeq[ Int ], Array[ Byte ]]
 
       final def set( v: A )( implicit tx: Txn ) {
          writeValue( v )
@@ -64,39 +74,47 @@ object Confluent {
       protected final def writeValue( v: A ) {
          val out = new DataOutput()
          ser.write( v, out )
-         bytes = out.toByteArray
+         val bytes = out.toByteArray
+         set += id.path -> bytes
       }
 
       final def get( implicit tx: Txn ) : A = {
-         val in = new DataInput( bytes )
+         var best: Array[Byte]   = null
+         var bestLen = 0
+         set.foreach {
+            case (path, arr) =>
+               val len = path.zip( id.path ).segmentLength({ case (a, b) => a == b }, 0 )
+               if( len > bestLen ) {
+                  best     = arr
+                  bestLen  = len
+               }
+         }
+         require( best != null, "No value for path " + id.path )
+         val in = new DataInput( best )
          ser.read( in )
       }
 
       final def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
 
-      final def dispose()( implicit tx: Txn ) { bytes = null }
-
-//      final def write( out: DataOutput ) {
-//
-//      }
+      final def dispose()( implicit tx: Txn ) { set = set.empty }
    }
 
-   private final class RefImpl[ A ]( id: ID, init: A )( implicit val ser: Serializer[ A ])
+   private final class RefImpl[ A ]( val id: ID, init: A )( implicit val ser: Serializer[ A ])
    extends Ref[ A ] with SourceImpl[ A ] {
       writeValue( init )
 
-      override def toString = "Ref<" + hashCode().toHexString + ">"
+      override def toString = "Ref" + id
 
       def write( out: DataOutput ) {
          id.write( out )
       }
    }
 
-   private final class ValImpl[ @specialized A ]( id: ID, init: A )( implicit val ser: Serializer[ A ])
+   private final class ValImpl[ @specialized A ]( val id: ID, init: A )( implicit val ser: Serializer[ A ])
    extends Val[ A ] with SourceImpl[ A ] {
       writeValue( init )
 
-      override def toString = "Val<" + hashCode().toHexString + ">"
+      override def toString = "Val" + id
 
       def write( out: DataOutput ) {
          id.write( out )
