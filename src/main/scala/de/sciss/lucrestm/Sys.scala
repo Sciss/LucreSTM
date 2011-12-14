@@ -50,12 +50,12 @@ trait Sys[ S <: Sys[ S ]] {
 
    def atomic[ Z ]( block: S#Tx => Z ) : Z
 
-   def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : S#Val[ A ]
-   def readInt( in: DataInput ) : S#Val[ Int ]
-   def readRef[ A <: Mutable[ S ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : S#Ref[ A ]
-   def readOptionRef[ A <: MutableOption[ S ]]( in: DataInput )( implicit reader: MutableOptionReader[ S, A ]) : S#Ref[ A ]
-   def readMut[ A <: Mutable[ S ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : A
-   def readOptionMut[ A <: MutableOption[ S ]]( in: DataInput )( implicit reader: MutableOptionReader[ S, A ]) : A
+//   def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : S#Val[ A ]
+//   def readInt( in: DataInput ) : S#Val[ Int ]
+//   def readRef[ A <: Mutable[ S ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : S#Ref[ A ]
+//   def readOptionRef[ A <: MutableOption[ S ]]( in: DataInput )( implicit reader: MutableOptionReader[ S, A ]) : S#Ref[ A ]
+//   def readMut[ A <: Mutable[ S ]]( in: DataInput )( implicit reader: MutableReader[ S, A ]) : A
+//   def readOptionMut[ A <: MutableOption[ S ]]( in: DataInput )( implicit reader: MutableOptionReader[ S, A ]) : A
 
    def manifest: Manifest[ S ]
 }

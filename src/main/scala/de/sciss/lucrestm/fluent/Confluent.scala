@@ -4,7 +4,6 @@ package fluent
 import de.sciss.lucrestm.{ Txn => _Txn, Ref => _Ref, Val => _Val }
 import concurrent.stm.{InTxn, TxnExecutor}
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import annotation.switch
 
 object Confluent {
    sealed trait ID extends Identifier[ Txn ] {
@@ -46,27 +45,78 @@ object Confluent {
    }
 
    private final class TxnImpl( val system: Confluent, val peer: InTxn ) extends Txn {
-      private[lucrestm] def newVal[ A ]( id: ID, init: A )( implicit ser: Serializer[ A ]) : Val[ A ] = {
-         new ValImpl[ A ]( id, init, ser )
+      def newVal[ A ]( id: ID, init: A )( implicit ser: Serializer[ A ]) : Val[ A ] = {
+         val res = new ValImpl[ A ]( id, ser )
+         res.write( init )
+         res
       }
 
-      private[lucrestm] def newInt( id: ID, init: Int ) : Val[ Int ] = {
-         new ValImpl( id, init, Serializer.Int )
+      def newInt( id: ID, init: Int ) : Val[ Int ] = {
+         val res = new ValImpl( id, Serializer.Int )
+         res.write( init )
+         res
       }
 
-      private[lucrestm] def newRef[ A <: Mutable[ Confluent ]]( id: ID, init: A )(
+      def newRef[ A <: Mutable[ Confluent ]]( id: ID, init: A )(
          implicit reader: MutableReader[ Confluent, A ]) : Ref[ A ] = {
-         new RefImpl[ A ]( id, init, reader )
+         val res = new RefImpl[ A ]( id, reader )
+         res.write( init )
+         res
       }
 
-      private[lucrestm] def newOptionRef[ A <: MutableOption[ Confluent ]]( id: ID, init: A )(
+      def newOptionRef[ A <: MutableOption[ Confluent ]]( id: ID, init: A )(
          implicit reader: MutableOptionReader[ Confluent, A ]) : Ref[ A ] = {
 
-         new RefOptionImpl[ A ]( id, init, reader )
+         val res = new RefOptionImpl[ A ]( id, reader )
+         res.write( init )
+         res
       }
 
-      private[lucrestm] def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
-      private[lucrestm] def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
+      def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
+      def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
+
+      def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
+         val mid  = in.readInt()
+         val id   = IDImpl.readAndSubstitute( mid, pid, in )
+         new ValImpl( id, ser )
+      }
+
+      def readInt( pid: ID, in: DataInput ) : Val[ Int ] = {
+         val mid  = in.readInt()
+         val id   = IDImpl.readAndSubstitute( mid, pid, in )
+         new ValImpl( id, Serializer.Int )
+      }
+
+      def readRef[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
+                                             ( implicit reader: MutableReader[ Confluent, A ]) : Ref[ A ] = {
+         val mid  = in.readInt()
+         val id   = IDImpl.readAndSubstitute( mid, pid, in )
+         new RefImpl( id, reader )
+      }
+
+      def readOptionRef[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )(
+         implicit reader: MutableOptionReader[ Confluent, A ]) : Ref[ A ] = {
+
+         val mid  = in.readInt()
+         val id   = IDImpl.readAndSubstitute( mid, pid, in )
+         new RefOptionImpl( id, reader )
+      }
+
+      def readMut[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
+                                             ( implicit reader: MutableReader[ Confluent, A ]) : A = {
+         val mid  = in.readInt()
+         val id   = IDImpl.readAndSubstitute( mid, pid, in )
+         reader.readData( in, id )
+      }
+
+      def readOptionMut[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )
+                                                         ( implicit reader: MutableOptionReader[ Confluent, A ]) : A = {
+         val mid  = in.readInt()
+         if( mid == -1 ) reader.empty else {
+            val id   = IDImpl.readAndSubstitute( mid, pid, in )
+            reader.readData( in, id )
+         }
+      }
    }
 
    private sealed trait SourceImpl[ @specialized A ] extends Serializer[ A ] {
@@ -83,7 +133,7 @@ object Confluent {
 //      protected def writeValue( v: A, out: DataOutput ) : Unit
 //      protected def readValue( in: DataInput ) : Unit
 
-      protected final def write( v: A ) {
+      final def write( v: A ) {
          val out = new DataOutput()
          write( v, out )
 //         ser.write( v, out )
@@ -113,9 +163,8 @@ object Confluent {
       final def dispose()( implicit tx: Txn ) { set = set.empty }
    }
 
-   private final class RefImpl[ A <: Mutable[ Confluent ]]( val id: ID, init: A, reader: MutableReader[ Confluent, A ])
+   private final class RefImpl[ A <: Mutable[ Confluent ]]( val id: ID, reader: MutableReader[ Confluent, A ])
    extends Ref[ A ] with SourceImpl[ A ] {
-      write( init )
 
       override def toString = "Ref" + id
 
@@ -133,10 +182,9 @@ object Confluent {
       }
    }
 
-   private final class RefOptionImpl[ A <: MutableOption[ Confluent ]]( val id: ID, init: A,
+   private final class RefOptionImpl[ A <: MutableOption[ Confluent ]]( val id: ID,
                                                                         reader: MutableOptionReader[ Confluent, A ])
    extends Ref[ A ] with SourceImpl[ A ] {
-      write( init )
 
       override def toString = "Ref" + id
 
@@ -159,9 +207,9 @@ object Confluent {
       }
    }
 
-   private final class ValImpl[ @specialized A ]( val id: ID, init: A, ser: Serializer[ A ])
+   private final class ValImpl[ @specialized A ]( val id: ID, ser: Serializer[ A ])
    extends Val[ A ] with SourceImpl[ A ] {
-      write( init )
+
 
       override def toString = "Val" + id
 
@@ -198,32 +246,5 @@ sealed trait Confluent extends Sys[ Confluent ] {
 
    def atomic[ Z ]( block: Tx => Z ) : Z = {
       TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
-   }
-
-   def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
-      opNotSupported( "readVal" )
-   }
-
-   def readInt( in: DataInput ) : Val[ Int ] = {
-      opNotSupported( "readIntVal" )
-   }
-
-   def readRef[ A <: Mutable[ Confluent ]]( in: DataInput )
-                                          ( implicit reader: MutableReader[ Confluent, A ]) : Ref[ A ] = {
-      opNotSupported( "readRef" )
-   }
-
-   def readOptionRef[ A <: MutableOption[ Confluent ]]( in: DataInput )
-                                                      ( implicit reader: MutableOptionReader[ Confluent, A ]) : Ref[ A ] = {
-      opNotSupported( "readOptionRef" )
-   }
-
-   def readMut[ A <: Mutable[ Confluent ]]( in: DataInput )( implicit reader: MutableReader[ Confluent, A ]) : A = {
-      opNotSupported( "readMut" )
-   }
-
-   def readOptionMut[ A <: MutableOption[ Confluent ]]( in: DataInput )
-                                                      ( implicit reader: MutableOptionReader[ Confluent, A ]) : A = {
-      opNotSupported( "readOptionMut" )
    }
 }

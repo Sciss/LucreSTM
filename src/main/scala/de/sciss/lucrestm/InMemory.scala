@@ -71,32 +71,61 @@ object InMemory {
    sealed trait Txn extends _Txn[ InMemory ]
 
    private final class TxnImpl( val system: InMemory, val peer: InTxn ) extends Txn {
-      private[lucrestm] def newVal[ A ]( id: ID, init: A )( implicit ser: Serializer[ A ]) : Val[ A ] = {
+      def newVal[ A ]( id: ID, init: A )( implicit ser: Serializer[ A ]) : Val[ A ] = {
          val peer = ScalaRef[ A ]( init )
          new ValImpl[ A ]( peer )
       }
 
-      private[lucrestm] def newInt( id: ID, init: Int ) : Val[ Int ] = {
+      def newInt( id: ID, init: Int ) : Val[ Int ] = {
          val peer = ScalaRef( init )
          new ValImpl( peer )
       }
 
-      private[lucrestm] def newRef[ A <: Mutable[ InMemory ]]( id: ID, init: A )(
+      def newRef[ A <: Mutable[ InMemory ]]( id: ID, init: A )(
          implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
 
          val peer = ScalaRef[ A ]( init )
          new RefImpl[ A ]( peer )
       }
 
-      private[lucrestm] def newOptionRef[ A <: MutableOption[ InMemory ]]( id: ID, init: A )(
+      def newOptionRef[ A <: MutableOption[ InMemory ]]( id: ID, init: A )(
          implicit reader: MutableOptionReader[ InMemory, A ]) : Ref[ A ] = {
 
          val peer = ScalaRef[ A ]( init )
          new RefImpl[ A ]( peer )
       }
 
-      private[lucrestm] def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
-      private[lucrestm] def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
+      def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
+      def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
+
+      def readVal[ A ]( id: ID, in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
+         opNotSupported( "readVal" )
+      }
+
+      def readInt( id: ID, in: DataInput ) : Val[ Int ] = {
+         opNotSupported( "readIntVal" )
+      }
+
+      def readRef[ A <: Mutable[ InMemory ]]( id: ID, in: DataInput )
+                                            ( implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
+         opNotSupported( "readRef" )
+      }
+
+      def readOptionRef[ A <: MutableOption[ InMemory ]]( id: ID, in: DataInput )(
+         implicit reader: MutableOptionReader[ InMemory, A ]) : Ref[ A ] = {
+
+         opNotSupported( "readOptionRef" )
+      }
+
+      def readMut[ A <: Mutable[ InMemory ]]( id: ID, in: DataInput )
+                                            ( implicit reader: MutableReader[ InMemory, A ]) : A = {
+         opNotSupported( "readMut" )
+      }
+
+      def readOptionMut[ A <: MutableOption[ InMemory ]]( id: ID, in: DataInput )
+                                                        ( implicit reader: MutableOptionReader[ InMemory, A ]) : A = {
+         opNotSupported( "readOptionMut" )
+      }
    }
 }
 
@@ -117,32 +146,5 @@ final class InMemory extends Sys[ InMemory ] {
 
    def atomic[ Z ]( block: Tx => Z ) : Z = {
       TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
-   }
-
-   def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
-      opNotSupported( "readVal" )
-   }
-
-   def readInt( in: DataInput ) : Val[ Int ] = {
-      opNotSupported( "readIntVal" )
-   }
-
-   def readRef[ A <: Mutable[ InMemory ]]( in: DataInput )
-                                         ( implicit reader: MutableReader[ InMemory, A ]) : Ref[ A ] = {
-      opNotSupported( "readRef" )
-   }
-
-   def readOptionRef[ A <: MutableOption[ InMemory ]]( in: DataInput )
-                                                     ( implicit reader: MutableOptionReader[ InMemory, A ]) : Ref[ A ] = {
-      opNotSupported( "readOptionRef" )
-   }
-
-   def readMut[ A <: Mutable[ InMemory ]]( in: DataInput )( implicit reader: MutableReader[ InMemory, A ]) : A = {
-      opNotSupported( "readMut" )
-   }
-
-   def readOptionMut[ A <: MutableOption[ InMemory ]]( in: DataInput )
-                                                     ( implicit reader: MutableOptionReader[ InMemory, A ]) : A = {
-      opNotSupported( "readOptionMut" )
    }
 }

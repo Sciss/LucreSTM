@@ -109,46 +109,6 @@ object BerkeleyDB {
          b.result()
       }
 
-      def readVal[ A ]( in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
-         val id = in.readInt()
-         new ValImpl[ A ]( id, ser )
-      }
-
-      def readInt( in: DataInput ) : Val[ Int ] = {
-         val id = in.readInt()
-         new IntVal( id )
-      }
-
-      def readRef[ A <: Mutable[ BerkeleyDB ]]( in: DataInput )
-                                              ( implicit reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
-         val id = in.readInt()
-         new RefImpl[ A ]( id, reader )
-      }
-
-      def readOptionRef[ A <: MutableOption[ BerkeleyDB ]]( in: DataInput )
-                                                          ( implicit reader: MutableOptionReader[ BerkeleyDB, A ]) : Ref[ A ] = {
-         val id = in.readInt()
-         new OptionRefImpl[ A ]( id, reader )
-      }
-
-//      def readMut[ A <: Mutable[ BerkeleyDB ]]( in: DataInput )( constr: ID => A ) : A = {
-//         val id = new IDImpl( in.readInt() )
-//         constr( id )
-//      }
-
-      def readMut[ A <: Mutable[ BerkeleyDB ]]( in: DataInput )( implicit reader: MutableReader[ BerkeleyDB, A ]) : A = {
-         val id = new IDImpl( in.readInt() )
-         reader.readData( in, id )
-      }
-
-      def readOptionMut[ A <: MutableOption[ BerkeleyDB ]]( in: DataInput )
-                                                          ( implicit reader: MutableOptionReader[ BerkeleyDB, A ]) : A = {
-         val mid = in.readInt()
-         if( mid == -1 ) reader.empty else {
-            reader.readData( in, new IDImpl( mid ))
-         }
-      }
-
       def close() { db.close() }
 
       def numRecords : Long = db.count()
@@ -445,19 +405,19 @@ object BerkeleyDB {
          res
       }
 
-      private[lucrestm] def newVal[ A ]( id: ID, init: A )( implicit ser: Serializer[ A ]) : Val[ A ] = {
+      def newVal[ A ]( id: ID, init: A )( implicit ser: Serializer[ A ]) : Val[ A ] = {
          val res = new ValImpl[ A ]( system.newIDValue()( this ), ser )
          res.setInit( init )( this )
          res
       }
 
-      private[lucrestm] def newInt( id: ID, init: Int ) : Val[ Int ] = {
+      def newInt( id: ID, init: Int ) : Val[ Int ] = {
          val res = new IntVal( system.newIDValue()( this ) )
          res.setInit( init )( this )
          res
       }
 
-      private[lucrestm] def newRef[ A <: Mutable[ BerkeleyDB ]]( id: ID, init: A )(
+      def newRef[ A <: Mutable[ BerkeleyDB ]]( id: ID, init: A )(
          implicit reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
 
          val res = new RefImpl[ A ]( system.newIDValue()( this ), reader )
@@ -465,7 +425,7 @@ object BerkeleyDB {
          res
       }
 
-      private[lucrestm] def newOptionRef[ A <: MutableOption[ BerkeleyDB ]]( id: ID, init: A )(
+      def newOptionRef[ A <: MutableOption[ BerkeleyDB ]]( id: ID, init: A )(
          implicit reader: MutableOptionReader[ BerkeleyDB, A ]) : Ref[ A ] = {
 
          val res = new OptionRefImpl[ A ]( system.newIDValue()( this ), reader )
@@ -473,9 +433,46 @@ object BerkeleyDB {
          res
       }
 
-      private[lucrestm] def newValArray[ A ]( size: Int ) : Array[ Val[ A ]] = new Array[ Val[ A ]]( size )
+      def newValArray[ A ]( size: Int ) : Array[ Val[ A ]] = new Array[ Val[ A ]]( size )
 
-      private[lucrestm] def newRefArray[ A ]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
+      def newRefArray[ A ]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
+
+      def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
+         val id = in.readInt()
+         new ValImpl[ A ]( id, ser )
+      }
+
+      def readInt( pid: ID, in: DataInput ) : Val[ Int ] = {
+         val id = in.readInt()
+         new IntVal( id )
+      }
+
+      def readRef[ A <: Mutable[ BerkeleyDB ]]( pid: ID, in: DataInput )
+                                              ( implicit reader: MutableReader[ BerkeleyDB, A ]) : Ref[ A ] = {
+         val id = in.readInt()
+         new RefImpl[ A ]( id, reader )
+      }
+
+      def readOptionRef[ A <: MutableOption[ BerkeleyDB ]]( pid: ID, in: DataInput )
+                                                          ( implicit reader: MutableOptionReader[ BerkeleyDB, A ]) : Ref[ A ] = {
+         val id = in.readInt()
+         new OptionRefImpl[ A ]( id, reader )
+      }
+
+      def readMut[ A <: Mutable[ BerkeleyDB ]]( pid: ID, in: DataInput )
+                                              ( implicit reader: MutableReader[ BerkeleyDB, A ]) : A = {
+         val id = new IDImpl( in.readInt() )
+         reader.readData( in, id )
+      }
+
+      def readOptionMut[ A <: MutableOption[ BerkeleyDB ]]( pid: ID, in: DataInput )
+                                                          ( implicit reader: MutableOptionReader[ BerkeleyDB, A ]) : A = {
+         val mid = in.readInt()
+         if( mid == -1 ) reader.empty else {
+            reader.readData( in, new IDImpl( mid ))
+         }
+      }
+
 
       // ---- ExternalDecider ----
       def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {

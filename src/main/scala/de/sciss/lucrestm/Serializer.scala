@@ -98,16 +98,16 @@ object Serializer {
       def read( in: DataInput ) : A = reader.read( in )
    }
 
-   implicit def fromMutableReader[ S <: Sys[ S ], A /* >: Null */ <: Mutable[ S ]]( implicit reader: MutableReader[ S, A ],
-                                                                              system: S ) : Serializer[ A ] =
-      new MutableReaderWrapper[ S, A ]
-
-   private final class MutableReaderWrapper[ S <: Sys[ S ], A /* >: Null */ <: Mutable[ S ]](
-      implicit reader: MutableReader[ S, A ], system: S ) extends Serializer[ A ] {
-
-      def write( v: A, out: DataOutput ) { v.write( out )}
-      def read( in: DataInput ) : A = system.readMut[ A ]( in )
-   }
+//   implicit def fromMutableReader[ S <: Sys[ S ], A /* >: Null */ <: Mutable[ S ]]( implicit reader: MutableReader[ S, A ],
+//                                                                              system: S ) : Serializer[ A ] =
+//      new MutableReaderWrapper[ S, A ]
+//
+//   private final class MutableReaderWrapper[ S <: Sys[ S ], A /* >: Null */ <: Mutable[ S ]](
+//      implicit reader: MutableReader[ S, A ], system: S ) extends Serializer[ A ] {
+//
+//      def write( v: A, out: DataOutput ) { v.write( out )}
+//      def read( in: DataInput ) : A = system.readMut[ A ]( in )
+//   }
 
    // ---- higher-kinded ----
 

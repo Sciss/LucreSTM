@@ -67,27 +67,27 @@ trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Dispos
 
    override def toString = super.toString + id.toString
 
-   // ---- mutable elements ----
-   protected final def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ] =
-      tx.newVal[ A ]( id, init )
-
-   protected final def newInt( init: Int )( implicit tx: S#Tx ) : S#Val[ Int ] =
-      tx.newInt( id, init )
-
-   protected final def newRef[ A <: Mutable[ S ]]( init: A )
-                                                 ( implicit tx: S#Tx, reader: MutableReader[ S, A ]) : S#Ref[ A ] =
-       tx.newRef[ A ]( id, init )
-
-   protected final def newOptionRef[ A <: MutableOption[ S ]]( init: A )
-                                                             ( implicit tx: S#Tx,
-                                                               reader: MutableOptionReader[ S, A ]) : S#Ref[ A ] =
-      tx.newOptionRef[ A ]( id, init )
-
-   protected final def newValArray[ A ]( size: Int )( implicit tx: S#Tx ) : Array[ S#Val[ A ]] =
-      tx.newValArray[ A ]( size )
-
-   protected final def newRefArray[ A ]( size: Int )( implicit tx: S#Tx ) : Array[ S#Ref[ A ]] =
-      tx.newRefArray[ A ]( size )
+//   // ---- mutable elements ----
+//   protected final def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ] =
+//      tx.newVal[ A ]( id, init )
+//
+//   protected final def newInt( init: Int )( implicit tx: S#Tx ) : S#Val[ Int ] =
+//      tx.newInt( id, init )
+//
+//   protected final def newRef[ A <: Mutable[ S ]]( init: A )
+//                                                 ( implicit tx: S#Tx, reader: MutableReader[ S, A ]) : S#Ref[ A ] =
+//       tx.newRef[ A ]( id, init )
+//
+//   protected final def newOptionRef[ A <: MutableOption[ S ]]( init: A )
+//                                                             ( implicit tx: S#Tx,
+//                                                               reader: MutableOptionReader[ S, A ]) : S#Ref[ A ] =
+//      tx.newOptionRef[ A ]( id, init )
+//
+//   protected final def newValArray[ A ]( size: Int )( implicit tx: S#Tx ) : Array[ S#Val[ A ]] =
+//      tx.newValArray[ A ]( size )
+//
+//   protected final def newRefArray[ A ]( size: Int )( implicit tx: S#Tx ) : Array[ S#Ref[ A ]] =
+//      tx.newRefArray[ A ]( size )
 }
 
 /**

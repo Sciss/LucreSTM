@@ -31,14 +31,21 @@ trait Txn[ S <: Sys[ S ]] {
    def system: S
    def peer: InTxn
 
-   private[lucrestm] def newVal[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ A ]) : S#Val[ A ]
-   private[lucrestm] def newInt( id: S#ID, init: Int ) : S#Val[ Int ]
-   private[lucrestm] def newRef[ A <: Mutable[ S ]]( id: S#ID, init: A )(
+   def newVal[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ A ]) : S#Val[ A ]
+   def newInt( id: S#ID, init: Int ) : S#Val[ Int ]
+   def newRef[ A <: Mutable[ S ]]( id: S#ID, init: A )(
       implicit reader: MutableReader[ S, A ]) : S#Ref[ A ]
 
-   private[lucrestm] def newOptionRef[ A <: MutableOption[ S ]]( id: S#ID, init: A )(
+   def newOptionRef[ A <: MutableOption[ S ]]( id: S#ID, init: A )(
       implicit reader: MutableOptionReader[ S, A ]) : S#Ref[ A ]
 
-   private[lucrestm] def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
-   private[lucrestm] def newRefArray[ A ]( size: Int ) : Array[ S#Ref[ A ]]
+   def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
+   def newRefArray[ A ]( size: Int ) : Array[ S#Ref[ A ]]
+
+   def readVal[ A ]( id: S#ID, in: DataInput )( implicit ser: Serializer[ A ]) : S#Val[ A ]
+   def readInt( id: S#ID, in: DataInput ) : S#Val[ Int ]
+   def readRef[ A <: Mutable[ S ]]( id: S#ID, in: DataInput )( implicit reader: MutableReader[ S, A ]) : S#Ref[ A ]
+   def readOptionRef[ A <: MutableOption[ S ]]( id: S#ID, in: DataInput )( implicit reader: MutableOptionReader[ S, A ]) : S#Ref[ A ]
+   def readMut[ A <: Mutable[ S ]]( id: S#ID, in: DataInput )( implicit reader: MutableReader[ S, A ]) : A
+   def readOptionMut[ A <: MutableOption[ S ]]( id: S#ID, in: DataInput )( implicit reader: MutableOptionReader[ S, A ]) : A
 }
