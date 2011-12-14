@@ -33,8 +33,13 @@ trait Writer {
    def write( out: DataOutput ) : Unit
 }
 
-trait Reader[ @specialized +A ] {
+trait TxnReader[ -Txn, @specialized +A ] {
+   def txnRead( in: DataInput )( implicit tx: Txn ) : A
+}
+
+trait Reader[ @specialized +A ] extends TxnReader[ Any, A ] {
    def read( in: DataInput ) : A
+   final def txnRead( in: DataInput )( implicit tx: Any ) : A = read( in )
 }
 
 object Serializer {
@@ -230,7 +235,26 @@ object Serializer {
       def newBuilder = IIdxSeq.newBuilder[ A ]
    }
 }
-trait Serializer[ @specialized A ] extends Reader[ A ] {
+
+object TxnSerializer {
+   implicit val Boolean = Serializer.Boolean
+   implicit val Char    = Serializer.Char
+   implicit val Int     = Serializer.Int
+   implicit val Float   = Serializer.Float
+   implicit val Long    = Serializer.Long
+   implicit val Double  = Serializer.Double
+   implicit val String  = Serializer.String
+
+   implicit def fromSerializer[ A ]( implicit peer: Serializer[ A ]) : TxnSerializer[ Any, A ] = peer
+}
+trait TxnSerializer[ -Txn, @specialized A ] extends TxnReader[ Txn, A ] {
    def write( v: A, out: DataOutput ) : Unit
+}
+
+trait Serializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, A ] {
+//   def write( v: A, out: DataOutput ) : Unit
 //   def read( in: DataInput ) : A
+
+//   final def write( v: A, out: DataOutput )( implicit tx: Any ) { write( v, out )}
+//   final def txnRead( in: DataInput )( implicit tx: Any ) : A = read( in )
 }

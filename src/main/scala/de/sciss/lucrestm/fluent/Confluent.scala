@@ -18,6 +18,17 @@ object Confluent {
    def apply() : Confluent = new System
 
    private final class System extends Confluent {
+      private var cnt = 0
+
+      def atomic[ Z ]( block: Tx => Z ) : Z = {
+         TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
+      }
+
+      def newID()( implicit tx: Tx ) : ID = {
+         val id = cnt
+         cnt += 1
+         new IDImpl( id, IIdxSeq.empty )
+      }
 
    }
 
@@ -44,8 +55,10 @@ object Confluent {
       def dispose()( implicit tx: Txn ) {}
    }
 
-   private final class TxnImpl( val system: Confluent, val peer: InTxn ) extends Txn {
-      def newVal[ A ]( id: ID, init: A )( implicit ser: Serializer[ A ]) : Val[ A ] = {
+   private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
+      def newID() : ID = system.newID()( this )
+
+      def newVal[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, A ]) : Val[ A ] = {
          val res = new ValImpl[ A ]( id, ser )
          res.write( init )
          res
@@ -58,14 +71,14 @@ object Confluent {
       }
 
       def newRef[ A <: Mutable[ Confluent ]]( id: ID, init: A )(
-         implicit reader: MutableReader[ Confluent, A ]) : Ref[ A ] = {
+         implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
          val res = new RefImpl[ A ]( id, reader )
          res.write( init )
          res
       }
 
       def newOptionRef[ A <: MutableOption[ Confluent ]]( id: ID, init: A )(
-         implicit reader: MutableOptionReader[ Confluent, A ]) : Ref[ A ] = {
+         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
 
          val res = new RefOptionImpl[ A ]( id, reader )
          res.write( init )
@@ -75,7 +88,7 @@ object Confluent {
       def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
       def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
 
-      def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: Serializer[ A ]) : Val[ A ] = {
+      def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, A ]) : Val[ A ] = {
          val mid  = in.readInt()
          val id   = IDImpl.readAndSubstitute( mid, pid, in )
          new ValImpl( id, ser )
@@ -88,14 +101,14 @@ object Confluent {
       }
 
       def readRef[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
-                                             ( implicit reader: MutableReader[ Confluent, A ]) : Ref[ A ] = {
+                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
          val mid  = in.readInt()
          val id   = IDImpl.readAndSubstitute( mid, pid, in )
          new RefImpl( id, reader )
       }
 
       def readOptionRef[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )(
-         implicit reader: MutableOptionReader[ Confluent, A ]) : Ref[ A ] = {
+         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
 
          val mid  = in.readInt()
          val id   = IDImpl.readAndSubstitute( mid, pid, in )
@@ -103,23 +116,23 @@ object Confluent {
       }
 
       def readMut[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
-                                             ( implicit reader: MutableReader[ Confluent, A ]) : A = {
+                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
          val mid  = in.readInt()
          val id   = IDImpl.readAndSubstitute( mid, pid, in )
-         reader.readData( in, id )
+         reader.readData( in, id )( this )
       }
 
       def readOptionMut[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )
-                                                         ( implicit reader: MutableOptionReader[ Confluent, A ]) : A = {
+                                                         ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
          val mid  = in.readInt()
          if( mid == -1 ) reader.empty else {
             val id   = IDImpl.readAndSubstitute( mid, pid, in )
-            reader.readData( in, id )
+            reader.readData( in, id )( this )
          }
       }
    }
 
-   private sealed trait SourceImpl[ @specialized A ] extends Serializer[ A ] {
+   private sealed trait SourceImpl[ @specialized A ] extends TxnSerializer[ Txn, A ] {
 //      protected def ser: Serializer[ A ]
       protected def id: ID
 
@@ -141,6 +154,8 @@ object Confluent {
          set += id.path -> bytes
       }
 
+//      protected def write( v: A, out: DataOutput ) : Unit
+
       final def get( implicit tx: Txn ) : A = {
          var best: Array[Byte]   = null
          var bestLen = 0
@@ -155,7 +170,7 @@ object Confluent {
          require( best != null, "No value for path " + id.path )
          val in = new DataInput( best )
 //         ser.read( in )
-         read( in )
+         txnRead( in )
       }
 
       final def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
@@ -163,7 +178,7 @@ object Confluent {
       final def dispose()( implicit tx: Txn ) { set = set.empty }
    }
 
-   private final class RefImpl[ A <: Mutable[ Confluent ]]( val id: ID, reader: MutableReader[ Confluent, A ])
+   private final class RefImpl[ A <: Mutable[ Confluent ]]( val id: ID, reader: MutableReader[ ID, Txn, A ])
    extends Ref[ A ] with SourceImpl[ A ] {
 
       override def toString = "Ref" + id
@@ -176,14 +191,14 @@ object Confluent {
          v.write( out )
       }
 
-      def read( in: DataInput ) : A = {
+      def txnRead( in: DataInput )( implicit tx: Txn ) : A = {
          val mid = in.readInt()
          reader.readData( in, IDImpl.readAndSubstitute( mid, id, in ))
       }
    }
 
    private final class RefOptionImpl[ A <: MutableOption[ Confluent ]]( val id: ID,
-                                                                        reader: MutableOptionReader[ Confluent, A ])
+                                                                        reader: MutableOptionReader[ ID, Txn, A ])
    extends Ref[ A ] with SourceImpl[ A ] {
 
       override def toString = "Ref" + id
@@ -199,7 +214,7 @@ object Confluent {
          }
       }
 
-      def read( in: DataInput ) : A = {
+      def txnRead( in: DataInput )( implicit tx: Txn ) : A = {
          val mid = in.readInt()
          if( mid == -1 ) reader.empty else {
             reader.readData( in, IDImpl.readAndSubstitute( mid, id, in ))
@@ -207,9 +222,8 @@ object Confluent {
       }
    }
 
-   private final class ValImpl[ @specialized A ]( val id: ID, ser: Serializer[ A ])
+   private final class ValImpl[ @specialized A ]( val id: ID, ser: TxnSerializer[ Txn, A ])
    extends Val[ A ] with SourceImpl[ A ] {
-
 
       override def toString = "Val" + id
 
@@ -221,8 +235,8 @@ object Confluent {
          ser.write( v, out )
       }
 
-      def read( in: DataInput ) : A = {
-         ser.read( in )
+      def txnRead( in: DataInput )( implicit tx: Txn ) : A = {
+         ser.txnRead( in )
       }
    }
 }
@@ -235,16 +249,4 @@ sealed trait Confluent extends Sys[ Confluent ] {
    type Tx        = Confluent.Txn
 
    def manifest: Manifest[ Confluent ] = Manifest.classType( classOf[ Confluent ])
-
-   private var cnt = 0
-
-   def newID()( implicit tx: Tx ) : ID = {
-      val id = cnt
-      cnt += 1
-      new IDImpl( id, IIdxSeq.empty )
-   }
-
-   def atomic[ Z ]( block: Tx => Z ) : Z = {
-      TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
-   }
 }

@@ -46,7 +46,7 @@ trait Sys[ S <: Sys[ S ]] {
 //   def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
 //   def newRefArray[ A /* <: Mutable[ S ]*/]( size: Int ) : Array[ S#Ref[ A ]]
 
-   def newID()( implicit tx: S#Tx ) : S#ID
+//   def newID()( implicit tx: S#Tx ) : S#ID
 
    def atomic[ Z ]( block: S#Tx => Z ) : Z
 

@@ -94,10 +94,10 @@ trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Dispos
  * Note: Sicne a reader goes along with `A` implementing the writer,
  * it does not make sense to make `MutableReader` covariant in `A`.
  */
-trait MutableReader[ S <: Sys[ S ], /* + */ A ] {
-   def readData( in: DataInput, id: S#ID ) : A
+trait MutableReader[ -ID, -Txn, @specialized A ] {
+   def readData( in: DataInput, id: ID )( implicit tx: Txn ) : A
 }
 
-trait MutableOptionReader[ S <: Sys[ S ], /* + */ A ] extends MutableReader[ S, A ] {
+trait MutableOptionReader[ -ID, -Txn, @specialized A ] extends MutableReader[ ID, Txn, A ] {
    def empty: A
 }
