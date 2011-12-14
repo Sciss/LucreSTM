@@ -1,6 +1,9 @@
 package de.sciss.lucrestm
 package fluent
 
+import annotation.tailrec
+import collection.immutable.{IndexedSeq => IIdxSeq}
+
 object ConfluentTest extends App {
    val sys = Confluent()
 
@@ -35,12 +38,39 @@ object ConfluentTest extends App {
          valueRef.dispose()
          nextRef.dispose()
       }
+
+      override def toString = "Elem" + id
    }
 
    trait Access extends Mutable[ Confluent ] {
+      me =>
+
       protected def headRef : Ref[ E[ Int ]]
       final def head( implicit tx: Tx ) : E[ Int ] = headRef.get
       final def head_=( elem: E[ Int ])( implicit tx: Tx ) { headRef.set( elem )}
+
+      override def toString = "Access" + id
+
+      final protected def writeData( out: DataOutput ) {
+         headRef.write( out )
+      }
+      final protected def disposeData()( implicit tx: Confluent#Tx ) {
+         headRef.dispose()
+      }
+
+      final def print()( implicit tx: Tx ) : this.type = {
+         @tailrec def step( elem: E[ Int ], seq: IIdxSeq[ Int ]) : IIdxSeq[ Int ] = elem.toOption match {
+            case None => seq
+            case Some( e ) => step( e.next, seq :+ e.value )
+         }
+         println( step( head, IIdxSeq.empty ).mkString( "in " + id.shortString + ": ", ", ", "" ))
+         this
+      }
+
+      final def update( implicit tx: Tx ) : Access = new Access {
+         val id      = sys.updateID( me.id )
+         val headRef = me.headRef
+      }
    }
 
    implicit val reader = new MutableOptionReader[ ID, Tx, E[ Int ]] {
@@ -64,32 +94,30 @@ object ConfluentTest extends App {
       val nextRef    = newOptionRef[ E[ Int ]]( id, empty )
    }
 
-   val access = sys.atomic { implicit tx => new Access {
+   val acc0 = sys.atomic { implicit tx => new Access {
       import tx._
       val id      = tx.newID()
       val headRef = newOptionRef[ E[ Int ]]( id, empty )
-      protected def writeData( out: DataOutput ) {
-         headRef.write( out )
-      }
-      protected def disposeData()( implicit tx: Confluent#Tx ) {
-         headRef.dispose()
-      }
    }}
 
-   sys.atomic { implicit tx =>
+   val acc1 = sys.atomic { implicit tx =>
+      val _acc1   = acc0.update
       val _w0     = newElem( 2 )
       val _w1     = newElem( 1 )
       _w0.next    = _w1
-      access.head = _w0
+      _acc1.head = _w0
+      _acc1.print()
    }
 
-   sys.atomic { implicit tx =>
-      val _w0     = access.head.toOption.get
+   val acc2 = sys.atomic { implicit tx =>
+      val _acc2   = acc1.update
+      val _w0     = acc1.head.toOption.get
       val _w1     = _w0.next.toOption.get
       _w0.next    = empty
       _w1.next    = _w0
-      access.head = _w1
+      _acc2.head = _w1
+      _acc2.print()
    }
 
-   println( "yo." )
+   println( "\nDone." )
 }
