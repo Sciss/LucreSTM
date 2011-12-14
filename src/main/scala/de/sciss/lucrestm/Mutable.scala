@@ -38,7 +38,7 @@ trait EmptyMutable extends MutableOption[ Nothing ] {
 trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Disposable[ S#Tx ] {
    //AnyRef =>
 
-   protected def id: S#ID
+   def id: S#ID
 
 //   final def toOption   = Some( this )
 //   final def orNull     = this
