@@ -202,8 +202,8 @@ object Confluent {
       }
 
       def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, A ]) : Val[ A ] = {
-//         val map = readSource( in )
-         new ValImpl( pid, system, ser )
+         val id = readSource( in, pid )
+         new ValImpl( id, system, ser )
       }
 
       def readInt( pid: ID, in: DataInput ) : Val[ Int ] = {
@@ -298,7 +298,7 @@ object Confluent {
          map.foreach {
             case (path, arr) =>
                val len = path.zip( id.path ).segmentLength({ case (a, b) => a == b }, 0 )
-               if( len > bestLen ) {
+               if( len > bestLen && len == path.size ) {
                   best     = arr
                   bestLen  = len
                }

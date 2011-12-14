@@ -70,15 +70,21 @@ object ConfluentTest extends App {
          headRef.dispose()
       }
 
-      final def print()( implicit tx: Tx ) : this.type = {
-         @tailrec def step( elem: E[ Int ], seq: IIdxSeq[ String ]) : IIdxSeq[ String ] = {
+      final def seq( implicit tx: Tx ) : IIdxSeq[ (Int, Int) ] = {
+         @tailrec def step( elem: E[ Int ], seq: IIdxSeq[ (Int, Int) ]) : IIdxSeq[ (Int, Int) ] = {
             elem.toOption match {
                case None => seq
-               case Some( e ) => step( e.next, seq :+ ("w" + e.num + "(x=" + e.value + ")") )
+               case Some( e ) =>
+                  val n = e.next
+                  val v = e.value
+                  step( n, seq :+ (e.num, v) ) // ("w" + e.num + "(x=" + v + ")") )
             }
          }
-         println( step( head, IIdxSeq.empty ).mkString( "in " + id.shortString + ": ", ", ", "" ))
-         this
+         step( head, IIdxSeq.empty )
+      }
+
+      final def printSeq( seq: IIdxSeq[ (Int, Int) ]) {
+         println( seq.map({ case (num, value) => "w" + num + "(x=" + value + ")" }).mkString( "in " + id.shortString + ": ", ", ", "" ))
       }
 
 //      final def update( implicit tx: Tx ) : Access = sys.update( this )
@@ -120,8 +126,11 @@ object ConfluentTest extends App {
       val _w0     = newElem( 0, 2 )
       val _w1     = newElem( 1, 1 )
       _w0.next    = _w1
-      _acc0.head = _w0
-      (_acc0.print(), sys.path)
+      _acc0.head  = _w0
+      val seq     = _acc0.seq
+      _acc0.printSeq( seq )
+      assert( seq == IIdxSeq( (0,2), (1,1) ))
+      (_acc0, sys.path)
    }
 
    val (acc1, path1) = sys.atomic { implicit tx =>
@@ -130,8 +139,11 @@ object ConfluentTest extends App {
       val _w1     = _w0.next.toOption.get
       _w0.next    = empty
       _w1.next    = _w0
-      _acc1.head = _w1
-      (_acc1.print(), sys.path)
+      _acc1.head  = _w1
+      val seq     = _acc1.seq
+      _acc1.printSeq( seq )
+      assert( seq == IIdxSeq( (1,1), (0,2) ))
+      (_acc1, sys.path)
    }
 
    val (acc2, path2) = sys.fromPath( path0 ) { implicit tx =>
@@ -141,7 +153,10 @@ object ConfluentTest extends App {
       val _w1     = _w0.next.toOption.get
       _w1.next    = _w2
       _acc2.head  = _w1
-      (_acc2.print(), sys.path)
+      val seq     = _acc2.seq
+      _acc2.printSeq( seq )
+      assert( seq == IIdxSeq( (1,1), (2,1) ))
+      (_acc2, sys.path)
    }
 
    val (acc3, path3) = sys.fromPath( path1 ) { implicit tx =>
@@ -154,8 +169,25 @@ object ConfluentTest extends App {
       val _w1l    = _acc3.head.toOption.get
       val _w0l    = _w1l.next.toOption.get
       _w0l.next   = _w1r
-      (_acc3.print(), sys.path)
+      val seq     = _acc3.seq
+      _acc3.printSeq( seq )
+      assert( seq == IIdxSeq( (1,1), (0,2), (1,3), (2,3) ))
+      (_acc3, sys.path)
    }
 
-   println( "\nDone." )
+   sys.fromPath( path3 ) { implicit tx =>
+      val _acc4   = sys.update( acc3 )
+      val _acc2m  = sys.update( acc2 )
+      val _w1r    = _acc2m.head.toOption.get
+      val _w1l    = _acc4.head.toOption.get
+      val _w0l    = _w1l.next.toOption.get
+      val _w1lb   = _w0l.next.toOption.get
+      val _w2l    = _w1lb.next.toOption.get
+      _w2l.next   = _w1r
+      val seq     = _acc4.seq
+      _acc4.printSeq( seq )
+      assert( seq == IIdxSeq( (1,1), (0,2), (1,3), (2,3), (1,1), (2,1) ))
+   }
+
+   println( "\nDone. All passed." )
 }
