@@ -42,7 +42,7 @@ object ConfluentTest extends App {
          nextRef.dispose()
       }
 
-      override def toString = "Elem" + id
+      override def toString = "w" + num + id
    }
 
    object Access {
@@ -71,9 +71,11 @@ object ConfluentTest extends App {
       }
 
       final def print()( implicit tx: Tx ) : this.type = {
-         @tailrec def step( elem: E[ Int ], seq: IIdxSeq[ String ]) : IIdxSeq[ String ] = elem.toOption match {
-            case None => seq
-            case Some( e ) => step( e.next, seq :+ ("w" + e.num + "(x=" + e.value + ")") )
+         @tailrec def step( elem: E[ Int ], seq: IIdxSeq[ String ]) : IIdxSeq[ String ] = {
+            elem.toOption match {
+               case None => seq
+               case Some( e ) => step( e.next, seq :+ ("w" + e.num + "(x=" + e.value + ")") )
+            }
          }
          println( step( head, IIdxSeq.empty ).mkString( "in " + id.shortString + ": ", ", ", "" ))
          this
@@ -144,7 +146,7 @@ object ConfluentTest extends App {
 
    val (acc3, path3) = sys.fromPath( path1 ) { implicit tx =>
       val _acc3   = sys.update( acc1 )
-      val _acc2m  = sys.meld( acc2 )
+      val _acc2m  = sys.update( acc2 ) // sys.meld( acc2 )
       val _w1r    = _acc2m.head.toOption.get
       _w1r.value  = _w1r.value + 2
       val _w2r    = _w1r.next.toOption.get
