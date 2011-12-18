@@ -277,7 +277,7 @@ object Confluent {
 //      protected def readValue( in: DataInput ) : Unit
 
       protected def writeValue( v: A, out: DataOutput ) : Unit
-      protected def readValue( postfix: IIdxSeq[ Int ], in: DataInput )( implicit tx: Txn ) : A
+      protected def readValue( in: DataInput, postfix: IIdxSeq[ Int ])( implicit tx: Txn ) : A
 
       final def store( v: A ) {
          val out = new DataOutput()
@@ -306,7 +306,7 @@ object Confluent {
          require( best != null, "No value for path " + id.path )
          val in = new DataInput( best )
 //         ser.read( in )
-         readValue( id.path.drop( bestLen ), in )
+         readValue( in, id.path.drop( bestLen ))
       }
 
       final def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
@@ -367,8 +367,9 @@ object Confluent {
          ser.write( v, out )
       }
 
-      protected def readValue( postfix: IIdxSeq[ Int ], in: DataInput )( implicit tx: Txn ) : A = {
-         sys.error( "TODO" )
+      protected def readValue( in: DataInput, postfix: IIdxSeq[ Int ])( implicit tx: Txn ) : A = {
+//         sys.error( "TODO" )
+         ser.txnRead( in, postfix )
 //         ser.txnRead( in )
       }
    }
