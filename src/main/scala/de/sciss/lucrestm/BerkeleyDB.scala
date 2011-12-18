@@ -114,25 +114,7 @@ object BerkeleyDB {
       def numRecords : Long = db.count()
       def numUserRecords : Long = math.max( 0L, db.count() - 1 )
 
-//      private def txnHandle( implicit txn: InTxnEnd ) : Transaction = dbTxnSTMRef.get
-
-//      private def initDBTxn( implicit txn: InTxn ) : Transaction = {
-//         ScalaTxn.setExternalDecider( this )
-//         val dbTxn = env.beginTransaction( null, txnCfg )
-//         logConfig( "txn begin <" + dbTxn.getId + ">" )
-//         ScalaTxn.afterRollback { status =>
-//            try {
-//               logConfig( "txn rollback <" + dbTxn.getId + ">" )
-//               dbTxn.abort()
-//            } catch {
-//               case _ =>
-//            }
-//         }
-//         dbTxn
-//      }
-
       def newIDValue()( implicit tx: Txn ) : Int = {
-//      val id = idCnt.transformAndGet( _ + 1 )
          val itx = tx.peer
          val id  = idCnt.get( itx ) + 1
          logConfig( "new " + id )
@@ -309,72 +291,6 @@ object BerkeleyDB {
       override def toString = "Var[Int](" + id + ")"
    }
 
-//   private final class RefImpl[ A <: Mutable[ BerkeleyDB ]]( protected val id: Int,
-//                                                             val reader: MutableReader[ ID, Txn, A ])
-//   extends Ref[ A ] with BasicSource {
-//      override def toString = "Ref(" + id + ")"
-//
-////         def debug() {
-////            println( toString )
-////         }
-//
-//      def get( implicit tx: Txn ) : A = {
-//         tx.system.read[ A ]( id ) { in =>
-//            val mid = in.readInt()
-//            reader.readData( in, new IDImpl( mid ))
-//         }
-//      }
-//
-//      def setInit( v: A )( implicit tx: Txn ) {
-//         tx.system.write( id )( v.write( _ ))
-//      }
-//
-//      def set( v: A )( implicit tx: Txn ) {
-//         assertExists()
-//         tx.system.write( id )( v.write( _ ))
-//      }
-//
-//      def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
-//   }
-//
-//   private final class OptionRefImpl[ A <: MutableOption[ BerkeleyDB ]](
-//      protected val id: Int, val reader: MutableOptionReader[ ID, Txn, A ])
-//   extends Ref[ A ] with BasicSource {
-//      override def toString = "Ref(" + id + ")"
-//
-//      def get( implicit tx: Txn ) : A = {
-//         tx.system.read[ A ]( id ) { in =>
-//            val mid = in.readInt()
-//            if( mid == -1 ) reader.empty else {
-//               reader.readData( in, new IDImpl( mid ))
-//            }
-//         }
-//      }
-//
-//      def setInit( v: A )( implicit tx: Txn ) {
-//         tx.system.write( id ) { out =>
-//            v match {
-//               case m: Mutable[ _ ] => m.write( out )
-//               case _: EmptyMutable => out.writeInt( -1 )
-//            }
-//         }
-//      }
-//
-//      def set( v: A )( implicit tx: Txn ) {
-//         assertExists()
-//         tx.system.write( id ) { out =>
-//            v match {
-//               case m: Mutable[ _ ] => m.write( out )
-//               case _: EmptyMutable => out.writeInt( -1 )
-//            }
-//         }
-//      }
-//
-//      def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
-//   }
-
-//   sealed trait Ref[ A ] extends _Ref[ Txn, A ]
-
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
 
    sealed trait Txn extends _Txn[ BerkeleyDB ] {
@@ -417,25 +333,7 @@ object BerkeleyDB {
          res
       }
 
-//      def newRef[ A <: Mutable[ BerkeleyDB ]]( id: ID, init: A )(
-//         implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
-//
-//         val res = new RefImpl[ A ]( system.newIDValue()( this ), reader )
-//         res.setInit( init )( this )
-//         res
-//      }
-//
-//      def newOptionRef[ A <: MutableOption[ BerkeleyDB ]]( id: ID, init: A )(
-//         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
-//
-//         val res = new OptionRefImpl[ A ]( system.newIDValue()( this ), reader )
-//         res.setInit( init )( this )
-//         res
-//      }
-
       def newVarArray[ A ]( size: Int ) : Array[ Var[ A ]] = new Array[ Var[ A ]]( size )
-
-//      def newRefArray[ A ]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
 
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val id = in.readInt()
@@ -446,19 +344,6 @@ object BerkeleyDB {
          val id = in.readInt()
          new IntVar( id )
       }
-
-//      def readRef[ A <: Mutable[ BerkeleyDB ]]( pid: ID, in: DataInput )
-//                                              ( implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
-//         val id = in.readInt()
-//         new RefImpl[ A ]( id, reader )
-//      }
-//
-//      def readOptionRef[ A <: MutableOption[ BerkeleyDB ]]( pid: ID, in: DataInput )(
-//         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
-//
-//         val id = in.readInt()
-//         new OptionRefImpl[ A ]( id, reader )
-//      }
 
       def readMut[ A <: Mutable[ BerkeleyDB ]]( pid: ID, in: DataInput )
                                               ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
@@ -473,7 +358,6 @@ object BerkeleyDB {
             reader.readData( in, new IDImpl( mid ))( this )
          }
       }
-
 
       // ---- ExternalDecider ----
       def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
@@ -496,11 +380,9 @@ object BerkeleyDB {
 }
 sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
    type Var[ @specialized A ] = BerkeleyDB.Var[ A ]
-//   type Ref[ A ]  = BerkeleyDB.Ref[ A ]
-//   type Mut[ +A ] = BerkeleyDB.Mut[ A ]
-   type ID        = BerkeleyDB.ID
-   type Tx        = BerkeleyDB.Txn // InTxn
-   type Acc       = Unit
+   type ID                    = BerkeleyDB.ID
+   type Tx                    = BerkeleyDB.Txn
+   type Acc                   = Unit
 
    /**
     * Closes the underlying database. The STM cannot be used beyond this call.

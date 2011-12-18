@@ -103,17 +103,6 @@ object Serializer {
       def read( in: DataInput ) : A = reader.read( in )
    }
 
-//   implicit def fromMutableReader[ S <: Sys[ S ], A /* >: Null */ <: Mutable[ S ]]( implicit reader: MutableReader[ S, A ],
-//                                                                              system: S ) : Serializer[ A ] =
-//      new MutableReaderWrapper[ S, A ]
-//
-//   private final class MutableReaderWrapper[ S <: Sys[ S ], A /* >: Null */ <: Mutable[ S ]](
-//      implicit reader: MutableReader[ S, A ], system: S ) extends Serializer[ A ] {
-//
-//      def write( v: A, out: DataOutput ) { v.write( out )}
-//      def read( in: DataInput ) : A = system.readMut[ A ]( in )
-//   }
-
    // ---- higher-kinded ----
 
    implicit def option[ A ]( implicit peer: Serializer[ A ]) : Serializer[ Option[ A ]] = new OptionWrapper[ A ]( peer )
@@ -251,10 +240,4 @@ trait TxnSerializer[ -Txn, @specialized( Unit ) -Access, @specialized A ] extend
    def write( v: A, out: DataOutput ) : Unit
 }
 
-trait Serializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, Any, A ] {
-//   def write( v: A, out: DataOutput ) : Unit
-//   def read( in: DataInput ) : A
-
-//   final def write( v: A, out: DataOutput )( implicit tx: Any ) { write( v, out )}
-//   final def txnRead( in: DataInput )( implicit tx: Any ) : A = read( in )
-}
+trait Serializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, Any, A ]

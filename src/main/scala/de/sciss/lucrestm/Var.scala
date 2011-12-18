@@ -38,5 +38,3 @@ sealed trait RefLike[ -Tx, A ] extends Sink[ Tx, A ] with Source[ Tx, A ]
 trait Var[ -Tx, @specialized A ] extends RefLike[ Tx, A ] {
    def transform( f: A => A )( implicit tx: Tx ) : Unit
 }
-
-//trait Ref[ -Tx, A ] extends RefLike[ Tx, A ]

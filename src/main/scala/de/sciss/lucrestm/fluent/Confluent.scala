@@ -1,3 +1,28 @@
+/*
+ *  Confluent.scala
+ *  (LucreSTM)
+ *
+ *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License
+ *  as published by the Free Software Foundation; either
+ *  version 2, june 1991 of the License, or (at your option) any later version.
+ *
+ *  This software is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *  General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public
+ *  License (gpl.txt) along with this software; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.lucrestm
 package fluent
 
@@ -16,7 +41,6 @@ object Confluent {
 
    sealed trait Txn extends _Txn[ Confluent ]
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
-//   sealed trait Ref[ A ] extends _Ref[ Txn, A ]
 
    def apply() : Confluent = new System
 
@@ -30,7 +54,6 @@ object Confluent {
 
       def inPath[ Z ]( path: IIdxSeq[ Int ])( block: Tx => Z ) : Z = {
          TxnExecutor.defaultAtomic[ Z ] { itx =>
-//            path +:= (path.lastOption.getOrElse( -1 ) + 1)
             val oldPath = pathVar
             try {
                pathVar = path
@@ -66,31 +89,14 @@ object Confluent {
          new IDImpl( id, pathVar.takeRight( 1 ))
       }
 
-//      def updateID( old: ID )( implicit tx: Tx ) : ID = {
-////         IDImpl.substitute( old, path )
-//         IDImpl.update( old, path.last )
-//      }
-
       def update[ A <: Mutable[ Confluent ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A = {
          val out     = new DataOutput()
          old.write( out )
          val in      = new DataInput( out.toByteArray )
          val mid     = in.readInt()
-//         val newID   = IDImpl.readAndSubstitute( mid, path, in )
          val newID   = IDImpl.readAndUpdate( mid, path, in )
-//         val newID   = IDImpl.substitute( old.id, path )
          reader.readData( in, newID )
       }
-
-//      def meld[ A <: Mutable[ Confluent ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A = {
-//         val out     = new DataOutput()
-//         old.write( out )
-//         val in      = new DataInput( out.toByteArray )
-//         val mid     = in.readInt()
-//         val newID   = IDImpl.readAndUpdate( mid, path, in )
-////         val newID   = IDImpl.substitute( old.id, path )
-//         reader.readData( in, newID )
-//      }
 
       def manifest: Manifest[ Confluent ] = Manifest.classType( classOf[ Confluent ])
    }
@@ -105,7 +111,6 @@ object Confluent {
 
       def readAndAppend( id: Int, postfix: IIdxSeq[ Int ], in: DataInput ) : ID = {
          val path    = readPath( in )
-//         val com     = path.zip( accessPath ).segmentLength({ case (a, b) => a == b }, 0 )
          val newPath = path ++ postfix // accessPath.drop( com )
          new IDImpl( id, newPath )
       }
@@ -115,24 +120,12 @@ object Confluent {
          new IDImpl( id, newPath )
       }
 
-//      def substitute( old: ID, accessPath: IIdxSeq[ Int ]) : ID = {
-//         val com     = old.path.zip( accessPath ).segmentLength({ case (a, b) => a == b }, 0 )
-//         val newPath = old.path ++ accessPath.drop( com )
-//         new IDImpl( old.id, newPath )
-//      }
-
       def readAndUpdate( id: Int, accessPath: IIdxSeq[ Int ], in: DataInput ) : ID = {
          val sz      = in.readInt()
          val path    = IIdxSeq.fill( sz )( in.readInt() )
-//         val com     = path.zip( accessPath ).segmentLength({ case (a, b) => a == b }, 0 )
          val newPath = path :+ accessPath.last
          new IDImpl( id, newPath )
       }
-
-//      def update( old: ID, last: Int ) : ID = {
-//         val newPath = old.path :+ last
-//         new IDImpl( old.id, newPath )
-//      }
    }
    private final class IDImpl( val id: Int, val path: IIdxSeq[ Int ]) extends ID {
       def write( out: DataOutput ) {
@@ -165,36 +158,7 @@ object Confluent {
          res
       }
 
-//      def newRef[ A <: Mutable[ Confluent ]]( pid: ID, init: A )(
-//         implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
-//         val id   = alloc( pid )( this )
-//         val res  = new RefImpl[ A ]( id, system, reader )
-//         res.store( init )
-//         res
-//      }
-//
-//      def newOptionRef[ A <: MutableOption[ Confluent ]]( pid: ID, init: A )(
-//         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
-//         val id   = alloc( pid )( this )
-//         val res  = new RefOptionImpl[ A ]( id, system, reader )
-//         res.store( init )
-//         res
-//      }
-
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
-//      def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
-
-//      private def readSource( in: DataInput ) : M = {
-//         val msz  = in.readInt()
-//         Seq.fill[ (IIdxSeq[ Int ], Array[ Byte ])]( msz )({
-//            val sz   = in.readInt()
-//            val path = IIdxSeq.fill( sz )( in.readInt() )
-//            val dsz  = in.readInt()
-//            val data = new Array[ Byte ]( dsz )
-//            in.read( data )
-//            (path, data)
-//         }).toMap
-//      }
 
       private def readSource( in: DataInput, pid: ID ) : ID = {
          val id = in.readInt()
@@ -211,23 +175,9 @@ object Confluent {
          new VarImpl( id, system, Serializer.Int )
       }
 
-//      def readRef[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
-//                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
-//         val id = readSource( in, pid )
-//         new RefImpl( id, system, reader )
-//      }
-//
-//      def readOptionRef[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )(
-//         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
-//
-//         val id = readSource( in, pid )
-//         new RefOptionImpl( id, system, reader )
-//      }
-
       def readMut[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
                                              ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
          val mid  = in.readInt()
-//         val id   = IDImpl.readAndSubstitute( mid, pid.path, in )
          val id   = IDImpl.readAndReplace( mid, pid.path, in )
          reader.readData( in, id )( this )
       }
@@ -236,25 +186,18 @@ object Confluent {
                                                          ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
          val mid  = in.readInt()
          if( mid == -1 ) reader.empty else {
-//            val id   = IDImpl.readAndSubstitute( mid, pid.path, in )
             val id   = IDImpl.readAndReplace( mid, pid.path, in )
             reader.readData( in, id )( this )
          }
       }
    }
 
-   private sealed trait SourceImpl[ @specialized A ] /* extends TxnSerializer[ Txn, A ] */ {
-//      protected def ser: Serializer[ A ]
+   private sealed trait SourceImpl[ @specialized A ] {
       protected def id: ID
       protected def system: System
 
       protected final def toString( pre: String ) = pre + id + ": " +
          (system.storage.getOrElse(id.id, Map.empty).map(_._1)).mkString( ", " )
-
-//      final var bytes: Array[ Byte ] = null
-//      private final var set = Map.empty[ IIdxSeq[ Int ], Array[ Byte ]]
-//      protected def map : M
-//      protected def map_=( value: M ) : Unit
 
       final def set( v: A )( implicit tx: Txn ) {
          store( v )
@@ -262,19 +205,7 @@ object Confluent {
 
       final def write( out: DataOutput ) {
          out.writeInt( id.id )
-////         id.write( out )
-//         val coll = map.toIndexedSeq
-//         out.writeInt( coll.size )
-//         coll.foreach { case (path, data) =>
-//            out.writeInt( path.size )
-//            path.foreach( out.writeInt )
-//            out.writeInt( data.length )
-//            out.write( data )
-//         }
       }
-
-//      protected def writeValue( v: A, out: DataOutput ) : Unit
-//      protected def readValue( in: DataInput ) : Unit
 
       protected def writeValue( v: A, out: DataOutput ) : Unit
       protected def readValue( in: DataInput, postfix: IIdxSeq[ Int ])( implicit tx: Txn ) : A
@@ -282,14 +213,10 @@ object Confluent {
       final def store( v: A ) {
          val out = new DataOutput()
          writeValue( v, out )
-//         ser.write( v, out )
          val bytes = out.toByteArray
-//         map += id.path -> bytes
          system.storage += id.id -> (system.storage.getOrElse( id.id,
             Map.empty[ IIdxSeq[ Int ], Array[ Byte ]]) + (id.path -> bytes))
       }
-
-//      protected def write( v: A, out: DataOutput ) : Unit
 
       final def get( implicit tx: Txn ) : A = {
          var best: Array[Byte]   = null
@@ -305,62 +232,18 @@ object Confluent {
          }
          require( best != null, "No value for path " + id.path )
          val in = new DataInput( best )
-//         ser.read( in )
          readValue( in, id.path.drop( bestLen ))
       }
 
       final def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
 
-      final def dispose()( implicit tx: Txn ) {} // { map = map.empty }
+      final def dispose()( implicit tx: Txn ) {}
    }
-
-//   private final class RefImpl[ A <: Mutable[ Confluent ]]( val id: ID, val system: System, reader: MutableReader[ ID, Txn, A ])
-//   extends Ref[ A ] with SourceImpl[ A ] {
-//
-////      override def toString = "Ref" + id
-//      override def toString = toString( "Ref" )
-//
-////      def write( out: DataOutput ) {
-////         id.write( out )
-////      }
-//
-//      protected def writeValue( v: A, out: DataOutput ) {
-//         v.write( out )
-//      }
-//
-//      protected def readValue( postfix: IIdxSeq[ Int ], in: DataInput )( implicit tx: Txn ) : A = {
-//         val mid = in.readInt()
-//         reader.readData( in, IDImpl.readAndAppend( mid, postfix, in ))
-//      }
-//   }
-
-//   private final class RefOptionImpl[ A <: MutableOption[ Confluent ]]( val id: ID, val system: System,
-//                                                                        reader: MutableOptionReader[ ID, Txn, A ])
-//   extends Ref[ A ] with SourceImpl[ A ] {
-//
-////      override def toString = "Ref" + id
-//      override def toString = toString( "Ref" )
-//
-//      protected def writeValue( v: A, out: DataOutput ) {
-//         v match {
-//            case m: Mutable[ _ ] => m.write( out )
-//            case _: EmptyMutable => out.writeInt( -1 )
-//         }
-//      }
-//
-//      protected def readValue( postfix: IIdxSeq[ Int ], in: DataInput )( implicit tx: Txn ) : A = {
-//         val mid = in.readInt()
-//         if( mid == -1 ) reader.empty else {
-//            reader.readData( in, IDImpl.readAndAppend( mid, postfix, in ))
-//         }
-//      }
-//   }
 
    private final class VarImpl[ @specialized A ]( val id: ID, val system: System,
                                                   ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ])
    extends Var[ A ] with SourceImpl[ A ] {
 
-//      override def toString = "Var" + id
       override def toString = toString( "Var" )
 
       protected def writeValue( v: A, out: DataOutput ) {
@@ -368,20 +251,17 @@ object Confluent {
       }
 
       protected def readValue( in: DataInput, postfix: IIdxSeq[ Int ])( implicit tx: Txn ) : A = {
-//         sys.error( "TODO" )
          ser.txnRead( in, postfix )
-//         ser.txnRead( in )
       }
    }
 }
 sealed trait Confluent extends Sys[ Confluent ] {
    import Confluent._
 
-   type Var[ @specialized A ]  = Confluent.Var[ A ]
-//   type Ref[ A ]  = Confluent.Ref[ A ]
-   type ID        = Confluent.ID
-   type Tx        = Confluent.Txn
-   type Acc       = IIdxSeq[ Int ]
+   type Var[ @specialized A ] = Confluent.Var[ A ]
+   type ID                    = Confluent.ID
+   type Tx                    = Confluent.Txn
+   type Acc                   = IIdxSeq[ Int ]
 
    def inPath[ Z ]( _path: IIdxSeq[ Int ])( block: Tx => Z ) : Z
    def fromPath[ Z ]( _path: IIdxSeq[ Int ])( block: Tx => Z ) : Z

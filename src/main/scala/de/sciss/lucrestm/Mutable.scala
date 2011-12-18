@@ -25,23 +25,11 @@
 
 package de.sciss.lucrestm
 
-sealed trait MutableOption[ +S ] {
-//   def toOption: Option[ Mutable[ S ]]
-//   def orNull: Mutable[ S ]
-}
-
-trait EmptyMutable extends MutableOption[ Nothing ] {
-//   final def toOption = None
-//   final def orNull   = null
-}
+sealed trait MutableOption[ +S ]
+trait EmptyMutable extends MutableOption[ Nothing ]
 
 trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Disposable[ S#Tx ] {
-   //AnyRef =>
-
    def id: S#ID
-
-//   final def toOption   = Some( this )
-//   final def orNull     = this
 
    final def dispose()( implicit tx: S#Tx ) {
       id.dispose()
@@ -56,8 +44,6 @@ trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Dispos
    protected def disposeData()( implicit tx: S#Tx ) : Unit
    protected def writeData( out: DataOutput ) : Unit
 
-//   final def sameAs( that: Mutable[ S ]) = id == that.id
-
    override def equals( that: Any ) : Boolean = {
       // note: microbenchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
       /* (that != null) && */ (if( that.isInstanceOf[ Mutable[ _ ]]) {
@@ -66,28 +52,6 @@ trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Dispos
    }
 
    override def toString = super.toString + id.toString
-
-//   // ---- mutable elements ----
-//   protected final def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Var[ A ] =
-//      tx.newVal[ A ]( id, init )
-//
-//   protected final def newInt( init: Int )( implicit tx: S#Tx ) : S#Var[ Int ] =
-//      tx.newInt( id, init )
-//
-//   protected final def newRef[ A <: Mutable[ S ]]( init: A )
-//                                                 ( implicit tx: S#Tx, reader: MutableReader[ S, A ]) : S#Ref[ A ] =
-//       tx.newRef[ A ]( id, init )
-//
-//   protected final def newOptionRef[ A <: MutableOption[ S ]]( init: A )
-//                                                             ( implicit tx: S#Tx,
-//                                                               reader: MutableOptionReader[ S, A ]) : S#Ref[ A ] =
-//      tx.newOptionRef[ A ]( id, init )
-//
-//   protected final def newValArray[ A ]( size: Int )( implicit tx: S#Tx ) : Array[ S#Var[ A ]] =
-//      tx.newValArray[ A ]( size )
-//
-//   protected final def newRefArray[ A ]( size: Int )( implicit tx: S#Tx ) : Array[ S#Ref[ A ]] =
-//      tx.newRefArray[ A ]( size )
 }
 
 /**
