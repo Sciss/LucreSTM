@@ -80,15 +80,17 @@ object InMemory {
          opNotSupported( "readIntVar" )
       }
 
-      def readMut[ A <: Mutable[ InMemory ]]( id: ID, in: DataInput )
-                                            ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
-         opNotSupported( "readMut" )
-      }
+      def readID( in: DataInput, acc: Unit ) : ID = opNotSupported( "readID" )
 
-      def readOptionMut[ A <: MutableOption[ InMemory ]]( id: ID, in: DataInput )
-                                                        ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
-         opNotSupported( "readOptionMut" )
-      }
+//      def readMut[ A <: Mutable[ InMemory ]]( id: ID, in: DataInput )
+//                                            ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
+//         opNotSupported( "readMut" )
+//      }
+//
+//      def readOptionMut[ A <: MutableOption[ InMemory ]]( id: ID, in: DataInput )
+//                                                        ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
+//         opNotSupported( "readOptionMut" )
+//      }
    }
 }
 

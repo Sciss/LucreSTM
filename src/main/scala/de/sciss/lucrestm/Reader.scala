@@ -1,5 +1,5 @@
 /*
- *  Txn.scala
+ *  Reader.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
@@ -25,28 +25,7 @@
 
 package de.sciss.lucrestm
 
-import concurrent.stm.InTxn
-
-trait Txn[ S <: Sys[ S ]] {
-   def system: S
-   def peer: InTxn
-
-   def newID() : S#ID
-
-   def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
-
-   def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]
-
-   def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
-
-   def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
-
-   def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
-
-   def readID( in: DataInput, acc: S#Acc ) : S#ID
-
-//   def readMut[ A <: Mutable[ S ]]( id: S#ID, in: DataInput )( implicit reader: MutableReader[ S#ID, S#Tx, A ]) : A
-//
-//   def readOptionMut[ A <: MutableOption[ S ]]( id: S#ID, in: DataInput )
-//                                              ( implicit reader: MutableOptionReader[ S#ID, S#Tx, A ]) : A
+trait Reader[ @specialized +A ] extends TxnReader[ Any, Any, A ] {
+   def read( in: DataInput ) : A
+   final def read( in: DataInput, access: Any )( implicit tx: Any ) : A = read( in )
 }

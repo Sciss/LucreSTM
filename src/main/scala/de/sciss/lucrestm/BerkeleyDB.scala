@@ -254,7 +254,7 @@ object BerkeleyDB {
    private final class VarImpl[ A ]( protected val id: Int, ser: TxnSerializer[ Txn, Unit, A ])
    extends Var[ A ] with BasicSource {
       def get( implicit tx: Txn ) : A = {
-         tx.system.read[ A ]( id )( ser.txnRead( _, () ))
+         tx.system.read[ A ]( id )( ser.read( _, () ))
       }
 
       def setInit( v: A )( implicit tx: Txn ) {
@@ -345,19 +345,21 @@ object BerkeleyDB {
          new IntVar( id )
       }
 
-      def readMut[ A <: Mutable[ BerkeleyDB ]]( pid: ID, in: DataInput )
-                                              ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
-         val id = new IDImpl( in.readInt() )
-         reader.readData( in, id )( this )
-      }
+      def readID( in: DataInput, acc: Unit ) : ID = new IDImpl( in.readInt() )
 
-      def readOptionMut[ A <: MutableOption[ BerkeleyDB ]]( pid: ID, in: DataInput )
-                                                          ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
-         val mid = in.readInt()
-         if( mid == -1 ) reader.empty else {
-            reader.readData( in, new IDImpl( mid ))( this )
-         }
-      }
+//      def readMut[ A <: Mutable[ BerkeleyDB ]]( pid: ID, in: DataInput )
+//                                              ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
+//         val id = new IDImpl( in.readInt() )
+//         reader.readData( in, id )( this )
+//      }
+//
+//      def readOptionMut[ A <: MutableOption[ BerkeleyDB ]]( pid: ID, in: DataInput )
+//                                                          ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
+//         val mid = in.readInt()
+//         if( mid == -1 ) reader.empty else {
+//            reader.readData( in, new IDImpl( mid ))( this )
+//         }
+//      }
 
       // ---- ExternalDecider ----
       def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {

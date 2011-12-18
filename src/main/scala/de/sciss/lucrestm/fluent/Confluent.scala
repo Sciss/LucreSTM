@@ -175,21 +175,23 @@ object Confluent {
          new VarImpl( id, system, Serializer.Int )
       }
 
-      def readMut[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
-                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
-         val mid  = in.readInt()
-         val id   = IDImpl.readAndReplace( mid, pid.path, in )
-         reader.readData( in, id )( this )
-      }
+      def readID( in: DataInput, acc: IIdxSeq[ Int ]) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
 
-      def readOptionMut[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )
-                                                         ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
-         val mid  = in.readInt()
-         if( mid == -1 ) reader.empty else {
-            val id   = IDImpl.readAndReplace( mid, pid.path, in )
-            reader.readData( in, id )( this )
-         }
-      }
+//      def readMut[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
+//                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
+//         val mid  = in.readInt()
+//         val id   = IDImpl.readAndReplace( mid, pid.path, in )
+//         reader.readData( in, id )( this )
+//      }
+//
+//      def readOptionMut[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )
+//                                                         ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
+//         val mid  = in.readInt()
+//         if( mid == -1 ) reader.empty else {
+//            val id   = IDImpl.readAndReplace( mid, pid.path, in )
+//            reader.readData( in, id )( this )
+//         }
+//      }
    }
 
    private sealed trait SourceImpl[ @specialized A ] {
@@ -251,7 +253,7 @@ object Confluent {
       }
 
       protected def readValue( in: DataInput, postfix: IIdxSeq[ Int ])( implicit tx: Txn ) : A = {
-         ser.txnRead( in, postfix )
+         ser.read( in, postfix )
       }
    }
 }

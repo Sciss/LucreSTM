@@ -29,19 +29,6 @@ import annotation.switch
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import collection.mutable.Builder
 
-trait Writer {
-   def write( out: DataOutput ) : Unit
-}
-
-trait TxnReader[ -Txn, @specialized( Unit ) -Access, @specialized +A ] {
-   def txnRead( in: DataInput, access: Access )( implicit tx: Txn ) : A
-}
-
-trait Reader[ @specialized +A ] extends TxnReader[ Any, Any, A ] {
-   def read( in: DataInput ) : A
-   final def txnRead( in: DataInput, access: Any )( implicit tx: Any ) : A = read( in )
-}
-
 object Serializer {
    // ---- primitives ----
 
@@ -223,21 +210,6 @@ object Serializer {
    extends CollectionSerializer[ A, IIdxSeq[ A ]] {
       def newBuilder = IIdxSeq.newBuilder[ A ]
    }
-}
-
-object TxnSerializer {
-   implicit val Boolean = Serializer.Boolean
-   implicit val Char    = Serializer.Char
-   implicit val Int     = Serializer.Int
-   implicit val Float   = Serializer.Float
-   implicit val Long    = Serializer.Long
-   implicit val Double  = Serializer.Double
-   implicit val String  = Serializer.String
-
-   implicit def fromSerializer[ A ]( implicit peer: Serializer[ A ]) : TxnSerializer[ Any, Any, A ] = peer
-}
-trait TxnSerializer[ -Txn, @specialized( Unit ) -Access, @specialized A ] extends TxnReader[ Txn, Access, A ] {
-   def write( v: A, out: DataOutput ) : Unit
 }
 
 trait Serializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, Any, A ]

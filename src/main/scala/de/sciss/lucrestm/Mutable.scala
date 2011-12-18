@@ -25,10 +25,10 @@
 
 package de.sciss.lucrestm
 
-sealed trait MutableOption[ +S ]
-trait EmptyMutable extends MutableOption[ Nothing ]
+//sealed trait MutableOption[ +S ]
+//trait EmptyMutable extends MutableOption[ Nothing ]
 
-trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Disposable[ S#Tx ] {
+trait Mutable[ S <: Sys[ S ]] extends /* MutableOption[ S ] with */ Writer with Disposable[ S#Tx ] {
    def id: S#ID
 
    final def dispose()( implicit tx: S#Tx ) {
@@ -55,13 +55,13 @@ trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Dispos
 }
 
 /**
- * Note: Sicne a reader goes along with `A` implementing the writer,
+ * Note: Since a reader goes along with `A` implementing the writer,
  * it does not make sense to make `MutableReader` covariant in `A`.
  */
-trait MutableReader[ -ID, -Txn, @specialized A ] {
+trait MutableReader[ -ID, -Txn, A ] {
    def readData( in: DataInput, id: ID )( implicit tx: Txn ) : A
 }
 
-trait MutableOptionReader[ -ID, -Txn, @specialized A ] extends MutableReader[ ID, Txn, A ] {
-   def empty: A
-}
+//trait MutableOptionReader[ -ID, -Txn, A ] extends MutableReader[ ID, Txn, A ] {
+//   def empty: A
+//}
