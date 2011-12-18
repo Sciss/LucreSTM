@@ -151,7 +151,7 @@ object Confluent {
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 
-      def newVal[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, A ]) : Val[ A ] = {
+      def newVal[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ]) : Val[ A ] = {
          val id   = alloc( pid )( this )
          val res  = new ValImpl[ A ]( id, system, ser )
          res.store( init )
@@ -201,7 +201,7 @@ object Confluent {
          new IDImpl( id, pid.path )
       }
 
-      def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, A ]) : Val[ A ] = {
+      def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ]) : Val[ A ] = {
          val id = readSource( in, pid )
          new ValImpl( id, system, ser )
       }
@@ -356,7 +356,8 @@ object Confluent {
       }
    }
 
-   private final class ValImpl[ @specialized A ]( val id: ID, val system: System, ser: TxnSerializer[ Txn, A ])
+   private final class ValImpl[ @specialized A ]( val id: ID, val system: System,
+                                                  ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ])
    extends Val[ A ] with SourceImpl[ A ] {
 
 //      override def toString = "Val" + id
@@ -367,7 +368,8 @@ object Confluent {
       }
 
       protected def readValue( postfix: IIdxSeq[ Int ], in: DataInput )( implicit tx: Txn ) : A = {
-         ser.txnRead( in )
+         sys.error( "TODO" )
+//         ser.txnRead( in )
       }
    }
 }
@@ -378,6 +380,7 @@ sealed trait Confluent extends Sys[ Confluent ] {
    type Ref[ A ]  = Confluent.Ref[ A ]
    type ID        = Confluent.ID
    type Tx        = Confluent.Txn
+   type Acc       = IIdxSeq[ Int ]
 
    def inPath[ Z ]( _path: IIdxSeq[ Int ])( block: Tx => Z ) : Z
    def fromPath[ Z ]( _path: IIdxSeq[ Int ])( block: Tx => Z ) : Z

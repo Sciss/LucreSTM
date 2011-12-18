@@ -73,7 +73,7 @@ object InMemory {
    private final class TxnImpl( val system: InMemory, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
-      def newVal[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, A ]) : Val[ A ] = {
+      def newVal[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Val[ A ] = {
          val peer = ScalaRef[ A ]( init )
          new ValImpl[ A ]( peer )
       }
@@ -100,7 +100,7 @@ object InMemory {
       def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
       def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
 
-      def readVal[ A ]( id: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, A ]) : Val[ A ] = {
+      def readVal[ A ]( id: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Val[ A ] = {
          opNotSupported( "readVal" )
       }
 
@@ -141,6 +141,7 @@ final class InMemory extends Sys[ InMemory ] {
    type Ref[ A ]  = InMemory.Ref[ A ]
    type ID        = InMemory.ID
    type Tx        = InMemory.Txn
+   type Acc       = Unit
 
    def manifest: Manifest[ InMemory ] = Manifest.classType( classOf[ InMemory ])
 

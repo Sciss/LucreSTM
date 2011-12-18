@@ -33,13 +33,13 @@ trait Writer {
    def write( out: DataOutput ) : Unit
 }
 
-trait TxnReader[ -Txn, @specialized +A ] {
-   def txnRead( in: DataInput )( implicit tx: Txn ) : A
+trait TxnReader[ -Txn, @specialized( Unit ) -Access, @specialized +A ] {
+   def txnRead( in: DataInput, access: Access )( implicit tx: Txn ) : A
 }
 
-trait Reader[ @specialized +A ] extends TxnReader[ Any, A ] {
+trait Reader[ @specialized +A ] extends TxnReader[ Any, Any, A ] {
    def read( in: DataInput ) : A
-   final def txnRead( in: DataInput )( implicit tx: Any ) : A = read( in )
+   final def txnRead( in: DataInput, access: Any )( implicit tx: Any ) : A = read( in )
 }
 
 object Serializer {
@@ -245,13 +245,13 @@ object TxnSerializer {
    implicit val Double  = Serializer.Double
    implicit val String  = Serializer.String
 
-   implicit def fromSerializer[ A ]( implicit peer: Serializer[ A ]) : TxnSerializer[ Any, A ] = peer
+   implicit def fromSerializer[ A ]( implicit peer: Serializer[ A ]) : TxnSerializer[ Any, Any, A ] = peer
 }
-trait TxnSerializer[ -Txn, @specialized A ] extends TxnReader[ Txn, A ] {
+trait TxnSerializer[ -Txn, @specialized( Unit ) -Access, @specialized A ] extends TxnReader[ Txn, Access, A ] {
    def write( v: A, out: DataOutput ) : Unit
 }
 
-trait Serializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, A ] {
+trait Serializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, Any, A ] {
 //   def write( v: A, out: DataOutput ) : Unit
 //   def read( in: DataInput ) : A
 

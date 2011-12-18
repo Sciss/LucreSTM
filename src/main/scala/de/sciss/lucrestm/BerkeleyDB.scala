@@ -269,10 +269,10 @@ object BerkeleyDB {
       }
    }
 
-   private final class ValImpl[ A ]( protected val id: Int, ser: TxnSerializer[ Txn, A ])
+   private final class ValImpl[ A ]( protected val id: Int, ser: TxnSerializer[ Txn, Unit, A ])
    extends Val[ A ] with BasicSource {
       def get( implicit tx: Txn ) : A = {
-         tx.system.read[ A ]( id )( ser.txnRead( _ ))
+         tx.system.read[ A ]( id )( ser.txnRead( _, () ))
       }
 
       def setInit( v: A )( implicit tx: Txn ) {
@@ -405,7 +405,7 @@ object BerkeleyDB {
          res
       }
 
-      def newVal[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, A ]) : Val[ A ] = {
+      def newVal[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Val[ A ] = {
          val res = new ValImpl[ A ]( system.newIDValue()( this ), ser )
          res.setInit( init )( this )
          res
@@ -437,7 +437,7 @@ object BerkeleyDB {
 
       def newRefArray[ A ]( size: Int ) : Array[ Ref[ A ]] = new Array[ Ref[ A ]]( size )
 
-      def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, A ]) : Val[ A ] = {
+      def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Val[ A ] = {
          val id = in.readInt()
          new ValImpl[ A ]( id, ser )
       }
@@ -500,6 +500,7 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
 //   type Mut[ +A ] = BerkeleyDB.Mut[ A ]
    type ID        = BerkeleyDB.ID
    type Tx        = BerkeleyDB.Txn // InTxn
+   type Acc       = Unit
 
    /**
     * Closes the underlying database. The STM cannot be used beyond this call.

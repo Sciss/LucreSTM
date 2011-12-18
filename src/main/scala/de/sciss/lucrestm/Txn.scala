@@ -33,7 +33,7 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newID() : S#ID
 
-   def newVal[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, A ]) : S#Val[ A ]
+   def newVal[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Val[ A ]
 
    def newInt( id: S#ID, init: Int ) : S#Val[ Int ]
 
@@ -47,7 +47,7 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newRefArray[ A ]( size: Int ) : Array[ S#Ref[ A ]]
 
-   def readVal[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, A ]) : S#Val[ A ]
+   def readVal[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Val[ A ]
 
    def readInt( id: S#ID, in: DataInput ) : S#Val[ Int ]
 
