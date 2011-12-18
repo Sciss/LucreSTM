@@ -1,7 +1,7 @@
 package de.sciss.lucrestm
 package fluent
 
-import de.sciss.lucrestm.{ Txn => _Txn, Ref => _Ref, Val => _Val }
+import de.sciss.lucrestm.{ Txn => _Txn, Var => _Var }
 import concurrent.stm.{InTxn, TxnExecutor}
 import collection.immutable.{IntMap, IndexedSeq => IIdxSeq}
 
@@ -15,8 +15,8 @@ object Confluent {
    }
 
    sealed trait Txn extends _Txn[ Confluent ]
-   sealed trait Val[ @specialized A ] extends _Val[ Txn, A ]
-   sealed trait Ref[ A ] extends _Ref[ Txn, A ]
+   sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
+//   sealed trait Ref[ A ] extends _Ref[ Txn, A ]
 
    def apply() : Confluent = new System
 
@@ -151,38 +151,38 @@ object Confluent {
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 
-      def newVal[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ]) : Val[ A ] = {
+      def newVar[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ]) : Var[ A ] = {
          val id   = alloc( pid )( this )
-         val res  = new ValImpl[ A ]( id, system, ser )
+         val res  = new VarImpl[ A ]( id, system, ser )
          res.store( init )
          res
       }
 
-      def newInt( pid: ID, init: Int ) : Val[ Int ] = {
+      def newIntVar( pid: ID, init: Int ) : Var[ Int ] = {
          val id   = alloc( pid )( this )
-         val res  = new ValImpl( id, system, Serializer.Int )
+         val res  = new VarImpl( id, system, Serializer.Int )
          res.store( init )
          res
       }
 
-      def newRef[ A <: Mutable[ Confluent ]]( pid: ID, init: A )(
-         implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
-         val id   = alloc( pid )( this )
-         val res  = new RefImpl[ A ]( id, system, reader )
-         res.store( init )
-         res
-      }
+//      def newRef[ A <: Mutable[ Confluent ]]( pid: ID, init: A )(
+//         implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
+//         val id   = alloc( pid )( this )
+//         val res  = new RefImpl[ A ]( id, system, reader )
+//         res.store( init )
+//         res
+//      }
+//
+//      def newOptionRef[ A <: MutableOption[ Confluent ]]( pid: ID, init: A )(
+//         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
+//         val id   = alloc( pid )( this )
+//         val res  = new RefOptionImpl[ A ]( id, system, reader )
+//         res.store( init )
+//         res
+//      }
 
-      def newOptionRef[ A <: MutableOption[ Confluent ]]( pid: ID, init: A )(
-         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
-         val id   = alloc( pid )( this )
-         val res  = new RefOptionImpl[ A ]( id, system, reader )
-         res.store( init )
-         res
-      }
-
-      def newValArray[ A ]( size: Int ) = new Array[ Val[ A ]]( size )
-      def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
+      def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
+//      def newRefArray[ A ]( size: Int ) = new Array[ Ref[ A ]]( size )
 
 //      private def readSource( in: DataInput ) : M = {
 //         val msz  = in.readInt()
@@ -201,28 +201,28 @@ object Confluent {
          new IDImpl( id, pid.path )
       }
 
-      def readVal[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ]) : Val[ A ] = {
+      def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ]) : Var[ A ] = {
          val id = readSource( in, pid )
-         new ValImpl( id, system, ser )
+         new VarImpl( id, system, ser )
       }
 
-      def readInt( pid: ID, in: DataInput ) : Val[ Int ] = {
+      def readIntVar( pid: ID, in: DataInput ) : Var[ Int ] = {
          val id = readSource( in, pid )
-         new ValImpl( id, system, Serializer.Int )
+         new VarImpl( id, system, Serializer.Int )
       }
 
-      def readRef[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
-                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
-         val id = readSource( in, pid )
-         new RefImpl( id, system, reader )
-      }
-
-      def readOptionRef[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )(
-         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
-
-         val id = readSource( in, pid )
-         new RefOptionImpl( id, system, reader )
-      }
+//      def readRef[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
+//                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : Ref[ A ] = {
+//         val id = readSource( in, pid )
+//         new RefImpl( id, system, reader )
+//      }
+//
+//      def readOptionRef[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )(
+//         implicit reader: MutableOptionReader[ ID, Txn, A ]) : Ref[ A ] = {
+//
+//         val id = readSource( in, pid )
+//         new RefOptionImpl( id, system, reader )
+//      }
 
       def readMut[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
                                              ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
@@ -314,54 +314,54 @@ object Confluent {
       final def dispose()( implicit tx: Txn ) {} // { map = map.empty }
    }
 
-   private final class RefImpl[ A <: Mutable[ Confluent ]]( val id: ID, val system: System, reader: MutableReader[ ID, Txn, A ])
-   extends Ref[ A ] with SourceImpl[ A ] {
-
-//      override def toString = "Ref" + id
-      override def toString = toString( "Ref" )
-
-//      def write( out: DataOutput ) {
-//         id.write( out )
+//   private final class RefImpl[ A <: Mutable[ Confluent ]]( val id: ID, val system: System, reader: MutableReader[ ID, Txn, A ])
+//   extends Ref[ A ] with SourceImpl[ A ] {
+//
+////      override def toString = "Ref" + id
+//      override def toString = toString( "Ref" )
+//
+////      def write( out: DataOutput ) {
+////         id.write( out )
+////      }
+//
+//      protected def writeValue( v: A, out: DataOutput ) {
+//         v.write( out )
 //      }
+//
+//      protected def readValue( postfix: IIdxSeq[ Int ], in: DataInput )( implicit tx: Txn ) : A = {
+//         val mid = in.readInt()
+//         reader.readData( in, IDImpl.readAndAppend( mid, postfix, in ))
+//      }
+//   }
 
-      protected def writeValue( v: A, out: DataOutput ) {
-         v.write( out )
-      }
+//   private final class RefOptionImpl[ A <: MutableOption[ Confluent ]]( val id: ID, val system: System,
+//                                                                        reader: MutableOptionReader[ ID, Txn, A ])
+//   extends Ref[ A ] with SourceImpl[ A ] {
+//
+////      override def toString = "Ref" + id
+//      override def toString = toString( "Ref" )
+//
+//      protected def writeValue( v: A, out: DataOutput ) {
+//         v match {
+//            case m: Mutable[ _ ] => m.write( out )
+//            case _: EmptyMutable => out.writeInt( -1 )
+//         }
+//      }
+//
+//      protected def readValue( postfix: IIdxSeq[ Int ], in: DataInput )( implicit tx: Txn ) : A = {
+//         val mid = in.readInt()
+//         if( mid == -1 ) reader.empty else {
+//            reader.readData( in, IDImpl.readAndAppend( mid, postfix, in ))
+//         }
+//      }
+//   }
 
-      protected def readValue( postfix: IIdxSeq[ Int ], in: DataInput )( implicit tx: Txn ) : A = {
-         val mid = in.readInt()
-         reader.readData( in, IDImpl.readAndAppend( mid, postfix, in ))
-      }
-   }
-
-   private final class RefOptionImpl[ A <: MutableOption[ Confluent ]]( val id: ID, val system: System,
-                                                                        reader: MutableOptionReader[ ID, Txn, A ])
-   extends Ref[ A ] with SourceImpl[ A ] {
-
-//      override def toString = "Ref" + id
-      override def toString = toString( "Ref" )
-
-      protected def writeValue( v: A, out: DataOutput ) {
-         v match {
-            case m: Mutable[ _ ] => m.write( out )
-            case _: EmptyMutable => out.writeInt( -1 )
-         }
-      }
-
-      protected def readValue( postfix: IIdxSeq[ Int ], in: DataInput )( implicit tx: Txn ) : A = {
-         val mid = in.readInt()
-         if( mid == -1 ) reader.empty else {
-            reader.readData( in, IDImpl.readAndAppend( mid, postfix, in ))
-         }
-      }
-   }
-
-   private final class ValImpl[ @specialized A ]( val id: ID, val system: System,
+   private final class VarImpl[ @specialized A ]( val id: ID, val system: System,
                                                   ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ])
-   extends Val[ A ] with SourceImpl[ A ] {
+   extends Var[ A ] with SourceImpl[ A ] {
 
-//      override def toString = "Val" + id
-      override def toString = toString( "Val" )
+//      override def toString = "Var" + id
+      override def toString = toString( "Var" )
 
       protected def writeValue( v: A, out: DataOutput ) {
          ser.write( v, out )
@@ -376,8 +376,8 @@ object Confluent {
 sealed trait Confluent extends Sys[ Confluent ] {
    import Confluent._
 
-   type Val[ @specialized A ]  = Confluent.Val[ A ]
-   type Ref[ A ]  = Confluent.Ref[ A ]
+   type Var[ @specialized A ]  = Confluent.Var[ A ]
+//   type Ref[ A ]  = Confluent.Ref[ A ]
    type ID        = Confluent.ID
    type Tx        = Confluent.Txn
    type Acc       = IIdxSeq[ Int ]
@@ -385,7 +385,5 @@ sealed trait Confluent extends Sys[ Confluent ] {
    def inPath[ Z ]( _path: IIdxSeq[ Int ])( block: Tx => Z ) : Z
    def fromPath[ Z ]( _path: IIdxSeq[ Int ])( block: Tx => Z ) : Z
    def path( implicit tx: Tx ) : IIdxSeq[ Int ]
-//   def updateID( old: ID )( implicit tx: Tx ) : ID
    def update[ A <: Mutable[ Confluent ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A
-//   def meld[ A <: Mutable[ Confluent ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A
 }

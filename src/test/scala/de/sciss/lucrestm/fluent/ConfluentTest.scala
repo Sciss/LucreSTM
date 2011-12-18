@@ -102,7 +102,7 @@ object ConfluentTest extends App {
          import tx._
          val id         = _id
          val num        = in.readInt()
-         val valueRef   = readVal[ Int ]( id, in )
+         val valueRef   = readVar[ Int ]( id, in )
          val nextRef    = readOptionRef[ E[ Int ]]( id, in )
       }
    }
@@ -113,7 +113,7 @@ object ConfluentTest extends App {
       import tx._
       val num        = _num
       val id         = newID()
-      val valueRef   = newVal[ Int ]( id, i )
+      val valueRef   = newVar[ Int ]( id, i )
       val nextRef    = newOptionRef[ E[ Int ]]( id, empty )
    }
 

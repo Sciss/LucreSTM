@@ -33,29 +33,29 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newID() : S#ID
 
-   def newVal[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Val[ A ]
+   def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
 
-   def newInt( id: S#ID, init: Int ) : S#Val[ Int ]
+   def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]
 
-   def newRef[ A <: Mutable[ S ]]( id: S#ID, init: A )(
-      implicit reader: MutableReader[ S#ID, S#Tx, A ]) : S#Ref[ A ]
+//   def newRef[ A <: Mutable[ S ]]( id: S#ID, init: A )(
+//      implicit reader: MutableReader[ S#ID, S#Tx, A ]) : S#Ref[ A ]
+//
+//   def newOptionRef[ A <: MutableOption[ S ]]( id: S#ID, init: A )(
+//      implicit reader: MutableOptionReader[ S#ID, S#Tx, A ]) : S#Ref[ A ]
 
-   def newOptionRef[ A <: MutableOption[ S ]]( id: S#ID, init: A )(
-      implicit reader: MutableOptionReader[ S#ID, S#Tx, A ]) : S#Ref[ A ]
+   def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
-   def newValArray[ A ]( size: Int ) : Array[ S#Val[ A ]]
+//   def newRefArray[ A ]( size: Int ) : Array[ S#Ref[ A ]]
 
-   def newRefArray[ A ]( size: Int ) : Array[ S#Ref[ A ]]
+   def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
 
-   def readVal[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Val[ A ]
+   def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
 
-   def readInt( id: S#ID, in: DataInput ) : S#Val[ Int ]
-
-   def readRef[ A <: Mutable[ S ]]( id: S#ID, in: DataInput )
-                                  ( implicit reader: MutableReader[ S#ID, S#Tx, A ]) : S#Ref[ A ]
-
-   def readOptionRef[ A <: MutableOption[ S ]]( id: S#ID, in: DataInput )
-                                              ( implicit reader: MutableOptionReader[ S#ID, S#Tx, A ]) : S#Ref[ A ]
+//   def readRef[ A <: Mutable[ S ]]( id: S#ID, in: DataInput )
+//                                  ( implicit reader: MutableReader[ S#ID, S#Tx, A ]) : S#Ref[ A ]
+//
+//   def readOptionRef[ A <: MutableOption[ S ]]( id: S#ID, in: DataInput )
+//                                              ( implicit reader: MutableOptionReader[ S#ID, S#Tx, A ]) : S#Ref[ A ]
 
    def readMut[ A <: Mutable[ S ]]( id: S#ID, in: DataInput )( implicit reader: MutableReader[ S#ID, S#Tx, A ]) : A
 

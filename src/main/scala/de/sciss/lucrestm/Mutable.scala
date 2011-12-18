@@ -68,10 +68,10 @@ trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Dispos
    override def toString = super.toString + id.toString
 
 //   // ---- mutable elements ----
-//   protected final def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Val[ A ] =
+//   protected final def newVal[ A ]( init: A )( implicit tx: S#Tx, ser: Serializer[ A ]) : S#Var[ A ] =
 //      tx.newVal[ A ]( id, init )
 //
-//   protected final def newInt( init: Int )( implicit tx: S#Tx ) : S#Val[ Int ] =
+//   protected final def newInt( init: Int )( implicit tx: S#Tx ) : S#Var[ Int ] =
 //      tx.newInt( id, init )
 //
 //   protected final def newRef[ A <: Mutable[ S ]]( init: A )
@@ -83,7 +83,7 @@ trait Mutable[ S <: Sys[ S ]] extends MutableOption[ S ] with Writer with Dispos
 //                                                               reader: MutableOptionReader[ S, A ]) : S#Ref[ A ] =
 //      tx.newOptionRef[ A ]( id, init )
 //
-//   protected final def newValArray[ A ]( size: Int )( implicit tx: S#Tx ) : Array[ S#Val[ A ]] =
+//   protected final def newValArray[ A ]( size: Int )( implicit tx: S#Tx ) : Array[ S#Var[ A ]] =
 //      tx.newValArray[ A ]( size )
 //
 //   protected final def newRefArray[ A ]( size: Int )( implicit tx: S#Tx ) : Array[ S#Ref[ A ]] =

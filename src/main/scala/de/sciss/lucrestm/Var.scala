@@ -1,5 +1,5 @@
 /*
- *  Ref.scala
+ *  Var.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
@@ -35,8 +35,8 @@ sealed trait Source[ -Tx, @specialized +A ] extends Writer with Disposable[ Tx ]
 
 sealed trait RefLike[ -Tx, A ] extends Sink[ Tx, A ] with Source[ Tx, A ]
 
-trait Val[ -Tx, @specialized A ] extends RefLike[ Tx, A ] {
+trait Var[ -Tx, @specialized A ] extends RefLike[ Tx, A ] {
    def transform( f: A => A )( implicit tx: Tx ) : Unit
 }
 
-trait Ref[ -Tx, A ] extends RefLike[ Tx, A ]
+//trait Ref[ -Tx, A ] extends RefLike[ Tx, A ]
