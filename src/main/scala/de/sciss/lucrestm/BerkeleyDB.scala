@@ -242,7 +242,7 @@ object BerkeleyDB {
          out.writeInt( id )
       }
 
-      final def dispose()( implicit tx: Txn ) {
+      /* final */ def dispose()( implicit tx: Txn ) {
          tx.system.remove( id )
       }
 
@@ -251,8 +251,12 @@ object BerkeleyDB {
       }
    }
 
-   private final class VarImpl[ A ]( protected val id: Int, ser: TxnSerializer[ Txn, Unit, A ])
-   extends Var[ A ] with BasicSource {
+   private type Obs[ A ]    = Observer[ Txn, Change[ A ]]
+   private type ObsVar[ A ] = Var[ A ] with Observable[ BerkeleyDB, Change[ A ]]
+
+   private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
+      protected def ser: TxnSerializer[ Txn, Unit, A ]
+
       def get( implicit tx: Txn ) : A = {
          tx.system.read[ A ]( id )( ser.read( _, () ))
       }
@@ -260,7 +264,10 @@ object BerkeleyDB {
       def setInit( v: A )( implicit tx: Txn ) {
          tx.system.write( id )( ser.write( v, _ ))
       }
+   }
 
+   private final class VarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ Txn, Unit, A ])
+   extends BasicVar[ A ] {
       def set( v: A )( implicit tx: Txn ) {
          assertExists()
          tx.system.write( id )( ser.write( v, _ ))
@@ -271,8 +278,57 @@ object BerkeleyDB {
       override def toString = "Var(" + id + ")"
    }
 
-   private final class IntVar( protected val id: Int )
-   extends Var[ Int ] with BasicSource {
+   private sealed trait BasicObservable[ @specialized A ] extends BasicSource with Observable[ BerkeleyDB, Change[ A ]] {
+      def addObserver( observer: Obs[ A ])( implicit tx: Txn ) {
+         sys.error( "TODO" )
+      }
+
+      def removeObserver( observer: Obs[ A ])( implicit tx: Txn ) {
+         sys.error( "TODO" )
+      }
+
+      protected def notifyObservers( change: Change[ A ])( implicit tx: Txn ) {
+         val system  = tx.system
+         val oid     = 0x80000000 | id
+         if( system.exists( oid )) {
+            system.read[ Unit ]( oid ) { in =>
+               val sz = in.readInt()
+               var i = 0; while( i < sz ) {
+                  sys.error( "TODO" )
+               i += 1 }
+            }
+         }
+      }
+
+      final override def dispose()( implicit tx: Txn ) {
+         super.dispose()
+         tx.system.remove( 0x80000000 | id )
+      }
+   }
+
+   private final class ObsVarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ Txn, Unit, A ])
+   extends BasicVar[ A ] with BasicObservable[ A ] {
+      def set( now: A )( implicit tx: Txn ) {
+         val before = get( tx )
+         if( before != now ) {
+            tx.system.write( id )( ser.write( now, _ ))
+            notifyObservers( new Change( before, now ))
+         }
+      }
+
+      def transform( f: A => A )( implicit tx: Txn ) {
+         val before  = get( tx )
+         val now     = f( before )
+         if( before != now ) {
+            tx.system.write( id )( ser.write( now, _ ))
+            notifyObservers( new Change( before, now ))
+         }
+      }
+
+      override def toString = "ObsVar(" + id + ")"
+   }
+
+   private sealed trait BasicIntVar extends Var[ Int ] with BasicSource {
       def get( implicit tx: Txn ) : Int = {
          tx.system.read[ Int ]( id )( _.readInt() )
       }
@@ -280,7 +336,32 @@ object BerkeleyDB {
       def setInit( v: Int )( implicit tx: Txn ) {
          tx.system.write( id )( _.writeInt( v ))
       }
+   }
 
+   private final class ObsIntVar( protected val id: Int )
+   extends BasicIntVar with BasicObservable[ Int ] {
+      def set( now: Int )( implicit tx: Txn ) {
+         val before = get( tx )
+         if( before != now ) {
+            tx.system.write( id )( _.writeInt( now ))
+            notifyObservers( new Change( before, now ))
+         }
+      }
+
+      def transform( f: Int => Int )( implicit tx: Txn ) {
+         val before  = get( tx )
+         val now     = f( before )
+         if( before != now ) {
+            tx.system.write( id )( _.writeInt( now ))
+            notifyObservers( new Change( before, now ))
+         }
+      }
+
+      override def toString = "ObsVar[Int](" + id + ")"
+   }
+
+   private final class IntVar( protected val id: Int )
+   extends BasicIntVar {
       def set( v: Int )( implicit tx: Txn ) {
          assertExists()
          tx.system.write( id )( _.writeInt( v ))
@@ -329,6 +410,18 @@ object BerkeleyDB {
 
       def newIntVar( id: ID, init: Int ) : Var[ Int ] = {
          val res = new IntVar( system.newIDValue()( this ) )
+         res.setInit( init )( this )
+         res
+      }
+
+      def newObservableVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : ObsVar[ A ] = {
+         val res = new ObsVarImpl[ A ]( system.newIDValue()( this ), ser )
+         res.setInit( init )( this )
+         res
+      }
+
+      def newObservableIntVar( id: ID, init: Int ) : ObsVar[ Int ] = {
+         val res = new ObsIntVar( system.newIDValue()( this ) )
          res.setInit( init )( this )
          res
       }

@@ -27,22 +27,71 @@ package de.sciss.lucrestm
 
 import de.sciss.lucrestm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
+import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object InMemory {
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
 
    private sealed trait SourceImpl[ @specialized A ] {
       protected def peer: ScalaRef[ A ]
-      def set( v: A )( implicit tx: Txn ) { peer.set( v )( tx.peer )}
       def get( implicit tx: Txn ) : A = peer.get( tx.peer )
-      def transform( f: A => A )( implicit tx: Txn ) { peer.transform( f )( tx.peer )}
-      def dispose()( implicit tx: Txn ) { peer.set( null.asInstanceOf[ A ])( tx.peer )}
       def write( out: DataOutput ) {}
    }
 
    private final class VarImpl[ @specialized A ]( protected val peer: ScalaRef[ A ])
    extends Var[ A ] with SourceImpl[ A ] {
       override def toString = "Var<" + hashCode().toHexString + ">"
+
+      def set( v: A )( implicit tx: Txn ) { peer.set( v )( tx.peer )}
+      def transform( f: A => A )( implicit tx: Txn ) { peer.transform( f )( tx.peer )}
+      def dispose()( implicit tx: Txn ) { peer.set( null.asInstanceOf[ A ])( tx.peer )}
+   }
+
+   private final class ObsVarImpl[ @specialized A ]( protected val peer: ScalaRef[ A ])
+   extends Var[ A ] with Observable[ InMemory, Change[ A ]] with SourceImpl[ A ] {
+      override def toString = "ObsVar<" + hashCode().toHexString + ">"
+
+      private type Obs = Observer[ Txn, Change[ A ]]
+
+      private val obs = ScalaRef[ IIdxSeq[ Obs ]]( IIdxSeq.empty )
+
+      def set( now: A )( implicit tx: Txn ) {
+         val before = peer.swap( now )( tx.peer )
+         if( before != now ) {
+            notifyObservers( new Change( before, now ))
+         }
+      }
+
+      def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
+
+      def dispose()( implicit tx: Txn ) {
+         implicit val itx = tx.peer
+         require( obs.get.isEmpty, "Disposing a var which is still observed" )
+         peer.set( null.asInstanceOf[ A ])
+      }
+
+      def notifyObservers( change: Change[ A ])( implicit tx: Txn ) {
+         obs.get( tx.peer ).foreach( _.update( change ))
+      }
+
+      def addObserver( o: Obs )( implicit tx: Txn ) {
+         obs.transform( _ :+ o )( tx.peer )
+      }
+
+      def removeObserver( o: Obs )( implicit tx: Txn ) {
+//         obs.transform( _.filterNot( _ == o ))( tx.peer )
+         obs.transform({ seq =>
+            val i             = seq.indexOf( o )
+            if( i == 0 ) {
+               seq.tail
+            } else if( i == seq.size - 1 ) {
+               seq.init
+            } else {
+               val (left, right) = seq.splitAt( i )
+               left ++ right.tail
+            }
+         })( tx.peer )
+      }
    }
 
    private def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )
@@ -57,17 +106,29 @@ object InMemory {
 
    sealed trait Txn extends _Txn[ InMemory ]
 
+   private type ObsVar[ A ] = InMemory#ObsVar[ A ]
+
    private final class TxnImpl( val system: InMemory, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
-         val peer = ScalaRef[ A ]( init )
-         new VarImpl[ A ]( peer )
+         val peer = ScalaRef( init )
+         new VarImpl( peer )
       }
 
       def newIntVar( id: ID, init: Int ) : Var[ Int ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
+      }
+
+      def newObservableVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : ObsVar[ A ] = {
+         val peer = ScalaRef( init )
+         new ObsVarImpl( peer )
+      }
+
+      def newObservableIntVar( id: ID, init: Int ) : ObsVar[ Int ] = {
+         val peer = ScalaRef( init )
+         new ObsVarImpl( peer )
       }
 
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
@@ -78,6 +139,14 @@ object InMemory {
 
       def readIntVar( id: ID, in: DataInput ) : Var[ Int ] = {
          opNotSupported( "readIntVar" )
+      }
+
+      def readObservableVar[ A ]( id: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : ObsVar[ A ] = {
+         opNotSupported( "readObservableVar" )
+      }
+
+      def readObservableIntVar( id: ID, in: DataInput ) : ObsVar[ Int ] = {
+         opNotSupported( "readObservableIntVar" )
       }
 
       def readID( in: DataInput, acc: Unit ) : ID = opNotSupported( "readID" )
