@@ -51,6 +51,8 @@ trait Mutable[ S <: Sys[ S ]] extends /* MutableOption[ S ] with */ Writer with 
       } else super.equals( that ))
    }
 
+   override def hashCode = id.hashCode()
+
    override def toString = super.toString + id.toString
 }
 

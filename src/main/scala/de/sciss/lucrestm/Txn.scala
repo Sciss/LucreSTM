@@ -37,11 +37,19 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]
 
+   def newObservableVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#ObsVar[ A ]
+
+   def newObservableIntVar( id: S#ID, init: Int ) : S#ObsVar[ Int ]
+
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
    def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
 
    def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
+
+   def readObservableVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#ObsVar[ A ]
+
+   def readObservableIntVar( id: S#ID, in: DataInput ) : S#ObsVar[ Int ]
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
 
