@@ -53,6 +53,8 @@ trait Txn[ S <: Sys[ S ]] {
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
 
+   def addLive( )
+
 //   def readMut[ A <: Mutable[ S ]]( id: S#ID, in: DataInput )( implicit reader: MutableReader[ S#ID, S#Tx, A ]) : A
 //
 //   def readOptionMut[ A <: MutableOption[ S ]]( id: S#ID, in: DataInput )
