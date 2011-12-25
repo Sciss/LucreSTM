@@ -146,6 +146,9 @@ object TxnSerializer {
    implicit def indexedSeq[ Tx, Acc, A ]( implicit peer: TxnSerializer[ Tx, Acc, A ]) : TxnSerializer[ Tx, Acc, IIdxSeq[ A ]] =
       new IndexedSeqSerializer[ Tx, Acc, A ]( peer )
 
+   implicit def map[ Tx, Acc, A, B ]( implicit peer: TxnSerializer[ Tx, Acc, (A, B) ]) : TxnSerializer[ Tx, Acc, Map[ A, B ]] =
+      new MapSerializer[ Tx, Acc, A, B ]( peer )
+
    // XXX size might be a slow operation on That...
    private sealed trait CollectionSerializer[ Tx, Acc, A, That <: Traversable[ A ]] extends TxnSerializer[ Tx, Acc, That ] {
       def newBuilder: Builder[ A, That ]
@@ -181,6 +184,11 @@ object TxnSerializer {
    private final class IndexedSeqSerializer[ Tx, Acc, A ]( val peer: TxnSerializer[ Tx, Acc, A ])
    extends CollectionSerializer[ Tx, Acc, A, IIdxSeq[ A ]] {
       def newBuilder = IIdxSeq.newBuilder[ A ]
+   }
+
+   private final class MapSerializer[ Tx, Acc, A, B ]( val peer: TxnSerializer[ Tx, Acc, (A, B) ])
+   extends CollectionSerializer[ Tx, Acc, (A, B), Map[ A, B ]] {
+      def newBuilder = Map.newBuilder[ A, B ]
    }
 }
 trait TxnSerializer[ -Txn, @specialized( Unit ) -Access, @specialized A ] extends TxnReader[ Txn, Access, A ] {

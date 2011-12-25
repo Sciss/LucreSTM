@@ -306,27 +306,27 @@ object BerkeleyDB {
       }
    }
 
-   private final class ObsVarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ Txn, Unit, A ])
-   extends BasicVar[ A ] with BasicObservable[ A ] {
-      def set( now: A )( implicit tx: Txn ) {
-         val before = get( tx )
-         if( before != now ) {
-            tx.system.write( id )( ser.write( now, _ ))
-            notifyObservers( new Change( before, now ))
-         }
-      }
-
-      def transform( f: A => A )( implicit tx: Txn ) {
-         val before  = get( tx )
-         val now     = f( before )
-         if( before != now ) {
-            tx.system.write( id )( ser.write( now, _ ))
-            notifyObservers( new Change( before, now ))
-         }
-      }
-
-      override def toString = "ObsVar(" + id + ")"
-   }
+//   private final class ObsVarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ Txn, Unit, A ])
+//   extends BasicVar[ A ] with BasicObservable[ A ] {
+//      def set( now: A )( implicit tx: Txn ) {
+//         val before = get( tx )
+//         if( before != now ) {
+//            tx.system.write( id )( ser.write( now, _ ))
+//            notifyObservers( new Change( before, now ))
+//         }
+//      }
+//
+//      def transform( f: A => A )( implicit tx: Txn ) {
+//         val before  = get( tx )
+//         val now     = f( before )
+//         if( before != now ) {
+//            tx.system.write( id )( ser.write( now, _ ))
+//            notifyObservers( new Change( before, now ))
+//         }
+//      }
+//
+//      override def toString = "ObsVar(" + id + ")"
+//   }
 
    private sealed trait BasicIntVar extends Var[ Int ] with BasicSource {
       def get( implicit tx: Txn ) : Int = {
@@ -338,27 +338,27 @@ object BerkeleyDB {
       }
    }
 
-   private final class ObsIntVar( protected val id: Int )
-   extends BasicIntVar with BasicObservable[ Int ] {
-      def set( now: Int )( implicit tx: Txn ) {
-         val before = get( tx )
-         if( before != now ) {
-            tx.system.write( id )( _.writeInt( now ))
-            notifyObservers( new Change( before, now ))
-         }
-      }
-
-      def transform( f: Int => Int )( implicit tx: Txn ) {
-         val before  = get( tx )
-         val now     = f( before )
-         if( before != now ) {
-            tx.system.write( id )( _.writeInt( now ))
-            notifyObservers( new Change( before, now ))
-         }
-      }
-
-      override def toString = "ObsVar[Int](" + id + ")"
-   }
+//   private final class ObsIntVar( protected val id: Int )
+//   extends BasicIntVar with BasicObservable[ Int ] {
+//      def set( now: Int )( implicit tx: Txn ) {
+//         val before = get( tx )
+//         if( before != now ) {
+//            tx.system.write( id )( _.writeInt( now ))
+//            notifyObservers( new Change( before, now ))
+//         }
+//      }
+//
+//      def transform( f: Int => Int )( implicit tx: Txn ) {
+//         val before  = get( tx )
+//         val now     = f( before )
+//         if( before != now ) {
+//            tx.system.write( id )( _.writeInt( now ))
+//            notifyObservers( new Change( before, now ))
+//         }
+//      }
+//
+//      override def toString = "ObsVar[Int](" + id + ")"
+//   }
 
    private final class IntVar( protected val id: Int )
    extends BasicIntVar {
@@ -414,17 +414,17 @@ object BerkeleyDB {
          res
       }
 
-      def newObservableVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : ObsVar[ A ] = {
-         val res = new ObsVarImpl[ A ]( system.newIDValue()( this ), ser )
-         res.setInit( init )( this )
-         res
-      }
-
-      def newObservableIntVar( id: ID, init: Int ) : ObsVar[ Int ] = {
-         val res = new ObsIntVar( system.newIDValue()( this ) )
-         res.setInit( init )( this )
-         res
-      }
+//      def newObservableVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : ObsVar[ A ] = {
+//         val res = new ObsVarImpl[ A ]( system.newIDValue()( this ), ser )
+//         res.setInit( init )( this )
+//         res
+//      }
+//
+//      def newObservableIntVar( id: ID, init: Int ) : ObsVar[ Int ] = {
+//         val res = new ObsIntVar( system.newIDValue()( this ) )
+//         res.setInit( init )( this )
+//         res
+//      }
 
       def newVarArray[ A ]( size: Int ) : Array[ Var[ A ]] = new Array[ Var[ A ]]( size )
 
