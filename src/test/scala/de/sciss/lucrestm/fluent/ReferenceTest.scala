@@ -22,12 +22,13 @@ object ReferenceTest extends App {
       }
    }
    trait Sink[ S <: Sys[ S ]] {
-
+      def propagate()( implicit tx: S#Tx, map: LiveMap[ S ]) : Unit
    }
 
    trait LiveMap[ S <: Sys[ S ]] {
       def addReaction[    A ]( event: Event[ S, A ], fun: A => Unit )( implicit tx: S#Tx ) : Unit
       def removeReaction[ A ]( event: Event[ S, A ], fun: A => Unit )( implicit tx: S#Tx ) : Unit
+      def getReactions[   A ]( event: Event[ S, A ])( implicit tx: S#Tx ) : Traversable[ A => Unit ]
    }
 
    trait Event[ S <: Sys[ S ], A ] {
@@ -35,9 +36,12 @@ object ReferenceTest extends App {
       def removeSink( sink: Sink[ S ])( implicit tx: S#Tx ) : Unit
       protected def deploy()( implicit tx: S#Tx ) : Unit
       protected def undeploy()( implicit tx: S#Tx ) : Unit
+      protected def propagate( v: A )( implicit tx: S#Tx, map: LiveMap[ S ]) : Unit
 
       def addReaction( react: A => Unit )( implicit tx: S#Tx, map: LiveMap[ S ]) : Unit
       def removeReaction( react: A => Unit )( implicit tx: S#Tx, map: LiveMap[ S ]) : Unit
+
+//      def eval( implicit tx: S#Tx ) : A
    }
 
    trait EventImpl[ S <: Sys[ S ], A ] extends Event[ S, A ] {
@@ -86,6 +90,11 @@ object ReferenceTest extends App {
 //            reactions.set( xs1 )
 //            if( xs1.isEmpty && sinks.get.isEmpty ) undeploy()
 //         }
+      }
+
+      protected final def propagate( v: A )( implicit tx: S#Tx, map: LiveMap[ S ]) {
+         map.getReactions( this ).foreach( _.apply( v ))
+         sinks.get.foreach( _.propagate() )
       }
    }
 
