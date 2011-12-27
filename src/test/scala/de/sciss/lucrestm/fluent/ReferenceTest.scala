@@ -5,8 +5,6 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 import concurrent.stm.{TMap, Ref => STMRef}
 
 object ReferenceTest extends App {
-   val system = Confluent()
-
    type Tx = Confluent#Tx
 
    object Reactor {
@@ -135,18 +133,16 @@ object ReferenceTest extends App {
       def invoke( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
    }
 
-   trait Expr[ A ] {
-      def eval( implicit tx: Tx ) : A
-   }
+   trait Expr[ A ] extends Event[ Confluent, A ]
 
    trait StringRef extends Expr[ String ] {
-      def append( other: StringRef ) : StringRef
+      def append( other: StringRef )( implicit tx: Tx ) : StringRef
    }
 
    trait LongRef extends Expr[ Long ] {
-      def +( other: LongRef ) : LongRef
-      def max( other: LongRef ) : LongRef
-      def min( other: LongRef ) : LongRef
+      def +( other: LongRef )( implicit tx: Tx ) : LongRef
+      def max( other: LongRef )( implicit tx: Tx ) : LongRef
+      def min( other: LongRef )( implicit tx: Tx ) : LongRef
    }
 
    trait Region {
@@ -172,5 +168,13 @@ object ReferenceTest extends App {
       def value: A
       def next( implicit tx: Tx ) : Option[ List[ A ]]
 //      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
+   }
+
+   test()
+
+   def test() {
+      val system = Confluent()
+
+
    }
 }
