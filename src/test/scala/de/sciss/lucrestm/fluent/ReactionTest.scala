@@ -137,23 +137,66 @@ object ReactionTest extends App with Runnable {
       def invoke( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
    }
 
-   trait Expr[ A ] extends Event[ Confluent, A ]
+   sealed trait Observer { def remove()( implicit tx: Tx ) : Unit }
+
+   trait Expr[ A ] extends Event[ Confluent, A ] with Disposable[ Tx ] {
+      def observe( update: A => Unit )( implicit tx: Tx, map: ReactionMap[ Confluent ]) : Observer = {
+         val key        = ReactorLeaf.apply[ Confluent ]()
+         val reaction   = (tx: Tx) => update( value( tx ))
+         map.add( key, reaction )
+         addReactor( key )
+         new Observer {
+            def remove()( implicit tx: Tx ) {
+               map.remove( key )
+               removeReactor( key )
+            }
+         }
+      }
+   }
+
+   trait ConstExpr[ A ] extends Expr[ A ] {
+      protected def constValue : A
+      final def value( implicit tx: Tx ) : A = constValue
+      final def dispose()( implicit tx: Tx ) { reactor.dispose() }
+   }
+
+   trait BinaryExpr[ A ] extends Expr[ A ] {
+      protected def a: Expr[ A ]
+      protected def b: Expr[ A ]
+      protected def op( a: A, b: A ) : A
+
+      final def value( implicit tx: Tx ) : A = op( a.value, b.value )
+
+      final def dispose()( implicit tx: Tx ) {
+         a.removeReactor( reactor )
+         b.removeReactor( reactor )
+         reactor.dispose()
+      }
+   }
 
    object StringRef {
-      implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, ReactorBranch() )
+      implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
 
       def append( a: StringRef, b: StringRef )( implicit tx: Tx ) : StringRef =
-         new StringAppendNew( a, b, ReactorBranch() )
+         new StringAppendNew( a, b, tx )
 
-      private final class StringConstNew( s: String, protected val reactor: ReactorBranch[ Confluent ])
-      extends StringRef {
-         def value( implicit tx: Tx ) : String = s
+      private final class StringConstNew( protected val constValue: String, tx0: Tx )
+      extends StringRef with ConstExpr[ String ] {
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
       }
 
-      private final class StringAppendNew( prefix: StringRef, suffix: StringRef,
-                                           protected val reactor: ReactorBranch[ Confluent ])
+      private final class StringAppendNew( prefix: StringRef, suffix: StringRef, tx0: Tx )
       extends StringRef {
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+         prefix.addReactor( reactor )( tx0 )
+         suffix.addReactor( reactor )( tx0 )
+
          def value( implicit tx: Tx ) : String = prefix.value + suffix.value
+         def dispose()( implicit tx: Tx ) {
+            prefix.removeReactor( reactor )
+            suffix.removeReactor( reactor )
+            reactor.dispose()
+         }
       }
    }
 
@@ -162,30 +205,42 @@ object ReactionTest extends App with Runnable {
    }
 
    object LongRef {
-      implicit def apply( n: Long )( implicit tx: Tx ) : LongRef = new LongConstNew( n, ReactorBranch() )
+      implicit def apply( n: Long )( implicit tx: Tx ) : LongRef = new LongConstNew( n, tx )
 
-      def plus( a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongPlus( a, b, ReactorBranch() )
-      def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMin(  a, b, ReactorBranch() )
-      def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMax(  a, b, ReactorBranch() )
+      def plus( a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongPlus( a, b, tx )
+      def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMin(  a, b, tx )
+      def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMax(  a, b, tx )
 
-      private final class LongConstNew( n: Long, protected val reactor: ReactorBranch[ Confluent ])
-      extends LongRef {
-         def value( implicit tx: Tx ) : Long = n
+      private final class LongConstNew( protected val constValue: Long, tx0: Tx )
+      extends LongRef with ConstExpr[ Long ] {
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
       }
 
-      private final class LongPlus( a: LongRef, b: LongRef, protected val reactor: ReactorBranch[ Confluent ])
-      extends LongRef {
-         def value( implicit tx: Tx ) : Long = a.value + b.value
+      private final class LongPlus( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
+      extends LongRef with BinaryExpr[ Long ] {
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+         a.addReactor( reactor )( tx0 )
+         b.addReactor( reactor )( tx0 )
+
+         protected def op( ac: Long, bc: Long ) = ac + bc
       }
 
-      private final class LongMin( a: LongRef, b: LongRef, protected val reactor: ReactorBranch[ Confluent ])
-      extends LongRef {
-         def value( implicit tx: Tx ) : Long = math.min( a.value, b.value )
+      private final class LongMin( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
+      extends LongRef with BinaryExpr[ Long ] {
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+         a.addReactor( reactor )( tx0 )
+         b.addReactor( reactor )( tx0 )
+
+         protected def op( ac: Long, bc: Long ) = math.min( ac, bc )
       }
 
-      private final class LongMax( a: LongRef, b: LongRef, protected val reactor: ReactorBranch[ Confluent ])
-      extends LongRef {
-         def value( implicit tx: Tx ) : Long = math.max( a.value, b.value )
+      private final class LongMax( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
+      extends LongRef with BinaryExpr[ Long ] {
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+         a.addReactor( reactor )( tx0 )
+         b.addReactor( reactor )( tx0 )
+
+         protected def op( ac: Long, bc: Long ) = math.max( ac, bc )
       }
    }
 
