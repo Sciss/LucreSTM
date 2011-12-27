@@ -39,173 +39,6 @@ object ReactionTest extends App with Runnable {
    type Tx  = Confluent#Tx
    type Acc = Confluent#Acc
 
-   object Reactor {
-      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] = new Ser[ S ]
-
-      private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
-         def write( r: Reactor[ S ], out: DataOutput ) { r.write( out )}
-
-         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-            if( in.readUnsignedByte() == 0 ) {
-               new ReactorBranchStubRead[ S ]( in, tx, access )
-            } else {
-               new ReactorLeaf[ S ]( in.readLong() )
-            }
-         }
-      }
-
-      private final class ReactorBranchStubRead[ S <: Sys[ S ]]( in: DataInput, tx0: S#Tx, acc: S#Acc )
-      extends ReactorBranchStub[ S ] {
-         val id = tx0.readID( in, acc )
-         protected val children = tx0.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
-      }
-   }
-
-   sealed trait Reactor[ S <: Sys[ S ]] extends Writer {
-      def propagate()( implicit tx: S#Tx, map: ReactionMap[ S ]) : Unit
-   }
-
-   object ReactorLeaf {
-      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx, map: ReactionMap[ S ]) : ReactorLeaf[ S ] = new ReactorLeaf( map.newID() )
-   }
-
-   final case class ReactorLeaf[ S <: Sys[ S ]]( id: Long ) extends Reactor[ S ] {
-      def write( out: DataOutput ) {
-         out.writeUnsignedByte( 1 )
-         out.writeLong( id )
-      }
-
-      def propagate()( implicit tx: S#Tx, map: ReactionMap[ S ]) {
-         map.invoke( this )
-      }
-   }
-
-   object Observable {
-      def deaf[ S <: Sys[ S ]] : Observable[ S ] = new Deaf[ S ]
-
-      private final class Deaf[ S <: Sys[ S ]] extends Observable[ S ] {
-         def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) {}
-         def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {}
-      }
-   }
-
-   sealed trait Observable[ S <: Sys[ S ]] {
-      def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
-      def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
-   }
-
-
-//   trait Connector[ -Txn ] {
-//      def connect()(    implicit tx: Txn ) : Unit
-//      def disconnect()( implicit tx: Txn ) : Unit
-//   }
-
-   trait ReactorSources[ S <: Sys[ S ]] {
-      def reactorSources( implicit tx: S#Tx ) : IIdxSeq[ Observable[ S ]]
-   }
-
-//   type ReactorSources[ S <: Sys[ S ]] = IIdxSeq[ Observable[ S ]]
-
-   object ReactorBranch {
-      def apply[ S <: Sys[ S ]]( sources: ReactorSources[ S ])( implicit tx: S#Tx ) : ReactorBranch[ S ] =
-         new New[ S ]( sources, tx )
-
-      private final class New[ S <: Sys[ S ]]( protected val sources: ReactorSources[ S ], tx0: S#Tx )
-      extends ReactorBranch[ S ] {
-         val id = tx0.newID()
-         protected val children = tx0.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
-      }
-
-//      def serializer[ S <: Sys[ S ]]: TxnSerializer[ S#Tx, S#Acc, ReactorBranch[ S ]] =
-//         new TxnSerializer[ S#Tx, S#Acc, ReactorBranch[ S ]] {
-//            def write( r: ReactorBranch[ S ], out: DataOutput ) { r.write( out )}
-//            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : ReactorBranch[ S ] = {
-//               require( in.readUnsignedByte() == 0 )
-//               new ReactorBranchRead( in, access, tx )
-//            }
-//         }
-
-      def read[ S <: Sys[ S ]]( sources: ReactorSources[ S ], in: DataInput, access: S#Acc )
-                              ( implicit tx: S#Tx ) : ReactorBranch[ S ] = {
-         require( in.readUnsignedByte() == 0 )
-         new Read[ S ]( sources, in, access, tx )
-      }
-
-      private final class Read[ S <: Sys[ S ]]( protected val sources: ReactorSources[ S ],
-                                                in: DataInput, access: S#Acc, tx0: S#Tx )
-      extends ReactorBranch[ S ] {
-         val id = tx0.readID( in, access )
-         protected val children = tx0.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
-      }
-   }
-
-   sealed trait ReactorBranchStub[ S <: Sys[ S ]] extends Reactor[ S ] {
-      def id: S#ID
-      protected def children: S#Var[ IIdxSeq[ Reactor[ S ]]]
-
-      final def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
-
-      final def propagate()( implicit tx: S#Tx, map: ReactionMap[ S ]) {
-         children.get.foreach( _.propagate() )
-      }
-
-      final def write( out: DataOutput ) {
-         out.writeUnsignedByte( 0 )
-         id.write( out )
-         children.write( out )
-      }
-
-      final def dispose()( implicit tx: S#Tx ) {
-         require( !isConnected )
-         id.dispose()
-         children.dispose()
-      }
-
-      override def toString = "ReactorBranch" + id
-
-      override def equals( that: Any ) : Boolean = {
-         (if( that.isInstanceOf[ ReactorBranchStub[ _ ]]) {
-            id == that.asInstanceOf[ ReactorBranchStub[ _ ]].id
-         } else super.equals( that ))
-      }
-
-      override def hashCode = id.hashCode()
-   }
-
-   /**
-    * A `ReactorBranch` is most similar to EScala's `EventNode` class. It represents an observable
-    * object and can also act as an observer itself.
-    */
-   sealed trait ReactorBranch[ S <: Sys[ S ]] extends ReactorBranchStub[ S ] with Observable[ S ] /* with Mutable[ S ] */ {
-      protected def sources: ReactorSources[ S ]
-
-//      protected def connect()( implicit tx: S#Tx ) : Unit
-//      // note: 'undeploy' is a rather horrible neologism (only used by Apache Tomcat and with airbags...)
-//      protected def disconnect()( implicit tx: S#Tx ) : Unit
-
-      final def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
-         val old = children.get
-         children.set( old :+ r )
-         if( old.isEmpty ) {
-//            connector.connect()
-            sources.reactorSources.foreach( _.addReactor( this ))
-         }
-      }
-
-      final def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
-         val xs = children.get
-         val i = xs.indexOf( r )
-         if( i >= 0 ) {
-            val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
-            children.set( xs1 )
-            if( xs1.isEmpty ) {
-//               connector.disconnect()
-               sources.reactorSources.foreach( _.removeReactor( this ))
-            }
-         }
-      }
-   }
-
    trait Event[ S <: Sys[ S ], A ] extends Observable[ S ] with Writer {
 //      protected def reactor: ReactorBranch[ S ]
       protected def reactor: Observable[ S ]
@@ -255,17 +88,14 @@ object ReactionTest extends App with Runnable {
 
    sealed trait Expr[ A ] extends Event[ Confluent, A ] with Disposable[ Tx ] {
       def observe( update: A => Unit )( implicit tx: Tx, map: ReactionMap[ Confluent ]) : Observer = {
-         val key        = ReactorLeaf.apply[ Confluent ]()
-         val reaction   = (tx: Tx) => {
+         val reaction = tx.addReaction { implicit tx =>
             val now = value( tx )
             update( now )
          }
-         map.add( key, reaction )
-         addReactor( key )
+         addReactor( reaction )
          val res = new Observer {
             def remove()( implicit tx: Tx ) {
-               map.remove( key )
-               removeReactor( key )
+               reaction.dispose()
             }
          }
          update( value( tx ))

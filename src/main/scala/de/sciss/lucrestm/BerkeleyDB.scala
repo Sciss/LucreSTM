@@ -251,8 +251,8 @@ object BerkeleyDB {
       }
    }
 
-   private type Obs[ A ]    = Observer[ Txn, Change[ A ]]
-   private type ObsVar[ A ] = Var[ A ] with Observable[ BerkeleyDB, Change[ A ]]
+//   private type Obs[ A ]    = Observer[ Txn, Change[ A ]]
+//   private type ObsVar[ A ] = Var[ A ] with Observable[ BerkeleyDB, Change[ A ]]
 
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
       protected def ser: TxnSerializer[ Txn, Unit, A ]
@@ -278,33 +278,33 @@ object BerkeleyDB {
       override def toString = "Var(" + id + ")"
    }
 
-   private sealed trait BasicObservable[ @specialized A ] extends BasicSource with Observable[ BerkeleyDB, Change[ A ]] {
-      def addObserver( observer: Obs[ A ])( implicit tx: Txn ) {
-         sys.error( "TODO" )
-      }
-
-      def removeObserver( observer: Obs[ A ])( implicit tx: Txn ) {
-         sys.error( "TODO" )
-      }
-
-      protected def notifyObservers( change: Change[ A ])( implicit tx: Txn ) {
-         val system  = tx.system
-         val oid     = 0x80000000 | id
-         if( system.exists( oid )) {
-            system.read[ Unit ]( oid ) { in =>
-               val sz = in.readInt()
-               var i = 0; while( i < sz ) {
-                  sys.error( "TODO" )
-               i += 1 }
-            }
-         }
-      }
-
-      final override def dispose()( implicit tx: Txn ) {
-         super.dispose()
-         tx.system.remove( 0x80000000 | id )
-      }
-   }
+//   private sealed trait BasicObservable[ @specialized A ] extends BasicSource with Observable[ BerkeleyDB, Change[ A ]] {
+//      def addObserver( observer: Obs[ A ])( implicit tx: Txn ) {
+//         sys.error( "TODO" )
+//      }
+//
+//      def removeObserver( observer: Obs[ A ])( implicit tx: Txn ) {
+//         sys.error( "TODO" )
+//      }
+//
+//      protected def notifyObservers( change: Change[ A ])( implicit tx: Txn ) {
+//         val system  = tx.system
+//         val oid     = 0x80000000 | id
+//         if( system.exists( oid )) {
+//            system.read[ Unit ]( oid ) { in =>
+//               val sz = in.readInt()
+//               var i = 0; while( i < sz ) {
+//                  sys.error( "TODO" )
+//               i += 1 }
+//            }
+//         }
+//      }
+//
+//      final override def dispose()( implicit tx: Txn ) {
+//         super.dispose()
+//         tx.system.remove( 0x80000000 | id )
+//      }
+//   }
 
 //   private final class ObsVarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ Txn, Unit, A ])
 //   extends BasicVar[ A ] with BasicObservable[ A ] {
@@ -401,6 +401,9 @@ object BerkeleyDB {
       private var id = -1L
 
       def newID() : ID = new IDImpl( system.newIDValue()( this ))
+
+      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ BerkeleyDB ] = sys.error( "TODO" )
+      private[lucrestm] def removeReaction( key: ReactorLeaf[ BerkeleyDB ]) { sys.error( "TODO" )}
 
       override def toString = "Txn<" + id + ">"
 

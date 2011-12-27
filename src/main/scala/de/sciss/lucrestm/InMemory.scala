@@ -110,6 +110,9 @@ object InMemory {
    private final class TxnImpl( val system: InMemory, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
+      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ InMemory ] = sys.error( "TODO" )
+      private[lucrestm] def removeReaction( key: ReactorLeaf[ InMemory ]) { sys.error( "TODO" )}
+
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )

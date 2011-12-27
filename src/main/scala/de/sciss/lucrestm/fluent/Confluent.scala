@@ -142,6 +142,9 @@ object Confluent {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = system.newID()( this )
 
+      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ Confluent ] = sys.error( "TODO" )
+      private[lucrestm] def removeReaction( key: ReactorLeaf[ Confluent ]) { sys.error( "TODO" )}
+
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 
       def newVar[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ]) : Var[ A ] = {
