@@ -9,37 +9,37 @@ object ReferenceTest extends App {
 
    type Tx = Confluent#Tx
 
-   object Propagator {
-      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Propagator[ S ]] = new Ser[ S ]
+   object Sink {
+      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Sink[ S ]] = new Ser[ S ]
 
-      private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Propagator[ S ]] {
-         def write( v: Propagator[ S ], out: DataOutput ) { v.write( out )}
+      private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Sink[ S ]] {
+         def write( sink: Sink[ S ], out: DataOutput ) { sink.write( out )}
 
-         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Propagator[ S ] = {
+         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Sink[ S ] = {
             if( in.readUnsignedByte() == 0 ) {
-               new SinkRead[ S ]( in, tx, access )
+               new EventRead[ S ]( in, tx, access )
             } else {
                new ReactionKey[ S ]( in.readInt() )
             }
          }
       }
 
-      private final class SinkRead[ S <: Sys[ S ]]( in: DataInput, tx0: S#Tx, acc: S#Acc ) extends Sink[ S ] {
+      private final class EventRead[ S <: Sys[ S ]]( in: DataInput, tx0: S#Tx, acc: S#Acc ) extends Event[ S ] {
          val id = tx0.readID( in, acc )
-         protected val props = tx0.readVar[ IIdxSeq[ Propagator[ S ]]]( id, in )
+         protected val sinks = tx0.readVar[ IIdxSeq[ Sink[ S ]]]( id, in )
       }
    }
 
-   object Sink {
-      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : Sink[ S ] = new SinkNew[ S ]( tx )
+   object Event {
+      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : Event[ S ] = new EventNew[ S ]( tx )
 
-      private final class SinkNew[ S <: Sys[ S ]]( tx0: S#Tx ) extends Sink[ S ] {
+      private final class EventNew[ S <: Sys[ S ]]( tx0: S#Tx ) extends Event[ S ] {
          val id = tx0.newID()
-         protected val props = tx0.newVar[ IIdxSeq[ Propagator[ S ]]]( id, IIdxSeq.empty )
+         protected val sinks = tx0.newVar[ IIdxSeq[ Sink[ S ]]]( id, IIdxSeq.empty )
       }
    }
 
-   sealed trait Propagator[ S <: Sys[ S ]] extends Writer {
+   sealed trait Sink[ S <: Sys[ S ]] extends Writer {
       def propagate()( implicit tx: S#Tx, map: LiveMap[ S ]) : Unit
    }
 
@@ -47,8 +47,9 @@ object ReferenceTest extends App {
       def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx, map: LiveMap[ S ]) : ReactionKey[ S ] = new ReactionKey( map.newID() )
    }
 
-   final case class ReactionKey[ S <: Sys[ S ]]( id: Int ) extends Propagator[ S ] {
+   final case class ReactionKey[ S <: Sys[ S ]]( id: Int ) extends Sink[ S ] {
       def write( out: DataOutput ) {
+         out.writeUnsignedByte( 1 )
          out.writeInt( id )
       }
 
@@ -57,41 +58,41 @@ object ReferenceTest extends App {
       }
    }
 
-   sealed trait Sink[ S <: Sys[ S ]] extends Propagator[ S ] with Mutable[ S ] {
-//      def addSink( sink: Sink[ S ])( implicit tx: S#Tx ) : Unit
-//      def removeSink( sink: Sink[ S ])( implicit tx: S#Tx ) : Unit
-      final def propagate()( implicit tx: S#Tx, map: LiveMap[ S ]) {
-//         map.propagate( this )
-         props.get.foreach( _.propagate() )
-      }
-
-      final protected def writeData( out: DataOutput ) {
-         props.write( out )
-      }
-
-      final protected def disposeData()( implicit tx: S#Tx ) {
-         props.dispose()
-      }
-
-      protected def props: S#Var[ IIdxSeq[ Propagator[ S ]]]
-
-//      final def addSink( sink: Sink[ S ])( implicit tx: S#Tx ) {
-//         val xs = sinks.get
-//         sinks.set( xs :+ sink )
+   sealed trait Event[ S <: Sys[ S ]] extends Sink[ S ] with Mutable[ S ] {
+      final def addPropagator( sink: Sink[ S ])( implicit tx: S#Tx ) {
+         sinks.transform( _ :+ sink )
+//         val xs = props.get
+//         props.set( xs :+ sink )
 //         if( xs.isEmpty /* && reactions.get.isEmpty */) {
 //            deploy()
 //         }
-//      }
-//
-//      final def removeSink( sink: Sink[ S ])( implicit tx: S#Tx ) {
-//         val xs = sinks.get
-//         val i = xs.indexOf( sink )
-//         if( i >= 0 ) {
-//            val xs1 = xs.patch( i, IIdxSeq.empty, 1 )
-//            sinks.set( xs1 )
+      }
+
+      final def removePropagator( sink: Sink[ S ])( implicit tx: S#Tx ) {
+         val xs = sinks.get
+         val i = xs.indexOf( sink )
+         if( i >= 0 ) {
+            val xs1 = xs.patch( i, IIdxSeq.empty, 1 )
+            sinks.set( xs1 )
 //            if( xs1.isEmpty /* && reactions.get.isEmpty */) undeploy()
-//         }
-//      }
+         }
+      }
+
+      final def propagate()( implicit tx: S#Tx, map: LiveMap[ S ]) {
+//         map.propagate( this )
+         sinks.get.foreach( _.propagate() )
+      }
+
+      final protected def writeData( out: DataOutput ) {
+         out.writeUnsignedByte( 0 )
+         sinks.write( out )
+      }
+
+      final protected def disposeData()( implicit tx: S#Tx ) {
+         sinks.dispose()
+      }
+
+      protected def sinks: S#Var[ IIdxSeq[ Sink[ S ]]]
    }
 
    object LiveMap {
@@ -126,74 +127,6 @@ object ReferenceTest extends App {
       def add( key: ReactionKey[ S ], fun: S#Tx => Unit )( implicit tx: S#Tx ) : Unit
       def remove( key: ReactionKey[ S ])( implicit tx: S#Tx ) : Unit
       def invoke( key: ReactionKey[ S ])( implicit tx: S#Tx ) : Unit
-   }
-
-   trait Event[ S <: Sys[ S ], A ] {
-      protected def sink: Sink[ S ]
-//      def addSink( sink: Sink[ S ])( implicit tx: S#Tx ) : Unit
-//      def removeSink( sink: Sink[ S ])( implicit tx: S#Tx ) : Unit
-      protected def deploy()( implicit tx: S#Tx ) : Unit
-      protected def undeploy()( implicit tx: S#Tx ) : Unit
-      protected def propagate( v: A )( implicit tx: S#Tx, map: LiveMap[ S ]) : Unit
-
-      def addReaction(    react: A => Unit )( implicit tx: S#Tx, map: LiveMap[ S ]) : Unit
-      def removeReaction( react: A => Unit )( implicit tx: S#Tx, map: LiveMap[ S ]) : Unit
-
-//      def eval( implicit tx: S#Tx ) : A
-   }
-
-   trait EventImpl[ S <: Sys[ S ], A ] extends Event[ S, A ] {
-      protected def tx0: S#Tx
-
-//      implicit protected def reactionSer: TxnSerializer[ S#Tx, S#Acc, A => Unit ]
-
-      final val id = tx0.newID()
-      private val sinks       = tx0.newVar( id, IIdxSeq.empty[ Propagator[ S ]])
-//      private val reactions   = tx0.newVar( id, IIdxSeq.empty[ A => Unit ])
-//      private val map = tx0.newVar( id, Map.empty[ Sink[ S ], Int ])
-
-      final def addSink( sink: Sink[ S ])( implicit tx: S#Tx ) {
-         val xs = sinks.get
-         sinks.set( xs :+ sink )
-         if( xs.isEmpty /* && reactions.get.isEmpty */) {
-            deploy()
-         }
-      }
-
-      final def removeSink( sink: Sink[ S ])( implicit tx: S#Tx ) {
-         val xs = sinks.get
-         val i = xs.indexOf( sink )
-         if( i >= 0 ) {
-            val xs1 = xs.patch( i, IIdxSeq.empty, 1 )
-            sinks.set( xs1 )
-            if( xs1.isEmpty /* && reactions.get.isEmpty */) undeploy()
-         }
-      }
-
-      final def addReaction( react: A => Unit )( implicit tx: S#Tx, map: LiveMap[ S ]) {
-         sys.error( "TODO" )
-//         val xs = reactions.get
-//         reactions.set( xs :+ react )
-//         if( xs.isEmpty && sinks.get.isEmpty ) {
-//            deploy()
-//         }
-      }
-
-      final def removeReaction( react: A => Unit )( implicit tx: S#Tx, map: LiveMap[ S ]) {
-         sys.error( "TODO" )
-//         val xs = reactions.get
-//         val i = xs.indexOf( react )
-//         if( i >= 0 ) {
-//            val xs1 = xs.patch( i, IIdxSeq.empty, 1 )
-//            reactions.set( xs1 )
-//            if( xs1.isEmpty && sinks.get.isEmpty ) undeploy()
-//         }
-      }
-
-//      protected final def propagate( v: A )( implicit tx: S#Tx, map: LiveMap[ S ]) {
-//         map.getReactions( this ).foreach( _.apply( v ))
-//         sinks.get.foreach( _.propagate() )
-//      }
    }
 
    trait Expr[ A ] {
