@@ -2,9 +2,9 @@ package de.sciss.lucrestm
 package fluent
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import concurrent.stm.{TMap, Ref => STMRef}
 import java.awt.EventQueue
 import javax.swing.{WindowConstants, JFrame}
+import concurrent.stm.TMap
 
 object ReactionTest extends App with Runnable {
    EventQueue.invokeLater( this )
@@ -142,25 +142,57 @@ object ReactionTest extends App with Runnable {
    object StringRef {
       implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, ReactorBranch() )
 
+      def append( a: StringRef, b: StringRef )( implicit tx: Tx ) : StringRef =
+         new StringAppendNew( a, b, ReactorBranch() )
+
       private final class StringConstNew( s: String, protected val reactor: ReactorBranch[ Confluent ])
       extends StringRef {
          def value( implicit tx: Tx ) : String = s
-         def append( other: StringRef )( implicit tx: Tx ) : StringRef = sys.error( "TODO" ) // new StringAppendNew( this, other )
       }
 
-//      private final class StringAppendNew( prefix: StringRef, suffix: StringRef ) extends StringRef {
-//         def value( implicit tx: Tx ) : String = prefix.value + suffix.value
-//      }
+      private final class StringAppendNew( prefix: StringRef, suffix: StringRef,
+                                           protected val reactor: ReactorBranch[ Confluent ])
+      extends StringRef {
+         def value( implicit tx: Tx ) : String = prefix.value + suffix.value
+      }
    }
 
    trait StringRef extends Expr[ String ] {
-      def append( other: StringRef )( implicit tx: Tx ) : StringRef
+      final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
+   }
+
+   object LongRef {
+      implicit def apply( n: Long )( implicit tx: Tx ) : LongRef = new LongConstNew( n, ReactorBranch() )
+
+      def plus( a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongPlus( a, b, ReactorBranch() )
+      def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMin(  a, b, ReactorBranch() )
+      def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMax(  a, b, ReactorBranch() )
+
+      private final class LongConstNew( n: Long, protected val reactor: ReactorBranch[ Confluent ])
+      extends LongRef {
+         def value( implicit tx: Tx ) : Long = n
+      }
+
+      private final class LongPlus( a: LongRef, b: LongRef, protected val reactor: ReactorBranch[ Confluent ])
+      extends LongRef {
+         def value( implicit tx: Tx ) : Long = a.value + b.value
+      }
+
+      private final class LongMin( a: LongRef, b: LongRef, protected val reactor: ReactorBranch[ Confluent ])
+      extends LongRef {
+         def value( implicit tx: Tx ) : Long = math.min( a.value, b.value )
+      }
+
+      private final class LongMax( a: LongRef, b: LongRef, protected val reactor: ReactorBranch[ Confluent ])
+      extends LongRef {
+         def value( implicit tx: Tx ) : Long = math.max( a.value, b.value )
+      }
    }
 
    trait LongRef extends Expr[ Long ] {
-      def +( other: LongRef )( implicit tx: Tx ) : LongRef
-      def max( other: LongRef )( implicit tx: Tx ) : LongRef
-      def min( other: LongRef )( implicit tx: Tx ) : LongRef
+      final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
+      final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
+      final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
    }
 
 //   object Region {
@@ -201,7 +233,6 @@ object ReactionTest extends App with Runnable {
 
       val f    = new JFrame( "Reaction Test" )
       val cp   = f.getContentPane
-
 
 
 
