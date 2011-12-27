@@ -1,3 +1,28 @@
+/*
+ *  ReactionTest.scala
+ *  (LucreSTM)
+ *
+ *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License
+ *  as published by the Free Software Foundation; either
+ *  version 2, june 1991 of the License, or (at your option) any later version.
+ *
+ *  This software is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *  General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public
+ *  License (gpl.txt) along with this software; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.lucrestm
 package fluent
 
@@ -6,6 +31,7 @@ import concurrent.stm.TMap
 import java.awt.{GridLayout, EventQueue}
 import javax.swing.{JTextField, BorderFactory, SwingConstants, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import annotation.switch
+import java.awt.event.{ActionListener, ActionEvent}
 
 object ReactionTest extends App with Runnable {
    EventQueue.invokeLater( this )
@@ -127,7 +153,7 @@ object ReactionTest extends App with Runnable {
    object ReactionMap {
       def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : ReactionMap[ S ] = new Impl[ S ]( tx )
 
-      private final class Impl[ S <: Sys[ S ]]( tx0: S#Tx )extends ReactionMap[ S ] {
+      private final class Impl[ S <: Sys[ S ]]( tx0: S#Tx ) extends ReactionMap[ S ] {
          private val map   = TMap.empty[ ReactorLeaf[ S ], S#Tx => Unit ]
          val id            = tx0.newID()
          private val cnt   = tx0.newIntVar( id, 0 )
@@ -203,13 +229,24 @@ object ReactionTest extends App with Runnable {
 
       sealed trait Impl[ A, Ex <: Expr[ A ]] extends ExprVar[ A, Ex ] {
          protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
+         protected implicit def reactionMap: ReactionMap[ Confluent ]
          protected def id: Confluent#ID
          protected def v: Confluent#Var[ Ex ]
          protected def reactor: ReactorBranch[ Confluent ]
 
          final def get( implicit tx: Tx ) : Ex = v.get
-         final def set( ex: Ex )( implicit tx: Tx ) { v.set( ex )}
-         final def transform( fun: Ex => Ex )( implicit tx: Tx ) { v.transform( fun )}
+         final def set( ex: Ex )( implicit tx: Tx ) {
+            val old = get
+            if( old != ex ) {
+               v.set( ex )
+               reactor.propagate()
+            }
+         }
+
+         final def transform( fun: Ex => Ex )( implicit tx: Tx ) {
+//            v.transform( fun )
+            set( fun( get ))
+         }
 
          final def write( out: DataOutput ) {
             out.writeUnsignedByte( 100 )
@@ -227,15 +264,18 @@ object ReactionTest extends App with Runnable {
 
       // XXX the other option is to forget about StringRef, LongRef, etc., and instead
       // pimp Expr[ String ] to StringExprOps, etc.
-      class New[ A, Ex <: Expr[ A ]]( init: Ex, tx0: Tx )( implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
+      class New[ A, Ex <: Expr[ A ]]( init: Ex, tx0: Tx )(
+         implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ],
+         implicit protected val reactionMap: ReactionMap[ Confluent ])
       extends Impl[ A, Ex ] {
          val id                  = tx0.newID()
          protected val v         = tx0.newVar[ Ex ]( id, init )
          protected val reactor   = ReactorBranch[ Confluent ]()( tx0 )
       }
 
-      class Read[ A, Ex <: Expr[ A ]]( in: DataInput, access: Acc, tx0: Tx )
-                                     ( implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
+      class Read[ A, Ex <: Expr[ A ]]( in: DataInput, access: Acc, tx0: Tx )(
+         implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ],
+         implicit protected val reactionMap: ReactionMap[ Confluent ])
       extends Impl[ A, Ex ] {
          val id                  = tx0.readID( in, access )
          protected val v         = tx0.readVar[ Ex ]( id, in )
@@ -292,7 +332,7 @@ object ReactionTest extends App with Runnable {
          b.addReactor( reactor )( tx0 )
       }
 
-      private final class StringAppendRead( in: DataInput, access: Acc, tx0: Tx )
+      private final class StringAppendRead( in: DataInput, access: Acc, tx0: Tx )( implicit map: ReactionMap[ Confluent ])
       extends StringAppend {
          protected val a         = ser.read( in, access )( tx0 )
          protected val b         = ser.read( in, access )( tx0 )
@@ -301,17 +341,18 @@ object ReactionTest extends App with Runnable {
 //         b.addReactor( reactor )( tx0 )
       }
 
-      implicit val ser : TxnSerializer[ Tx, Acc, StringRef ] = new TxnSerializer[ Tx, Acc, StringRef ] {
-         def read( in: DataInput, access: Acc )( implicit tx: Tx ) : StringRef = {
-            (in.readUnsignedByte(): @switch) match {
-               case 0   => new StringConstRead( in, tx )
-               case 1   => new StringAppendRead( in, access, tx )
-               case 100 => new ExprVar.Read[ String, StringRef ]( in, access, tx ) with StringRef
+      implicit def ser( implicit map: ReactionMap[ Confluent ]) : TxnSerializer[ Tx, Acc, StringRef ] =
+         new TxnSerializer[ Tx, Acc, StringRef ] {
+            def read( in: DataInput, access: Acc )( implicit tx: Tx ) : StringRef = {
+               (in.readUnsignedByte(): @switch) match {
+                  case 0   => new StringConstRead( in, tx )
+                  case 1   => new StringAppendRead( in, access, tx )
+                  case 100 => new ExprVar.Read[ String, StringRef ]( in, access, tx ) with StringRef
+               }
             }
-         }
 
-         def write( v: StringRef, out: DataOutput ) { v.write( out )}
-      }
+            def write( v: StringRef, out: DataOutput ) { v.write( out )}
+         }
    }
 
    trait StringRef extends Expr[ String ] {
@@ -361,7 +402,7 @@ object ReactionTest extends App with Runnable {
          b.addReactor( reactor )( tx0 )
       }
 
-      private final class LongPlusRead( in: DataInput, access: Acc, tx0: Tx )
+      private final class LongPlusRead( in: DataInput, access: Acc, tx0: Tx )( implicit map: ReactionMap[ Confluent ])
       extends LongPlus {
          protected val a = ser.read( in, access )( tx0 )
          protected val b = ser.read( in, access )( tx0 )
@@ -388,7 +429,7 @@ object ReactionTest extends App with Runnable {
          b.addReactor( reactor )( tx0 )
       }
 
-      private final class LongMinRead( in: DataInput, access: Acc, tx0: Tx )
+      private final class LongMinRead( in: DataInput, access: Acc, tx0: Tx )( implicit map: ReactionMap[ Confluent ])
       extends LongMin {
          protected val a = ser.read( in, access )( tx0 )
          protected val b = ser.read( in, access )( tx0 )
@@ -415,7 +456,7 @@ object ReactionTest extends App with Runnable {
          b.addReactor( reactor )( tx0 )
       }
 
-      private final class LongMaxRead( in: DataInput, access: Acc, tx0: Tx )
+      private final class LongMaxRead( in: DataInput, access: Acc, tx0: Tx )( implicit map: ReactionMap[ Confluent ])
       extends LongMax {
          protected val a = ser.read( in, access )( tx0 )
          protected val b = ser.read( in, access )( tx0 )
@@ -424,19 +465,20 @@ object ReactionTest extends App with Runnable {
 //         b.addReactor( reactor )( tx0 )
       }
 
-      implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] = new TxnSerializer[ Tx, Acc, LongRef ] {
-         def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
-            (in.readUnsignedByte(): @switch) match {
-               case 0   => new LongConstRead( in, tx )
-               case 1   => new LongPlusRead( in, access, tx )
-               case 2   => new LongMinRead( in, access, tx )
-               case 3   => new LongMaxRead( in, access, tx )
-               case 100 => new ExprVar.Read[ Long, LongRef ]( in, access, tx ) with LongRef
+      implicit def ser( implicit map: ReactionMap[ Confluent ]) : TxnSerializer[ Tx, Acc, LongRef ] =
+         new TxnSerializer[ Tx, Acc, LongRef ] {
+            def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
+               (in.readUnsignedByte(): @switch) match {
+                  case 0   => new LongConstRead( in, tx )
+                  case 1   => new LongPlusRead( in, access, tx )
+                  case 2   => new LongMinRead( in, access, tx )
+                  case 3   => new LongMaxRead( in, access, tx )
+                  case 100 => new ExprVar.Read[ Long, LongRef ]( in, access, tx ) with LongRef
+               }
             }
-         }
 
-         def write( v: LongRef, out: DataOutput ) { v.write( out )}
-      }
+            def write( v: LongRef, out: DataOutput ) { v.write( out )}
+         }
    }
 
    trait LongRef extends Expr[ Long ] {
@@ -455,10 +497,12 @@ object ReactionTest extends App with Runnable {
 
 
    object Region {
-      def apply( name: StringRef, start: LongRef, stop: LongRef )( implicit tx: Tx ) : Region =
+      def apply( name: StringRef, start: LongRef, stop: LongRef )
+               ( implicit tx: Tx, map: ReactionMap[ Confluent ]) : Region =
          new RegionNew( name, start, stop, tx )
 
       private final class RegionNew( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
+                                   ( implicit map: ReactionMap[ Confluent ])
       extends Region {
          val id = tx0.newID()
 
@@ -550,6 +594,13 @@ object ReactionTest extends App with Runnable {
          r.name_#.observe(  v => defer( ggName.setText(  v )))
          r.start_#.observe( v => defer( ggStart.setText( v.toString )))
          r.stop_#.observe(  v => defer( ggStop.setText(  v.toString )))
+
+         ggName.addActionListener( new ActionListener {
+            def actionPerformed( e: ActionEvent ) {
+               val name = ggName.getText
+               tx.system.atomic { implicit tx => r.name = name }
+            }
+         })
       }
    }
 
@@ -557,7 +608,7 @@ object ReactionTest extends App with Runnable {
 
    def run() {
       val system = Confluent()
-      implicit val map = system.atomic( ReactionMap.apply()( _ ))
+      implicit val map = system.atomic( tx => ReactionMap.apply[ Confluent ]()( tx ))
 
       val f    = new JFrame( "Reaction Test" )
       val cp   = f.getContentPane
