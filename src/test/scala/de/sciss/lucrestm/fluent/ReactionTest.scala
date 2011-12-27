@@ -5,6 +5,7 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 import concurrent.stm.TMap
 import java.awt.{GridLayout, EventQueue}
 import javax.swing.{JTextField, BorderFactory, SwingConstants, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
+import annotation.switch
 
 object ReactionTest extends App with Runnable {
    EventQueue.invokeLater( this )
@@ -63,6 +64,19 @@ object ReactionTest extends App with Runnable {
       private final class ReactorBranchNew[ S <: Sys[ S ]]( tx0: S#Tx ) extends ReactorBranch[ S ] {
          val id = tx0.newID()
          protected val children = tx0.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
+      }
+
+      def serializer[ S <: Sys[ S ]]: TxnSerializer[ S#Tx, S#Acc, ReactorBranch[ S ]] =
+         new TxnSerializer[ S#Tx, S#Acc, ReactorBranch[ S ]] {
+            def write( r: ReactorBranch[ S ], out: DataOutput ) { r.write( out )}
+            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : ReactorBranch[ S ] =
+               new ReactorBranchRead( in, access, tx )
+         }
+
+      private final class ReactorBranchRead[ S <: Sys[ S ]]( in: DataInput, access: S#Acc, tx0: S#Tx )
+      extends ReactorBranch[ S ] {
+         val id = tx0.readID( in, access )
+         protected val children = tx0.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
       }
    }
 
@@ -146,12 +160,14 @@ object ReactionTest extends App with Runnable {
          val reaction   = (tx: Tx) => update( value( tx ))
          map.add( key, reaction )
          addReactor( key )
-         new Observer {
+         val res = new Observer {
             def remove()( implicit tx: Tx ) {
                map.remove( key )
                removeReactor( key )
             }
          }
+         update( value( tx ))
+         res
       }
    }
 
@@ -212,34 +228,61 @@ object ReactionTest extends App with Runnable {
       def append( a: StringRef, b: StringRef )( implicit tx: Tx ) : StringRef =
          new StringAppendNew( a, b, tx )
 
-      private final class StringConstNew( protected val constValue: String, tx0: Tx )
-      extends StringRef with ConstExpr[ String ] {
-         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
-         def write( out: DataOutput ) {
+      private sealed trait StringConst extends StringRef with ConstExpr[ String ] {
+         final def write( out: DataOutput ) {
             out.writeUnsignedByte( 0 )
             out.writeString( constValue )
          }
       }
 
-      private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
-      extends StringRef with BinaryExpr[ String ] {
+      private final class StringConstNew( protected val constValue: String, tx0: Tx )
+      extends StringConst {
+         // XXX since it's a constant, there is no sense in adding reactors,
+         // we should just have a dummy here... This doesn't get serialized, either
          protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
-         a.addReactor( reactor )( tx0 )
-         b.addReactor( reactor )( tx0 )
+      }
 
-//         def get( implicit tx: Tx ) : String = prefix.get + suffix.get
-         def op( ac: String, bc: String ) : String = ac + bc
+      private final class StringConstRead( in: DataInput, tx0: Tx ) extends StringConst {
+         protected val constValue: String = in.readString()
 
-         def write( out: DataOutput ) {
+         // XXX since it's a constant, there is no sense in adding reactors,
+         // we should just have a dummy here... This doesn't get serialized, either
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+      }
+
+      private sealed trait StringAppend extends StringRef with BinaryExpr[ String ] {
+         final def op( ac: String, bc: String ) : String = ac + bc
+
+         final def write( out: DataOutput ) {
             out.writeUnsignedByte( 1 )
             a.write( out )
             b.write( out )
+            reactor.write( out )
          }
+      }
+
+      private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
+      extends StringAppend {
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+         a.addReactor( reactor )( tx0 )
+         b.addReactor( reactor )( tx0 )
+      }
+
+      private final class StringAppendRead( in: DataInput, access: Acc, tx0: Tx )
+      extends StringAppend {
+         protected val a         = ser.read( in, access )( tx0 )
+         protected val b         = ser.read( in, access )( tx0 )
+         protected val reactor   = ReactorBranch.serializer[ Confluent ].read( in, access )( tx0 )
+//         a.addReactor( reactor )( tx0 )
+//         b.addReactor( reactor )( tx0 )
       }
 
       implicit val ser : TxnSerializer[ Tx, Acc, StringRef ] = new TxnSerializer[ Tx, Acc, StringRef ] {
          def read( in: DataInput, access: Acc )( implicit tx: Tx ) : StringRef = {
-            sys.error( "TODO" )
+            (in.readUnsignedByte(): @switch) match {
+               case 0 => new StringConstRead( in, tx )
+               case 1 => new StringAppendRead( in, access, tx )
+            }
          }
 
          def write( v: StringRef, out: DataOutput ) { v.write( out )}
@@ -253,67 +296,117 @@ object ReactionTest extends App with Runnable {
    object LongRef {
       implicit def apply( n: Long )( implicit tx: Tx ) : LongRef = new LongConstNew( n, tx )
 
-      def plus( a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongPlus( a, b, tx )
-      def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMin(  a, b, tx )
-      def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMax(  a, b, tx )
+      def plus( a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongPlusNew( a, b, tx )
+      def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMinNew(  a, b, tx )
+      def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMaxNew(  a, b, tx )
 
-      private final class LongConstNew( protected val constValue: Long, tx0: Tx )
-      extends LongRef with ConstExpr[ Long ] {
-         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
-         def write( out: DataOutput ) {
+      private sealed trait LongConst extends LongRef with ConstExpr[ Long ] {
+         final def write( out: DataOutput ) {
             out.writeUnsignedByte( 0 )
             out.writeLong( constValue )
          }
       }
 
-      private final class LongPlus( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
-      extends LongRef with BinaryExpr[ Long ] {
+      private final class LongConstNew( protected val constValue: Long, tx0: Tx )
+      extends LongConst {
          protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
-         a.addReactor( reactor )( tx0 )
-         b.addReactor( reactor )( tx0 )
+      }
 
-         protected def op( ac: Long, bc: Long ) = ac + bc
+      private final class LongConstRead( in: DataInput, tx0: Tx )
+      extends LongConst {
+         protected val constValue: Long = in.readLong()
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+      }
 
-         def write( out: DataOutput ) {
+      private sealed trait LongPlus extends LongRef with BinaryExpr[ Long ] {
+         final protected def op( ac: Long, bc: Long ) = ac + bc
+
+         final def write( out: DataOutput ) {
             out.writeUnsignedByte( 1 )
             a.write( out )
             b.write( out )
+            reactor.write( out )
          }
       }
 
-      private final class LongMin( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
-      extends LongRef with BinaryExpr[ Long ] {
+      private final class LongPlusNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
+      extends LongPlus {
          protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
          a.addReactor( reactor )( tx0 )
          b.addReactor( reactor )( tx0 )
+      }
 
-         protected def op( ac: Long, bc: Long ) = math.min( ac, bc )
+      private final class LongPlusRead( in: DataInput, access: Acc, tx0: Tx )
+      extends LongPlus {
+         protected val a = ser.read( in, access )( tx0 )
+         protected val b = ser.read( in, access )( tx0 )
+         protected val reactor = ReactorBranch.serializer[ Confluent ].read( in, access )( tx0 )
+//         a.addReactor( reactor )( tx0 )
+//         b.addReactor( reactor )( tx0 )
+      }
 
-         def write( out: DataOutput ) {
+      private sealed trait LongMin extends LongRef with BinaryExpr[ Long ] {
+         final protected def op( ac: Long, bc: Long ) = math.min( ac, bc )
+
+         final def write( out: DataOutput ) {
             out.writeUnsignedByte( 2 )
             a.write( out )
             b.write( out )
+            reactor.write( out )
          }
       }
 
-      private final class LongMax( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
-      extends LongRef with BinaryExpr[ Long ] {
+      private final class LongMinNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
+      extends LongMin {
          protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
          a.addReactor( reactor )( tx0 )
          b.addReactor( reactor )( tx0 )
+      }
 
-         protected def op( ac: Long, bc: Long ) = math.max( ac, bc )
+      private final class LongMinRead( in: DataInput, access: Acc, tx0: Tx )
+      extends LongMin {
+         protected val a = ser.read( in, access )( tx0 )
+         protected val b = ser.read( in, access )( tx0 )
+         protected val reactor = ReactorBranch.serializer[ Confluent ].read( in, access )( tx0 )
+//         a.addReactor( reactor )( tx0 )
+//         b.addReactor( reactor )( tx0 )
+      }
 
-         def write( out: DataOutput ) {
+      private sealed trait LongMax extends LongRef with BinaryExpr[ Long ] {
+         final protected def op( ac: Long, bc: Long ) = math.max( ac, bc )
+
+         final def write( out: DataOutput ) {
             out.writeUnsignedByte( 3 )
             a.write( out )
             b.write( out )
+            reactor.write( out )
          }
+      }
+
+      private final class LongMaxNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
+      extends LongMax {
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+         a.addReactor( reactor )( tx0 )
+         b.addReactor( reactor )( tx0 )
+      }
+
+      private final class LongMaxRead( in: DataInput, access: Acc, tx0: Tx )
+      extends LongMax {
+         protected val a = ser.read( in, access )( tx0 )
+         protected val b = ser.read( in, access )( tx0 )
+         protected val reactor = ReactorBranch.serializer[ Confluent ].read( in, access )( tx0 )
+//         a.addReactor( reactor )( tx0 )
+//         b.addReactor( reactor )( tx0 )
       }
 
       implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] = new TxnSerializer[ Tx, Acc, LongRef ] {
          def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
-            sys.error( "TODO" )
+            (in.readUnsignedByte(): @switch) match {
+               case 0 => new LongConstRead( in, tx )
+               case 1 => new LongPlusRead( in, access, tx )
+               case 2 => new LongMinRead( in, access, tx )
+               case 3 => new LongMaxRead( in, access, tx )
+            }
          }
 
          def write( v: LongRef, out: DataOutput ) { v.write( out )}
@@ -426,26 +519,42 @@ object ReactionTest extends App with Runnable {
             .addComponent( ggStop )
          )
       )
+
+      def connect()( implicit tx: Tx, map: ReactionMap[ Confluent ]) {
+         r.name_#.observe(  v => defer( ggName.setText(  v )))
+         r.start_#.observe( v => defer( ggStart.setText( v.toString )))
+         r.stop_#.observe(  v => defer( ggStop.setText(  v.toString )))
+      }
    }
+
+   def defer( thunk: => Unit ) { EventQueue.invokeLater( new Runnable { def run() { thunk }})}
 
    def run() {
       val system = Confluent()
+      implicit val map = system.atomic( ReactionMap.apply()( _ ))
 
       val f    = new JFrame( "Reaction Test" )
       val cp   = f.getContentPane
 
       cp.setLayout( new GridLayout( 3, 1 ))
-      val (r1, r2, r3) = system.atomic { implicit tx =>
+      val rs = system.atomic { implicit tx =>
          val _r1   = Region( "eins", 0L, 10000L )
          val _r2   = Region( "zwei", 5000L, 12000L )
          val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
                              _r1.start_#.min( _r2.start_# ),
                              _r1.stop_#.min( _r2.stop_# ))
-         (_r1, _r2, _r3)
+         Seq( _r1, _r2, _r3 )
       }
-      cp.add( new RegionView( r1, "Region #1" ))
-      cp.add( new RegionView( r2, "Region #2"))
-      cp.add( new RegionView( r3, "Region #3"))
+
+      val vs = rs.zipWithIndex.map {
+         case (r, i) => new RegionView( r, "Region #" + (i+1) )
+      }
+
+      system.atomic { implicit tx =>
+         vs.foreach( _.connect() )
+      }
+
+      vs.foreach( cp.add( _ ))
 
       f.setResizable( false )
       f.pack()
