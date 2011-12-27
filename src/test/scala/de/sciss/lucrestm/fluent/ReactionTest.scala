@@ -3,8 +3,12 @@ package fluent
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import concurrent.stm.{TMap, Ref => STMRef}
+import java.awt.EventQueue
+import javax.swing.{WindowConstants, JFrame}
 
-object ReferenceTest extends App {
+object ReactionTest extends App with Runnable {
+   EventQueue.invokeLater( this )
+
    type Tx = Confluent#Tx
 
    object Reactor {
@@ -25,15 +29,6 @@ object ReferenceTest extends App {
       private final class ReactorBranchRead[ S <: Sys[ S ]]( in: DataInput, tx0: S#Tx, acc: S#Acc ) extends ReactorBranch[ S ] {
          val id = tx0.readID( in, acc )
          protected val children = tx0.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
-      }
-   }
-
-   object ReactorBranch {
-      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : ReactorBranch[ S ] = new ReactorBranchNew[ S ]( tx )
-
-      private final class ReactorBranchNew[ S <: Sys[ S ]]( tx0: S#Tx ) extends ReactorBranch[ S ] {
-         val id = tx0.newID()
-         protected val children = tx0.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
       }
    }
 
@@ -59,6 +54,15 @@ object ReferenceTest extends App {
    sealed trait Observable[ S <: Sys[ S ]] {
       def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
       def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
+   }
+
+   object ReactorBranch {
+      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : ReactorBranch[ S ] = new ReactorBranchNew[ S ]( tx )
+
+      private final class ReactorBranchNew[ S <: Sys[ S ]]( tx0: S#Tx ) extends ReactorBranch[ S ] {
+         val id = tx0.newID()
+         protected val children = tx0.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
+      }
    }
 
    sealed trait ReactorBranch[ S <: Sys[ S ]] extends Reactor[ S ] with Observable[ S ] with Mutable[ S ] {
@@ -135,6 +139,20 @@ object ReferenceTest extends App {
 
    trait Expr[ A ] extends Event[ Confluent, A ]
 
+   object StringRef {
+      implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, ReactorBranch() )
+
+      private final class StringConstNew( s: String, protected val reactor: ReactorBranch[ Confluent ])
+      extends StringRef {
+         def value( implicit tx: Tx ) : String = s
+         def append( other: StringRef )( implicit tx: Tx ) : StringRef = sys.error( "TODO" ) // new StringAppendNew( this, other )
+      }
+
+//      private final class StringAppendNew( prefix: StringRef, suffix: StringRef ) extends StringRef {
+//         def value( implicit tx: Tx ) : String = prefix.value + suffix.value
+//      }
+   }
+
    trait StringRef extends Expr[ String ] {
       def append( other: StringRef )( implicit tx: Tx ) : StringRef
    }
@@ -144,6 +162,14 @@ object ReferenceTest extends App {
       def max( other: LongRef )( implicit tx: Tx ) : LongRef
       def min( other: LongRef )( implicit tx: Tx ) : LongRef
    }
+
+//   object Region {
+//      def apply( name: StringRef, start: LongRef, stop: LongRef ) : Region = new RegionNew( name, start, stop )
+//
+//      private final class RegionNew( name0: StringRef, start0: LongRef, stop: LongRef ) extends Region {
+//
+//      }
+//   }
 
    trait Region {
       def name( implicit tx: Tx ) : StringRef
@@ -170,11 +196,17 @@ object ReferenceTest extends App {
 //      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
    }
 
-   test()
-
-   def test() {
+   def run() {
       val system = Confluent()
 
+      val f    = new JFrame( "Reaction Test" )
+      val cp   = f.getContentPane
 
+
+
+
+      f.pack()
+      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
+      f.setVisible( true )
    }
 }
