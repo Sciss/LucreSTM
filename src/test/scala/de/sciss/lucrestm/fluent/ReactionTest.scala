@@ -179,6 +179,8 @@ object ReactionTest extends App with Runnable {
 //      def apply[ A, Ex <: Expr[ A ]]( init: Ex )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, Ex ]) : ExprVar[ Ex ] =
 //         new ExprVarNew[ A, Ex ]( init, tx )
 
+      // XXX the other option is to forget about StringRef, LongRef, etc., and instead
+      // pimp Expr[ String ] to StringExprOps, etc.
       class New[ A, Ex <: Expr[ A ] ]( init: Ex, tx0: Tx )( implicit ser: TxnSerializer[ Tx, Acc, Ex ])
       extends ExprVar[ A, Ex ] {
          val id = tx0.newID()
@@ -383,11 +385,11 @@ object ReactionTest extends App with Runnable {
 //      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
    }
 
-   final class RegionView( r: Region ) extends JPanel {
+   final class RegionView( r: Region, id: String ) extends JPanel {
       private val lay = new GroupLayout( this )
       lay.setAutoCreateContainerGaps( true )
       setLayout( lay )
-      setBorder( BorderFactory.createEtchedBorder() )
+      setBorder( BorderFactory.createTitledBorder( BorderFactory.createEtchedBorder(), id ))
 
       private val lbName   = new JLabel( "Name:", SwingConstants.RIGHT )
       private val lbStart  = new JLabel( "Start:", SwingConstants.RIGHT )
@@ -397,17 +399,15 @@ object ReactionTest extends App with Runnable {
       private val ggStart  = new JTextField( 8 )
       private val ggStop   = new JTextField( 8 )
 
-      lay.setHorizontalGroup( lay.createParallelGroup()
-         .addGroup( lay.createSequentialGroup()
+      lay.setHorizontalGroup( lay.createSequentialGroup()
+         .addGroup( lay.createParallelGroup()
             .addComponent( lbName )
-            .addComponent( ggName )
-         )
-         .addGroup( lay.createSequentialGroup()
             .addComponent( lbStart )
-            .addComponent( ggStart )
-         )
-         .addGroup( lay.createSequentialGroup()
             .addComponent( lbStop )
+         )
+         .addGroup( lay.createParallelGroup()
+            .addComponent( ggName )
+            .addComponent( ggStart )
             .addComponent( ggStop )
          )
       )
@@ -443,12 +443,14 @@ object ReactionTest extends App with Runnable {
                              _r1.stop_#.min( _r2.stop_# ))
          (_r1, _r2, _r3)
       }
-      cp.add( new RegionView( r1 ))
-      cp.add( new RegionView( r2 ))
-      cp.add( new RegionView( r3 ))
+      cp.add( new RegionView( r1, "Region #1" ))
+      cp.add( new RegionView( r2, "Region #2"))
+      cp.add( new RegionView( r3, "Region #3"))
 
+      f.setResizable( false )
       f.pack()
       f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
+      f.setLocationRelativeTo( null )
       f.setVisible( true )
    }
 }
