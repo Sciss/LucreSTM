@@ -96,9 +96,9 @@ object ReactionTest extends App with Runnable {
       protected def children: S#Var[ IIdxSeq[ Reactor[ S ]]]
    }
 
-   trait Event[ S <: Sys[ S ], A ] extends Observable[ S ] {
+   trait Event[ S <: Sys[ S ], A ] extends Observable[ S ] with Writer {
       protected def reactor: ReactorBranch[ S ]
-      def get( implicit tx: S#Tx ) : A
+      def value( implicit tx: S#Tx ) : A
 
       final def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) { reactor.addReactor(    r )}
       final def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) { reactor.removeReactor( r )}
@@ -143,7 +143,7 @@ object ReactionTest extends App with Runnable {
    trait Expr[ A ] extends Event[ Confluent, A ] with Disposable[ Tx ] {
       def observe( update: A => Unit )( implicit tx: Tx, map: ReactionMap[ Confluent ]) : Observer = {
          val key        = ReactorLeaf.apply[ Confluent ]()
-         val reaction   = (tx: Tx) => update( get( tx ))
+         val reaction   = (tx: Tx) => update( value( tx ))
          map.add( key, reaction )
          addReactor( key )
          new Observer {
@@ -157,7 +157,7 @@ object ReactionTest extends App with Runnable {
 
    trait ConstExpr[ A ] extends Expr[ A ] {
       protected def constValue : A
-      final def get( implicit tx: Tx ) : A = constValue
+      final def value( implicit tx: Tx ) : A = constValue
       final def dispose()( implicit tx: Tx ) { reactor.dispose() }
    }
 
@@ -166,7 +166,7 @@ object ReactionTest extends App with Runnable {
       protected def b: Expr[ A ]
       protected def op( a: A, b: A ) : A
 
-      final def get( implicit tx: Tx ) : A = op( a.get, b.get )
+      final def value( implicit tx: Tx ) : A = op( a.value, b.value )
 
       final def dispose()( implicit tx: Tx ) {
          a.removeReactor( reactor )
@@ -176,12 +176,11 @@ object ReactionTest extends App with Runnable {
    }
 
    object ExprVar {
-      def apply[ A, Ex <: Expr[ A ]]( init: Ex )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, Ex ]) : ExprVar[ Ex ] =
-         new ExprVarNew[ A, Ex ]( init, tx )
+//      def apply[ A, Ex <: Expr[ A ]]( init: Ex )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, Ex ]) : ExprVar[ Ex ] =
+//         new ExprVarNew[ A, Ex ]( init, tx )
 
-      private final class ExprVarNew[ A, Ex <: Expr[ A ] ]( init: Ex, tx0: Tx )
-                                                          ( implicit ser: TxnSerializer[ Tx, Acc, Ex ])
-      extends ExprVar[ Ex ] {
+      class New[ A, Ex <: Expr[ A ] ]( init: Ex, tx0: Tx )( implicit ser: TxnSerializer[ Tx, Acc, Ex ])
+      extends ExprVar[ A, Ex ] {
          val id = tx0.newID()
          protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
          private val v = tx0.newVar[ Ex ]( id, init )
@@ -201,7 +200,9 @@ object ReactionTest extends App with Runnable {
          }
       }
    }
-   trait ExprVar[ Ex ] extends Expr[ Ex ] with Var[ Tx, Ex ] with Mutable[ Confluent ]
+   trait ExprVar[ A, Ex <: Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with Mutable[ Confluent ] {
+      final def value( implicit tx: Tx ) : A = get.value
+   }
 
    object StringRef {
       implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -212,19 +213,25 @@ object ReactionTest extends App with Runnable {
       private final class StringConstNew( protected val constValue: String, tx0: Tx )
       extends StringRef with ConstExpr[ String ] {
          protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+         def write( out: DataOutput ) {
+            out.writeUnsignedByte( 0 )
+            out.writeString( constValue )
+         }
       }
 
-      private final class StringAppendNew( prefix: StringRef, suffix: StringRef, tx0: Tx )
-      extends StringRef {
+      private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
+      extends StringRef with BinaryExpr[ String ] {
          protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
-         prefix.addReactor( reactor )( tx0 )
-         suffix.addReactor( reactor )( tx0 )
+         a.addReactor( reactor )( tx0 )
+         b.addReactor( reactor )( tx0 )
 
-         def get( implicit tx: Tx ) : String = prefix.get + suffix.get
-         def dispose()( implicit tx: Tx ) {
-            prefix.removeReactor( reactor )
-            suffix.removeReactor( reactor )
-            reactor.dispose()
+//         def get( implicit tx: Tx ) : String = prefix.get + suffix.get
+         def op( ac: String, bc: String ) : String = ac + bc
+
+         def write( out: DataOutput ) {
+            out.writeUnsignedByte( 1 )
+            a.write( out )
+            b.write( out )
          }
       }
 
@@ -233,7 +240,7 @@ object ReactionTest extends App with Runnable {
             sys.error( "TODO" )
          }
 
-         def write( v: StringRef, out: DataOutput ) { sys.error( "TODO" )}
+         def write( v: StringRef, out: DataOutput ) { v.write( out )}
       }
    }
 
@@ -251,6 +258,10 @@ object ReactionTest extends App with Runnable {
       private final class LongConstNew( protected val constValue: Long, tx0: Tx )
       extends LongRef with ConstExpr[ Long ] {
          protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+         def write( out: DataOutput ) {
+            out.writeUnsignedByte( 0 )
+            out.writeLong( constValue )
+         }
       }
 
       private final class LongPlus( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
@@ -260,6 +271,12 @@ object ReactionTest extends App with Runnable {
          b.addReactor( reactor )( tx0 )
 
          protected def op( ac: Long, bc: Long ) = ac + bc
+
+         def write( out: DataOutput ) {
+            out.writeUnsignedByte( 1 )
+            a.write( out )
+            b.write( out )
+         }
       }
 
       private final class LongMin( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
@@ -269,6 +286,12 @@ object ReactionTest extends App with Runnable {
          b.addReactor( reactor )( tx0 )
 
          protected def op( ac: Long, bc: Long ) = math.min( ac, bc )
+
+         def write( out: DataOutput ) {
+            out.writeUnsignedByte( 2 )
+            a.write( out )
+            b.write( out )
+         }
       }
 
       private final class LongMax( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
@@ -278,6 +301,12 @@ object ReactionTest extends App with Runnable {
          b.addReactor( reactor )( tx0 )
 
          protected def op( ac: Long, bc: Long ) = math.max( ac, bc )
+
+         def write( out: DataOutput ) {
+            out.writeUnsignedByte( 3 )
+            a.write( out )
+            b.write( out )
+         }
       }
 
       implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] = new TxnSerializer[ Tx, Acc, LongRef ] {
@@ -285,7 +314,7 @@ object ReactionTest extends App with Runnable {
             sys.error( "TODO" )
          }
 
-         def write( v: LongRef, out: DataOutput ) { sys.error( "TODO" )}
+         def write( v: LongRef, out: DataOutput ) { v.write( out )}
       }
    }
 
@@ -312,21 +341,20 @@ object ReactionTest extends App with Runnable {
       extends Region {
          val id = tx0.newID()
 
-         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
-         def name( implicit tx: Tx ) : StringRef = nameRef.get
-         def name_=( value: StringRef )( implicit tx: Tx ) { nameRef.set( value )}
+//         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
+         val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRef
+         def name( implicit tx: Tx ) : StringRef = name_#.get
+         def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
 
-         private val startRef = tx0.newVar[ LongRef ]( id, start0 )
-         def start( implicit tx: Tx ) : LongRef = startRef.get
-         def start_=( value: LongRef )( implicit tx: Tx ) { startRef.set( value )}
+//         private val startRef = tx0.newVar[ LongRef ]( id, start0 )
+         val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef
+         def start( implicit tx: Tx ) : LongRef = start_#.get
+         def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
 
-         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
-         def stop( implicit tx: Tx ) : LongRef = stopRef.get
-         def stop_=( value: LongRef )( implicit tx: Tx ) { stopRef.set( value )}
-
-         def name_# : StringRef = sys.error( "TODO" )
-         def start_# : LongRef = sys.error( "TODO" )
-         def stop_# : LongRef = sys.error( "TODO" )
+//         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
+         val stop_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef
+         def stop( implicit tx: Tx ) : LongRef = stop_#.get
+         def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
       }
    }
 
