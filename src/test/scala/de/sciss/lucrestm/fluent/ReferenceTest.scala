@@ -9,109 +9,115 @@ object ReferenceTest extends App {
 
    type Tx = Confluent#Tx
 
-   object Sink {
-      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Sink[ S ]] = new Ser[ S ]
+   object Reactor {
+      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] = new Ser[ S ]
 
-      private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Sink[ S ]] {
-         def write( sink: Sink[ S ], out: DataOutput ) { sink.write( out )}
+      private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
+         def write( r: Reactor[ S ], out: DataOutput ) { r.write( out )}
 
-         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Sink[ S ] = {
+         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
             if( in.readUnsignedByte() == 0 ) {
-               new EventRead[ S ]( in, tx, access )
+               new ReactorBranchRead[ S ]( in, tx, access )
             } else {
-               new ReactionKey[ S ]( in.readInt() )
+               new ReactorLeaf[ S ]( in.readInt() )
             }
          }
       }
 
-      private final class EventRead[ S <: Sys[ S ]]( in: DataInput, tx0: S#Tx, acc: S#Acc ) extends Event[ S ] {
+      private final class ReactorBranchRead[ S <: Sys[ S ]]( in: DataInput, tx0: S#Tx, acc: S#Acc ) extends ReactorBranch[ S ] {
          val id = tx0.readID( in, acc )
-         protected val sinks = tx0.readVar[ IIdxSeq[ Sink[ S ]]]( id, in )
+         protected val children = tx0.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
       }
    }
 
-   object Event {
-      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : Event[ S ] = new EventNew[ S ]( tx )
+   object ReactorBranch {
+      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : ReactorBranch[ S ] = new ReactorBranchNew[ S ]( tx )
 
-      private final class EventNew[ S <: Sys[ S ]]( tx0: S#Tx ) extends Event[ S ] {
+      private final class ReactorBranchNew[ S <: Sys[ S ]]( tx0: S#Tx ) extends ReactorBranch[ S ] {
          val id = tx0.newID()
-         protected val sinks = tx0.newVar[ IIdxSeq[ Sink[ S ]]]( id, IIdxSeq.empty )
+         protected val children = tx0.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
       }
    }
 
-   sealed trait Sink[ S <: Sys[ S ]] extends Writer {
-      def propagate()( implicit tx: S#Tx, map: LiveMap[ S ]) : Unit
+   sealed trait Reactor[ S <: Sys[ S ]] extends Writer {
+      def propagate()( implicit tx: S#Tx, map: ReactionMap[ S ]) : Unit
    }
 
-   object ReactionKey {
-      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx, map: LiveMap[ S ]) : ReactionKey[ S ] = new ReactionKey( map.newID() )
+   object ReactorLeaf {
+      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx, map: ReactionMap[ S ]) : ReactorLeaf[ S ] = new ReactorLeaf( map.newID() )
    }
 
-   final case class ReactionKey[ S <: Sys[ S ]]( id: Int ) extends Sink[ S ] {
+   final case class ReactorLeaf[ S <: Sys[ S ]]( id: Int ) extends Reactor[ S ] {
       def write( out: DataOutput ) {
          out.writeUnsignedByte( 1 )
          out.writeInt( id )
       }
 
-      def propagate()( implicit tx: S#Tx, map: LiveMap[ S ]) {
+      def propagate()( implicit tx: S#Tx, map: ReactionMap[ S ]) {
          map.invoke( this )
       }
    }
 
-   sealed trait Event[ S <: Sys[ S ]] extends Sink[ S ] with Mutable[ S ] {
-      final def addPropagator( sink: Sink[ S ])( implicit tx: S#Tx ) {
-         sinks.transform( _ :+ sink )
-//         val xs = props.get
-//         props.set( xs :+ sink )
-//         if( xs.isEmpty /* && reactions.get.isEmpty */) {
-//            deploy()
-//         }
+   sealed trait Observable[ S <: Sys[ S ]] {
+      def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
+      def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
+   }
+
+   sealed trait ReactorBranch[ S <: Sys[ S ]] extends Reactor[ S ] with Observable[ S ] with Mutable[ S ] {
+      final def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
+         children.transform( _ :+ r )
       }
 
-      final def removePropagator( sink: Sink[ S ])( implicit tx: S#Tx ) {
-         val xs = sinks.get
-         val i = xs.indexOf( sink )
+      final def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
+         val xs = children.get
+         val i = xs.indexOf( r )
          if( i >= 0 ) {
             val xs1 = xs.patch( i, IIdxSeq.empty, 1 )
-            sinks.set( xs1 )
-//            if( xs1.isEmpty /* && reactions.get.isEmpty */) undeploy()
+            children.set( xs1 )
          }
       }
 
-      final def propagate()( implicit tx: S#Tx, map: LiveMap[ S ]) {
-//         map.propagate( this )
-         sinks.get.foreach( _.propagate() )
+      final def propagate()( implicit tx: S#Tx, map: ReactionMap[ S ]) {
+         children.get.foreach( _.propagate() )
       }
 
       final protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 0 )
-         sinks.write( out )
+         children.write( out )
       }
 
       final protected def disposeData()( implicit tx: S#Tx ) {
-         sinks.dispose()
+         children.dispose()
       }
 
-      protected def sinks: S#Var[ IIdxSeq[ Sink[ S ]]]
+      protected def children: S#Var[ IIdxSeq[ Reactor[ S ]]]
    }
 
-   object LiveMap {
-      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : LiveMap[ S ] = new Impl[ S ]( tx )
+   trait Event[ S <: Sys[ S ], A ] extends Observable[ S ] {
+      protected def reactor: ReactorBranch[ S ]
+      def value( implicit tx: S#Tx ) : A
 
-      private final class Impl[ S <: Sys[ S ]]( tx0: S#Tx )extends LiveMap[ S ] {
-         private val map   = TMap.empty[ ReactionKey[ S ], S#Tx => Unit ]
+      final def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) { reactor.addReactor(    r )}
+      final def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) { reactor.removeReactor( r )}
+   }
+
+   object ReactionMap {
+      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : ReactionMap[ S ] = new Impl[ S ]( tx )
+
+      private final class Impl[ S <: Sys[ S ]]( tx0: S#Tx )extends ReactionMap[ S ] {
+         private val map   = TMap.empty[ ReactorLeaf[ S ], S#Tx => Unit ]
          val id            = tx0.newID()
          private val cnt   = tx0.newIntVar( id, 0 )
 
-         def invoke( key: ReactionKey[ S ])( implicit tx: S#Tx ) {
+         def invoke( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) {
             map.get( key )( tx.peer ).foreach( _.apply( tx ))
          }
 
-         def add( key: ReactionKey[ S ], fun: S#Tx => Unit )( implicit tx: S#Tx ) {
+         def add( key: ReactorLeaf[ S ], fun: S#Tx => Unit )( implicit tx: S#Tx ) {
             map.+=( key -> fun )( tx.peer )
          }
 
-         def remove( key: ReactionKey[ S ])( implicit tx: S#Tx ) {
+         def remove( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) {
             map.-=( key )( tx.peer )
          }
 
@@ -122,11 +128,11 @@ object ReferenceTest extends App {
          }
       }
    }
-   sealed trait LiveMap[ S <: Sys[ S ]] {
+   sealed trait ReactionMap[ S <: Sys[ S ]] {
       def newID()( implicit tx: S#Tx ) : Int
-      def add( key: ReactionKey[ S ], fun: S#Tx => Unit )( implicit tx: S#Tx ) : Unit
-      def remove( key: ReactionKey[ S ])( implicit tx: S#Tx ) : Unit
-      def invoke( key: ReactionKey[ S ])( implicit tx: S#Tx ) : Unit
+      def add(    key: ReactorLeaf[ S ], reaction: S#Tx => Unit )( implicit tx: S#Tx ) : Unit
+      def remove( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
+      def invoke( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
    }
 
    trait Expr[ A ] {
