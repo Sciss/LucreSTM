@@ -328,16 +328,6 @@ object BerkeleyDB {
 //      override def toString = "ObsVar(" + id + ")"
 //   }
 
-   private sealed trait BasicIntVar extends Var[ Int ] with BasicSource {
-      def get( implicit tx: Txn ) : Int = {
-         tx.system.read[ Int ]( id )( _.readInt() )
-      }
-
-      def setInit( v: Int )( implicit tx: Txn ) {
-         tx.system.write( id )( _.writeInt( v ))
-      }
-   }
-
 //   private final class ObsIntVar( protected val id: Int )
 //   extends BasicIntVar with BasicObservable[ Int ] {
 //      def set( now: Int )( implicit tx: Txn ) {
@@ -361,7 +351,15 @@ object BerkeleyDB {
 //   }
 
    private final class IntVar( protected val id: Int )
-   extends BasicIntVar {
+   extends Var[ Int ] with BasicSource {
+      def get( implicit tx: Txn ) : Int = {
+         tx.system.read[ Int ]( id )( _.readInt() )
+      }
+
+      def setInit( v: Int )( implicit tx: Txn ) {
+         tx.system.write( id )( _.writeInt( v ))
+      }
+
       def set( v: Int )( implicit tx: Txn ) {
          assertExists()
          tx.system.write( id )( _.writeInt( v ))
@@ -370,6 +368,26 @@ object BerkeleyDB {
       def transform( f: Int => Int )( implicit tx: Txn ) { set( f( get ))}
 
       override def toString = "Var[Int](" + id + ")"
+   }
+
+   private final class LongVar( protected val id: Int )
+   extends Var[ Long ] with BasicSource {
+      def get( implicit tx: Txn ) : Long = {
+         tx.system.read[ Long ]( id )( _.readLong() )
+      }
+
+      def setInit( v: Long )( implicit tx: Txn ) {
+         tx.system.write( id )( _.writeLong( v ))
+      }
+
+      def set( v: Long )( implicit tx: Txn ) {
+         assertExists()
+         tx.system.write( id )( _.writeLong( v ))
+      }
+
+      def transform( f: Long => Long )( implicit tx: Txn ) { set( f( get ))}
+
+      override def toString = "Var[Long](" + id + ")"
    }
 
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
@@ -409,7 +427,13 @@ object BerkeleyDB {
       }
 
       def newIntVar( id: ID, init: Int ) : Var[ Int ] = {
-         val res = new IntVar( system.newIDValue()( this ) )
+         val res = new IntVar( system.newIDValue()( this ))
+         res.setInit( init )( this )
+         res
+      }
+
+      def newLongVar( id: ID, init: Long ) : Var[ Long ] = {
+         val res = new LongVar( system.newIDValue()( this ))
          res.setInit( init )( this )
          res
       }
@@ -436,6 +460,11 @@ object BerkeleyDB {
       def readIntVar( pid: ID, in: DataInput ) : Var[ Int ] = {
          val id = in.readInt()
          new IntVar( id )
+      }
+
+      def readLongVar( pid: ID, in: DataInput ) : Var[ Long ] = {
+         val id = in.readInt()
+         new LongVar( id )
       }
 
       def readID( in: DataInput, acc: Unit ) : ID = new IDImpl( in.readInt() )

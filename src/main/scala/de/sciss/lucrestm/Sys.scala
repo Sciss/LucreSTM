@@ -38,7 +38,7 @@ trait Sys[ S <: Sys[ S ]] {
    type ID <: Identifier[ S#Tx ]
    type Acc
 
-   final type ObsVar[ A ] = S#Var[ A ] with Observable[ S, Change[ A ]]
+//   final type ObsVar[ A ] = S#Var[ A ] with Observable[ S, Change[ A ]]
 
    // should get rid of this in Sys, too
    def atomic[ Z ]( block: S#Tx => Z ) : Z

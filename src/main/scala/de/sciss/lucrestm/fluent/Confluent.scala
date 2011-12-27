@@ -151,12 +151,8 @@ object Confluent {
          res
       }
 
-      def newIntVar( pid: ID, init: Int ) : Var[ Int ] = {
-         val id   = alloc( pid )( this )
-         val res  = new VarImpl( id, system, Serializer.Int )
-         res.store( init )
-         res
-      }
+      def newIntVar( pid: ID, init: Int ) : Var[ Int ] = newVar[ Int ]( pid, init )
+      def newLongVar( pid: ID, init: Long ) : Var[ Long ] = newVar[ Long ]( pid, init )
 
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
 
@@ -170,10 +166,9 @@ object Confluent {
          new VarImpl( id, system, ser )
       }
 
-      def readIntVar( pid: ID, in: DataInput ) : Var[ Int ] = {
-         val id = readSource( in, pid )
-         new VarImpl( id, system, Serializer.Int )
-      }
+      def readIntVar( pid: ID, in: DataInput ) : Var[ Int ] = readVar[ Int ]( pid, in )
+
+      def readLongVar( pid: ID, in: DataInput ) : Var[ Long ] = readVar[ Long ]( pid, in )
 
       def readID( in: DataInput, acc: IIdxSeq[ Int ]) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
 

@@ -105,7 +105,7 @@ object InMemory {
 
    sealed trait Txn extends _Txn[ InMemory ]
 
-   private type ObsVar[ A ] = InMemory#ObsVar[ A ]
+//   private type ObsVar[ A ] = InMemory#ObsVar[ A ]
 
    private final class TxnImpl( val system: InMemory, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
@@ -116,6 +116,11 @@ object InMemory {
       }
 
       def newIntVar( id: ID, init: Int ) : Var[ Int ] = {
+         val peer = ScalaRef( init )
+         new VarImpl( peer )
+      }
+
+      def newLongVar( id: ID, init: Long ) : Var[ Long ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
       }
@@ -138,6 +143,10 @@ object InMemory {
 
       def readIntVar( id: ID, in: DataInput ) : Var[ Int ] = {
          opNotSupported( "readIntVar" )
+      }
+
+      def readLongVar( id: ID, in: DataInput ) : Var[ Long ] = {
+         opNotSupported( "readLongVar" )
       }
 
 //      def readObservableVar[ A ]( id: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : ObsVar[ A ] = {

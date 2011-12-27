@@ -34,29 +34,14 @@ trait Txn[ S <: Sys[ S ]] {
    def newID() : S#ID
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
-
    def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]
-
-//   def newObservableVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#ObsVar[ A ]
-//
-//   def newObservableIntVar( id: S#ID, init: Int ) : S#ObsVar[ Int ]
+   def newLongVar( id: S#ID, init: Long ) : S#Var[ Long ]
 
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
    def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
-
    def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
-
-//   def readObservableVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#ObsVar[ A ]
-//
-//   def readObservableIntVar( id: S#ID, in: DataInput ) : S#ObsVar[ Int ]
+   def readLongVar( id: S#ID, in: DataInput ) : S#Var[ Long ]
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
-
-//   def addLive( )
-
-//   def readMut[ A <: Mutable[ S ]]( id: S#ID, in: DataInput )( implicit reader: MutableReader[ S#ID, S#Tx, A ]) : A
-//
-//   def readOptionMut[ A <: MutableOption[ S ]]( id: S#ID, in: DataInput )
-//                                              ( implicit reader: MutableOptionReader[ S#ID, S#Tx, A ]) : A
 }

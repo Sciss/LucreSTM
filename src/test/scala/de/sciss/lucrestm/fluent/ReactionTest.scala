@@ -49,7 +49,7 @@ object ReactionTest extends App with Runnable {
             if( in.readUnsignedByte() == 0 ) {
                new ReactorBranchStubRead[ S ]( in, tx, access )
             } else {
-               new ReactorLeaf[ S ]( in.readInt() )
+               new ReactorLeaf[ S ]( in.readLong() )
             }
          }
       }
@@ -69,10 +69,10 @@ object ReactionTest extends App with Runnable {
       def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx, map: ReactionMap[ S ]) : ReactorLeaf[ S ] = new ReactorLeaf( map.newID() )
    }
 
-   final case class ReactorLeaf[ S <: Sys[ S ]]( id: Int ) extends Reactor[ S ] {
+   final case class ReactorLeaf[ S <: Sys[ S ]]( id: Long ) extends Reactor[ S ] {
       def write( out: DataOutput ) {
          out.writeUnsignedByte( 1 )
-         out.writeInt( id )
+         out.writeLong( id )
       }
 
       def propagate()( implicit tx: S#Tx, map: ReactionMap[ S ]) {
@@ -221,7 +221,7 @@ object ReactionTest extends App with Runnable {
       private final class Impl[ S <: Sys[ S ]]( tx0: S#Tx ) extends ReactionMap[ S ] {
          private val map   = TMap.empty[ ReactorLeaf[ S ], S#Tx => Unit ]
          val id            = tx0.newID()
-         private val cnt   = tx0.newIntVar( id, 0 )
+         private val cnt   = tx0.newLongVar( id, 0L )
 
          def invoke( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) {
             map.get( key )( tx.peer ).foreach( fun =>
@@ -237,7 +237,7 @@ object ReactionTest extends App with Runnable {
             map.-=( key )( tx.peer )
          }
 
-         def newID()( implicit tx: S#Tx ) : Int = {
+         def newID()( implicit tx: S#Tx ) : Long = {
             val res = cnt.get
             cnt.set( res + 1 )
             res
@@ -245,7 +245,7 @@ object ReactionTest extends App with Runnable {
       }
    }
    sealed trait ReactionMap[ S <: Sys[ S ]] {
-      def newID()( implicit tx: S#Tx ) : Int
+      def newID()( implicit tx: S#Tx ) : Long
       def add(    key: ReactorLeaf[ S ], reaction: S#Tx => Unit )( implicit tx: S#Tx ) : Unit
       def remove( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
       def invoke( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
