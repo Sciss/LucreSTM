@@ -2,14 +2,15 @@ package de.sciss.lucrestm
 package fluent
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import java.awt.EventQueue
-import javax.swing.{WindowConstants, JFrame}
 import concurrent.stm.TMap
+import java.awt.{GridLayout, EventQueue}
+import javax.swing.{JTextField, BorderFactory, SwingConstants, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 
 object ReactionTest extends App with Runnable {
    EventQueue.invokeLater( this )
 
-   type Tx = Confluent#Tx
+   type Tx  = Confluent#Tx
+   type Acc = Confluent#Acc
 
    object Reactor {
       implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] = new Ser[ S ]
@@ -97,7 +98,7 @@ object ReactionTest extends App with Runnable {
 
    trait Event[ S <: Sys[ S ], A ] extends Observable[ S ] {
       protected def reactor: ReactorBranch[ S ]
-      def value( implicit tx: S#Tx ) : A
+      def get( implicit tx: S#Tx ) : A
 
       final def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) { reactor.addReactor(    r )}
       final def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) { reactor.removeReactor( r )}
@@ -142,7 +143,7 @@ object ReactionTest extends App with Runnable {
    trait Expr[ A ] extends Event[ Confluent, A ] with Disposable[ Tx ] {
       def observe( update: A => Unit )( implicit tx: Tx, map: ReactionMap[ Confluent ]) : Observer = {
          val key        = ReactorLeaf.apply[ Confluent ]()
-         val reaction   = (tx: Tx) => update( value( tx ))
+         val reaction   = (tx: Tx) => update( get( tx ))
          map.add( key, reaction )
          addReactor( key )
          new Observer {
@@ -156,7 +157,7 @@ object ReactionTest extends App with Runnable {
 
    trait ConstExpr[ A ] extends Expr[ A ] {
       protected def constValue : A
-      final def value( implicit tx: Tx ) : A = constValue
+      final def get( implicit tx: Tx ) : A = constValue
       final def dispose()( implicit tx: Tx ) { reactor.dispose() }
    }
 
@@ -165,7 +166,7 @@ object ReactionTest extends App with Runnable {
       protected def b: Expr[ A ]
       protected def op( a: A, b: A ) : A
 
-      final def value( implicit tx: Tx ) : A = op( a.value, b.value )
+      final def get( implicit tx: Tx ) : A = op( a.get, b.get )
 
       final def dispose()( implicit tx: Tx ) {
          a.removeReactor( reactor )
@@ -173,6 +174,34 @@ object ReactionTest extends App with Runnable {
          reactor.dispose()
       }
    }
+
+   object ExprVar {
+      def apply[ A, Ex <: Expr[ A ]]( init: Ex )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, Ex ]) : ExprVar[ Ex ] =
+         new ExprVarNew[ A, Ex ]( init, tx )
+
+      private final class ExprVarNew[ A, Ex <: Expr[ A ] ]( init: Ex, tx0: Tx )
+                                                          ( implicit ser: TxnSerializer[ Tx, Acc, Ex ])
+      extends ExprVar[ Ex ] {
+         val id = tx0.newID()
+         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
+         private val v = tx0.newVar[ Ex ]( id, init )
+
+         protected def disposeData()( implicit tx: Tx ) {
+            v.dispose()
+            reactor.dispose()
+         }
+
+         def get( implicit tx: Tx ) : Ex = v.get
+         def set( ex: Ex )( implicit tx: Tx ) { v.set( ex )}
+         def transform( fun: Ex => Ex )( implicit tx: Tx ) { v.transform( fun )}
+
+         protected def writeData( out: DataOutput ) {
+            v.write( out )
+            reactor.write( out )
+         }
+      }
+   }
+   trait ExprVar[ Ex ] extends Expr[ Ex ] with Var[ Tx, Ex ] with Mutable[ Confluent ]
 
    object StringRef {
       implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -191,12 +220,20 @@ object ReactionTest extends App with Runnable {
          prefix.addReactor( reactor )( tx0 )
          suffix.addReactor( reactor )( tx0 )
 
-         def value( implicit tx: Tx ) : String = prefix.value + suffix.value
+         def get( implicit tx: Tx ) : String = prefix.get + suffix.get
          def dispose()( implicit tx: Tx ) {
             prefix.removeReactor( reactor )
             suffix.removeReactor( reactor )
             reactor.dispose()
          }
+      }
+
+      implicit val ser : TxnSerializer[ Tx, Acc, StringRef ] = new TxnSerializer[ Tx, Acc, StringRef ] {
+         def read( in: DataInput, access: Acc )( implicit tx: Tx ) : StringRef = {
+            sys.error( "TODO" )
+         }
+
+         def write( v: StringRef, out: DataOutput ) { sys.error( "TODO" )}
       }
    }
 
@@ -242,6 +279,14 @@ object ReactionTest extends App with Runnable {
 
          protected def op( ac: Long, bc: Long ) = math.max( ac, bc )
       }
+
+      implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] = new TxnSerializer[ Tx, Acc, LongRef ] {
+         def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
+            sys.error( "TODO" )
+         }
+
+         def write( v: LongRef, out: DataOutput ) { sys.error( "TODO" )}
+      }
    }
 
    trait LongRef extends Expr[ Long ] {
@@ -258,17 +303,44 @@ object ReactionTest extends App with Runnable {
 //      }
 //   }
 
+
+   object Region {
+      def apply( name: StringRef, start: LongRef, stop: LongRef )( implicit tx: Tx ) : Region =
+         new RegionNew( name, start, stop, tx )
+
+      private final class RegionNew( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
+      extends Region {
+         val id = tx0.newID()
+
+         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
+         def name( implicit tx: Tx ) : StringRef = nameRef.get
+         def name_=( value: StringRef )( implicit tx: Tx ) { nameRef.set( value )}
+
+         private val startRef = tx0.newVar[ LongRef ]( id, start0 )
+         def start( implicit tx: Tx ) : LongRef = startRef.get
+         def start_=( value: LongRef )( implicit tx: Tx ) { startRef.set( value )}
+
+         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
+         def stop( implicit tx: Tx ) : LongRef = stopRef.get
+         def stop_=( value: LongRef )( implicit tx: Tx ) { stopRef.set( value )}
+
+         def name_# : StringRef = sys.error( "TODO" )
+         def start_# : LongRef = sys.error( "TODO" )
+         def stop_# : LongRef = sys.error( "TODO" )
+      }
+   }
+
    trait Region {
       def name( implicit tx: Tx ) : StringRef
       def name_=( value: StringRef )( implicit tx: Tx ) : Unit
       def name_# : StringRef
 
       def start( implicit tx: Tx ) : LongRef
-      def start_=( value: LongRef ) : Unit
+      def start_=( value: LongRef )( implicit tx: Tx ) : Unit
       def start_# : LongRef
 
       def stop( implicit tx: Tx ) : LongRef
-      def stop_=( value: LongRef ) : Unit
+      def stop_=( value: LongRef )( implicit tx: Tx ) : Unit
       def stop_# : LongRef
    }
 
@@ -283,13 +355,69 @@ object ReactionTest extends App with Runnable {
 //      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
    }
 
+   final class RegionView( r: Region ) extends JPanel {
+      private val lay = new GroupLayout( this )
+      lay.setAutoCreateContainerGaps( true )
+      setLayout( lay )
+      setBorder( BorderFactory.createEtchedBorder() )
+
+      private val lbName   = new JLabel( "Name:", SwingConstants.RIGHT )
+      private val lbStart  = new JLabel( "Start:", SwingConstants.RIGHT )
+      private val lbStop   = new JLabel( "Stop:", SwingConstants.RIGHT )
+
+      private val ggName   = new JTextField( 12 )
+      private val ggStart  = new JTextField( 8 )
+      private val ggStop   = new JTextField( 8 )
+
+      lay.setHorizontalGroup( lay.createParallelGroup()
+         .addGroup( lay.createSequentialGroup()
+            .addComponent( lbName )
+            .addComponent( ggName )
+         )
+         .addGroup( lay.createSequentialGroup()
+            .addComponent( lbStart )
+            .addComponent( ggStart )
+         )
+         .addGroup( lay.createSequentialGroup()
+            .addComponent( lbStop )
+            .addComponent( ggStop )
+         )
+      )
+
+      lay.setVerticalGroup( lay.createSequentialGroup()
+         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
+            .addComponent( lbName )
+            .addComponent( ggName )
+         )
+         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
+            .addComponent( lbStart )
+            .addComponent( ggStart )
+         )
+         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
+            .addComponent( lbStop )
+            .addComponent( ggStop )
+         )
+      )
+   }
+
    def run() {
       val system = Confluent()
 
       val f    = new JFrame( "Reaction Test" )
       val cp   = f.getContentPane
 
-
+      cp.setLayout( new GridLayout( 3, 1 ))
+      val (r1, r2, r3) = system.atomic { implicit tx =>
+         val _r1   = Region( "eins", 0L, 10000L )
+         val _r2   = Region( "zwei", 5000L, 12000L )
+         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
+                             _r1.start_#.min( _r2.start_# ),
+                             _r1.stop_#.min( _r2.stop_# ))
+         (_r1, _r2, _r3)
+      }
+      cp.add( new RegionView( r1 ))
+      cp.add( new RegionView( r2 ))
+      cp.add( new RegionView( r3 ))
 
       f.pack()
       f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
