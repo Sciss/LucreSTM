@@ -69,8 +69,10 @@ object ReactionTest extends App with Runnable {
       def serializer[ S <: Sys[ S ]]: TxnSerializer[ S#Tx, S#Acc, ReactorBranch[ S ]] =
          new TxnSerializer[ S#Tx, S#Acc, ReactorBranch[ S ]] {
             def write( r: ReactorBranch[ S ], out: DataOutput ) { r.write( out )}
-            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : ReactorBranch[ S ] =
+            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : ReactorBranch[ S ] = {
+               require( in.readUnsignedByte() == 0 )
                new ReactorBranchRead( in, access, tx )
+            }
          }
 
       private final class ReactorBranchRead[ S <: Sys[ S ]]( in: DataInput, access: S#Acc, tx0: S#Tx )
@@ -80,7 +82,9 @@ object ReactionTest extends App with Runnable {
       }
    }
 
-   sealed trait ReactorBranch[ S <: Sys[ S ]] extends Reactor[ S ] with Observable[ S ] with Mutable[ S ] {
+   sealed trait ReactorBranch[ S <: Sys[ S ]] extends Reactor[ S ] with Observable[ S ] /* with Mutable[ S ] */ {
+      def id: S#ID
+
       final def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
          children.transform( _ :+ r )
       }
@@ -98,12 +102,14 @@ object ReactionTest extends App with Runnable {
          children.get.foreach( _.propagate() )
       }
 
-      final protected def writeData( out: DataOutput ) {
+      final def write( out: DataOutput ) {
          out.writeUnsignedByte( 0 )
+         id.write( out )
          children.write( out )
       }
 
-      final protected def disposeData()( implicit tx: S#Tx ) {
+      final def dispose()( implicit tx: S#Tx ) {
+         id.dispose()
          children.dispose()
       }
 
@@ -195,30 +201,48 @@ object ReactionTest extends App with Runnable {
 //      def apply[ A, Ex <: Expr[ A ]]( init: Ex )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, Ex ]) : ExprVar[ Ex ] =
 //         new ExprVarNew[ A, Ex ]( init, tx )
 
-      // XXX the other option is to forget about StringRef, LongRef, etc., and instead
-      // pimp Expr[ String ] to StringExprOps, etc.
-      class New[ A, Ex <: Expr[ A ] ]( init: Ex, tx0: Tx )( implicit ser: TxnSerializer[ Tx, Acc, Ex ])
-      extends ExprVar[ A, Ex ] {
-         val id = tx0.newID()
-         protected val reactor = ReactorBranch[ Confluent ]()( tx0 )
-         private val v = tx0.newVar[ Ex ]( id, init )
+      sealed trait Impl[ A, Ex <: Expr[ A ]] extends ExprVar[ A, Ex ] {
+         protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
+         protected def id: Confluent#ID
+         protected def v: Confluent#Var[ Ex ]
+         protected def reactor: ReactorBranch[ Confluent ]
 
-         protected def disposeData()( implicit tx: Tx ) {
-            v.dispose()
-            reactor.dispose()
-         }
+         final def get( implicit tx: Tx ) : Ex = v.get
+         final def set( ex: Ex )( implicit tx: Tx ) { v.set( ex )}
+         final def transform( fun: Ex => Ex )( implicit tx: Tx ) { v.transform( fun )}
 
-         def get( implicit tx: Tx ) : Ex = v.get
-         def set( ex: Ex )( implicit tx: Tx ) { v.set( ex )}
-         def transform( fun: Ex => Ex )( implicit tx: Tx ) { v.transform( fun )}
-
-         protected def writeData( out: DataOutput ) {
+         final def write( out: DataOutput ) {
+            out.writeUnsignedByte( 100 )
+            id.write( out )
             v.write( out )
             reactor.write( out )
          }
+
+         final def dispose()( implicit tx: Tx ) {
+            id.dispose()
+            v.dispose()
+            reactor.dispose()
+         }
+      }
+
+      // XXX the other option is to forget about StringRef, LongRef, etc., and instead
+      // pimp Expr[ String ] to StringExprOps, etc.
+      class New[ A, Ex <: Expr[ A ]]( init: Ex, tx0: Tx )( implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
+      extends Impl[ A, Ex ] {
+         val id                  = tx0.newID()
+         protected val v         = tx0.newVar[ Ex ]( id, init )
+         protected val reactor   = ReactorBranch[ Confluent ]()( tx0 )
+      }
+
+      class Read[ A, Ex <: Expr[ A ]]( in: DataInput, access: Acc, tx0: Tx )
+                                     ( implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
+      extends Impl[ A, Ex ] {
+         val id                  = tx0.readID( in, access )
+         protected val v         = tx0.readVar[ Ex ]( id, in )
+         protected val reactor   = ReactorBranch.serializer[ Confluent ].read( in, access )( tx0 )
       }
    }
-   trait ExprVar[ A, Ex <: Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with Mutable[ Confluent ] {
+   trait ExprVar[ A, Ex <: Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with Writer {
       final def value( implicit tx: Tx ) : A = get.value
    }
 
@@ -280,8 +304,9 @@ object ReactionTest extends App with Runnable {
       implicit val ser : TxnSerializer[ Tx, Acc, StringRef ] = new TxnSerializer[ Tx, Acc, StringRef ] {
          def read( in: DataInput, access: Acc )( implicit tx: Tx ) : StringRef = {
             (in.readUnsignedByte(): @switch) match {
-               case 0 => new StringConstRead( in, tx )
-               case 1 => new StringAppendRead( in, access, tx )
+               case 0   => new StringConstRead( in, tx )
+               case 1   => new StringAppendRead( in, access, tx )
+               case 100 => new ExprVar.Read[ String, StringRef ]( in, access, tx ) with StringRef
             }
          }
 
@@ -402,10 +427,11 @@ object ReactionTest extends App with Runnable {
       implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] = new TxnSerializer[ Tx, Acc, LongRef ] {
          def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
             (in.readUnsignedByte(): @switch) match {
-               case 0 => new LongConstRead( in, tx )
-               case 1 => new LongPlusRead( in, access, tx )
-               case 2 => new LongMinRead( in, access, tx )
-               case 3 => new LongMaxRead( in, access, tx )
+               case 0   => new LongConstRead( in, tx )
+               case 1   => new LongPlusRead( in, access, tx )
+               case 2   => new LongMinRead( in, access, tx )
+               case 3   => new LongMaxRead( in, access, tx )
+               case 100 => new ExprVar.Read[ Long, LongRef ]( in, access, tx ) with LongRef
             }
          }
 
@@ -447,7 +473,7 @@ object ReactionTest extends App with Runnable {
          def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
 
 //         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
-         val stop_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef
+         val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef
          def stop( implicit tx: Tx ) : LongRef = stop_#.get
          def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
       }
@@ -541,8 +567,8 @@ object ReactionTest extends App with Runnable {
          val _r1   = Region( "eins", 0L, 10000L )
          val _r2   = Region( "zwei", 5000L, 12000L )
          val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
-                             _r1.start_#.min( _r2.start_# ),
-                             _r1.stop_#.min( _r2.stop_# ))
+                             _r1.start_#.min( _r2.start_# ).+( -100L ),
+                             _r1.stop_#.max( _r2.stop_# ).+( 100L ))
          Seq( _r1, _r2, _r3 )
       }
 
