@@ -140,6 +140,8 @@ object ReactionTest extends App with Runnable {
       }
 
       protected def children: S#Var[ IIdxSeq[ Reactor[ S ]]]
+
+      override def toString = "ReactorBranch" + id
    }
 
    trait Event[ S <: Sys[ S ], A ] extends Observable[ S ] with Writer {
@@ -159,7 +161,9 @@ object ReactionTest extends App with Runnable {
          private val cnt   = tx0.newIntVar( id, 0 )
 
          def invoke( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) {
-            map.get( key )( tx.peer ).foreach( _.apply( tx ))
+            map.get( key )( tx.peer ).foreach( fun =>
+              fun.apply( tx )
+            )
          }
 
          def add( key: ReactorLeaf[ S ], fun: S#Tx => Unit )( implicit tx: S#Tx ) {
@@ -189,7 +193,10 @@ object ReactionTest extends App with Runnable {
    trait Expr[ A ] extends Event[ Confluent, A ] with Disposable[ Tx ] {
       def observe( update: A => Unit )( implicit tx: Tx, map: ReactionMap[ Confluent ]) : Observer = {
          val key        = ReactorLeaf.apply[ Confluent ]()
-         val reaction   = (tx: Tx) => update( value( tx ))
+         val reaction   = (tx: Tx) => {
+            val now = value( tx )
+            update( now )
+         }
          map.add( key, reaction )
          addReactor( key )
          val res = new Observer {
@@ -237,8 +244,10 @@ object ReactionTest extends App with Runnable {
          final def get( implicit tx: Tx ) : Ex = v.get
          final def set( ex: Ex )( implicit tx: Tx ) {
             val old = get
-            if( old != ex ) {
+            if( old.value != ex.value ) {
+               old.removeReactor( reactor )
                v.set( ex )
+               ex.addReactor( reactor )
                reactor.propagate()
             }
          }
@@ -271,6 +280,7 @@ object ReactionTest extends App with Runnable {
          val id                  = tx0.newID()
          protected val v         = tx0.newVar[ Ex ]( id, init )
          protected val reactor   = ReactorBranch[ Confluent ]()( tx0 )
+         init.addReactor( reactor )( tx0 )
       }
 
       class Read[ A, Ex <: Expr[ A ]]( in: DataInput, access: Acc, tx0: Tx )(
@@ -280,6 +290,7 @@ object ReactionTest extends App with Runnable {
          val id                  = tx0.readID( in, access )
          protected val v         = tx0.readVar[ Ex ]( id, in )
          protected val reactor   = ReactorBranch.serializer[ Confluent ].read( in, access )( tx0 )
+//         init.addReactor( reactor )
       }
    }
    trait ExprVar[ A, Ex <: Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with Writer {
@@ -297,6 +308,8 @@ object ReactionTest extends App with Runnable {
             out.writeUnsignedByte( 0 )
             out.writeString( constValue )
          }
+
+         override def toString = constValue
       }
 
       private final class StringConstNew( protected val constValue: String, tx0: Tx )
@@ -323,6 +336,8 @@ object ReactionTest extends App with Runnable {
             b.write( out )
             reactor.write( out )
          }
+
+         override def toString = "String.append(" + a + ", " + b + ")"
       }
 
       private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
@@ -347,7 +362,9 @@ object ReactionTest extends App with Runnable {
                (in.readUnsignedByte(): @switch) match {
                   case 0   => new StringConstRead( in, tx )
                   case 1   => new StringAppendRead( in, access, tx )
-                  case 100 => new ExprVar.Read[ String, StringRef ]( in, access, tx ) with StringRef
+                  case 100 => new ExprVar.Read[ String, StringRef ]( in, access, tx ) with StringRef {
+                     override def toString = "String.ref(" + v + ")"
+                  }
                }
             }
 
@@ -504,10 +521,14 @@ object ReactionTest extends App with Runnable {
       private final class RegionNew( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
                                    ( implicit map: ReactionMap[ Confluent ])
       extends Region {
+         region =>
+
          val id = tx0.newID()
 
 //         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
-         val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRef
+         val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRef {
+            override def toString = region.toString + ".name_#"
+         }
          def name( implicit tx: Tx ) : StringRef = name_#.get
          def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
 
@@ -520,6 +541,8 @@ object ReactionTest extends App with Runnable {
          val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef
          def stop( implicit tx: Tx ) : LongRef = stop_#.get
          def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
+
+         override def toString = "Region" + id
       }
    }
 
@@ -590,15 +613,38 @@ object ReactionTest extends App with Runnable {
          )
       )
 
+      private def stringToModel( s: String, model: (Tx, String) => Unit )( implicit system: Confluent ) {
+         system.atomic { implicit tx =>
+            model( tx, s )
+         }
+      }
+
+      private def longToModel( n: Long, model: (Tx, Long) => Unit )( implicit system: Confluent ) {
+         system.atomic { implicit tx => model( tx, n )}
+      }
+
       def connect()( implicit tx: Tx, map: ReactionMap[ Confluent ]) {
          r.name_#.observe(  v => defer( ggName.setText(  v )))
          r.start_#.observe( v => defer( ggStart.setText( v.toString )))
          r.stop_#.observe(  v => defer( ggStop.setText(  v.toString )))
 
+         implicit val system = tx.system
+
          ggName.addActionListener( new ActionListener {
             def actionPerformed( e: ActionEvent ) {
-               val name = ggName.getText
-               tx.system.atomic { implicit tx => r.name = name }
+               stringToModel( ggName.getText, (tx, s) => { implicit val _tx = tx; r.name = s })
+            }
+         })
+
+         ggStart.addActionListener( new ActionListener {
+            def actionPerformed( e: ActionEvent ) {
+               longToModel( ggStart.getText.toLong, (tx, n) => { implicit val _tx = tx; r.start = n })
+            }
+         })
+
+         ggStop.addActionListener( new ActionListener {
+            def actionPerformed( e: ActionEvent ) {
+               longToModel( ggStop.getText.toLong, (tx, n) => { implicit val _tx = tx; r.stop = n })
             }
          })
       }
