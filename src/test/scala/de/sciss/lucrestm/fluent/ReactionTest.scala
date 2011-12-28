@@ -48,46 +48,10 @@ object ReactionTest extends App with Runnable {
       final def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) { reactor.removeReactor( r )}
    }
 
-   object ReactionMap {
-      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : ReactionMap[ S ] = new Impl[ S ]( tx )
-
-      private final class Impl[ S <: Sys[ S ]]( tx0: S#Tx ) extends ReactionMap[ S ] {
-         private val map   = TMap.empty[ ReactorLeaf[ S ], S#Tx => Unit ]
-         val id            = tx0.newID()
-         private val cnt   = tx0.newLongVar( id, 0L )
-
-         def invoke( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) {
-            map.get( key )( tx.peer ).foreach( fun =>
-              fun.apply( tx )
-            )
-         }
-
-         def add( key: ReactorLeaf[ S ], fun: S#Tx => Unit )( implicit tx: S#Tx ) {
-            map.+=( key -> fun )( tx.peer )
-         }
-
-         def remove( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) {
-            map.-=( key )( tx.peer )
-         }
-
-         def newID()( implicit tx: S#Tx ) : Long = {
-            val res = cnt.get
-            cnt.set( res + 1 )
-            res
-         }
-      }
-   }
-   sealed trait ReactionMap[ S <: Sys[ S ]] {
-      def newID()( implicit tx: S#Tx ) : Long
-      def add(    key: ReactorLeaf[ S ], reaction: S#Tx => Unit )( implicit tx: S#Tx ) : Unit
-      def remove( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
-      def invoke( key: ReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
-   }
-
    sealed trait Observer { def remove()( implicit tx: Tx ) : Unit }
 
    sealed trait Expr[ A ] extends Event[ Confluent, A ] with Disposable[ Tx ] {
-      def observe( update: A => Unit )( implicit tx: Tx, map: ReactionMap[ Confluent ]) : Observer = {
+      def observe( update: A => Unit )( implicit tx: Tx ) : Observer = {
          val reaction = tx.addReaction { implicit tx =>
             val now = value( tx )
             update( now )
@@ -134,7 +98,6 @@ object ReactionTest extends App with Runnable {
 
       sealed trait Impl[ A, Ex <: Expr[ A ]] extends ExprVar[ A, Ex ] {
          protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
-         protected implicit def reactionMap: ReactionMap[ Confluent ]
          protected def id: Confluent#ID
          protected def v: Confluent#Var[ Ex ]
          protected def reactor: ReactorBranch[ Confluent ]
@@ -172,8 +135,7 @@ object ReactionTest extends App with Runnable {
       // XXX the other option is to forget about StringRef, LongRef, etc., and instead
       // pimp Expr[ String ] to StringExprOps, etc.
       class New[ A, Ex <: Expr[ A ]]( init: Ex, tx0: Tx )(
-         implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ],
-         implicit protected val reactionMap: ReactionMap[ Confluent ])
+         implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
       extends Impl[ A, Ex ] {
          val id                  = tx0.newID()
          protected val v         = tx0.newVar[ Ex ]( id, init )
@@ -185,8 +147,7 @@ object ReactionTest extends App with Runnable {
       }
 
       class Read[ A, Ex <: Expr[ A ]]( in: DataInput, access: Acc, tx0: Tx )(
-         implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ],
-         implicit protected val reactionMap: ReactionMap[ Confluent ])
+         implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
       extends Impl[ A, Ex ] {
          val id                  = tx0.readID( in, access )
          protected val v         = tx0.readVar[ Ex ]( id, in )
@@ -254,7 +215,7 @@ object ReactionTest extends App with Runnable {
 //         b.addReactor( reactor )( tx0 )
       }
 
-      private final class StringAppendRead( in: DataInput, access: Acc, tx0: Tx )( implicit map: ReactionMap[ Confluent ])
+      private final class StringAppendRead( in: DataInput, access: Acc, tx0: Tx )
       extends StringBinOp with StringAppend {
          protected val a         = ser.read( in, access )( tx0 )
          protected val b         = ser.read( in, access )( tx0 )
@@ -263,7 +224,7 @@ object ReactionTest extends App with Runnable {
 //         b.addReactor( reactor )( tx0 )
       }
 
-      implicit def ser( implicit map: ReactionMap[ Confluent ]) : TxnSerializer[ Tx, Acc, StringRef ] =
+      implicit val ser : TxnSerializer[ Tx, Acc, StringRef ] =
          new TxnSerializer[ Tx, Acc, StringRef ] {
             def read( in: DataInput, access: Acc )( implicit tx: Tx ) : StringRef = {
                (in.readUnsignedByte(): @switch) match {
@@ -334,7 +295,7 @@ object ReactionTest extends App with Runnable {
          final protected val reactor = ReactorBranch[ Confluent ]( sources )( tx0 )
       }
 
-      private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )( implicit map: ReactionMap[ Confluent ])
+      private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOp {
          final protected val a         = ser.read( in, access )( tx0 )
          final protected val b         = ser.read( in, access )( tx0 )
@@ -359,22 +320,22 @@ object ReactionTest extends App with Runnable {
       private final class LongPlusNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
       extends LongBinOpNew( tx0 ) with LongPlus
 
-      private final class LongPlusRead( in: DataInput, access: Acc, tx0: Tx )( implicit map: ReactionMap[ Confluent ])
+      private final class LongPlusRead( in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOpRead( in, access, tx0 ) with LongPlus
 
       private final class LongMinNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
       extends LongBinOpNew( tx0 ) with LongMin
 
-      private final class LongMinRead( in: DataInput, access: Acc, tx0: Tx )( implicit map: ReactionMap[ Confluent ])
+      private final class LongMinRead( in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOpRead( in, access, tx0 ) with LongMin
 
       private final class LongMaxNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
       extends LongBinOpNew( tx0 ) with LongMax
 
-      private final class LongMaxRead( in: DataInput, access: Acc, tx0: Tx )( implicit map: ReactionMap[ Confluent ])
+      private final class LongMaxRead( in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOpRead( in, access, tx0 ) with LongMax
 
-      implicit def ser( implicit map: ReactionMap[ Confluent ]) : TxnSerializer[ Tx, Acc, LongRef ] =
+      implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] =
          new TxnSerializer[ Tx, Acc, LongRef ] {
             def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
                (in.readUnsignedByte(): @switch) match {
@@ -407,11 +368,10 @@ object ReactionTest extends App with Runnable {
 
    object Region {
       def apply( name: StringRef, start: LongRef, stop: LongRef )
-               ( implicit tx: Tx, map: ReactionMap[ Confluent ]) : Region =
+               ( implicit tx: Tx ) : Region =
          new RegionNew( name, start, stop, tx )
 
       private final class RegionNew( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
-                                   ( implicit map: ReactionMap[ Confluent ])
       extends Region {
          region =>
 
@@ -515,7 +475,7 @@ object ReactionTest extends App with Runnable {
          system.atomic { implicit tx => model( tx, n )}
       }
 
-      def connect()( implicit tx: Tx, map: ReactionMap[ Confluent ]) {
+      def connect()( implicit tx: Tx ) {
          r.name_#.observe(  v => defer( ggName.setText(  v )))
          r.start_#.observe( v => defer( ggStart.setText( v.toString )))
          r.stop_#.observe(  v => defer( ggStop.setText(  v.toString )))
@@ -546,7 +506,6 @@ object ReactionTest extends App with Runnable {
 
    def run() {
       val system = Confluent()
-      implicit val map = system.atomic( tx => ReactionMap.apply[ Confluent ]()( tx ))
 
       val f    = new JFrame( "Reaction Test" )
       val cp   = f.getContentPane
