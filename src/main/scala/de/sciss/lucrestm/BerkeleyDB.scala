@@ -65,14 +65,20 @@ object BerkeleyDB {
       try {
          txn.setName( "Open '" + name + "'" )
          val db      = env.openDatabase( txn, name, dbCfg )
-         val ke      = new DatabaseEntry( Array[ Byte ]( 0, 0, 0, 0 ))  // key for last-key
+         val kea     = Array[ Byte ]( 0, 0, 0, 0 )
+         val ke      = new DatabaseEntry( kea )  // key for last-key
          val ve      = new DatabaseEntry()
-         val cnt     = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
+         val idCnt   = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
+            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
+            in.readInt()
+         } else 1
+         kea( 3 )    = 1.toByte   // key for react-last-key
+         val reactCnt = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
             val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
             in.readInt()
          } else 0
          txn.commit()
-         new System( env, db, txnCfg, ScalaRef( cnt ))
+         new System( env, db, txnCfg, ScalaRef( idCnt ), ScalaRef( reactCnt ))
       } catch {
          case e =>
             txn.abort()
@@ -440,8 +446,8 @@ object BerkeleyDB {
       def newID() : ID = new IDImpl( system.newIDValue()( this ))
 
       def addReaction( fun: Txn => Unit ) : ReactorLeaf[ BerkeleyDB ] = system.reactionMap.add( fun )( this )
-      private[lucrestm] def removeReaction( key: Long ) { system.reactionMap.remove( key )( this )}
-      private[lucrestm] def invokeReaction( key: Long ) { system.reactionMap.invoke( key )( this )}
+      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.remove( key )( this )}
+      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invoke( key )( this )}
 
       override def toString = "Txn<" + id + ">"
 

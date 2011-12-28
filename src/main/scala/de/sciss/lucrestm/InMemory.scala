@@ -111,8 +111,8 @@ object InMemory {
       def newID() : ID = new IDImpl
 
       def addReaction( fun: Txn => Unit ) : ReactorLeaf[ InMemory ] = system.reactionMap.add( fun )( this )
-      private[lucrestm] def removeReaction( key: Long ) { system.reactionMap.remove( key )( this )}
-      private[lucrestm] def invokeReaction( key: Long ) { system.reactionMap.invoke( key )( this )}
+      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.remove( key )( this )}
+      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invoke( key )( this )}
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )
@@ -177,7 +177,7 @@ object InMemory {
    private final class System extends InMemory {
       def manifest: Manifest[ InMemory ] = Manifest.classType( classOf[ InMemory ])
 
-      def reactionMap: ReactionMap[ InMemory ] = ReactionMap[ InMemory, InMemory ]( new VarImpl( ScalaRef( 0L )))
+      def reactionMap: ReactionMap[ InMemory ] = ReactionMap[ InMemory, InMemory ]( new VarImpl( ScalaRef( 0 )))
 
       def atomic[ Z ]( block: Tx => Z ) : Z = {
          TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))

@@ -52,7 +52,7 @@ object Confluent {
       private val inMem = InMemory()
 
       val reactionMap: ReactionMap[ Confluent ] = ReactionMap[ Confluent, InMemory ]( inMem.atomic { implicit tx =>
-         tx.newLongVar( tx.newID(), 0L )
+         tx.newIntVar( tx.newID(), 0 )
       })( ctx => inMem.wrap( ctx.peer ))
 
       def path( implicit tx: Tx ) = pathVar
@@ -148,8 +148,8 @@ object Confluent {
       def newID() : ID = system.newID()( this )
 
       def addReaction( fun: Txn => Unit ) : ReactorLeaf[ Confluent ] = system.reactionMap.add( fun )( this )
-      private[lucrestm] def removeReaction( key: Long ) { system.reactionMap.remove( key )( this )}
-      private[lucrestm] def invokeReaction( key: Long ) { system.reactionMap.invoke( key )( this )}
+      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.remove( key )( this )}
+      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invoke( key )( this )}
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 
