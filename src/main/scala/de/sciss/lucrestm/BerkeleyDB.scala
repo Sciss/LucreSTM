@@ -265,7 +265,7 @@ object BerkeleyDB {
    }
 
 //   private type Obs[ A ]    = Observer[ Txn, Change[ A ]]
-//   private type ObsVar[ A ] = Var[ A ] with Observable[ BerkeleyDB, Change[ A ]]
+//   private type ObsVar[ A ] = Var[ A ] with State[ BerkeleyDB, Change[ A ]]
 
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
       protected def ser: TxnSerializer[ Txn, Unit, A ]
@@ -291,7 +291,7 @@ object BerkeleyDB {
       override def toString = "Var(" + id + ")"
    }
 
-//   private sealed trait BasicObservable[ @specialized A ] extends BasicSource with Observable[ BerkeleyDB, Change[ A ]] {
+//   private sealed trait BasicObservable[ @specialized A ] extends BasicSource with State[ BerkeleyDB, Change[ A ]] {
 //      def addObserver( observer: Obs[ A ])( implicit tx: Txn ) {
 //         sys.error( "TODO" )
 //      }
@@ -445,9 +445,9 @@ object BerkeleyDB {
 
       def newID() : ID = new IDImpl( system.newIDValue()( this ))
 
-      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ BerkeleyDB ] = system.reactionMap.add( fun )( this )
-      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.remove( key )( this )}
-      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invoke( key )( this )}
+      def addReaction( fun: Txn => Unit ) : StateReactorLeaf[ BerkeleyDB ] = system.reactionMap.addState( fun )( this )
+      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.removeState( key )( this )}
+      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invokeState( key )( this )}
 
       override def toString = "Txn<" + id + ">"
 

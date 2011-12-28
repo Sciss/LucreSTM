@@ -147,9 +147,9 @@ object Confluent {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = system.newID()( this )
 
-      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ Confluent ] = system.reactionMap.add( fun )( this )
-      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.remove( key )( this )}
-      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invoke( key )( this )}
+      def addReaction( fun: Txn => Unit ) : StateReactorLeaf[ Confluent ] = system.reactionMap.addState( fun )( this )
+      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.removeState( key )( this )}
+      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invokeState( key )( this )}
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 

@@ -47,7 +47,7 @@ object InMemory {
    }
 
 //   private final class ObsVarImpl[ @specialized A ]( protected val peer: ScalaRef[ A ])
-//   extends Var[ A ] with Observable[ InMemory, Change[ A ]] with SourceImpl[ A ] {
+//   extends Var[ A ] with State[ InMemory, Change[ A ]] with SourceImpl[ A ] {
 //      override def toString = "ObsVar<" + hashCode().toHexString + ">"
 //
 //      private type Obs = Observer[ Txn, Change[ A ]]
@@ -110,9 +110,9 @@ object InMemory {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
-      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ InMemory ] = system.reactionMap.add( fun )( this )
-      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.remove( key )( this )}
-      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invoke( key )( this )}
+      def addReaction( fun: Txn => Unit ) : StateReactorLeaf[ InMemory ] = system.reactionMap.addState( fun )( this )
+      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.removeState( key )( this )}
+      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invokeState( key )( this )}
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )

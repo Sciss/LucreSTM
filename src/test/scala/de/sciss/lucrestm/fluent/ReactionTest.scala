@@ -41,13 +41,13 @@ object ReactionTest extends App {
    type Tx  = Confluent#Tx
    type Acc = Confluent#Acc
 
-   trait Event[ S <: Sys[ S ], A ] extends Observable[ S ] with Writer {
-//      protected def reactor: ReactorBranch[ S ]
-      protected def reactor: Observable[ S ]
+   trait Event[ S <: Sys[ S ], A ] extends State[ S ] with Writer {
+//      protected def reactor: StateReactorBranch[ S ]
+      protected def reactor: State[ S ]
       def value( implicit tx: S#Tx ) : A
 
-      final def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) { reactor.addReactor(    r )}
-      final def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) { reactor.removeReactor( r )}
+      final def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) { reactor.addReactor(    r )}
+      final def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) { reactor.removeReactor( r )}
    }
 
    sealed trait Observer { def remove()( implicit tx: Tx ) : Unit }
@@ -70,14 +70,14 @@ object ReactionTest extends App {
    }
 
    trait ConstExpr[ A ] extends Expr[ A ] {
-      final protected val reactor = Observable.deaf[ Confluent ]
+      final protected val reactor = State.constant[ Confluent ]
       protected def constValue : A
       final def value( implicit tx: Tx ) : A = constValue
       final def dispose()( implicit tx: Tx ) {}
    }
 
    trait MutableExpr[ A ] extends Expr[ A ] {
-      protected def reactor: ReactorBranch[ Confluent ]
+      protected def reactor: StateReactorBranch[ Confluent ]
    }
 
    trait BinaryExpr[ A ] extends MutableExpr[ A ] {
@@ -102,7 +102,7 @@ object ReactionTest extends App {
          protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
          protected def id: Confluent#ID
          protected def v: Confluent#Var[ Ex ]
-         protected def reactor: ReactorBranch[ Confluent ]
+         protected def reactor: StateReactorBranch[ Confluent ]
 
          final def get( implicit tx: Tx ) : Ex = v.get
          final def set( ex: Ex )( implicit tx: Tx ) {
@@ -141,10 +141,10 @@ object ReactionTest extends App {
       extends Impl[ A, Ex ] {
          val id                  = tx0.newID()
          protected val v         = tx0.newVar[ Ex ]( id, init )
-         private val sources : ReactorSources[ Confluent ] = new ReactorSources[ Confluent ] {
-            def reactorSources( implicit tx: Tx ) = IIdxSeq( v.get )
+         private val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
+            def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
          }
-         protected val reactor   = ReactorBranch[ Confluent ]( sources )( tx0 )
+         protected val reactor   = StateReactorBranch[ Confluent ]( sources )( tx0 )
 //         init.addReactor( reactor )( tx0 )
       }
 
@@ -153,10 +153,10 @@ object ReactionTest extends App {
       extends Impl[ A, Ex ] {
          val id                  = tx0.readID( in, access )
          protected val v         = tx0.readVar[ Ex ]( id, in )
-         private val sources : ReactorSources[ Confluent ] = new ReactorSources[ Confluent ] {
-            def reactorSources( implicit tx: Tx ) = IIdxSeq( v.get )
+         private val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
+            def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
          }
-         protected val reactor   = ReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
+         protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
 //         init.addReactor( reactor )
       }
    }
@@ -196,8 +196,8 @@ object ReactionTest extends App {
             reactor.write( out )
          }
 
-         final protected val sources : ReactorSources[ Confluent ] = new ReactorSources[ Confluent ] {
-            def reactorSources( implicit t: Tx ) = IIdxSeq( a, b )
+         final protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
+            def stateSources( implicit t: Tx ) = IIdxSeq( a, b )
          }
       }
 
@@ -212,7 +212,7 @@ object ReactionTest extends App {
 
       private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
       extends StringBinOp with StringAppend {
-         protected val reactor = ReactorBranch[ Confluent ]( sources )( tx0 )
+         protected val reactor = StateReactorBranch[ Confluent ]( sources )( tx0 )
 //         a.addReactor( reactor )( tx0 )
 //         b.addReactor( reactor )( tx0 )
       }
@@ -221,7 +221,7 @@ object ReactionTest extends App {
       extends StringBinOp with StringAppend {
          protected val a         = ser.read( in, access )( tx0 )
          protected val b         = ser.read( in, access )( tx0 )
-         protected val reactor   = ReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
+         protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
 //         a.addReactor( reactor )( tx0 )
 //         b.addReactor( reactor )( tx0 )
       }
@@ -271,8 +271,8 @@ object ReactionTest extends App {
       private sealed trait LongBinOp extends LongRef with BinaryExpr[ Long ] {
          protected def opID: Int
 
-         final protected val sources : ReactorSources[ Confluent ] = new ReactorSources[ Confluent ] {
-            def reactorSources( implicit tx: Tx ) = IIdxSeq( a, b )
+         final protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
+            def stateSources( implicit tx: Tx ) = IIdxSeq( a, b )
          }
 
          final def write( out: DataOutput ) {
@@ -294,14 +294,14 @@ object ReactionTest extends App {
       }
 
       private abstract class LongBinOpNew( tx0: Tx ) extends LongBinOp {
-         final protected val reactor = ReactorBranch[ Confluent ]( sources )( tx0 )
+         final protected val reactor = StateReactorBranch[ Confluent ]( sources )( tx0 )
       }
 
       private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOp {
          final protected val a         = ser.read( in, access )( tx0 )
          final protected val b         = ser.read( in, access )( tx0 )
-         final protected val reactor   = ReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
+         final protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
       }
 
       private sealed trait LongPlus {
@@ -418,7 +418,7 @@ object ReactionTest extends App {
       def empty( implicit tx: Tx ) : RegionList = new Impl( tx )
 
       private final class Impl( tx0: Tx ) extends RegionList {
-         protected val reactor = ReactorBranch[ Confluent ]( ReactorSources.empty )( tx0 )
+         protected val reactor = StateReactorBranch[ Confluent ]( StateSources.none )( tx0 )
          def value( implicit tx: Tx ): IIdxSeq[ Change ] = sys.error( "TODO" )
          def write( out: DataOutput ) { sys.error( "TODO" )}
          def dispose()( implicit tx: Tx ) { sys.error( "TODO" )}
