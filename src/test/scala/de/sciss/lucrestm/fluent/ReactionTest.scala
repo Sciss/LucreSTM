@@ -27,14 +27,16 @@ package de.sciss.lucrestm
 package fluent
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import concurrent.stm.TMap
-import java.awt.{GridLayout, EventQueue}
-import javax.swing.{JTextField, BorderFactory, SwingConstants, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import annotation.switch
 import java.awt.event.{ActionListener, ActionEvent}
+import javax.swing.{JComponent, JTextField, BorderFactory, SwingConstants, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
+import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 
-object ReactionTest extends App with Runnable {
-   EventQueue.invokeLater( this )
+object ReactionTest extends App {
+   defer( args.headOption match {
+      case Some( "--test2" ) => test2()
+      case _                 => test1()
+   })
 
    type Tx  = Confluent#Tx
    type Acc = Confluent#Acc
@@ -412,9 +414,26 @@ object ReactionTest extends App with Runnable {
       def stop_# : LongRef
    }
 
-   trait RegionList {
-      def head( implicit tx: Tx ) : Option[ List[ Region ]]
-      def head_=( r: Option[ List[ Region ]]) : Unit
+   object RegionList {
+      def empty( implicit tx: Tx ) : RegionList = new Impl( tx )
+
+      private final class Impl( tx0: Tx ) extends RegionList {
+         protected val reactor = ReactorBranch[ Confluent ]( ReactorSources.empty )( tx0 )
+         def value( implicit tx: Tx ): IIdxSeq[ Change ] = sys.error( "TODO" )
+         def write( out: DataOutput ) { sys.error( "TODO" )}
+         def dispose()( implicit tx: Tx ) { sys.error( "TODO" )}
+      }
+
+      sealed trait Change
+      final case class Added( region: Region )
+      final case class Removed( region: Region )
+   }
+
+   trait RegionList extends Expr[ IIdxSeq[ RegionList.Change ]] {
+//      def head( implicit tx: Tx ) : Option[ List[ Region ]]
+//      def head_=( r: Option[ List[ Region ]]) : Unit
+//      def tail( implicit tx: Tx ) : Option[ List[ Region ]]
+//      def tail_=( r: Option[ List[ Region ]]) : Unit
    }
 
    trait List[ A ] {
@@ -504,7 +523,7 @@ object ReactionTest extends App with Runnable {
 
    def defer( thunk: => Unit ) { EventQueue.invokeLater( new Runnable { def run() { thunk }})}
 
-   def run() {
+   def test1() {
       val system = Confluent()
 
       val f    = new JFrame( "Reaction Test" )
@@ -530,6 +549,33 @@ object ReactionTest extends App with Runnable {
 
       vs.foreach( cp.add( _ ))
 
+      f.setResizable( false )
+      f.pack()
+      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
+      f.setLocationRelativeTo( null )
+      f.setVisible( true )
+   }
+
+   class TrackView extends JComponent {
+      setPreferredSize( new Dimension( 800, 600 ))
+
+      private var cycle = 0.0f
+
+      override def paintComponent( g: Graphics ) {
+         val g2 = g.asInstanceOf[ Graphics2D ]
+         g2.setColor( Color.getHSBColor( cycle, 1f, 1f ))
+         cycle = (cycle + 0.1f) % 1.0f
+         val w = getWidth
+         val h = getHeight
+         g2.fillRect( 0, 0, w, h )  // show last damaged regions
+      }
+   }
+
+   def test2() {
+      val f    = new JFrame( "Reaction Test 2" )
+      val cp   = f.getContentPane
+      val tr   = new TrackView
+      cp.add( tr, BorderLayout.CENTER )
       f.setResizable( false )
       f.pack()
       f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )

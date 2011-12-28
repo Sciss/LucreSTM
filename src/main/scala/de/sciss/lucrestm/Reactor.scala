@@ -87,6 +87,14 @@ trait Observable[ S <: Sys[ S ]] {
    def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
 }
 
+object ReactorSources {
+   def empty[ S <: Sys[ S ]] : ReactorSources[ S ] = new NoSources[ S ]
+
+   private final class NoSources[ S <: Sys[ S ]] extends ReactorSources[ S ] {
+      def reactorSources( implicit tx: S#Tx ) : IIdxSeq[ Observable[ S ]] = IIdxSeq.empty
+   }
+}
+
 trait ReactorSources[ S <: Sys[ S ]] {
    def reactorSources( implicit tx: S#Tx ) : IIdxSeq[ Observable[ S ]]
 }
