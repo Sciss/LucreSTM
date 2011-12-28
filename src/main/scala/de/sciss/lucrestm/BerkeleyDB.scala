@@ -32,6 +32,7 @@ import java.io.{FileNotFoundException, File, IOException}
 import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus}
 import annotation.elidable
 import elidable.CONFIG
+import de.sciss.lucrestm.BerkeleyDB.CachedIntVar
 
 object BerkeleyDB {
    import LucreSTM.logConfig
@@ -79,13 +80,18 @@ object BerkeleyDB {
       }
    }
 
-   private final class System( val env: Environment, db: Database, val txnCfg: TransactionConfig, idCnt: ScalaRef[ Int ])
+   private final class System( val env: Environment, db: Database, val txnCfg: TransactionConfig,
+                               idCnt: ScalaRef[ Int ], reactCnt: ScalaRef[ Int ])
    extends BerkeleyDB /* with ScalaTxn.ExternalDecider */ {
       system =>
 
       def manifest: Manifest[ BerkeleyDB ] = Manifest.classType( classOf[ BerkeleyDB ])
 
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
+      private val idCntVar    = new CachedIntVar( 0, idCnt )
+      private val reactCntVar = new CachedIntVar( 1, idCnt )
+
+      def reactionMap: ReactionMap[ BerkeleyDB ] = sys.error( "TODO" )
 
       def root[ A ]( init: => A )( implicit tx: Txn, ser: Serializer[ A ]) : A = {
          val rootID = 1
@@ -115,15 +121,16 @@ object BerkeleyDB {
       def numUserRecords : Long = math.max( 0L, db.count() - 1 )
 
       def newIDValue()( implicit tx: Txn ) : Int = {
-         val itx = tx.peer
-         val id  = idCnt.get( itx ) + 1
+         val id = idCntVar.get( tx ) + 1
          logConfig( "new " + id )
-         idCnt.set( id )( itx )
-         withIO { io =>
-            val out = io.beginWrite()
-            out.writeInt( id )
-            io.endWrite( 0 )
-         }
+         idCntVar.set( id )
+         id
+      }
+
+      def newReactValue()( implicit tx: Txn ) : Int = {
+         val id = reactCntVar.get( tx ) + 1
+         logConfig( "new react " + id )
+         reactCntVar.set( id )
          id
       }
 
@@ -370,6 +377,21 @@ object BerkeleyDB {
       override def toString = "Var[Int](" + id + ")"
    }
 
+   private final class CachedIntVar( protected val id: Int, peer: ScalaRef[ Int ])
+   extends Var[ Int ] with BasicSource {
+      def get( implicit tx: Txn ) : Int = peer.get( tx.peer )
+
+      def setInit( v: Int )( implicit tx: Txn ) { set( v )}
+
+      def set( v: Int )( implicit tx: Txn ) {
+         tx.system.write( id )( _.writeInt( v ))
+      }
+
+      def transform( f: Int => Int )( implicit tx: Txn ) { set( f( get ))}
+
+      override def toString = "Var[Int](" + id + ")"
+   }
+
    private final class LongVar( protected val id: Int )
    extends Var[ Long ] with BasicSource {
       def get( implicit tx: Txn ) : Long = {
@@ -390,6 +412,21 @@ object BerkeleyDB {
       override def toString = "Var[Long](" + id + ")"
    }
 
+//   private final class CachedLongVar( protected val id: Int, peer: ScalaRef[ Long ])
+//   extends Var[ Long ] with BasicSource {
+//      def get( implicit tx: Txn ) : Long = peer.get( tx.peer )
+//
+//      def setInit( v: Long )( implicit tx: Txn ) { set( v )}
+//
+//      def set( v: Long )( implicit tx: Txn ) {
+//         tx.system.write( id )( _.writeLong( v ))
+//      }
+//
+//      def transform( f: Long => Long )( implicit tx: Txn ) { set( f( get ))}
+//
+//      override def toString = "Var[Long](" + id + ")"
+//   }
+
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
 
    sealed trait Txn extends _Txn[ BerkeleyDB ] {
@@ -402,8 +439,9 @@ object BerkeleyDB {
 
       def newID() : ID = new IDImpl( system.newIDValue()( this ))
 
-      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ BerkeleyDB ] = sys.error( "TODO" )
-      private[lucrestm] def removeReaction( key: ReactorLeaf[ BerkeleyDB ]) { sys.error( "TODO" )}
+      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ BerkeleyDB ] = system.reactionMap.add( fun )( this )
+      private[lucrestm] def removeReaction( key: Long ) { system.reactionMap.remove( key )( this )}
+      private[lucrestm] def invokeReaction( key: Long ) { system.reactionMap.invoke( key )( this )}
 
       override def toString = "Txn<" + id + ">"
 

@@ -107,11 +107,12 @@ object InMemory {
 
 //   private type ObsVar[ A ] = InMemory#ObsVar[ A ]
 
-   private final class TxnImpl( val system: InMemory, val peer: InTxn ) extends Txn {
+   private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
-      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ InMemory ] = sys.error( "TODO" )
-      private[lucrestm] def removeReaction( key: ReactorLeaf[ InMemory ]) { sys.error( "TODO" )}
+      def addReaction( fun: Txn => Unit ) : ReactorLeaf[ InMemory ] = system.reactionMap.add( fun )( this )
+      private[lucrestm] def removeReaction( key: Long ) { system.reactionMap.remove( key )( this )}
+      private[lucrestm] def invokeReaction( key: Long ) { system.reactionMap.invoke( key )( this )}
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )
@@ -172,12 +173,26 @@ object InMemory {
 //         opNotSupported( "readOptionMut" )
 //      }
    }
+
+   private final class System extends InMemory {
+      def manifest: Manifest[ InMemory ] = Manifest.classType( classOf[ InMemory ])
+
+      def reactionMap: ReactionMap[ InMemory ] = ReactionMap[ InMemory, InMemory ]( new VarImpl( ScalaRef( 0L )))
+
+      def atomic[ Z ]( block: Tx => Z ) : Z = {
+         TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
+      }
+
+      private[lucrestm] def wrap( itx: InTxn ) : Tx = new TxnImpl( this, itx )
+   }
+
+   def apply() : InMemory = new System
 }
 
 /**
  * A thin wrapper around scala-stm.
  */
-final class InMemory extends Sys[ InMemory ] {
+sealed trait InMemory extends Sys[ InMemory ] {
    import InMemory._
 
    type Var[ @specialized A ] = InMemory.Var[ A ]
@@ -185,9 +200,5 @@ final class InMemory extends Sys[ InMemory ] {
    type Tx                    = InMemory.Txn
    type Acc                   = Unit
 
-   def manifest: Manifest[ InMemory ] = Manifest.classType( classOf[ InMemory ])
-
-   def atomic[ Z ]( block: Tx => Z ) : Z = {
-      TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
-   }
+   private[lucrestm] def wrap( itx: InTxn ) : Tx
 }

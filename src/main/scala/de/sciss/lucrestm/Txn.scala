@@ -33,7 +33,8 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newID() : S#ID
    def addReaction( fun: S#Tx => Unit ) : ReactorLeaf[ S ]
-   private[lucrestm] def removeReaction( key: ReactorLeaf[ S ]) : Unit
+   private[lucrestm] def removeReaction( key: Long ) : Unit
+   private[lucrestm] def invokeReaction( key: Long ) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]

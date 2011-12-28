@@ -26,6 +26,7 @@
 package de.sciss.lucrestm
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
+import concurrent.stm.TMap
 
 object Reactor {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] = new Ser[ S ]
@@ -37,7 +38,7 @@ object Reactor {
          if( in.readUnsignedByte() == 0 ) {
             new ReactorBranchStubRead[ S ]( in, tx, access )
          } else {
-            new ReactorLeaf[ S ]( in.readLong() )
+            new ReactorLeaf[ S ]( in.readInt() )
          }
       }
    }
@@ -57,19 +58,18 @@ sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
 //   def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : ReactorLeaf[ S ] = new ReactorLeaf( map.newID() )
 //}
 
-final case class ReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Long ) extends Reactor[ S ] {
+final case class ReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Int ) extends Reactor[ S ] {
    def write( out: DataOutput ) {
       out.writeUnsignedByte( 1 )
-      out.writeLong( id )
+      out.writeInt( id )
    }
 
    def propagate()( implicit tx: S#Tx ) {
-      sys.error( "TODO" )
-//      map.invoke( this )
+      tx.invokeReaction( id )
    }
 
    def dispose()( implicit tx: S#Tx ) {
-      tx.removeReaction( this )
+      tx.removeReaction( id )
    }
 }
 
@@ -189,4 +189,36 @@ sealed trait ReactorBranch[ S <: Sys[ S ]] extends ReactorBranchStub[ S ] with O
          }
       }
    }
+}
+
+object ReactionMap {
+   def apply[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx ) : ReactionMap[ S ] =
+      new Impl[ S, T ]( cnt )
+
+   private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
+   extends ReactionMap[ S ] {
+      private val map   = TMap.empty[ Int, S#Tx => Unit ]
+//      private val dummy = (_: S#Tx) => ()
+
+      def invoke( key: Int )( implicit tx: S#Tx ) {
+         map.get( key )( tx.peer ).foreach( _.apply( tx ))
+      }
+
+      def add( fun: S#Tx => Unit )( implicit tx: S#Tx ) : ReactorLeaf[ S ] = {
+         val ttx = sysConv( tx )
+         val key = cnt.get( ttx )
+         cnt.set( key + 1 )( ttx )
+         map.+=( (key, fun) )( tx.peer )
+         new ReactorLeaf[ S ]( key )
+      }
+
+      def remove( key: Int )( implicit tx: S#Tx ) {
+         map.-=( key )( tx.peer )
+      }
+   }
+}
+sealed trait ReactionMap[ S <: Sys[ S ]] {
+   def add( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : ReactorLeaf[ S ]
+   def remove( key: Int )( implicit tx: S#Tx ) : Unit
+   def invoke( key: Int )( implicit tx: S#Tx ) : Unit
 }
