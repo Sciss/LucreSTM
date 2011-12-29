@@ -58,7 +58,7 @@ sealed trait ReactionMap[ S <: Sys[ S ]] {
    def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
    def invokeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
 
-   def addEvent( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : EventReactorLeaf[ S ]
-   def removeEvent( leaf: EventReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
-   def invokeEvent( leaf: EventReactorLeaf[ S ], key: Int )( implicit tx: S#Tx ) : Unit
+//   def addEvent( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : EventReactorLeaf[ S ]
+//   def removeEvent( leaf: EventReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
+//   def invokeEvent( leaf: EventReactorLeaf[ S ], key: Int )( implicit tx: S#Tx ) : Unit
 }

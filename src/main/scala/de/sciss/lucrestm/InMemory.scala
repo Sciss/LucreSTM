@@ -110,9 +110,9 @@ object InMemory {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
-      def addReaction( fun: Txn => Unit ) : StateReactorLeaf[ InMemory ] = system.reactionMap.addState( fun )( this )
-      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.removeState( key )( this )}
-      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invokeState( key )( this )}
+      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ InMemory ] = system.reactionMap.addState( fun )( this )
+      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.removeState( leaf )( this )}
+      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.invokeState( leaf )( this )}
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )

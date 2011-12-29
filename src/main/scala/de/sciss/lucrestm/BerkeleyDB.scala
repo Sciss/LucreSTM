@@ -445,9 +445,9 @@ object BerkeleyDB {
 
       def newID() : ID = new IDImpl( system.newIDValue()( this ))
 
-      def addReaction( fun: Txn => Unit ) : StateReactorLeaf[ BerkeleyDB ] = system.reactionMap.addState( fun )( this )
-      private[lucrestm] def removeReaction( key: Int ) { system.reactionMap.removeState( key )( this )}
-      private[lucrestm] def invokeReaction( key: Int ) { system.reactionMap.invokeState( key )( this )}
+      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ BerkeleyDB ] = system.reactionMap.addState( fun )( this )
+      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ BerkeleyDB ]) { system.reactionMap.removeState( leaf )( this )}
+      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ BerkeleyDB ]) { system.reactionMap.invokeState( leaf )( this )}
 
       override def toString = "Txn<" + id + ">"
 
