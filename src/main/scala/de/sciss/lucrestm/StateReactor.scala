@@ -64,11 +64,11 @@ final case class StateReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Int ) e
    }
 
    def propagate()( implicit tx: S#Tx ) {
-      tx.invokeReaction( id )
+      tx.invokeStateReaction( this )
    }
 
    def dispose()( implicit tx: S#Tx ) {
-      tx.removeReaction( id )
+      tx.removeStateReaction( this )
    }
 }
 

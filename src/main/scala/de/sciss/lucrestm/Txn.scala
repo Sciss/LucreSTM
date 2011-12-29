@@ -32,9 +32,12 @@ trait Txn[ S <: Sys[ S ]] {
    def peer: InTxn
 
    def newID() : S#ID
-   def addReaction( fun: S#Tx => Unit ) : StateReactorLeaf[ S ]
-   private[lucrestm] def removeReaction( key: Int ) : Unit
-   private[lucrestm] def invokeReaction( key: Int ) : Unit
+   def addStateReaction( fun: S#Tx => Unit ) : StateReactorLeaf[ S ]
+   def addEventReaction( fun: S#Tx => Unit ) : EventReactorLeaf[ S ]
+   private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) : Unit
+   private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) : Unit
+   private[lucrestm] def removeEventReaction( leaf: EventReactorLeaf[ S ]) : Unit
+   private[lucrestm] def invokeEventReaction( leaf: EventReactorLeaf[ S ], key: Int ) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]

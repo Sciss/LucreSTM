@@ -54,7 +54,7 @@ object ReactionTest extends App {
 
    sealed trait Expr[ A ] extends Event[ Confluent, A ] with Disposable[ Tx ] {
       def observe( update: A => Unit )( implicit tx: Tx ) : Observer = {
-         val reaction = tx.addReaction { implicit tx =>
+         val reaction = tx.addStateReaction { implicit tx =>
             val now = value( tx )
             update( now )
          }

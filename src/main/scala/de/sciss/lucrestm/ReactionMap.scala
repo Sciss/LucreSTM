@@ -33,28 +33,32 @@ object ReactionMap {
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
-      private val map   = TMap.empty[ Int, S#Tx => Unit ]
-//      private val dummy = (_: S#Tx) => ()
+      private val stateMap = TMap.empty[ Int, S#Tx => Unit ]
+      private val eventMap = TMap.empty[ Int, S#Tx => Unit ]
 
-      def invokeState( key: Int )( implicit tx: S#Tx ) {
-         map.get( key )( tx.peer ).foreach( _.apply( tx ))
+      def invokeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) {
+         stateMap.get( leaf.id )( tx.peer ).foreach( _.apply( tx ))
       }
 
       def addState( fun: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
-         map.+=( (key, fun) )( tx.peer )
+         stateMap.+=( (key, fun) )( tx.peer )
          new StateReactorLeaf[ S ]( key )
       }
 
-      def removeState( key: Int )( implicit tx: S#Tx ) {
-         map.-=( key )( tx.peer )
+      def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) {
+         stateMap.-=( leaf.id )( tx.peer )
       }
    }
 }
 sealed trait ReactionMap[ S <: Sys[ S ]] {
    def addState( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ]
-   def removeState( key: Int )( implicit tx: S#Tx ) : Unit
-   def invokeState( key: Int )( implicit tx: S#Tx ) : Unit
+   def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
+   def invokeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
+
+   def addEvent( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : EventReactorLeaf[ S ]
+   def removeEvent( leaf: EventReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
+   def invokeEvent( leaf: EventReactorLeaf[ S ], key: Int )( implicit tx: S#Tx ) : Unit
 }
