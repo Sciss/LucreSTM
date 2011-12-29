@@ -1,0 +1,217 @@
+given:
+ref[Int] A
+ref[Int] B
+expr C =A + B
+C being observed by X and Y
+
+initially A holds value 1, and B holds value 2
+
+example (i):
+
+atomic {
+(1) A changes to 3
+(2) A pings C
+(3) C notifies X
+(4) X evaluates C = 3 + 1 = 4
+(5) C notifies Y
+(6) Y evaluates C = 3 + 1 = 4
+}
+
+example (ii): // writes are made during observation
+
+atomic {
+(1) A changes to 3
+(2) A pings C
+(3) C notifies X
+(4) X evaluates C = 3 + 1 = 4
+(5) for some reason, X changes B to 4
+(6) B pings C
+(7) C notifies X
+(8) X evaluates C = 3 + 4 = 7
+(9) C notifies Y
+(10) Y evaluates C = 3 + 4 = 7
+(11) C notifies Y
+(12) Y evaluates C = 3 + 4 = 7 (might ignore it as the observed value doesn't change)
+}
+
+::::::::::::::::::::
+
+    +---+   +---+
+    | A |   | B |
+    +-+-+   +-+-+
+      |       |
+      +---+---+
+      |   |
+      | +-+---+
+      | | C:+ |
+      | +-+---+
+      |   | :
+      +---+ X
+          |
+        +-+-+
+        |D:+|
+        +-+-+
+          :
+          Y
+
+first collect X and Y, then evaluate C and D, then invoke X and Y
+
+::::::::::::::::::::
+
+R1, R2, R3 --> List --> View
+
+the problem is now that we want one observer for multiple observed; thus we are back to square one with the deserialization problem?
+
+Source
+   initiate()
+   
+   def initiate() {
+      reactors.foreach( _.propagate( this ))
+   }
+
+Branch
+   def propagate( source: Observable ) {
+      reactors.foreach( _.propagate( this ))
+   }
+
+Leaf
+   def propagate( source: Observable ) {
+      tx.invoke( this, source )
+   }
+
+View {
+   regions.foreach { r =>
+      tx.addReaction( Region.read( _ )) { r =>
+         doSomethingWith( r.span )
+      }
+   }
+
+Txn {
+   def addReaction[ A ]( reader: Observable => A )( reaction: A => Unit ) : Leaf
+}
+
+das wuerde allerdings bedingen, dass jeder 'host' von Branch ein Mutable ist (d.h. ein kompaktes write haben koennte)
+
+; mit dem folge problem, das bei der ersten version von TotalOrder.Map auftauchte: Branch und auesseres Objekt besitzen wechselseitige Referenzen, insofern muss beim Serialisieren das feedback durchbrochen werden durch eine Var (oder eine neue 'Val' konstruktion)
+
+; oder direkten support fuer branches irgendwie
+
+; es waere auch bescheuert, wenn beim pushing die ganzen objekte geladen werden muessten. geht gar nicht, weil ja nicht der outer-deserializer zur verfuegung steht.
+
+::::::::::::::::::::
+
+e.g. observable long unary op expression
+
+LongUnaryOp {
+   reactor
+   long-expr
+   op-id
+}
+
+stub:
+   id
+   children
+
+full:
+   stub + sources + add/remove reactor methods
+
+thus, what we can do is rather
+
+ReactorBranch {
+   final def write {
+       write id, write children
+       writeData
+   }
+
+   def writeData : Unit
+}
+
+LongUnaryOp extends ReactorBranch {
+    def writeData {
+       write ref, write op
+    }
+}
+
+then a ReactorBranchStub is a partial read of ReactorBranch
+
+; but does that compose? (durchspielen fuer Region und RegionList(View))
+
+::::::::::::::::::::
+
+first: does it work 'uncomposed'?
+
+LongBinOp:
+
+         final def write( out: DataOutput ) {
+            out.writeUnsignedByte( opID )
+            a.write( out )
+            b.write( out )
+            reactor.write( out )  // --> would go front
+         }
+
+Region:
+      def start_# : LongRef
+
+Expr (LongRef):
+      def observe( update: A => Unit )( implicit tx: Tx ) : Observer = {
+         val reaction = tx.addStateReaction { implicit tx =>
+            val now = value( tx )  // this.value prevents the expr from GC !
+            update( now )
+         }
+         addReactor( reaction )
+         val res = new Observer {
+            def remove()( implicit tx: Tx ) {
+               reaction.dispose()
+            }
+         }
+         update( value( tx ))
+         res
+      }
+
+would become
+
+Expr (LongRef):
+      def observe( update: A => Unit )( implicit tx: Tx ) : Observer = Observer( Expr.reader, update )
+
+Observer {
+   def apply[ A ]( e: Reader[ Expr[ A ]], update: A => Unit )( implicit tx: Tx ) : Observer = {
+       ....
+
+trait TxnReader[ -Txn, @specialized( Unit ) -Access, @specialized +A ] {
+   def read( in: DataInput, access: Access )( implicit tx: Txn ) : A
+}
+
+ReactorBranch {
+   read {
+      readID
+      readChildren
+         - exist leaves?
+         - no   --> normal propagate
+         - yes  -->
+           tx.readObservedBranch( id, children, in )
+
+Txn {
+   deferredObservation: TxnLocal[ ... ] // or a mutable seq arg
+
+   def readObservedBranch( id: S#ID, children: IIdxSeq[ ... ], in: DataInput )
+// macht keinen sinn, denn dann braeuchten wir eintraege fuer alle regionen
+// (remember: we'll have many observed, and few observers)
+      val obj: AnyRef = reader( id ).read( id, children, in ) 
+      deferredObservation :+= obj
+      ...
+      // can we do without asInstanceOf at some point?
+
+::::::::::::::::::::
+
+   ObservableReader[ A ] => ...
+
+   def readObservedBranch( id: S#ID, children: IIdxSeq[ ... ], in: DataInput )
+//      val (reader, _) = tx.map( children.head )
+      val m: Map[ Reader, IIdxSeq[ Reaction ]] = children.map( tx.map( _ )).groupBy( _._1 ).mapValues( _._2 )
+      in.mark()
+      deferredObservation ++= m.map { case (reader, reactions) =>
+        val full = reader.readObservable( id, children, in )
+        in.reset()
+        (full, reactions)
+      }
+   }
