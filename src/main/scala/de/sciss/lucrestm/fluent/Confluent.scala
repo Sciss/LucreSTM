@@ -31,11 +31,13 @@ import concurrent.stm.{InTxn, TxnExecutor}
 import collection.immutable.{IntMap, IndexedSeq => IIdxSeq}
 
 object Confluent {
-   private type M = Map[ IIdxSeq[ Int ], Array[ Byte ]]
+   private type Acc = IIdxSeq[ Int ]
+
+   private type M = Map[ Acc, Array[ Byte ]]
 
    sealed trait ID extends Identifier[ Txn ] {
       private[Confluent] def id: Int
-      private[Confluent] def path: IIdxSeq[ Int ]
+      private[Confluent] def path: Acc
       final def shortString : String = path.mkString( "<", ",", ">" )
    }
 
@@ -48,7 +50,7 @@ object Confluent {
       private var cnt = 0
       private var pathVar = IIdxSeq.empty[ Int ]
 
-      var storage = IntMap.empty[ Map[ IIdxSeq[ Int ], Array[ Byte ]]]
+      var storage = IntMap.empty[ M ]
       private val inMem = InMemory()
 
       val reactionMap: ReactionMap[ Confluent ] = ReactionMap[ Confluent, InMemory ]( inMem.atomic { implicit tx =>
@@ -57,7 +59,7 @@ object Confluent {
 
       def path( implicit tx: Tx ) = pathVar
 
-      def inPath[ Z ]( path: IIdxSeq[ Int ])( block: Tx => Z ) : Z = {
+      def inPath[ Z ]( path: Acc )( block: Tx => Z ) : Z = {
          TxnExecutor.defaultAtomic[ Z ] { itx =>
             val oldPath = pathVar
             try {
@@ -69,7 +71,7 @@ object Confluent {
          }
       }
 
-      def fromPath[ Z ]( path: IIdxSeq[ Int ])( block: Tx => Z ) : Z = {
+      def fromPath[ Z ]( path: Acc )( block: Tx => Z ) : Z = {
          TxnExecutor.defaultAtomic[ Z ] { itx =>
             pathVar = path :+ (pathVar.lastOption.getOrElse( -1 ) + 1)
             block( new TxnImpl( this, itx ))
@@ -109,30 +111,30 @@ object Confluent {
    private[Confluent] def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )
 
    private object IDImpl {
-      def readPath( in: DataInput ) : IIdxSeq[ Int ] = {
+      def readPath( in: DataInput ) : Acc = {
          val sz      = in.readInt()
          IIdxSeq.fill( sz )( in.readInt() )
       }
 
-      def readAndAppend( id: Int, postfix: IIdxSeq[ Int ], in: DataInput ) : ID = {
+      def readAndAppend( id: Int, postfix: Acc, in: DataInput ) : ID = {
          val path    = readPath( in )
          val newPath = path ++ postfix // accessPath.drop( com )
          new IDImpl( id, newPath )
       }
 
-      def readAndReplace( id: Int, newPath: IIdxSeq[ Int ], in: DataInput ) : ID = {
+      def readAndReplace( id: Int, newPath: Acc, in: DataInput ) : ID = {
          readPath( in ) // just ignore it
          new IDImpl( id, newPath )
       }
 
-      def readAndUpdate( id: Int, accessPath: IIdxSeq[ Int ], in: DataInput ) : ID = {
+      def readAndUpdate( id: Int, accessPath: Acc, in: DataInput ) : ID = {
          val sz      = in.readInt()
          val path    = IIdxSeq.fill( sz )( in.readInt() )
          val newPath = path :+ accessPath.last
          new IDImpl( id, newPath )
       }
    }
-   private final class IDImpl( val id: Int, val path: IIdxSeq[ Int ]) extends ID {
+   private final class IDImpl( val id: Int, val path: Acc ) extends ID {
       def write( out: DataOutput ) {
          out.writeInt( id )
          out.writeInt( path.size )
@@ -147,13 +149,17 @@ object Confluent {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = system.newID()( this )
 
-      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ Confluent ] = system.reactionMap.addState( fun )( this )
+//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ Confluent ] = system.reactionMap.addState( fun )( this )
+      def addStateReaction[ A, Repr <: State[ Confluent, A, Repr ]](
+         reader: TxnReader[ Txn, Acc, Repr ], fun: (Txn, A) => Unit ) : StateReactorLeaf[ Confluent ] =
+            system.reactionMap.addState( reader, fun )( this )
+
       private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ Confluent ]) { system.reactionMap.removeState( leaf )( this )}
       private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ Confluent ]) { system.reactionMap.invokeState( leaf )( this )}
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 
-      def newVar[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ]) : Var[ A ] = {
+      def newVar[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] = {
          val id   = alloc( pid )( this )
          val res  = new VarImpl[ A ]( id, system, ser )
          res.store( init )
@@ -170,7 +176,7 @@ object Confluent {
          new IDImpl( id, pid.path )
       }
 
-      def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ]) : Var[ A ] = {
+      def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] = {
          val id = readSource( in, pid )
          new VarImpl( id, system, ser )
       }
@@ -179,7 +185,7 @@ object Confluent {
 
       def readLongVar( pid: ID, in: DataInput ) : Var[ Long ] = readVar[ Long ]( pid, in )
 
-      def readID( in: DataInput, acc: IIdxSeq[ Int ]) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
+      def readID( in: DataInput, acc: Acc ) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
 
 //      def readMut[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
 //                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
@@ -214,14 +220,14 @@ object Confluent {
       }
 
       protected def writeValue( v: A, out: DataOutput ) : Unit
-      protected def readValue( in: DataInput, postfix: IIdxSeq[ Int ])( implicit tx: Txn ) : A
+      protected def readValue( in: DataInput, postfix: Acc )( implicit tx: Txn ) : A
 
       final def store( v: A ) {
          val out = new DataOutput()
          writeValue( v, out )
          val bytes = out.toByteArray
          system.storage += id.id -> (system.storage.getOrElse( id.id,
-            Map.empty[ IIdxSeq[ Int ], Array[ Byte ]]) + (id.path -> bytes))
+            Map.empty[ Acc, Array[ Byte ]]) + (id.path -> bytes))
       }
 
       final def get( implicit tx: Txn ) : A = {
@@ -247,7 +253,7 @@ object Confluent {
    }
 
    private final class VarImpl[ @specialized A ]( val id: ID, val system: System,
-                                                  ser: TxnSerializer[ Txn, IIdxSeq[ Int ], A ])
+                                                  ser: TxnSerializer[ Txn, Acc, A ])
    extends Var[ A ] with SourceImpl[ A ] {
 
       override def toString = toString( "Var" )
@@ -256,7 +262,7 @@ object Confluent {
          ser.write( v, out )
       }
 
-      protected def readValue( in: DataInput, postfix: IIdxSeq[ Int ])( implicit tx: Txn ) : A = {
+      protected def readValue( in: DataInput, postfix: Acc )( implicit tx: Txn ) : A = {
          ser.read( in, postfix )
       }
    }
@@ -269,8 +275,8 @@ sealed trait Confluent extends Sys[ Confluent ] {
    type Tx                    = Confluent.Txn
    type Acc                   = IIdxSeq[ Int ]
 
-   def inPath[ Z ]( _path: IIdxSeq[ Int ])( block: Tx => Z ) : Z
-   def fromPath[ Z ]( _path: IIdxSeq[ Int ])( block: Tx => Z ) : Z
-   def path( implicit tx: Tx ) : IIdxSeq[ Int ]
+   def inPath[ Z ]( _path: Acc )( block: Tx => Z ) : Z
+   def fromPath[ Z ]( _path: Acc )( block: Tx => Z ) : Z
+   def path( implicit tx: Tx ) : Acc
    def update[ A <: Mutable[ Confluent ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A
 }

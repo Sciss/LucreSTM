@@ -31,22 +31,35 @@ object ReactionMap {
    def apply[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx ) : ReactionMap[ S ] =
       new Impl[ S, T ]( cnt )
 
+   private final case class Observation[ Txn, A ]( reader: A, fun: (Txn, A) => Unit )
+
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
-      private val stateMap = TMap.empty[ Int, S#Tx => Unit ]
-      private val eventMap = TMap.empty[ Int, S#Tx => Unit ]
+      private val stateMap = TMap.empty[ Int, (TxnReader[ S#Tx, S#Acc, State[ S, _, _ ]], (S#Tx, _) => Unit) ]
+//      private val eventMap = TMap.empty[ Int, S#Tx => Unit ]
 
       def invokeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) {
-         stateMap.get( leaf.id )( tx.peer ).foreach( _.apply( tx ))
+//         stateMap.get( leaf.id )( tx.peer ).foreach( _.apply( tx ))
+         sys.error( "TODO" )
       }
 
-      def addState( fun: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = {
+      def addState[ A, Repr <: State[ S, A, Repr ]]( reader: TxnReader[ S#Tx, S#Acc, Repr ],
+                                                     fun: (S#Tx, A) => Unit )
+                                                   ( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
-         stateMap.+=( (key, fun) )( tx.peer )
+         stateMap.+=( (key, (reader, fun)) )( tx.peer )
          new StateReactorLeaf[ S ]( key )
       }
+
+//      def addState( fun: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = {
+//         val ttx = sysConv( tx )
+//         val key = cnt.get( ttx )
+//         cnt.set( key + 1 )( ttx )
+//         stateMap.+=( (key, fun) )( tx.peer )
+//         new StateReactorLeaf[ S ]( key )
+//      }
 
       def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) {
          stateMap.-=( leaf.id )( tx.peer )
@@ -54,7 +67,11 @@ object ReactionMap {
    }
 }
 sealed trait ReactionMap[ S <: Sys[ S ]] {
-   def addState( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ]
+//   def addState( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ]
+   def addState[ A, Repr <: State[ S, A, Repr ]]( reader: TxnReader[ S#Tx, S#Acc, Repr ],
+                                                  fun: (S#Tx, A) => Unit )
+                                                ( implicit tx: S#Tx ) : StateReactorLeaf[ S ]
+
    def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
    def invokeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
 

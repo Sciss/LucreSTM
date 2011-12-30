@@ -110,7 +110,11 @@ object InMemory {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
-      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ InMemory ] = system.reactionMap.addState( fun )( this )
+//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ InMemory ] = system.reactionMap.addState( fun )( this )
+      def addStateReaction[ A, Repr <: State[ InMemory, A, Repr ]](
+         reader: TxnReader[ Txn, Unit, Repr ], fun: (Txn, A) => Unit ) : StateReactorLeaf[ InMemory ] =
+            system.reactionMap.addState( reader, fun )( this )
+
       private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.removeState( leaf )( this )}
       private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.invokeState( leaf )( this )}
 

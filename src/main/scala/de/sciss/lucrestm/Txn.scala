@@ -32,7 +32,9 @@ trait Txn[ S <: Sys[ S ]] {
    def peer: InTxn
 
    def newID() : S#ID
-   def addStateReaction( fun: S#Tx => Unit ) : StateReactorLeaf[ S ]
+   def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( reader: TxnReader[ S#Tx, S#Acc, Repr ],
+                                                          fun: (S#Tx, A) => Unit ) : StateReactorLeaf[ S ]
+
 //   def addEventReaction( fun: S#Tx => Unit ) : EventReactorLeaf[ S ]
    private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) : Unit
    private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) : Unit

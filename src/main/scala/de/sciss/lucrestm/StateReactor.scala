@@ -88,8 +88,16 @@ trait State[ S <: Sys[ S ], @specialized A, Repr <: State[ S, A, Repr ]] {
    private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
    protected def reader: TxnReader[ S#Tx, S#Acc, Repr ]
    def value( implicit tx: S#Tx ) : A
-   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) {
-
+   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
+      tx.addStateReaction[ A, Repr ]( reader, fun )
+//
+//      val key: Int = 333
+//      val leaf = StateReactorLeaf[ S ]( key )
+//      addReactor( leaf )
+//      var map = Map.empty[ Int, (TxnReader[ S#Tx, S#Acc, Repr ], (S#Tx, A) => Unit) ]
+//      map += key -> (reader, fun)
+//      fun( tx, value )
+//      leaf
    }
 }
 
