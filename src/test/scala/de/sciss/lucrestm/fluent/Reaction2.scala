@@ -3,24 +3,42 @@ package de.sciss.lucrestm.fluent
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object Reaction2 extends App {
+   args.headOption match {
+      case Some( "--test2" ) => test2()
+      case _                 => test1()
+   }
+
    type Reaction = () => () => Unit
    type Reactions = IIdxSeq[ Reaction ]
    type Reactors  = IIdxSeq[ Reactor ]
 
+   implicit def seqCanRemove[ A ]( xs: IIdxSeq[ A ]) = new SeqCanRemove( xs )
+
+   final class SeqCanRemove[ A ]( xs: IIdxSeq[ A ]) {
+      def -( elem: A ) : IIdxSeq[ A ] = {
+         val idx = xs.indexOf( elem )
+         if( idx < 0 ) xs else {
+            xs.patch( idx, IIdxSeq.empty, 1 )
+         }
+      }
+   }
+
    trait ObservableStub {
-      def sinks: Reactors
-      def observerKeys: IIdxSeq[ Int ]
+//      def sinks: Reactors
+//      def observerKeys: IIdxSeq[ Int ]
+      final var sinks: Reactors = IIdxSeq.empty
+      final var observerKeys = IIdxSeq.empty[ Int ]
    }
 
    trait Observable extends ObservableStub {
-      def addSink( r: Reactor ) : Unit
-      def removeSink( r: Reactor ) : Unit
-      def addObserver( id: Int ) : Unit
-      def removeObserver( in: Int ) : Unit
+      final def addSink( r: Reactor ) { sinks :+= r }
+      final def removeSink( r: Reactor ) { sinks -= r }
+      final def addObserver( id: Int ) { observerKeys :+= id }
+      final def removeObserver( id: Int ) { observerKeys -= id }
    }
 
    trait Reactor {
-      def propagate( id: AnyRef, reactions: Reactions ) : Reactions
+      def propagate( /* id: AnyRef, */ reactions: Reactions ) : Reactions
    }
 
    trait Removable {
@@ -94,9 +112,9 @@ object Reaction2 extends App {
    trait BranchLike extends Reactor with ObservableStub
 
    trait BranchStub extends BranchLike {
-      def propagate( id: AnyRef, reactions: Reactions ) : Reactions = {
+      final def propagate( id: AnyRef, reactions: Reactions ) : Reactions = {
          val reactions2 = Txn.mapBranch( this, observerKeys, reactions )
-         val reactions3 = sinks.foldLeft( reactions2 ) { case (reactionsIter, sink) => sink.propagate( id, reactionsIter )}
+         val reactions3 = sinks.foldLeft( reactions2 ) { case (reactionsIter, sink) => sink.propagate( /* id, */ reactionsIter )}
          reactions3
       }
    }
@@ -114,22 +132,64 @@ object Reaction2 extends App {
    }
 
    object LongExpr {
-      val reader: Reader[ LongExpr ] = sys.error( "-" )
+      val reader: Reader[ LongExpr ] = new Reader[ LongExpr ] {
+         def read( b: BranchStub ) : LongExpr = {
+            sys.error( "TODO" )
+         }
+      }
+
+      def const( value: Long ) : LongExpr = new Const( value )
+
+      def vari( init: LongExpr ) : LongExpr with Source[ Long, LongExpr ] = new Vari( init )
+
+      private final case class Const( eval: Long ) extends ConstLongExpr {
+      }
+
+      private final class Vari( var value: LongExpr ) extends VariLongExpr with Source[ Long, LongExpr ] {
+         def eval = value.eval
+         def set( v: LongExpr ) {
+            value = v
+            bang()
+         }
+      }
    }
-   trait LongExpr extends Branch[ Long, LongExpr ] with Eval[ Long ] {
+   trait LongExpr extends Eval[ Long ] {
       def reader = LongExpr.reader
+   }
+
+   trait ConstLongExpr extends LongExpr {
+
+   }
+
+   trait VariLongExpr extends Branch[ Long, LongExpr ] with LongExpr {
+
    }
 
    trait Source[ A, Repr <: Eval[ A ]] extends Observable {
       me: Repr =>
 
-      def bang() {
-         val id = new AnyRef
-//         sinks.foreach( _.propagate( id ))
-         val reactions  = Txn.mapSource[ A, Repr ]( this: Repr, observerKeys )
-         val reactions2 = sinks.foldLeft( reactions ) { case (reactionsIter, sink) => sink.propagate( id, reactionsIter )}
-         val evaluated = reactions2.map( _.apply() )
+      def set( value: Repr ) : Unit
+
+      protected def bang() {
+//         val id = new AnyRef
+         val reactions  = propagate( /* id, */ IIdxSeq.empty )
+         val evaluated  = reactions.map( _.apply() )
          evaluated.foreach( _.apply() )
       }
+
+      final def propagate( /* id: AnyRef, */ reactions: Reactions ) : Reactions = {
+         val reactions1 = reactions ++ Txn.mapSource[ A, Repr ]( this: Repr, observerKeys )
+         sinks.foldLeft( reactions1 ) { case (reactionsIter, sink) => sink.propagate( /* id, */ reactionsIter )}
+      }
+   }
+
+   def test1() {
+      val a = LongExpr.vari( LongExpr.const( 1 ))
+      val b = LongExpr.vari( LongExpr.const( 2 ))
+
+   }
+
+   def test2() {
+
    }
 }
