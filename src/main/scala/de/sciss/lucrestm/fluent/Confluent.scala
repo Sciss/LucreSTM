@@ -151,8 +151,8 @@ object Confluent {
 
 //      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ Confluent ] = system.reactionMap.addState( fun )( this )
       def addStateReaction[ A, Repr <: State[ Confluent, A, Repr ]](
-         source: Repr, reader: StateReader[ Confluent, Repr ], fun: (Txn, A) => Unit ) : Disposable[ Txn ] =
-            system.reactionMap.addState( source, reader, fun )( this )
+         /* source: Repr, */ reader: StateReader[ Confluent, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
+            system.reactionMap.addState( /* source, */ reader, fun )( this )
 
 //      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ Confluent ]) { system.reactionMap.removeState( leaf )( this )}
 //      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ Confluent ]) { system.reactionMap.invokeState( leaf )( this )}

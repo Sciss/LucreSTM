@@ -72,15 +72,21 @@ object ReactionMap {
          }
       }
 
-      def addState[ A, Repr <: State[ S, A, Repr ]]( source: Repr, reader: StateReader[ S, Repr ],
+      def addState[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
                                                      fun: (S#Tx, A) => Unit )
-                                                   ( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
+                                                   ( implicit tx: S#Tx ) : Int /* Disposable[ S#Tx ] */ = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
          stateMap.+=( (key, new Observation[ S, A, Repr ]( reader, fun )) )( tx.peer )
-//         new StateReactorLeaf[ S ]( key )
-         sys.error( "TODO" )
+//         source.addObserver( key )
+////         new StateReactorLeaf[ S ]( key )
+//         new Disposable[ S#Tx ] {
+//            def dispose()( implicit tx: S#Tx ) {
+//println( "XXX addState.dispose -- dunno what to do yet XXX" )
+//            }
+//         }
+         key
       }
 
 //      def addState( fun: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = {
@@ -98,8 +104,8 @@ object ReactionMap {
 }
 sealed trait ReactionMap[ S <: Sys[ S ]] {
 //   def addState( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ]
-   def addState[ A, Repr <: State[ S, A, Repr ]]( source: Repr, reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
-                                                ( implicit tx: S#Tx ) : Disposable[ S#Tx ]
+   def addState[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
+                                                ( implicit tx: S#Tx ) : Int // Disposable[ S#Tx ]
 
 //   def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
 

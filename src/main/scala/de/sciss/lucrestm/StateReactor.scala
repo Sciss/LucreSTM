@@ -86,24 +86,54 @@ sealed trait StateReactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ]
 
 //final case class StateSample[ S <: Sys[ S ], @specialized A, Repr ]( )
 
+object StateObserver {
+   def apply[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]](
+      reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
+
+      val key = tx.addStateReaction[ A, Repr ]( reader, fun )
+      new Impl[ S, A, Repr ]( key )
+   }
+
+   private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]]( key: Int )
+   extends StateObserver[ S, A, Repr ] {
+      def add( state: Repr )( implicit tx: S#Tx ) { state.addObserver( this )}
+      def remove( state: Repr )( implicit tx: S#Tx ) { state.removeObserver( this )}
+   }
+}
+sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]] {
+   def add(    state: Repr )( implicit tx: S#Tx ) : Unit
+   def remove( state: Repr )( implicit tx: S#Tx ) : Unit
+}
+
 trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]] {
    me: Repr =>
 
-   private[lucrestm] def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
-   private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
+   private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
+   private[lucrestm] def removeReactor(  r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
+   private[lucrestm] def addObserver(    r: StateObserver[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
+   private[lucrestm] def removeObserver( r: StateObserver[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
+
    protected def reader: StateReader[ S, Repr ]
    def value( implicit tx: S#Tx ) : A
-   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
-      tx.addStateReaction[ A, Repr ]( me: Repr /* type annotation to please IDEA */, reader, fun )
-//
-//      val key: Int = 333
-//      val leaf = StateReactorLeaf[ S ]( key )
-//      addReactor( leaf )
-//      var map = Map.empty[ Int, (TxnReader[ S#Tx, S#Acc, Repr ], (S#Tx, A) => Unit) ]
-//      map += key -> (reader, fun)
-//      fun( tx, value )
-//      leaf
+
+   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
+      val o = StateObserver( reader, fun )
+      o.add( this )
+      o
    }
+
+//   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
+//      val key = tx.addStateReaction[ A, Repr ]( /* me: Repr type annotation to please IDEA, */ reader, fun )
+//
+////
+////      val key: Int = 333
+////      val leaf = StateReactorLeaf[ S ]( key )
+////      addReactor( leaf )
+////      var map = Map.empty[ Int, (TxnReader[ S#Tx, S#Acc, Repr ], (S#Tx, A) => Unit) ]
+////      map += key -> (reader, fun)
+////      fun( tx, value )
+////      leaf
+//   }
 }
 
 trait StateReader[ S <: Sys[ S ], Repr ] {

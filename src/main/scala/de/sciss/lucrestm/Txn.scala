@@ -32,8 +32,8 @@ trait Txn[ S <: Sys[ S ]] {
    def peer: InTxn
 
    def newID() : S#ID
-   def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( source: Repr, reader: StateReader[ S, Repr ],
-                                                          fun: (S#Tx, A) => Unit ) : Disposable[ S#Tx ]
+   def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
+                                                          fun: (S#Tx, A) => Unit ) : Int // Disposable[ S#Tx ]
 //   def addStateReaction[ A ]( reader: A, fun: (S#Tx, A) => Unit ) : StateReactorLeaf[ S ]
 
 //   def addEventReaction( fun: S#Tx => Unit ) : EventReactorLeaf[ S ]

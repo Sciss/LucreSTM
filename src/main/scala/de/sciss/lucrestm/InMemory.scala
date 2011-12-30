@@ -112,8 +112,8 @@ object InMemory {
 
 //      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ InMemory ] = system.reactionMap.addState( fun )( this )
       def addStateReaction[ A, Repr <: State[ InMemory, A, Repr ]](
-         source: Repr, reader: StateReader[ InMemory, Repr ], fun: (Txn, A) => Unit ) : Disposable[ Txn ] =
-            system.reactionMap.addState( source, reader, fun )( this )
+         /* source: Repr, */ reader: StateReader[ InMemory, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
+            system.reactionMap.addState( /* source, */ reader, fun )( this )
 
 //      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.removeState( leaf )( this )}
 //      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.invokeState( leaf )( this )}

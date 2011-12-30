@@ -448,8 +448,8 @@ object BerkeleyDB {
 //      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ BerkeleyDB ] = system.reactionMap.addState( fun )( this )
 
       def addStateReaction[ A, Repr <: State[ BerkeleyDB, A, Repr ]](
-         source: Repr, reader: StateReader[ BerkeleyDB, Repr ], fun: (Txn, A) => Unit ) : Disposable[ Txn ] =
-            system.reactionMap.addState( source, reader, fun )( this )
+         /* source: Repr, */ reader: StateReader[ BerkeleyDB, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
+            system.reactionMap.addState( /* source, */ reader, fun )( this )
 
 //      def addState[ A ]( reader: A, fun: (Txn, A) => Unit )( implicit tx: Txn ) : StateReactorLeaf[ BerkeleyDB ] =
 //         system.reactionMap.addState( reader, fun )
