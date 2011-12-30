@@ -29,12 +29,16 @@ sealed trait Sink[ -Tx, @specialized -A ] {
    def set( v: A )( implicit tx: Tx ) : Unit
 }
 
-sealed trait Source[ -Tx, @specialized +A ] extends Writer with Disposable[ Tx ] {
+/* sealed */ trait Source[ -Tx, @specialized +A ] extends Writer with Disposable[ Tx ] {
    def get( implicit tx: Tx ) : A
 }
 
-sealed trait RefLike[ -Tx, A ] extends Sink[ Tx, A ] with Source[ Tx, A ]
+//sealed trait RefLike[ -Tx, A ] extends Sink[ Tx, A ] with Source[ Tx, A ]
+//
+//trait Var[ -Tx, @specialized A ] extends RefLike[ Tx, A ] {
+//   def transform( f: A => A )( implicit tx: Tx ) : Unit
+//}
 
-trait Var[ -Tx, @specialized A ] extends RefLike[ Tx, A ] {
+trait Var[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] {
    def transform( f: A => A )( implicit tx: Tx ) : Unit
 }

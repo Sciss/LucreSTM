@@ -105,7 +105,7 @@ sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <
    def remove( state: Repr )( implicit tx: S#Tx ) : Unit
 }
 
-trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]] {
+trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]] extends Source[ S#Tx, A ] {
    me: Repr =>
 
    private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
@@ -114,7 +114,7 @@ trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, 
    private[lucrestm] def removeObserver( r: StateObserver[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
 
    protected def reader: StateReader[ S, Repr ]
-   def value( implicit tx: S#Tx ) : A
+//   def value( implicit tx: S#Tx ) : A
 
    def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
       val o = StateObserver( reader, fun )
@@ -134,6 +134,11 @@ trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, 
 ////      fun( tx, value )
 ////      leaf
 //   }
+}
+
+trait StateVar[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateVar[ S, A, Repr ]]
+extends State[ S, A, Repr ] with Var[ S#Tx, A ] {
+   me: Repr =>
 }
 
 trait StateReader[ S <: Sys[ S ], Repr ] {
