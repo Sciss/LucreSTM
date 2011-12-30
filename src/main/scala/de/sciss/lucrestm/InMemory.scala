@@ -112,11 +112,11 @@ object InMemory {
 
 //      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ InMemory ] = system.reactionMap.addState( fun )( this )
       def addStateReaction[ A, Repr <: State[ InMemory, A, Repr ]](
-         reader: TxnReader[ Txn, Unit, Repr ], fun: (Txn, A) => Unit ) : StateReactorLeaf[ InMemory ] =
+         reader: StateReader[ InMemory, Repr ], fun: (Txn, A) => Unit ) : StateReactorLeaf[ InMemory ] =
             system.reactionMap.addState( reader, fun )( this )
 
       private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.removeState( leaf )( this )}
-      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.invokeState( leaf )( this )}
+//      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.invokeState( leaf )( this )}
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )

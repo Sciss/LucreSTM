@@ -64,7 +64,8 @@ final case class StateReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Int ) e
    }
 
    def propagate()( implicit tx: S#Tx ) {
-      tx.invokeStateReaction( this )
+      sys.error( "TODO" )
+//      tx.invokeStateReaction( this )
    }
 
    def dispose()( implicit tx: S#Tx ) {
@@ -86,7 +87,7 @@ final case class StateReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Int ) e
 trait State[ S <: Sys[ S ], @specialized A, Repr <: State[ S, A, Repr ]] {
    private[lucrestm] def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
    private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
-   protected def reader: TxnReader[ S#Tx, S#Acc, Repr ]
+   protected def reader: StateReader[ S, Repr ]
    def value( implicit tx: S#Tx ) : A
    def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
       tx.addStateReaction[ A, Repr ]( reader, fun )
@@ -99,6 +100,10 @@ trait State[ S <: Sys[ S ], @specialized A, Repr <: State[ S, A, Repr ]] {
 //      fun( tx, value )
 //      leaf
    }
+}
+
+trait StateReader[ S <: Sys[ S ], Repr ] {
+   def read( in: DataInput, targets: StateTargets[ S ])( implicit tx: S#Tx ) : Repr
 }
 
 object StateSources {
@@ -145,6 +150,11 @@ trait StateSources[ S <: Sys[ S ]] {
 //      protected val children = tx0.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
 //   }
 //}
+
+sealed trait StateTargets[ S <: Sys[ S ]] {
+   def id: S#ID
+   private[lucrestm] def children: S#Var[ IIdxSeq[ StateReactor[ S ]]]
+}
 
 sealed trait StateReactorBranchLike[ S <: Sys[ S ]] extends StateReactor[ S ] {
    def id: S#ID
