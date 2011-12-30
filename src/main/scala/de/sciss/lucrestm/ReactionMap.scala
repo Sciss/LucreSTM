@@ -72,13 +72,15 @@ object ReactionMap {
          }
       }
 
-      def addState[ A, Repr <: State[ S, A, Repr ]]( reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
-                                                   ( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = {
+      def addState[ A, Repr <: State[ S, A, Repr ]]( source: Repr, reader: StateReader[ S, Repr ],
+                                                     fun: (S#Tx, A) => Unit )
+                                                   ( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
          stateMap.+=( (key, new Observation[ S, A, Repr ]( reader, fun )) )( tx.peer )
-         new StateReactorLeaf[ S ]( key )
+//         new StateReactorLeaf[ S ]( key )
+         sys.error( "TODO" )
       }
 
 //      def addState( fun: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = {
@@ -89,17 +91,17 @@ object ReactionMap {
 //         new StateReactorLeaf[ S ]( key )
 //      }
 
-      def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) {
-         stateMap.-=( leaf.id )( tx.peer )
-      }
+//      def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) {
+//         stateMap.-=( leaf.id )( tx.peer )
+//      }
    }
 }
 sealed trait ReactionMap[ S <: Sys[ S ]] {
 //   def addState( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ]
-   def addState[ A, Repr <: State[ S, A, Repr ]]( reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
-                                                ( implicit tx: S#Tx ) : StateReactorLeaf[ S ]
+   def addState[ A, Repr <: State[ S, A, Repr ]]( source: Repr, reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
+                                                ( implicit tx: S#Tx ) : Disposable[ S#Tx ]
 
-   def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
+//   def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
 
    def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ],
                         reactions: ReactionMap.Reactions )

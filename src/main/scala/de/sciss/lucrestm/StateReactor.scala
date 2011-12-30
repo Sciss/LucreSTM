@@ -34,11 +34,12 @@ object StateReactor {
       def write( r: StateReactor[ S ], out: DataOutput ) { r.write( out )}
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : StateReactor[ S ] = {
-         if( in.readUnsignedByte() == 0 ) {
-            new StateReactorBranchStub[ S ]( in, tx, access )
-         } else {
-            new StateReactorLeaf[ S ]( in.readInt() )
-         }
+         sys.error( "TODO" )
+//         if( in.readUnsignedByte() == 0 ) {
+//            new StateReactorBranchStub[ S ]( in, tx, access )
+//         } else {
+//            new StateReactorLeaf[ S ]( in.readInt() )
+//         }
       }
    }
 
@@ -57,21 +58,22 @@ sealed trait StateReactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ]
 //   def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = new StateReactorLeaf( map.newID() )
 //}
 
-final case class StateReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Int ) extends StateReactor[ S ] {
-   def write( out: DataOutput ) {
-      out.writeUnsignedByte( 1 )
-      out.writeInt( id )
-   }
-
-   def propagate()( implicit tx: S#Tx ) {
-      sys.error( "TODO" )
-//      tx.invokeStateReaction( this )
-   }
-
-   def dispose()( implicit tx: S#Tx ) {
-      tx.removeStateReaction( this )
-   }
-}
+//final case class StateReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Int ) extends StateReactor[ S ] {
+//   def write( out: DataOutput ) {
+//      out.writeUnsignedByte( 1 )
+//      out.writeInt( id )
+//   }
+//
+//   def propagate()( implicit tx: S#Tx ) {
+//      sys.error( "TODO" )
+////      tx.invokeStateReaction( this )
+//   }
+//
+//   def dispose()( implicit tx: S#Tx ) {
+//      sys.error( "TODO" )
+////      tx.removeStateReaction( this )
+//   }
+//}
 
 //object State {
 //   def constant[ S <: Sys[ S ]] : State[ S ] = new Const[ S ]
@@ -84,13 +86,15 @@ final case class StateReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Int ) e
 
 //final case class StateSample[ S <: Sys[ S ], @specialized A, Repr ]( )
 
-trait State[ S <: Sys[ S ], @specialized A, Repr <: State[ S, A, Repr ]] {
+trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]] {
+   me: Repr =>
+
    private[lucrestm] def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
    private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
    protected def reader: StateReader[ S, Repr ]
    def value( implicit tx: S#Tx ) : A
    def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
-      tx.addStateReaction[ A, Repr ]( reader, fun )
+      tx.addStateReaction[ A, Repr ]( me: Repr /* type annotation to please IDEA */, reader, fun )
 //
 //      val key: Int = 333
 //      val leaf = StateReactorLeaf[ S ]( key )
@@ -151,9 +155,11 @@ trait StateSources[ S <: Sys[ S ]] {
 //   }
 //}
 
-sealed trait StateTargets[ S <: Sys[ S ]] {
+sealed trait StateTargets[ S <: Sys[ S ]] extends Writer {
    def id: S#ID
-   private[lucrestm] def children: S#Var[ IIdxSeq[ StateReactor[ S ]]]
+//   private[lucrestm] def children: S#Var[ IIdxSeq[ StateReactor[ S ]]]
+   def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
+   def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
 }
 
 sealed trait StateReactorBranchLike[ S <: Sys[ S ]] extends StateReactor[ S ] {
@@ -193,33 +199,42 @@ sealed trait StateReactorBranchLike[ S <: Sys[ S ]] extends StateReactor[ S ] {
  * A `StateReactorBranch` is most similar to EScala's `EventNode` class. It represents an observable
  * object and can also act as an observer itself.
  */
-sealed trait StateReactorBranch[ S <: Sys[ S ], @specialized A, Repr <: StateReactorBranch[ S, A, Repr ]]
-extends StateReactorBranchLike[ S ] with State[ S, A, Repr ]{
+sealed trait StateReactorBranch[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateReactorBranch[ S, A, Repr ]]
+extends StateReactorBranchLike[ S ] with State[ S, A, Repr ] {
+   me: Repr =>
+
    protected def sources: StateSources[ S ]
+   protected def targets: StateTargets[ S ]
 
 //      protected def connect()( implicit tx: S#Tx ) : Unit
 //      // note: 'undeploy' is a rather horrible neologism (only used by Apache Tomcat and with airbags...)
 //      protected def disconnect()( implicit tx: S#Tx ) : Unit
 
    final def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
-      val old = children.get
-      children.set( old :+ r )
-      if( old.isEmpty ) {
-//            connector.connect()
+      if( targets.addReactor( r )) {
          sources.stateSources.foreach( _.addReactor( this ))
       }
+//      val old = children.get
+//      children.set( old :+ r )
+//      if( old.isEmpty ) {
+////            connector.connect()
+//         sources.stateSources.foreach( _.addReactor( this ))
+//      }
    }
 
    final def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
-      val xs = children.get
-      val i = xs.indexOf( r )
-      if( i >= 0 ) {
-         val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
-         children.set( xs1 )
-         if( xs1.isEmpty ) {
-//               connector.disconnect()
-            sources.stateSources.foreach( _.removeReactor( this ))
-         }
+      if( targets.removeReactor( r )) {
+         sources.stateSources.foreach( _.removeReactor( this ))
       }
+//      val xs = children.get
+//      val i = xs.indexOf( r )
+//      if( i >= 0 ) {
+//         val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
+//         children.set( xs1 )
+//         if( xs1.isEmpty ) {
+////               connector.disconnect()
+//            sources.stateSources.foreach( _.removeReactor( this ))
+//         }
+//      }
    }
 }

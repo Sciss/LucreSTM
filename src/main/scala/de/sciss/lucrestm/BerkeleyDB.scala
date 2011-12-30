@@ -448,13 +448,13 @@ object BerkeleyDB {
 //      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ BerkeleyDB ] = system.reactionMap.addState( fun )( this )
 
       def addStateReaction[ A, Repr <: State[ BerkeleyDB, A, Repr ]](
-         reader: StateReader[ BerkeleyDB, Repr ], fun: (Txn, A) => Unit ) : StateReactorLeaf[ BerkeleyDB ] =
-            system.reactionMap.addState( reader, fun )( this )
+         source: Repr, reader: StateReader[ BerkeleyDB, Repr ], fun: (Txn, A) => Unit ) : Disposable[ Txn ] =
+            system.reactionMap.addState( source, reader, fun )( this )
 
 //      def addState[ A ]( reader: A, fun: (Txn, A) => Unit )( implicit tx: Txn ) : StateReactorLeaf[ BerkeleyDB ] =
 //         system.reactionMap.addState( reader, fun )
 
-      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ BerkeleyDB ]) { system.reactionMap.removeState( leaf )( this )}
+//      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ BerkeleyDB ]) { system.reactionMap.removeState( leaf )( this )}
 //      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ BerkeleyDB ]) { system.reactionMap.invokeState( leaf )( this )}
 
       override def toString = "Txn<" + id + ">"
