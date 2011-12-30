@@ -72,64 +72,71 @@ final case class StateReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Int ) e
    }
 }
 
-object State {
-   def constant[ S <: Sys[ S ]] : State[ S ] = new Const[ S ]
+//object State {
+//   def constant[ S <: Sys[ S ]] : State[ S ] = new Const[ S ]
+//
+//   private final class Const[ S <: Sys[ S ]] extends State[ S ] {
+//      def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) {}
+//      def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {}
+//   }
+//}
 
-   private final class Const[ S <: Sys[ S ]] extends State[ S ] {
-      def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) {}
-      def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {}
+//final case class StateSample[ S <: Sys[ S ], @specialized A, Repr ]( )
+
+trait State[ S <: Sys[ S ], @specialized A, Repr <: State[ S, A, Repr ]] {
+   private[lucrestm] def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
+   private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
+   protected def reader: TxnReader[ S#Tx, S#Acc, Repr ]
+   def value( implicit tx: S#Tx ) : A
+   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) {
+
    }
-}
-
-trait State[ S <: Sys[ S ]] {
-   def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
-   def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
 }
 
 object StateSources {
    def none[ S <: Sys[ S ]] : StateSources[ S ] = new NoSources[ S ]
 
    private final class NoSources[ S <: Sys[ S ]] extends StateSources[ S ] {
-      def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S ]] = IIdxSeq.empty
+      def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S, _, _ ]] = IIdxSeq.empty
    }
 }
 
 trait StateSources[ S <: Sys[ S ]] {
-   def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S ]]
+   def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S, _, _ ]]
 }
 
-object StateReactorBranch {
-   def apply[ S <: Sys[ S ]]( sources: StateSources[ S ])( implicit tx: S#Tx ) : StateReactorBranch[ S ] =
-      new New[ S ]( sources, tx )
-
-   private final class New[ S <: Sys[ S ]]( protected val sources: StateSources[ S ], tx0: S#Tx )
-   extends StateReactorBranch[ S ] {
-      val id = tx0.newID()
-      protected val children = tx0.newVar[ IIdxSeq[ StateReactor[ S ]]]( id, IIdxSeq.empty )
-   }
-
-//      def serializer[ S <: Sys[ S ]]: TxnSerializer[ S#Tx, S#Acc, StateReactorBranch[ S ]] =
-//         new TxnSerializer[ S#Tx, S#Acc, StateReactorBranch[ S ]] {
-//            def write( r: StateReactorBranch[ S ], out: DataOutput ) { r.write( out )}
-//            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : StateReactorBranch[ S ] = {
-//               require( in.readUnsignedByte() == 0 )
-//               new ReactorBranchRead( in, access, tx )
-//            }
-//         }
-
-   def read[ S <: Sys[ S ]]( sources: StateSources[ S ], in: DataInput, access: S#Acc )
-                           ( implicit tx: S#Tx ) : StateReactorBranch[ S ] = {
-      require( in.readUnsignedByte() == 0 )
-      new Read[ S ]( sources, in, access, tx )
-   }
-
-   private final class Read[ S <: Sys[ S ]]( protected val sources: StateSources[ S ],
-                                             in: DataInput, access: S#Acc, tx0: S#Tx )
-   extends StateReactorBranch[ S ] {
-      val id = tx0.readID( in, access )
-      protected val children = tx0.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
-   }
-}
+//object StateReactorBranch {
+//   def apply[ S <: Sys[ S ]]( sources: StateSources[ S ])( implicit tx: S#Tx ) : StateReactorBranch[ S ] =
+//      new New[ S ]( sources, tx )
+//
+//   private final class New[ S <: Sys[ S ]]( protected val sources: StateSources[ S ], tx0: S#Tx )
+//   extends StateReactorBranch[ S ] {
+//      val id = tx0.newID()
+//      protected val children = tx0.newVar[ IIdxSeq[ StateReactor[ S ]]]( id, IIdxSeq.empty )
+//   }
+//
+////      def serializer[ S <: Sys[ S ]]: TxnSerializer[ S#Tx, S#Acc, StateReactorBranch[ S ]] =
+////         new TxnSerializer[ S#Tx, S#Acc, StateReactorBranch[ S ]] {
+////            def write( r: StateReactorBranch[ S ], out: DataOutput ) { r.write( out )}
+////            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : StateReactorBranch[ S ] = {
+////               require( in.readUnsignedByte() == 0 )
+////               new ReactorBranchRead( in, access, tx )
+////            }
+////         }
+//
+//   def read[ S <: Sys[ S ]]( sources: StateSources[ S ], in: DataInput, access: S#Acc )
+//                           ( implicit tx: S#Tx ) : StateReactorBranch[ S ] = {
+//      require( in.readUnsignedByte() == 0 )
+//      new Read[ S ]( sources, in, access, tx )
+//   }
+//
+//   private final class Read[ S <: Sys[ S ]]( protected val sources: StateSources[ S ],
+//                                             in: DataInput, access: S#Acc, tx0: S#Tx )
+//   extends StateReactorBranch[ S ] {
+//      val id = tx0.readID( in, access )
+//      protected val children = tx0.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
+//   }
+//}
 
 sealed trait StateReactorBranchLike[ S <: Sys[ S ]] extends StateReactor[ S ] {
    def id: S#ID
@@ -168,7 +175,8 @@ sealed trait StateReactorBranchLike[ S <: Sys[ S ]] extends StateReactor[ S ] {
  * A `StateReactorBranch` is most similar to EScala's `EventNode` class. It represents an observable
  * object and can also act as an observer itself.
  */
-sealed trait StateReactorBranch[ S <: Sys[ S ]] extends StateReactorBranchLike[ S ] with State[ S ] /* with Mutable[ S ] */ {
+sealed trait StateReactorBranch[ S <: Sys[ S ], @specialized A, Repr <: StateReactorBranch[ S, A, Repr ]]
+extends StateReactorBranchLike[ S ] with State[ S, A, Repr ]{
    protected def sources: StateSources[ S ]
 
 //      protected def connect()( implicit tx: S#Tx ) : Unit

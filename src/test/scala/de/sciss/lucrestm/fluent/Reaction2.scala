@@ -41,6 +41,10 @@ object Reaction2 extends App {
       def propagate( /* id: AnyRef, */ reactions: Reactions ) : Reactions
    }
 
+//   trait SerializedReactor {
+//      def propagate( in: DataInput )
+//   }
+
    trait Removable {
       def remove() : Unit
    }
