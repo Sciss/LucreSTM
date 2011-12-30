@@ -63,7 +63,7 @@ object ReactionMap {
                val full = obs.reader.read( in, targets ).asInstanceOf[ State[ S, AnyRef, _ <: State[ S, AnyRef, _ ]]]
                val funs = observations.map( _.fun ).asInstanceOf[ IIdxSeq[ (S#Tx, AnyRef) => Unit ]]
                val react: Reaction = () => {
-                  val eval = full.get
+                  val eval = full.value
                   () => funs.foreach( _.apply( tx, eval ))
                }
                reactions :+ react
