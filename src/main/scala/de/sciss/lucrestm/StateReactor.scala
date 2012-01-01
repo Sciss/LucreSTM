@@ -28,31 +28,43 @@ package de.sciss.lucrestm
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object StateReactor {
+//   private type Children[ S ] = (IIdxSeq[ StateReactor[ S ]], IIdxSeq[ Int ])
+   private type Children[ S <: Sys[ S ]] = IIdxSeq[ StateReactor[ S ]]
+
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, StateReactor[ S ]] = new Ser[ S ]
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, StateReactor[ S ]] {
       def write( r: StateReactor[ S ], out: DataOutput ) { r.write( out )}
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : StateReactor[ S ] = {
-         val id         = tx.readID( in, access )
-         val children   = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
-         val targets    = new Targets[ S ]( id, children )
-         val reader: StateReader[ S, StateReactor[ S ]] = sys.error( "TODO" )
-         reader.read( in, targets )
+         if( in.readUnsignedByte() == 0 ) {
+            val id            = tx.readID( in, access )
+   //         val children   = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
+            val children      = tx.readVar[ Children[ S ]]( id, in )
+            val targets       = new Targets[ S ]( id, children )
+            val observerKeys  = children.get.collect {
+               case Key( key ) => key
+            }
+            tx.mapStateObservers( in, targets, observerKeys )
+         } else {
+            val key  = in.readInt()
+            new Key[ S ]( key )
+         }
+      }
+   }
 
-//         tx.becomeLive
+   private final case class Key[ S <: Sys[ S ]]( key: Int ) extends StateReactor[ S ] {
+      def propagate()( implicit tx: S#Tx ) {}
+      def dispose()( implicit tx: S#Tx ) {}
 
-         sys.error( "TODO" )
-//         if( in.readUnsignedByte() == 0 ) {
-//            new Targets[ S ]( in, tx, access )
-//         } else {
-//            new StateReactorLeaf[ S ]( in.readInt() )
-//         }
+      def write( out: DataOutput ) {
+         out.writeUnsignedByte( 1 )
+         out.writeInt( key )
       }
    }
 
    private final class Targets[ S <: Sys[ S ]](
-      private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ StateReactor[ S ]]])
+      private[lucrestm] val id: S#ID, children: S#Var[ Children[ S ]])
    extends StateTargets[ S ] {
       def propagate()( implicit tx: S#Tx ) {
          children.get.foreach( _.propagate() )
@@ -75,6 +87,7 @@ object StateReactor {
       }
 
       def write( out: DataOutput ) {
+         out.writeUnsignedByte( 0 )
          id.write( out )
          children.write( out )
       }
@@ -101,8 +114,12 @@ object StateObserver {
 
    private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]]( key: Int )
    extends StateObserver[ S, A, Repr ] {
-      def add(    state: Repr )( implicit tx: S#Tx ) { state.addObserver(    this )}
-      def remove( state: Repr )( implicit tx: S#Tx ) { state.removeObserver( this )}
+      def add( state: Repr )( implicit tx: S#Tx ) {
+         state.addObserver( this )
+      }
+      def remove( state: Repr )( implicit tx: S#Tx ) {
+         state.removeObserver( this )
+      }
    }
 }
 sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr /* <: State[ S, A, Repr ] */] {
@@ -218,13 +235,13 @@ extends StateReactor[ S ] with State[ S, A, Repr ] {
       disposeData()
    }
 
-   final def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
+   final private[lucrestm] def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
       if( targets.addReactor( r )) {
          sources.stateSources.foreach( _.addReactor( this ))
       }
    }
 
-   final def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
+   final private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
       if( targets.removeReactor( r )) {
          sources.stateSources.foreach( _.removeReactor( this ))
       }

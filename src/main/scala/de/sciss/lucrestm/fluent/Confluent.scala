@@ -32,6 +32,7 @@ import collection.immutable.{IntMap, IndexedSeq => IIdxSeq}
 
 object Confluent {
    private type Acc = IIdxSeq[ Int ]
+   private type S = Confluent
 
    private type M = Map[ Acc, Array[ Byte ]]
 
@@ -41,10 +42,10 @@ object Confluent {
       final def shortString : String = path.mkString( "<", ",", ">" )
    }
 
-   sealed trait Txn extends _Txn[ Confluent ]
+   sealed trait Txn extends _Txn[ S ]
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
 
-   def apply() : Confluent = new System
+   def apply() : S = new System
 
    private final class System extends Confluent {
       private var cnt = 0
@@ -53,7 +54,7 @@ object Confluent {
       var storage = IntMap.empty[ M ]
       private val inMem = InMemory()
 
-      val reactionMap: ReactionMap[ Confluent ] = ReactionMap[ Confluent, InMemory ]( inMem.atomic { implicit tx =>
+      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.atomic { implicit tx =>
          tx.newIntVar( tx.newID(), 0 )
       })( ctx => inMem.wrap( ctx.peer ))
 
@@ -96,7 +97,7 @@ object Confluent {
          new IDImpl( id, pathVar.takeRight( 1 ))
       }
 
-      def update[ A <: Mutable[ Confluent ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A = {
+      def update[ A <: Mutable[ S ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A = {
          val out     = new DataOutput()
          old.write( out )
          val in      = new DataInput( out.toByteArray )
@@ -105,7 +106,7 @@ object Confluent {
          reader.readData( in, newID )
       }
 
-      def manifest: Manifest[ Confluent ] = Manifest.classType( classOf[ Confluent ])
+      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Confluent ])
    }
 
    private[Confluent] def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )
@@ -149,13 +150,17 @@ object Confluent {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = system.newID()( this )
 
-//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ Confluent ] = system.reactionMap.addState( fun )( this )
-      def addStateReaction[ A, Repr <: State[ Confluent, A, Repr ]](
-         /* source: Repr, */ reader: StateReader[ Confluent, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
+//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ S ] = system.reactionMap.addState( fun )( this )
+      private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]](
+         /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
             system.reactionMap.addState( /* source, */ reader, fun )( this )
 
-//      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ Confluent ]) { system.reactionMap.removeState( leaf )( this )}
-//      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ Confluent ]) { system.reactionMap.invokeState( leaf )( this )}
+      private[lucrestm] def mapStateObservers( in: DataInput, targets: StateTargets[ S ],
+                                               keys: IIdxSeq[ Int ]) : StateReactor[ S ] =
+         system.reactionMap.mapState( in, targets, keys )( this )
+
+//      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.removeState( leaf )( this )}
+//      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.invokeState( leaf )( this )}
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 
@@ -187,14 +192,14 @@ object Confluent {
 
       def readID( in: DataInput, acc: Acc ) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
 
-//      def readMut[ A <: Mutable[ Confluent ]]( pid: ID, in: DataInput )
+//      def readMut[ A <: Mutable[ S ]]( pid: ID, in: DataInput )
 //                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
 //         val mid  = in.readInt()
 //         val id   = IDImpl.readAndReplace( mid, pid.path, in )
 //         reader.readData( in, id )( this )
 //      }
 //
-//      def readOptionMut[ A <: MutableOption[ Confluent ]]( pid: ID, in: DataInput )
+//      def readOptionMut[ A <: MutableOption[ S ]]( pid: ID, in: DataInput )
 //                                                         ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
 //         val mid  = in.readInt()
 //         if( mid == -1 ) reader.empty else {

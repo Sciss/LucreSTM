@@ -33,15 +33,18 @@ import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, Trans
 import annotation.elidable
 import elidable.CONFIG
 import de.sciss.lucrestm.BerkeleyDB.CachedIntVar
+import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object BerkeleyDB {
    import LucreSTM.logConfig
+
+   private type S = BerkeleyDB
 
    /* private val */ var DB_CONSOLE_LOG_LEVEL   = "OFF" // "ALL"
 
    sealed trait ID extends Identifier[ Txn ]
 
-   def open( file: File, createIfNecessary: Boolean = true ) : BerkeleyDB = {
+   def open( file: File, createIfNecessary: Boolean = true ) : S = {
       val exists = file.isFile
       if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
 
@@ -91,13 +94,13 @@ object BerkeleyDB {
    extends BerkeleyDB /* with ScalaTxn.ExternalDecider */ {
       system =>
 
-      def manifest: Manifest[ BerkeleyDB ] = Manifest.classType( classOf[ BerkeleyDB ])
+      def manifest: Manifest[ S ] = Manifest.classType( classOf[ BerkeleyDB ])
 
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
       private val idCntVar    = new CachedIntVar( 0, idCnt )
       private val reactCntVar = new CachedIntVar( 1, idCnt )
 
-      def reactionMap: ReactionMap[ BerkeleyDB ] = sys.error( "TODO" )
+      def reactionMap: ReactionMap[ S ] = sys.error( "TODO" )
 
       def root[ A ]( init: => A )( implicit tx: Txn, ser: Serializer[ A ]) : A = {
          val rootID = 1
@@ -265,7 +268,7 @@ object BerkeleyDB {
    }
 
 //   private type Obs[ A ]    = Observer[ Txn, Change[ A ]]
-//   private type ObsVar[ A ] = Var[ A ] with State[ BerkeleyDB, Change[ A ]]
+//   private type ObsVar[ A ] = Var[ A ] with State[ S, Change[ A ]]
 
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
       protected def ser: TxnSerializer[ Txn, Unit, A ]
@@ -291,7 +294,7 @@ object BerkeleyDB {
       override def toString = "Var(" + id + ")"
    }
 
-//   private sealed trait BasicObservable[ @specialized A ] extends BasicSource with State[ BerkeleyDB, Change[ A ]] {
+//   private sealed trait BasicObservable[ @specialized A ] extends BasicSource with State[ S, Change[ A ]] {
 //      def addObserver( observer: Obs[ A ])( implicit tx: Txn ) {
 //         sys.error( "TODO" )
 //      }
@@ -435,7 +438,7 @@ object BerkeleyDB {
 
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
 
-   sealed trait Txn extends _Txn[ BerkeleyDB ] {
+   sealed trait Txn extends _Txn[ S ] {
       private[BerkeleyDB] def dbTxn: Transaction
    }
 
@@ -445,17 +448,21 @@ object BerkeleyDB {
 
       def newID() : ID = new IDImpl( system.newIDValue()( this ))
 
-//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ BerkeleyDB ] = system.reactionMap.addState( fun )( this )
+//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ S ] = system.reactionMap.addState( fun )( this )
 
-      def addStateReaction[ A, Repr <: State[ BerkeleyDB, A, Repr ]](
-         /* source: Repr, */ reader: StateReader[ BerkeleyDB, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
+      private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]](
+         /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
             system.reactionMap.addState( /* source, */ reader, fun )( this )
 
-//      def addState[ A ]( reader: A, fun: (Txn, A) => Unit )( implicit tx: Txn ) : StateReactorLeaf[ BerkeleyDB ] =
+      private[lucrestm] def mapStateObservers( in: DataInput, targets: StateTargets[ S ],
+                                               keys: IIdxSeq[ Int ]) : StateReactor[ S ] =
+         system.reactionMap.mapState( in, targets, keys )( this )
+
+//      def addState[ A ]( reader: A, fun: (Txn, A) => Unit )( implicit tx: Txn ) : StateReactorLeaf[ S ] =
 //         system.reactionMap.addState( reader, fun )
 
-//      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ BerkeleyDB ]) { system.reactionMap.removeState( leaf )( this )}
-//      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ BerkeleyDB ]) { system.reactionMap.invokeState( leaf )( this )}
+//      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.removeState( leaf )( this )}
+//      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.invokeState( leaf )( this )}
 
       override def toString = "Txn<" + id + ">"
 
@@ -524,13 +531,13 @@ object BerkeleyDB {
 
       def readID( in: DataInput, acc: Unit ) : ID = new IDImpl( in.readInt() )
 
-//      def readMut[ A <: Mutable[ BerkeleyDB ]]( pid: ID, in: DataInput )
+//      def readMut[ A <: Mutable[ S ]]( pid: ID, in: DataInput )
 //                                              ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
 //         val id = new IDImpl( in.readInt() )
 //         reader.readData( in, id )( this )
 //      }
 //
-//      def readOptionMut[ A <: MutableOption[ BerkeleyDB ]]( pid: ID, in: DataInput )
+//      def readOptionMut[ A <: MutableOption[ S ]]( pid: ID, in: DataInput )
 //                                                          ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
 //         val mid = in.readInt()
 //         if( mid == -1 ) reader.empty else {

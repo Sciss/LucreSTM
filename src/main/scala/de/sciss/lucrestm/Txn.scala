@@ -26,14 +26,17 @@
 package de.sciss.lucrestm
 
 import concurrent.stm.InTxn
+import collection.immutable.{IndexedSeq => IIdxSeq}
 
 trait Txn[ S <: Sys[ S ]] {
    def system: S
    def peer: InTxn
 
    def newID() : S#ID
-   def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
+   private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
                                                           fun: (S#Tx, A) => Unit ) : Int // Disposable[ S#Tx ]
+   private[lucrestm] def mapStateObservers( in: DataInput, targets: StateTargets[ S ], keys: IIdxSeq[ Int ]) : StateReactor[ S ]
+
 //   def addStateReaction[ A ]( reader: A, fun: (S#Tx, A) => Unit ) : StateReactorLeaf[ S ]
 
 //   def addEventReaction( fun: S#Tx => Unit ) : EventReactorLeaf[ S ]

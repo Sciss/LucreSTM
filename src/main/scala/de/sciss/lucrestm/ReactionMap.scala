@@ -54,21 +54,41 @@ object ReactionMap {
 ////         sys.error( "TODO")
 //      }
 
-      def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ], reactions: Reactions )
-                         ( implicit tx: S#Tx ) : Reactions = {
+//      def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ], reactions: Reactions )
+//                         ( implicit tx: S#Tx ) : Reactions = {
+//         val itx = tx.peer
+//         val observations = observerKeys.flatMap( stateMap.get( _ )( itx ))
+//         observations.headOption match {
+//            case Some( obs ) =>
+//               val full = obs.reader.read( in, targets ).asInstanceOf[ State[ S, AnyRef, _ <: State[ S, AnyRef, _ ]]]
+//               val funs = observations.map( _.fun ).asInstanceOf[ IIdxSeq[ (S#Tx, AnyRef) => Unit ]]
+//               val react: Reaction = () => {
+//                  val eval = full.value
+//                  () => funs.foreach( _.apply( tx, eval ))
+//               }
+//               reactions :+ react
+//
+//            case None => reactions
+//         }
+//      }
+
+      def mapState( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
+                  ( implicit tx: S#Tx ) : StateReactor[ S ] = {
          val itx = tx.peer
          val observations = observerKeys.flatMap( stateMap.get( _ )( itx ))
          observations.headOption match {
             case Some( obs ) =>
-               val full = obs.reader.read( in, targets ).asInstanceOf[ State[ S, AnyRef, _ <: State[ S, AnyRef, _ ]]]
-               val funs = observations.map( _.fun ).asInstanceOf[ IIdxSeq[ (S#Tx, AnyRef) => Unit ]]
-               val react: Reaction = () => {
-                  val eval = full.value
-                  () => funs.foreach( _.apply( tx, eval ))
-               }
-               reactions :+ react
+//               val full = obs.reader.read( in, targets ).asInstanceOf[ State[ S, AnyRef, _ <: State[ S, AnyRef, _ ]]]
+//               val funs = observations.map( _.fun ).asInstanceOf[ IIdxSeq[ (S#Tx, AnyRef) => Unit ]]
+//               val react: Reaction = () => {
+//                  val eval = full.value
+//                  () => funs.foreach( _.apply( tx, eval ))
+//               }
+//               reactions :+ react
+               sys.error( "TODO" )
+               obs.reader.read( in, targets ).asInstanceOf[ StateReactor[ S ]]
 
-            case None => reactions
+            case None => targets // reactions
          }
       }
 
@@ -109,9 +129,8 @@ sealed trait ReactionMap[ S <: Sys[ S ]] {
 
 //   def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
 
-   def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ],
-                        reactions: ReactionMap.Reactions )
-                      ( implicit tx: S#Tx ) : ReactionMap.Reactions
+   def mapState( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
+               ( implicit tx: S#Tx ) : StateReactor[ S ]
 
 //   def invokeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
 

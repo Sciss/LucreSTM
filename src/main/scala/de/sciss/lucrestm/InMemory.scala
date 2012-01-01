@@ -27,8 +27,11 @@ package de.sciss.lucrestm
 
 import de.sciss.lucrestm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
+import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object InMemory {
+   private type S = InMemory
+
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
 
    private sealed trait SourceImpl[ @specialized A ] {
@@ -103,20 +106,24 @@ object InMemory {
       override def toString = "<" + hashCode().toHexString + ">"
    }
 
-   sealed trait Txn extends _Txn[ InMemory ]
+   sealed trait Txn extends _Txn[ S ]
 
 //   private type ObsVar[ A ] = InMemory#ObsVar[ A ]
 
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
-//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ InMemory ] = system.reactionMap.addState( fun )( this )
-      def addStateReaction[ A, Repr <: State[ InMemory, A, Repr ]](
-         /* source: Repr, */ reader: StateReader[ InMemory, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
+//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ S ] = system.reactionMap.addState( fun )( this )
+      private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]](
+         /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
             system.reactionMap.addState( /* source, */ reader, fun )( this )
 
-//      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.removeState( leaf )( this )}
-//      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ InMemory ]) { system.reactionMap.invokeState( leaf )( this )}
+      private[lucrestm] def mapStateObservers( in: DataInput, targets: StateTargets[ S ],
+                                               keys: IIdxSeq[ Int ]) : StateReactor[ S ] =
+         system.reactionMap.mapState( in, targets, keys )( this )
+
+//      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.removeState( leaf )( this )}
+//      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.invokeState( leaf )( this )}
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )
@@ -167,21 +174,21 @@ object InMemory {
 
       def readID( in: DataInput, acc: Unit ) : ID = opNotSupported( "readID" )
 
-//      def readMut[ A <: Mutable[ InMemory ]]( id: ID, in: DataInput )
+//      def readMut[ A <: Mutable[ S ]]( id: ID, in: DataInput )
 //                                            ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
 //         opNotSupported( "readMut" )
 //      }
 //
-//      def readOptionMut[ A <: MutableOption[ InMemory ]]( id: ID, in: DataInput )
+//      def readOptionMut[ A <: MutableOption[ S ]]( id: ID, in: DataInput )
 //                                                        ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
 //         opNotSupported( "readOptionMut" )
 //      }
    }
 
    private final class System extends InMemory {
-      def manifest: Manifest[ InMemory ] = Manifest.classType( classOf[ InMemory ])
+      def manifest: Manifest[ S ] = Manifest.classType( classOf[ InMemory ])
 
-      def reactionMap: ReactionMap[ InMemory ] = ReactionMap[ InMemory, InMemory ]( new VarImpl( ScalaRef( 0 )))
+      def reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
 
       def atomic[ Z ]( block: Tx => Z ) : Z = {
          TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
@@ -190,14 +197,14 @@ object InMemory {
       private[lucrestm] def wrap( itx: InTxn ) : Tx = new TxnImpl( this, itx )
    }
 
-   def apply() : InMemory = new System
+   def apply() : S = new System
 }
 
 /**
  * A thin wrapper around scala-stm.
  */
 sealed trait InMemory extends Sys[ InMemory ] {
-   import InMemory._
+//   import InMemory._
 
    type Var[ @specialized A ] = InMemory.Var[ A ]
    type ID                    = InMemory.ID
