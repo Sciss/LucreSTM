@@ -45,7 +45,7 @@ object StateReactor {
             val observerKeys  = children.get.collect {
                case Key( key ) => key
             }
-            tx.mapStateObservers( in, targets, observerKeys )
+            tx.mapStateTargets( in, targets, observerKeys )
          } else {
             val key  = in.readInt()
             new Key[ S ]( key )
@@ -55,6 +55,9 @@ object StateReactor {
 
    private final case class Key[ S <: Sys[ S ]]( key: Int ) extends StateReactor[ S ] {
       private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = reactions
+      private[lucrestm] def propagateState( state: State[ S, _, _ ], reactions: State.Reactions )
+                                          ( implicit tx: S#Tx ) : State.Reactions =
+         tx.propagateState( key, state, reactions )
 
       def dispose()( implicit tx: S#Tx ) {}
 
@@ -67,17 +70,22 @@ object StateReactor {
    private final class Targets[ S <: Sys[ S ]](
       private[lucrestm] val id: S#ID, children: S#Var[ Children[ S ]])
    extends StateTargets[ S ] {
-      def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = {
+      private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = {
          children.get.foldLeft( reactions )( (rs, r) => r.propagate( rs ))
       }
 
-      def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+      private[lucrestm] def propagateState( state: State[ S, _, _ ], reactions: State.Reactions )
+                                          ( implicit tx: S#Tx ) : State.Reactions = {
+         children.get.foldLeft( reactions )( (rs, r) => r.propagateState( state, rs ))
+      }
+
+      private[lucrestm] def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
          val old = children.get
          children.set( old :+ r )
          old.isEmpty
       }
 
-      def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+      private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
          val xs = children.get
          val i = xs.indexOf( r )
          if( i >= 0 ) {
@@ -103,6 +111,8 @@ object StateReactor {
 
 sealed trait StateReactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
    private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions
+   private[lucrestm] def propagateState( state: State[ S, _, _ ], reactions: State.Reactions )
+                                       ( implicit tx: S#Tx ) : State.Reactions
 }
 
 object StateObserver {
@@ -227,10 +237,12 @@ extends StateReactor[ S ] with State[ S, A, Repr ] {
 
    final def id: S#ID = targets.id
 
-   final def propagate()( implicit tx: S#Tx ) {
-      sys.error( "TODO" )
-//      children.get.foreach( _.propagate() )
-   }
+   final private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions =
+      targets.propagateState( this, reactions )
+
+   final private[lucrestm] def propagateState( parent: State[ S, _, _ ], reactions: State.Reactions )
+                                             ( implicit tx: S#Tx ) : State.Reactions =
+      targets.propagateState( this, reactions ) // parent state not important
 
    final def write( out: DataOutput ) {
       targets.write( out )

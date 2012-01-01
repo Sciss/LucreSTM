@@ -452,11 +452,15 @@ object BerkeleyDB {
 
       private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]](
          /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
-            system.reactionMap.addState( /* source, */ reader, fun )( this )
+            system.reactionMap.addStateReaction( /* source, */ reader, fun )( this )
 
-      private[lucrestm] def mapStateObservers( in: DataInput, targets: StateTargets[ S ],
+      private[lucrestm] def mapStateTargets( in: DataInput, targets: StateTargets[ S ],
                                                keys: IIdxSeq[ Int ]) : StateReactor[ S ] =
-         system.reactionMap.mapState( in, targets, keys )( this )
+         system.reactionMap.mapStateTargets( in, targets, keys )( this )
+
+      private[lucrestm] def propagateState( key: Int, state: State[ S, _, _ ],
+                                            reactions: State.Reactions ) : State.Reactions =
+         system.reactionMap.propagateState( key, state, reactions )( this )
 
 //      def addState[ A ]( reader: A, fun: (Txn, A) => Unit )( implicit tx: Txn ) : StateReactorLeaf[ S ] =
 //         system.reactionMap.addState( reader, fun )

@@ -72,19 +72,12 @@ object ReactionMap {
 //         }
 //      }
 
-      def mapState( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
+      def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
                   ( implicit tx: S#Tx ) : StateReactor[ S ] = {
          val itx = tx.peer
          val observations = observerKeys.flatMap( stateMap.get( _ )( itx ))
          observations.headOption match {
             case Some( obs ) =>
-//               val full = obs.reader.read( in, targets ).asInstanceOf[ State[ S, AnyRef, _ <: State[ S, AnyRef, _ ]]]
-//               val funs = observations.map( _.fun ).asInstanceOf[ IIdxSeq[ (S#Tx, AnyRef) => Unit ]]
-//               val react: Reaction = () => {
-//                  val eval = full.value
-//                  () => funs.foreach( _.apply( tx, eval ))
-//               }
-//               reactions :+ react
                sys.error( "TODO" )
                obs.reader.read( in, targets ).asInstanceOf[ StateReactor[ S ]]
 
@@ -92,7 +85,22 @@ object ReactionMap {
          }
       }
 
-      def addState[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
+      def propagateState( key: Int, state: State[ S, _, _ ], reactions: State.Reactions )
+                  ( implicit tx: S#Tx ) : State.Reactions = {
+         val itx = tx.peer
+         stateMap.get( key )( itx ) match {
+            case Some( obs ) =>
+               val react: Reaction = () => {
+                  val eval = state.value.asInstanceOf[ AnyRef ]
+                  () => obs.fun.asInstanceOf[ (S#Tx, AnyRef) => Unit ]( tx, eval )
+               }
+               reactions :+ react
+
+            case None => reactions
+         }
+      }
+
+      def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
                                                      fun: (S#Tx, A) => Unit )
                                                    ( implicit tx: S#Tx ) : Int /* Disposable[ S#Tx ] */ = {
          val ttx = sysConv( tx )
@@ -124,13 +132,16 @@ object ReactionMap {
 }
 sealed trait ReactionMap[ S <: Sys[ S ]] {
 //   def addState( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ]
-   def addState[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
+   def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
                                                 ( implicit tx: S#Tx ) : Int // Disposable[ S#Tx ]
 
 //   def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
 
-   def mapState( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
+   def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
                ( implicit tx: S#Tx ) : StateReactor[ S ]
+
+   def propagateState( key: Int, state: State[ S, _, _ ], reactions: State.Reactions )
+                     ( implicit tx: S#Tx ) : State.Reactions
 
 //   def invokeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
 
