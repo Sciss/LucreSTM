@@ -54,7 +54,8 @@ object StateReactor {
    }
 
    private final case class Key[ S <: Sys[ S ]]( key: Int ) extends StateReactor[ S ] {
-      def propagate()( implicit tx: S#Tx ) {}
+      private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = reactions
+
       def dispose()( implicit tx: S#Tx ) {}
 
       def write( out: DataOutput ) {
@@ -66,8 +67,8 @@ object StateReactor {
    private final class Targets[ S <: Sys[ S ]](
       private[lucrestm] val id: S#ID, children: S#Var[ Children[ S ]])
    extends StateTargets[ S ] {
-      def propagate()( implicit tx: S#Tx ) {
-         children.get.foreach( _.propagate() )
+      def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = {
+         children.get.foldLeft( reactions )( (rs, r) => r.propagate( rs ))
       }
 
       def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
@@ -101,7 +102,7 @@ object StateReactor {
 }
 
 sealed trait StateReactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
-   def propagate()( implicit tx: S#Tx ) : Unit
+   private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions
 }
 
 object StateObserver {
@@ -125,6 +126,11 @@ object StateObserver {
 sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr /* <: State[ S, A, Repr ] */] {
    def add(    state: Repr )( implicit tx: S#Tx ) : Unit
    def remove( state: Repr )( implicit tx: S#Tx ) : Unit
+}
+
+object State {
+   type Reaction  = () => () => Unit
+   type Reactions = IIdxSeq[ Reaction ]
 }
 
 trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]] /* extends Source[ S#Tx, A ] */ {
@@ -204,6 +210,7 @@ sealed trait StateTargets[ S <: Sys[ S ]] extends StateReactor[ S ] {
    private[lucrestm] def id: S#ID
    private[lucrestm] def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
    private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
+//   private[lucrestm] def propagateObserved( )
 }
 
 /**
