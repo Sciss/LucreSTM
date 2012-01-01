@@ -34,6 +34,14 @@ object StateReactor {
       def write( r: StateReactor[ S ], out: DataOutput ) { r.write( out )}
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : StateReactor[ S ] = {
+         val id         = tx.readID( in, access )
+         val children   = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
+         val targets    = new StateReactorBranchStub[ S ]( id, children )
+         val reader: StateReader[ S, StateReactor[ S ]] = sys.error( "TODO" )
+         reader.read( in, targets )
+
+//         tx.becomeLive
+
          sys.error( "TODO" )
 //         if( in.readUnsignedByte() == 0 ) {
 //            new StateReactorBranchStub[ S ]( in, tx, access )
@@ -43,48 +51,41 @@ object StateReactor {
       }
    }
 
-   private final class StateReactorBranchStub[ S <: Sys[ S ]]( in: DataInput, tx0: S#Tx, acc: S#Acc )
-   extends StateReactorBranchLike[ S ] {
-      val id = tx0.readID( in, acc )
-      protected val children = tx0.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
+   private final class StateReactorBranchStub[ S <: Sys[ S ]](
+      private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ StateReactor[ S ]]])
+   extends StateTargets[ S ] {
+      def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+         val old = children.get
+         children.set( old :+ r )
+         old.isEmpty
+      }
+
+      def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+         val xs = children.get
+         val i = xs.indexOf( r )
+         if( i >= 0 ) {
+            val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
+            children.set( xs1 )
+            xs1.isEmpty
+         } else false
+      }
+
+      def write( out: DataOutput ) {
+         id.write( out )
+         children.write( out )
+      }
+
+      def dispose()( implicit tx: S#Tx ) {
+         require( children.get.isEmpty, "Disposing a state reactor which is still being observed" )
+         id.dispose()
+         children.dispose()
+      }
    }
 }
 
 sealed trait StateReactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
    def propagate()( implicit tx: S#Tx ) : Unit
 }
-
-//object StateReactorLeaf {
-//   def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = new StateReactorLeaf( map.newID() )
-//}
-
-//final case class StateReactorLeaf[ S <: Sys[ S ]] private[lucrestm]( id: Int ) extends StateReactor[ S ] {
-//   def write( out: DataOutput ) {
-//      out.writeUnsignedByte( 1 )
-//      out.writeInt( id )
-//   }
-//
-//   def propagate()( implicit tx: S#Tx ) {
-//      sys.error( "TODO" )
-////      tx.invokeStateReaction( this )
-//   }
-//
-//   def dispose()( implicit tx: S#Tx ) {
-//      sys.error( "TODO" )
-////      tx.removeStateReaction( this )
-//   }
-//}
-
-//object State {
-//   def constant[ S <: Sys[ S ]] : State[ S ] = new Const[ S ]
-//
-//   private final class Const[ S <: Sys[ S ]] extends State[ S ] {
-//      def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) {}
-//      def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {}
-//   }
-//}
-
-//final case class StateSample[ S <: Sys[ S ], @specialized A, Repr ]( )
 
 object StateObserver {
    def apply[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]](
@@ -100,7 +101,7 @@ object StateObserver {
       def remove( state: Repr )( implicit tx: S#Tx ) { state.removeObserver( this )}
    }
 }
-sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]] {
+sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr /* <: State[ S, A, Repr ] */] {
    def add(    state: Repr )( implicit tx: S#Tx ) : Unit
    def remove( state: Repr )( implicit tx: S#Tx ) : Unit
 }
@@ -121,19 +122,6 @@ trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, 
       o.add( this )
       o
    }
-
-//   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
-//      val key = tx.addStateReaction[ A, Repr ]( /* me: Repr type annotation to please IDEA, */ reader, fun )
-//
-////
-////      val key: Int = 333
-////      val leaf = StateReactorLeaf[ S ]( key )
-////      addReactor( leaf )
-////      var map = Map.empty[ Int, (TxnReader[ S#Tx, S#Acc, Repr ], (S#Tx, A) => Unit) ]
-////      map += key -> (reader, fun)
-////      fun( tx, value )
-////      leaf
-//   }
 }
 
 //trait StateVar[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateVar[ S, A, Repr ]]
@@ -191,86 +179,60 @@ trait StateSources[ S <: Sys[ S ]] {
 //   }
 //}
 
-sealed trait StateTargets[ S <: Sys[ S ]] extends Writer {
-   def id: S#ID
-//   private[lucrestm] def children: S#Var[ IIdxSeq[ StateReactor[ S ]]]
-   def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
-   def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
-}
-
-sealed trait StateReactorBranchLike[ S <: Sys[ S ]] extends StateReactor[ S ] {
-   def id: S#ID
-   protected def children: S#Var[ IIdxSeq[ StateReactor[ S ]]]
-
-   final def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
-
-   final def propagate()( implicit tx: S#Tx ) {
-      children.get.foreach( _.propagate() )
-   }
-
-   final def write( out: DataOutput ) {
-      out.writeUnsignedByte( 0 )
-      id.write( out )
-      children.write( out )
-   }
-
-   final def dispose()( implicit tx: S#Tx ) {
-      require( !isConnected )
-      id.dispose()
-      children.dispose()
-   }
-
-   override def toString = "StateReactorBranch" + id
-
-   override def equals( that: Any ) : Boolean = {
-      (if( that.isInstanceOf[ StateReactorBranchLike[ _ ]]) {
-         id == that.asInstanceOf[ StateReactorBranchLike[ _ ]].id
-      } else super.equals( that ))
-   }
-
-   override def hashCode = id.hashCode()
+sealed trait StateTargets[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
+   private[lucrestm] def id: S#ID
+   private[lucrestm] def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
+   private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
 }
 
 /**
  * A `StateReactorBranch` is most similar to EScala's `EventNode` class. It represents an observable
  * object and can also act as an observer itself.
  */
-sealed trait StateReactorBranch[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateReactorBranch[ S, A, Repr ]]
-extends StateReactorBranchLike[ S ] with State[ S, A, Repr ] {
-   me: Repr =>
+/* sealed */ trait StateReactorBranch[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateReactorBranch[ S, A, Repr ]]
+extends StateReactor[ S ] with State[ S, A, Repr ] {
 
    protected def sources: StateSources[ S ]
    protected def targets: StateTargets[ S ]
+   protected def writeData( out: DataOutput ) : Unit
+   protected def disposeData()( implicit tx: S#Tx ) : Unit
 
-//      protected def connect()( implicit tx: S#Tx ) : Unit
-//      // note: 'undeploy' is a rather horrible neologism (only used by Apache Tomcat and with airbags...)
-//      protected def disconnect()( implicit tx: S#Tx ) : Unit
+   final def id: S#ID = targets.id
+
+   final def propagate()( implicit tx: S#Tx ) {
+      sys.error( "TODO" )
+//      children.get.foreach( _.propagate() )
+   }
+
+   final def write( out: DataOutput ) {
+      targets.write( out )
+      writeData( out )
+   }
+
+   final def dispose()( implicit tx: S#Tx ) {
+      targets.dispose()
+      disposeData()
+   }
 
    final def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
       if( targets.addReactor( r )) {
          sources.stateSources.foreach( _.addReactor( this ))
       }
-//      val old = children.get
-//      children.set( old :+ r )
-//      if( old.isEmpty ) {
-////            connector.connect()
-//         sources.stateSources.foreach( _.addReactor( this ))
-//      }
    }
 
    final def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
       if( targets.removeReactor( r )) {
          sources.stateSources.foreach( _.removeReactor( this ))
       }
-//      val xs = children.get
-//      val i = xs.indexOf( r )
-//      if( i >= 0 ) {
-//         val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
-//         children.set( xs1 )
-//         if( xs1.isEmpty ) {
-////               connector.disconnect()
-//            sources.stateSources.foreach( _.removeReactor( this ))
-//         }
-//      }
    }
+
+   override def toString = "StateReactorBranch" + id
+
+   override def equals( that: Any ) : Boolean = {
+      (if( that.isInstanceOf[ StateReactorBranch[ _, _, _ ]]) {
+         id == that.asInstanceOf[ StateReactorBranch[ _, _, _ ]].id
+      } else super.equals( that ))
+   }
+
+   override def hashCode = id.hashCode()
 }

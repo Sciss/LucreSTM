@@ -132,18 +132,18 @@ object ReactionTest extends App {
 
       sealed trait Impl[ A, Ex <: Expr[ A, Ex ]] extends ExprVar[ A, Ex ] {
          protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
-         protected def id: Confluent#ID
+//         protected def id: Confluent#ID
          protected def v: Confluent#Var[ Ex ]
-         protected def reactor: StateReactorBranch[ Confluent ]
+//         protected def reactor: StateReactorBranch[ Confluent ]
 
          final def get( implicit tx: Tx ) : Ex = v.get
          final def set( ex: Ex )( implicit tx: Tx ) {
             val old = get
             if( old.value != ex.value ) {
-               old.removeReactor( reactor )
+//               old.removeReactor( reactor )
                v.set( ex )
-               ex.addReactor( reactor )
-               reactor.propagate()
+//               ex.addReactor( reactor )
+//               reactor.propagate()
             }
          }
 
@@ -152,18 +152,18 @@ object ReactionTest extends App {
             set( fun( get ))
          }
 
-         final def write( out: DataOutput ) {
-            out.writeUnsignedByte( 100 )
-            id.write( out )
-            v.write( out )
-            reactor.write( out )
-         }
-
-         final def dispose()( implicit tx: Tx ) {
-            id.dispose()
-            v.dispose()
-            reactor.dispose()
-         }
+//         final def write( out: DataOutput ) {
+//            out.writeUnsignedByte( 100 )
+//            id.write( out )
+//            v.write( out )
+////            reactor.write( out )
+//         }
+//
+//         final def dispose()( implicit tx: Tx ) {
+//            id.dispose()
+//            v.dispose()
+////            reactor.dispose()
+//         }
       }
 
       // XXX the other option is to forget about StringRef, LongRef, etc., and instead
@@ -173,10 +173,10 @@ object ReactionTest extends App {
       extends Impl[ A, Ex ] {
          val id                  = tx0.newID()
          protected val v         = tx0.newVar[ Ex ]( id, init )
-         private val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
+         protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
             def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
          }
-         protected val reactor   = StateReactorBranch[ Confluent ]( sources )( tx0 )
+//         protected val reactor   = StateReactorBranch[ Confluent ]( sources )( tx0 )
 //         init.addReactor( reactor )( tx0 )
       }
 
@@ -185,14 +185,14 @@ object ReactionTest extends App {
       extends Impl[ A, Ex ] {
          val id                  = tx0.readID( in, access )
          protected val v         = tx0.readVar[ Ex ]( id, in )
-         private val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
+         protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
             def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
          }
-         protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
+//         protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
 //         init.addReactor( reactor )
       }
    }
-   trait ExprVar[ A, Ex <: Expr[ A, Ex ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with Writer {
+   trait ExprVar[ A, Ex <: Expr[ A, Ex ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with StateReactorBranch[ Confluent, A, Ex ] {
 //      final def get( implicit tx: Tx ) : A = get.get
    }
 
@@ -244,7 +244,7 @@ object ReactionTest extends App {
 
       private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
       extends StringBinOp with StringAppend {
-         protected val reactor = StateReactorBranch[ Confluent ]( sources )( tx0 )
+//         protected val reactor = StateReactorBranch[ Confluent ]( sources )( tx0 )
 //         a.addReactor( reactor )( tx0 )
 //         b.addReactor( reactor )( tx0 )
       }
@@ -253,7 +253,7 @@ object ReactionTest extends App {
       extends StringBinOp with StringAppend {
          protected val a         = ser.read( in, access )( tx0 )
          protected val b         = ser.read( in, access )( tx0 )
-         protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
+//         protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
 //         a.addReactor( reactor )( tx0 )
 //         b.addReactor( reactor )( tx0 )
       }
@@ -311,7 +311,7 @@ object ReactionTest extends App {
             out.writeUnsignedByte( opID )
             a.write( out )
             b.write( out )
-            reactor.write( out )
+//            reactor.write( out )
          }
 
 //         final protected def connect()( implicit tx: Tx ) {
@@ -326,14 +326,14 @@ object ReactionTest extends App {
       }
 
       private abstract class LongBinOpNew( tx0: Tx ) extends LongBinOp {
-         final protected val reactor = StateReactorBranch[ Confluent ]( sources )( tx0 )
+//         final protected val reactor = StateReactorBranch[ Confluent ]( sources )( tx0 )
       }
 
       private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOp {
          final protected val a         = ser.read( in, access )( tx0 )
          final protected val b         = ser.read( in, access )( tx0 )
-         final protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
+//         final protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
       }
 
       private sealed trait LongPlus {
@@ -446,146 +446,146 @@ object ReactionTest extends App {
       def stop_# : LongRef
    }
 
-   object RegionList {
-      def empty( implicit tx: Tx ) : RegionList = new Impl( tx )
+//   object RegionList {
+//      def empty( implicit tx: Tx ) : RegionList = new Impl( tx )
+//
+//      private final class Impl( tx0: Tx ) extends RegionList {
+////         protected val reactor = StateReactorBranch[ Confluent ]( StateSources.none )( tx0 )
+//         def value( implicit tx: Tx ): IIdxSeq[ Change ] = sys.error( "TODO" )
+//         def write( out: DataOutput ) { sys.error( "TODO" )}
+//         def dispose()( implicit tx: Tx ) { sys.error( "TODO" )}
+//      }
+//
+//      sealed trait Change
+//      final case class Added( region: Region )
+//      final case class Removed( region: Region )
+//   }
+//
+//   trait RegionList extends Expr[ IIdxSeq[ RegionList.Change ], RegionList ] {
+////      def head( implicit tx: Tx ) : Option[ List[ Region ]]
+////      def head_=( r: Option[ List[ Region ]]) : Unit
+////      def tail( implicit tx: Tx ) : Option[ List[ Region ]]
+////      def tail_=( r: Option[ List[ Region ]]) : Unit
+//   }
+//
+//   trait List[ A ] {
+//      def value: A
+//      def next( implicit tx: Tx ) : Option[ List[ A ]]
+////      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
+//   }
 
-      private final class Impl( tx0: Tx ) extends RegionList {
-         protected val reactor = StateReactorBranch[ Confluent ]( StateSources.none )( tx0 )
-         def value( implicit tx: Tx ): IIdxSeq[ Change ] = sys.error( "TODO" )
-         def write( out: DataOutput ) { sys.error( "TODO" )}
-         def dispose()( implicit tx: Tx ) { sys.error( "TODO" )}
-      }
-
-      sealed trait Change
-      final case class Added( region: Region )
-      final case class Removed( region: Region )
-   }
-
-   trait RegionList extends Expr[ IIdxSeq[ RegionList.Change ], RegionList ] {
-//      def head( implicit tx: Tx ) : Option[ List[ Region ]]
-//      def head_=( r: Option[ List[ Region ]]) : Unit
-//      def tail( implicit tx: Tx ) : Option[ List[ Region ]]
-//      def tail_=( r: Option[ List[ Region ]]) : Unit
-   }
-
-   trait List[ A ] {
-      def value: A
-      def next( implicit tx: Tx ) : Option[ List[ A ]]
-//      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
-   }
-
-   final class RegionView( r: Region, id: String ) extends JPanel {
-      private val lay = new GroupLayout( this )
-      lay.setAutoCreateContainerGaps( true )
-      setLayout( lay )
-      setBorder( BorderFactory.createTitledBorder( BorderFactory.createEtchedBorder(), id ))
-
-      private val lbName   = new JLabel( "Name:", SwingConstants.RIGHT )
-      private val lbStart  = new JLabel( "Start:", SwingConstants.RIGHT )
-      private val lbStop   = new JLabel( "Stop:", SwingConstants.RIGHT )
-
-      private val ggName   = new JTextField( 12 )
-      private val ggStart  = new JTextField( 8 )
-      private val ggStop   = new JTextField( 8 )
-
-      lay.setHorizontalGroup( lay.createSequentialGroup()
-         .addGroup( lay.createParallelGroup()
-            .addComponent( lbName )
-            .addComponent( lbStart )
-            .addComponent( lbStop )
-         )
-         .addGroup( lay.createParallelGroup()
-            .addComponent( ggName )
-            .addComponent( ggStart )
-            .addComponent( ggStop )
-         )
-      )
-
-      lay.setVerticalGroup( lay.createSequentialGroup()
-         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
-            .addComponent( lbName )
-            .addComponent( ggName )
-         )
-         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
-            .addComponent( lbStart )
-            .addComponent( ggStart )
-         )
-         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
-            .addComponent( lbStop )
-            .addComponent( ggStop )
-         )
-      )
-
-      private def stringToModel( s: String, model: (Tx, String) => Unit )( implicit system: Confluent ) {
-         system.atomic { implicit tx =>
-            model( tx, s )
-         }
-      }
-
-      private def longToModel( n: Long, model: (Tx, Long) => Unit )( implicit system: Confluent ) {
-         system.atomic { implicit tx => model( tx, n )}
-      }
-
-      def connect()( implicit tx: Tx ) {
-         r.name_#.observe(  v => defer( ggName.setText(  v )))
-         r.start_#.observe( v => defer( ggStart.setText( v.toString )))
-         r.stop_#.observe(  v => defer( ggStop.setText(  v.toString )))
-
-         implicit val system = tx.system
-
-         ggName.addActionListener( new ActionListener {
-            def actionPerformed( e: ActionEvent ) {
-               stringToModel( ggName.getText, (tx, s) => { implicit val _tx = tx; r.name = s })
-            }
-         })
-
-         ggStart.addActionListener( new ActionListener {
-            def actionPerformed( e: ActionEvent ) {
-               longToModel( ggStart.getText.toLong, (tx, n) => { implicit val _tx = tx; r.start = n })
-            }
-         })
-
-         ggStop.addActionListener( new ActionListener {
-            def actionPerformed( e: ActionEvent ) {
-               longToModel( ggStop.getText.toLong, (tx, n) => { implicit val _tx = tx; r.stop = n })
-            }
-         })
-      }
-   }
+//   final class RegionView( r: Region, id: String ) extends JPanel {
+//      private val lay = new GroupLayout( this )
+//      lay.setAutoCreateContainerGaps( true )
+//      setLayout( lay )
+//      setBorder( BorderFactory.createTitledBorder( BorderFactory.createEtchedBorder(), id ))
+//
+//      private val lbName   = new JLabel( "Name:", SwingConstants.RIGHT )
+//      private val lbStart  = new JLabel( "Start:", SwingConstants.RIGHT )
+//      private val lbStop   = new JLabel( "Stop:", SwingConstants.RIGHT )
+//
+//      private val ggName   = new JTextField( 12 )
+//      private val ggStart  = new JTextField( 8 )
+//      private val ggStop   = new JTextField( 8 )
+//
+//      lay.setHorizontalGroup( lay.createSequentialGroup()
+//         .addGroup( lay.createParallelGroup()
+//            .addComponent( lbName )
+//            .addComponent( lbStart )
+//            .addComponent( lbStop )
+//         )
+//         .addGroup( lay.createParallelGroup()
+//            .addComponent( ggName )
+//            .addComponent( ggStart )
+//            .addComponent( ggStop )
+//         )
+//      )
+//
+//      lay.setVerticalGroup( lay.createSequentialGroup()
+//         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
+//            .addComponent( lbName )
+//            .addComponent( ggName )
+//         )
+//         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
+//            .addComponent( lbStart )
+//            .addComponent( ggStart )
+//         )
+//         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
+//            .addComponent( lbStop )
+//            .addComponent( ggStop )
+//         )
+//      )
+//
+//      private def stringToModel( s: String, model: (Tx, String) => Unit )( implicit system: Confluent ) {
+//         system.atomic { implicit tx =>
+//            model( tx, s )
+//         }
+//      }
+//
+//      private def longToModel( n: Long, model: (Tx, Long) => Unit )( implicit system: Confluent ) {
+//         system.atomic { implicit tx => model( tx, n )}
+//      }
+//
+//      def connect()( implicit tx: Tx ) {
+//         r.name_#.observe(  v => defer( ggName.setText(  v )))
+//         r.start_#.observe( v => defer( ggStart.setText( v.toString )))
+//         r.stop_#.observe(  v => defer( ggStop.setText(  v.toString )))
+//
+//         implicit val system = tx.system
+//
+//         ggName.addActionListener( new ActionListener {
+//            def actionPerformed( e: ActionEvent ) {
+//               stringToModel( ggName.getText, (tx, s) => { implicit val _tx = tx; r.name = s })
+//            }
+//         })
+//
+//         ggStart.addActionListener( new ActionListener {
+//            def actionPerformed( e: ActionEvent ) {
+//               longToModel( ggStart.getText.toLong, (tx, n) => { implicit val _tx = tx; r.start = n })
+//            }
+//         })
+//
+//         ggStop.addActionListener( new ActionListener {
+//            def actionPerformed( e: ActionEvent ) {
+//               longToModel( ggStop.getText.toLong, (tx, n) => { implicit val _tx = tx; r.stop = n })
+//            }
+//         })
+//      }
+//   }
 
    def defer( thunk: => Unit ) { EventQueue.invokeLater( new Runnable { def run() { thunk }})}
 
    def test1() {
-      val system = Confluent()
-
-      val f    = new JFrame( "Reaction Test" )
-      val cp   = f.getContentPane
-
-      cp.setLayout( new GridLayout( 3, 1 ))
-      val rs = system.atomic { implicit tx =>
-         val _r1   = Region( "eins", 0L, 10000L )
-         val _r2   = Region( "zwei", 5000L, 12000L )
-         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
-                             _r1.start_#.min( _r2.start_# ).+( -100L ),
-                             _r1.stop_#.max( _r2.stop_# ).+( 100L ))
-         Seq( _r1, _r2, _r3 )
-      }
-
-      val vs = rs.zipWithIndex.map {
-         case (r, i) => new RegionView( r, "Region #" + (i+1) )
-      }
-
-      system.atomic { implicit tx =>
-         vs.foreach( _.connect() )
-      }
-
-      vs.foreach( cp.add( _ ))
-
-      f.setResizable( false )
-      f.pack()
-      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
-      f.setLocationRelativeTo( null )
-      f.setVisible( true )
+//      val system = Confluent()
+//
+//      val f    = new JFrame( "Reaction Test" )
+//      val cp   = f.getContentPane
+//
+//      cp.setLayout( new GridLayout( 3, 1 ))
+//      val rs = system.atomic { implicit tx =>
+//         val _r1   = Region( "eins", 0L, 10000L )
+//         val _r2   = Region( "zwei", 5000L, 12000L )
+//         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
+//                             _r1.start_#.min( _r2.start_# ).+( -100L ),
+//                             _r1.stop_#.max( _r2.stop_# ).+( 100L ))
+//         Seq( _r1, _r2, _r3 )
+//      }
+//
+//      val vs = rs.zipWithIndex.map {
+//         case (r, i) => new RegionView( r, "Region #" + (i+1) )
+//      }
+//
+//      system.atomic { implicit tx =>
+//         vs.foreach( _.connect() )
+//      }
+//
+//      vs.foreach( cp.add( _ ))
+//
+//      f.setResizable( false )
+//      f.pack()
+//      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
+//      f.setLocationRelativeTo( null )
+//      f.setVisible( true )
    }
 
    class TrackView extends JComponent {
@@ -604,14 +604,14 @@ object ReactionTest extends App {
    }
 
    def test2() {
-      val f    = new JFrame( "Reaction Test 2" )
-      val cp   = f.getContentPane
-      val tr   = new TrackView
-      cp.add( tr, BorderLayout.CENTER )
-      f.setResizable( false )
-      f.pack()
-      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
-      f.setLocationRelativeTo( null )
-      f.setVisible( true )
+//      val f    = new JFrame( "Reaction Test 2" )
+//      val cp   = f.getContentPane
+//      val tr   = new TrackView
+//      cp.add( tr, BorderLayout.CENTER )
+//      f.setResizable( false )
+//      f.pack()
+//      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
+//      f.setLocationRelativeTo( null )
+//      f.setVisible( true )
    }
 }
