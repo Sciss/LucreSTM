@@ -36,7 +36,7 @@ object StateReactor {
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : StateReactor[ S ] = {
          val id         = tx.readID( in, access )
          val children   = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
-         val targets    = new StateReactorBranchStub[ S ]( id, children )
+         val targets    = new Targets[ S ]( id, children )
          val reader: StateReader[ S, StateReactor[ S ]] = sys.error( "TODO" )
          reader.read( in, targets )
 
@@ -44,16 +44,20 @@ object StateReactor {
 
          sys.error( "TODO" )
 //         if( in.readUnsignedByte() == 0 ) {
-//            new StateReactorBranchStub[ S ]( in, tx, access )
+//            new Targets[ S ]( in, tx, access )
 //         } else {
 //            new StateReactorLeaf[ S ]( in.readInt() )
 //         }
       }
    }
 
-   private final class StateReactorBranchStub[ S <: Sys[ S ]](
+   private final class Targets[ S <: Sys[ S ]](
       private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ StateReactor[ S ]]])
    extends StateTargets[ S ] {
+      def propagate()( implicit tx: S#Tx ) {
+         children.get.foreach( _.propagate() )
+      }
+
       def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
          val old = children.get
          children.set( old :+ r )
@@ -179,7 +183,7 @@ trait StateSources[ S <: Sys[ S ]] {
 //   }
 //}
 
-sealed trait StateTargets[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
+sealed trait StateTargets[ S <: Sys[ S ]] extends StateReactor[ S ] {
    private[lucrestm] def id: S#ID
    private[lucrestm] def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
    private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
