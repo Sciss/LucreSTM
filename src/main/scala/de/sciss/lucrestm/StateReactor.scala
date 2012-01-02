@@ -42,7 +42,7 @@ object StateReactor {
             val observerKeys  = children.get.collect {
                case Key( key ) => key
             }
-            tx.mapStateTargets( in, targets, observerKeys )
+            tx.mapStateTargets( in, access, targets, observerKeys )
          } else {
             val key  = in.readInt()
             new Key[ S ]( key )
@@ -153,13 +153,13 @@ object StateReader {
    def unsupported[ S <: Sys[ S ], Repr ] : StateReader[ S, Repr ] = new Unsupported[ S, Repr ]
 
    private final class Unsupported[ S <: Sys[ S ], Repr ] extends StateReader[ S, Repr ] {
-      def read( in: DataInput, targets: StateTargets[ S ])( implicit tx: S#Tx ) : Repr =
+      def read( in: DataInput, access: S#Acc, targets: StateTargets[ S ])( implicit tx: S#Tx ) : Repr =
          throw new UnsupportedOperationException()
    }
 }
 
 trait StateReader[ S <: Sys[ S ], +Repr ] {
-   def read( in: DataInput, targets: StateTargets[ S ])( implicit tx: S#Tx ) : Repr
+   def read( in: DataInput, access: S#Acc, targets: StateTargets[ S ])( implicit tx: S#Tx ) : Repr
 }
 
 object StateSources {

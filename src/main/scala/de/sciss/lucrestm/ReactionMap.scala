@@ -45,12 +45,12 @@ object ReactionMap {
       private val stateMap = TMap.empty[ Int, Observation[ S, _, _ <: State[ S, _ /*, _*/]]]
 //      private val eventMap = TMap.empty[ Int, S#Tx => Unit ]
 
-      def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
+      def mapStateTargets( in: DataInput, access: S#Acc, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
                   ( implicit tx: S#Tx ) : StateReactor[ S ] = {
          val itx = tx.peer
          val observations = observerKeys.flatMap( stateMap.get( _ )( itx ))
          observations.headOption match {
-            case Some( obs ) => obs.reader.read( in, targets ).asInstanceOf[ StateReactor[ S ]] // ugly XXX
+            case Some( obs ) => obs.reader.read( in, access, targets ).asInstanceOf[ StateReactor[ S ]] // ugly XXX
             case None => targets
          }
       }
@@ -91,7 +91,7 @@ trait ReactionMap[ S <: Sys[ S ]] {
 
    def removeStateReaction( key: StateReactor.Key[ S ])( implicit tx: S#Tx ) : Unit
 
-   def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
+   def mapStateTargets( in: DataInput, access: S#Acc, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
                ( implicit tx: S#Tx ) : StateReactor[ S ]
 
    def propagateState( key: Int, state: State[ S, _ /*, _ */], reactions: State.Reactions )

@@ -145,7 +145,7 @@ object ReactionTest extends App {
       sealed trait Impl[ A, Ex <: Expr[ A ]] extends ExprVar[ A, Ex ] {
          me: Ex =>
 
-//         protected def reader: StateReader[ Confluent, Ex ]
+         protected def reader: StateReader[ Confluent, Ex ]
          protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
 //         protected def id: Confluent#ID
          protected def v: Confluent#Var[ Ex ]
@@ -182,7 +182,9 @@ object ReactionTest extends App {
          }
 
          final def observe( fun: (Tx, A) => Unit )( implicit tx: Tx ) : Observer[ A, Ex ] = {
-            sys.error( "TODO" )
+            val o = StateObserver[ Confluent, A, Ex ]( reader, fun )
+            o.add( this )
+            o
          }
       }
 
@@ -290,20 +292,20 @@ object ReactionTest extends App {
 //         b.addReactor( reactor )( tx0 )
       }
 
-//      val reader : StateReader[ Confluent, StringRef ] =
-//         new StateReader[ Confluent, StringRef ] {
-//            def read( in: DataInput, targets: Targets)( implicit tx: Tx ) : StringRef = {
-//               (in.readUnsignedByte(): @switch) match {
-//                  case 0   => new StringConstRead( in, tx )
-//                  case 1   => new StringAppendRead( in, access, tx )
-//                  case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRef {
-//                     override def toString = "String.ref(" + v + ")"
-//                  }
-//               }
-//            }
-//
-//            def write( v: StringRef, out: DataOutput ) { v.write( out )}
-//         }
+      val reader : StateReader[ Confluent, StringRef ] =
+         new StateReader[ Confluent, StringRef ] {
+            def read( in: DataInput, access: Acc, targets: Targets)( implicit tx: Tx ) : StringRef = {
+               (in.readUnsignedByte(): @switch) match {
+                  case 0   => new StringConstRead( in, tx )
+                  case 1   => new StringAppendRead( targets, in, access, tx )
+                  case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRef {
+                     override def toString = "String.ref(" + v + ")"
+                  }
+               }
+            }
+
+            def write( v: StringRef, out: DataOutput ) { v.write( out )}
+         }
 
       implicit val stringRefSerializer : TxnSerializer[ Tx, Acc, StringRef ] =
          new TxnSerializer[ Tx, Acc, StringRef ] {
@@ -328,6 +330,7 @@ object ReactionTest extends App {
       me: StringRef =>
 
       final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
+      final protected def reader: StateReader[ Confluent, StringRef ] = StringRef.reader
    }
 
    object LongRef {
@@ -434,7 +437,7 @@ object ReactionTest extends App {
       extends LongBinOpRead( in, access, tx0 ) with LongMax
 
       val reader : StateReader[ Confluent, LongRef ] = new StateReader[ Confluent, LongRef ] {
-         def read( in: DataInput, targets: Targets )( implicit tx: Tx ) : LongRef = sys.error( "TODO" )
+         def read( in: DataInput, access: Acc, targets: Targets )( implicit tx: Tx ) : LongRef = sys.error( "TODO" )
       }
 
       implicit val longRefSerializer : TxnSerializer[ Tx, Acc, LongRef ] =
@@ -465,6 +468,7 @@ object ReactionTest extends App {
       final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
       final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
       final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
+      final protected def reader: StateReader[ Confluent, LongRef ] = LongRef.reader
    }
 
 //   object Region {

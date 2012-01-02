@@ -155,9 +155,9 @@ object Confluent {
          /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (Txn, A) => Unit ) : StateReactor.Key[ S ] =
             system.reactionMap.addStateReaction( /* source, */ reader, fun )( this )
 
-      private[lucrestm] def mapStateTargets( in: DataInput, targets: StateTargets[ S ],
+      private[lucrestm] def mapStateTargets( in: DataInput, access: S#Acc, targets: StateTargets[ S ],
                                                keys: IIdxSeq[ Int ]) : StateReactor[ S ] =
-         system.reactionMap.mapStateTargets( in, targets, keys )( this )
+         system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
 
       private[lucrestm] def propagateState( key: Int, state: State[ S, _ /*, _ */],
                                             reactions: State.Reactions ) : State.Reactions =
