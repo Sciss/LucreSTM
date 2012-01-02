@@ -28,9 +28,6 @@ package de.sciss.lucrestm
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object StateReactor {
-//   private type Children[ S ] = (IIdxSeq[ StateReactor[ S ]], IIdxSeq[ Int ])
-   private type Children[ S <: Sys[ S ]] = IIdxSeq[ StateReactor[ S ]]
-
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, StateReactor[ S ]] = new Ser[ S ]
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, StateReactor[ S ]] {
@@ -40,8 +37,8 @@ object StateReactor {
          if( in.readUnsignedByte() == 0 ) {
             val id            = tx.readID( in, access )
    //         val children   = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
-            val children      = tx.readVar[ Children[ S ]]( id, in )
-            val targets       = new Targets[ S ]( id, children )
+            val children      = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
+            val targets       = StateTargets[ S ]( id, children )
             val observerKeys  = children.get.collect {
                case Key( key ) => key
             }
@@ -64,47 +61,6 @@ object StateReactor {
       def write( out: DataOutput ) {
          out.writeUnsignedByte( 1 )
          out.writeInt( key )
-      }
-   }
-
-   private final class Targets[ S <: Sys[ S ]](
-      private[lucrestm] val id: S#ID, children: S#Var[ Children[ S ]])
-   extends StateTargets[ S ] {
-      private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = {
-         children.get.foldLeft( reactions )( (rs, r) => r.propagate( rs ))
-      }
-
-      private[lucrestm] def propagateState( state: State[ S, _, _ ], reactions: State.Reactions )
-                                          ( implicit tx: S#Tx ) : State.Reactions = {
-         children.get.foldLeft( reactions )( (rs, r) => r.propagateState( state, rs ))
-      }
-
-      private[lucrestm] def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
-         val old = children.get
-         children.set( old :+ r )
-         old.isEmpty
-      }
-
-      private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
-         val xs = children.get
-         val i = xs.indexOf( r )
-         if( i >= 0 ) {
-            val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
-            children.set( xs1 )
-            xs1.isEmpty
-         } else false
-      }
-
-      def write( out: DataOutput ) {
-         out.writeUnsignedByte( 0 )
-         id.write( out )
-         children.write( out )
-      }
-
-      def dispose()( implicit tx: S#Tx ) {
-         require( children.get.isEmpty, "Disposing a state reactor which is still being observed" )
-         id.dispose()
-         children.dispose()
       }
    }
 }
@@ -208,6 +164,64 @@ object StateSources {
 
 trait StateSources[ S <: Sys[ S ]] {
    def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S, _, _ ]]
+}
+
+object StateTargets {
+   def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : StateTargets[ S ] = {
+      val id         = tx.newID()
+      val children   = tx.newVar[ IIdxSeq[ StateReactor[ S ]]]( id, IIdxSeq.empty )
+      new Impl( id, children )
+   }
+
+   def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : StateTargets[ S ] = {
+      val id            = tx.readID( in, access )
+      val children      = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
+      new Impl[ S ]( id, children )
+   }
+
+   private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ IIdxSeq[ StateReactor[ S ]]]) : StateTargets[ S ] =
+      new Impl( id, children )
+
+   private final class Impl[ S <: Sys[ S ]](
+      private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ StateReactor[ S ]]])
+   extends StateTargets[ S ] {
+      private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = {
+         children.get.foldLeft( reactions )( (rs, r) => r.propagate( rs ))
+      }
+
+      private[lucrestm] def propagateState( state: State[ S, _, _ ], reactions: State.Reactions )
+                                          ( implicit tx: S#Tx ) : State.Reactions = {
+         children.get.foldLeft( reactions )( (rs, r) => r.propagateState( state, rs ))
+      }
+
+      private[lucrestm] def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+         val old = children.get
+         children.set( old :+ r )
+         old.isEmpty
+      }
+
+      private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+         val xs = children.get
+         val i = xs.indexOf( r )
+         if( i >= 0 ) {
+            val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
+            children.set( xs1 )
+            xs1.isEmpty
+         } else false
+      }
+
+      def write( out: DataOutput ) {
+         out.writeUnsignedByte( 0 )
+         id.write( out )
+         children.write( out )
+      }
+
+      def dispose()( implicit tx: S#Tx ) {
+         require( children.get.isEmpty, "Disposing a state reactor which is still being observed" )
+         id.dispose()
+         children.dispose()
+      }
+   }
 }
 
 sealed trait StateTargets[ S <: Sys[ S ]] extends StateReactor[ S ] {

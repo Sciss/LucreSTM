@@ -140,7 +140,10 @@ object ReactionTest extends App {
          protected def v: Confluent#Var[ Ex ]
 //         protected def reactor: StateNode[ Confluent ]
 
+         final def value( implicit tx: Tx ) : A = get.value
+
          final def get( implicit tx: Tx ) : Ex = v.get
+
          final def set( ex: Ex )( implicit tx: Tx ) {
             val old = get
             if( old.value != ex.value ) {
@@ -174,7 +177,7 @@ object ReactionTest extends App {
       class New[ A, Ex <: MutableExpr[ A, Ex ]]( init: Ex, tx0: Tx )(
          implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
       extends Impl[ A, Ex ] {
-         val id                  = tx0.newID()
+         protected val targets   = StateTargets[ Confluent ]( tx0 )
          protected val v         = tx0.newVar[ Ex ]( id, init )
          protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
             def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
@@ -183,10 +186,10 @@ object ReactionTest extends App {
 //         init.addReactor( reactor )( tx0 )
       }
 
-      class Read[ A, Ex <: Expr[ A, Ex ]]( in: DataInput, access: Acc, tx0: Tx )(
+      class Read[ A, Ex <: Expr[ A, Ex ]]( protected val targets: StateTargets[ Confluent ], in: DataInput, tx0: Tx )(
          implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
       extends Impl[ A, Ex ] {
-         val id                  = tx0.readID( in, access )
+//         val id                  = tx0.readID( in, access )
          protected val v         = tx0.readVar[ Ex ]( id, in )
          protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
             def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
@@ -252,7 +255,8 @@ object ReactionTest extends App {
 //         b.addReactor( reactor )( tx0 )
       }
 
-      private final class StringAppendRead( in: DataInput, access: Acc, tx0: Tx )
+      private final class StringAppendRead( protected val targets: StateTargets[ Confluent ], in: DataInput,
+                                            access: Acc, tx0: Tx )
       extends StringBinOp with StringAppend {
          protected val a         = ser.read( in, access )( tx0 )
          protected val b         = ser.read( in, access )( tx0 )
@@ -261,14 +265,32 @@ object ReactionTest extends App {
 //         b.addReactor( reactor )( tx0 )
       }
 
+//      val reader : StateReader[ Confluent, StringRef ] =
+//         new StateReader[ Confluent, StringRef ] {
+//            def read( in: DataInput, targets: StateTargets[ Confluent ])( implicit tx: Tx ) : StringRef = {
+//               (in.readUnsignedByte(): @switch) match {
+//                  case 0   => new StringConstRead( in, tx )
+//                  case 1   => new StringAppendRead( in, access, tx )
+//                  case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRef {
+//                     override def toString = "String.ref(" + v + ")"
+//                  }
+//               }
+//            }
+//
+//            def write( v: StringRef, out: DataOutput ) { v.write( out )}
+//         }
+
       implicit val ser : TxnSerializer[ Tx, Acc, StringRef ] =
          new TxnSerializer[ Tx, Acc, StringRef ] {
             def read( in: DataInput, access: Acc )( implicit tx: Tx ) : StringRef = {
-               (in.readUnsignedByte(): @switch) match {
-                  case 0   => new StringConstRead( in, tx )
-                  case 1   => new StringAppendRead( in, access, tx )
-                  case 100 => new ExprVar.Read[ String, StringRef ]( in, access, tx ) with StringRef {
-                     override def toString = "String.ref(" + v + ")"
+               val cookie = in.readUnsignedByte()
+               if( cookie == 0 ) new StringConstRead( in, tx ) else {
+                  val targets = StateTargets.read[ Confluent ]( in, access )
+                  (cookie: @switch) match {
+                     case 1   => new StringAppendRead( targets, in, access, tx )
+                     case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRef {
+                        override def toString = "String.ref(" + v + ")"
+                     }
                   }
                }
             }
@@ -377,12 +399,16 @@ object ReactionTest extends App {
       implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] =
          new TxnSerializer[ Tx, Acc, LongRef ] {
             def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
-               (in.readUnsignedByte(): @switch) match {
-                  case 0   => new LongConstRead( in, tx )
-                  case 1   => new LongPlusRead( in, access, tx )
-                  case 2   => new LongMinRead( in, access, tx )
-                  case 3   => new LongMaxRead( in, access, tx )
-                  case 100 => new ExprVar.Read[ Long, LongRef ]( in, access, tx ) with LongRef
+               val cookie = in.readUnsignedByte()
+               if( cookie == 0 ) new LongConstRead( in, tx ) else {
+                  val targets = StateTargets.read[ Confluent ]( in, access )
+                  (cookie: @switch) match {
+                     case 0   => new LongConstRead( in, tx )
+                     case 1   => new LongPlusRead( in, access, tx )
+                     case 2   => new LongMinRead( in, access, tx )
+                     case 3   => new LongMaxRead( in, access, tx )
+                     case 100 => new ExprVar.Read[ Long, LongRef ]( targets, in, tx ) with LongRef
+                  }
                }
             }
 
