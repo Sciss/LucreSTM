@@ -539,16 +539,16 @@ object ReactionTest extends App {
       setLayout( lay )
       setBorder( BorderFactory.createTitledBorder( BorderFactory.createEtchedBorder(), id ))
 
-      private val lbName   = new JLabel( "Name:", SwingConstants.RIGHT )
-      private val lbStart  = new JLabel( "Start:", SwingConstants.RIGHT )
-      private val lbStop   = new JLabel( "Stop:", SwingConstants.RIGHT )
+      private val lbName   = new JLabel( "Name:" )
+      private val lbStart  = new JLabel( "Start:" )
+      private val lbStop   = new JLabel( "Stop:" )
 
       private val ggName   = new JTextField( 12 )
       private val ggStart  = new JTextField( 8 )
       private val ggStop   = new JTextField( 8 )
 
       lay.setHorizontalGroup( lay.createSequentialGroup()
-         .addGroup( lay.createParallelGroup()
+         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.TRAILING )
             .addComponent( lbName )
             .addComponent( lbStart )
             .addComponent( lbStop )
@@ -616,36 +616,36 @@ object ReactionTest extends App {
    def defer( thunk: => Unit ) { EventQueue.invokeLater( new Runnable { def run() { thunk }})}
 
    def test1() {
-//      val system = Confluent()
-//
-//      val f    = new JFrame( "Reaction Test" )
-//      val cp   = f.getContentPane
-//
-//      cp.setLayout( new GridLayout( 3, 1 ))
-//      val rs = system.atomic { implicit tx =>
-//         val _r1   = Region( "eins", 0L, 10000L )
-//         val _r2   = Region( "zwei", 5000L, 12000L )
-//         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
-//                             _r1.start_#.min( _r2.start_# ).+( -100L ),
-//                             _r1.stop_#.max( _r2.stop_# ).+( 100L ))
-//         Seq( _r1, _r2, _r3 )
-//      }
-//
-//      val vs = rs.zipWithIndex.map {
-//         case (r, i) => new RegionView( r, "Region #" + (i+1) )
-//      }
-//
-//      system.atomic { implicit tx =>
-//         vs.foreach( _.connect() )
-//      }
-//
-//      vs.foreach( cp.add( _ ))
-//
-//      f.setResizable( false )
-//      f.pack()
-//      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
-//      f.setLocationRelativeTo( null )
-//      f.setVisible( true )
+      val system = Confluent()
+
+      val f    = new JFrame( "Reaction Test" )
+      val cp   = f.getContentPane
+
+      cp.setLayout( new GridLayout( 3, 1 ))
+      val rs = system.atomic { implicit tx =>
+         val _r1   = Region( "eins", 0L, 10000L )
+         val _r2   = Region( "zwei", 5000L, 12000L )
+         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
+                             _r1.start_#.min( _r2.start_# ).+( -100L ),
+                             _r1.stop_#.max( _r2.stop_# ).+( 100L ))
+         Seq( _r1, _r2, _r3 )
+      }
+
+      val vs = rs.zipWithIndex.map {
+         case (r, i) => new RegionView( r, "Region #" + (i+1) )
+      }
+
+      system.atomic { implicit tx =>
+         vs.foreach( _.connect() )
+      }
+
+      vs.foreach( cp.add( _ ))
+
+      f.setResizable( false )
+      f.pack()
+      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
+      f.setLocationRelativeTo( null )
+      f.setVisible( true )
    }
 
    class TrackView extends JComponent {
