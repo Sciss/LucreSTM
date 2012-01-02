@@ -37,46 +37,21 @@ object ReactionMap {
 
 //   private final case class Observation[ Txn, A ]( reader: A, fun: (Txn, A) => Unit )
 
-   private final case class Observation[ S <: Sys[ S ], A, Repr <: StateReactorBranch[ S, A, Repr ]](
+   private final case class Observation[ S <: Sys[ S ], A, Repr <: State[ S, A, Repr ]](
       reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
-//      private val stateMap = TMap.empty[ Int, (TxnReader[ S#Tx, S#Acc, State[ S, _, _ ]], (S#Tx, _) => Unit) ]
-      private val stateMap = TMap.empty[ Int, Observation[ S, _, _ <: StateReactorBranch[ S, _, _]]]
+      private val stateMap = TMap.empty[ Int, Observation[ S, _, _ <: State[ S, _, _]]]
 //      private val eventMap = TMap.empty[ Int, S#Tx => Unit ]
-
-//      def invokeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) {
-//////         stateMap.get( leaf.id )( tx.peer ).foreach( _.apply( tx ))
-////         sys.error( "TODO")
-//      }
-
-//      def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ], reactions: Reactions )
-//                         ( implicit tx: S#Tx ) : Reactions = {
-//         val itx = tx.peer
-//         val observations = observerKeys.flatMap( stateMap.get( _ )( itx ))
-//         observations.headOption match {
-//            case Some( obs ) =>
-//               val full = obs.reader.read( in, targets ).asInstanceOf[ State[ S, AnyRef, _ <: State[ S, AnyRef, _ ]]]
-//               val funs = observations.map( _.fun ).asInstanceOf[ IIdxSeq[ (S#Tx, AnyRef) => Unit ]]
-//               val react: Reaction = () => {
-//                  val eval = full.value
-//                  () => funs.foreach( _.apply( tx, eval ))
-//               }
-//               reactions :+ react
-//
-//            case None => reactions
-//         }
-//      }
 
       def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
                   ( implicit tx: S#Tx ) : StateReactor[ S ] = {
          val itx = tx.peer
          val observations = observerKeys.flatMap( stateMap.get( _ )( itx ))
          observations.headOption match {
-            case Some( obs ) => obs.reader.read( in, targets )
-
-            case None => targets // reactions
+            case Some( obs ) => obs.reader.read( in, targets ).asInstanceOf[ StateReactor[ S ]] // ugly XXX
+            case None => targets
          }
       }
 
@@ -95,42 +70,26 @@ object ReactionMap {
          }
       }
 
-      def addStateReaction[ A, Repr <: StateReactorBranch[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
+      def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
                                                      fun: (S#Tx, A) => Unit )
-                                                   ( implicit tx: S#Tx ) : Int /* Disposable[ S#Tx ] */ = {
+                                                   ( implicit tx: S#Tx ) : StateReactor.Key[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
          stateMap.+=( (key, new Observation[ S, A, Repr ]( reader, fun )) )( tx.peer )
-//         source.addObserver( key )
-////         new StateReactorLeaf[ S ]( key )
-//         new Disposable[ S#Tx ] {
-//            def dispose()( implicit tx: S#Tx ) {
-//println( "XXX addState.dispose -- dunno what to do yet XXX" )
-//            }
-//         }
-         key
+         new StateReactor.Key[ S ]( key )
       }
 
-//      def addState( fun: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ] = {
-//         val ttx = sysConv( tx )
-//         val key = cnt.get( ttx )
-//         cnt.set( key + 1 )( ttx )
-//         stateMap.+=( (key, fun) )( tx.peer )
-//         new StateReactorLeaf[ S ]( key )
-//      }
-
-//      def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) {
-//         stateMap.-=( leaf.id )( tx.peer )
-//      }
+      def removeStateReaction( key: StateReactor.Key[ S ])( implicit tx: S#Tx ) {
+         stateMap.-=( key.key )( tx.peer )
+      }
    }
 }
-sealed trait ReactionMap[ S <: Sys[ S ]] {
-//   def addState( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : StateReactorLeaf[ S ]
-   def addStateReaction[ A, Repr <: StateReactorBranch[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
-                                                ( implicit tx: S#Tx ) : Int // Disposable[ S#Tx ]
+trait ReactionMap[ S <: Sys[ S ]] {
+   def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
+                                                ( implicit tx: S#Tx ) : StateReactor.Key[ S ]
 
-//   def removeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
+   def removeStateReaction( key: StateReactor.Key[ S ])( implicit tx: S#Tx ) : Unit
 
    def mapStateTargets( in: DataInput, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
                ( implicit tx: S#Tx ) : StateReactor[ S ]

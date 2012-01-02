@@ -53,7 +53,7 @@ object StateReactor {
       }
    }
 
-   private final case class Key[ S <: Sys[ S ]]( key: Int ) extends StateReactor[ S ] {
+   final case class Key[ S <: Sys[ S ]] private[lucrestm] ( key: Int ) extends StateReactor[ S ] {
       private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = reactions
       private[lucrestm] def propagateState( state: State[ S, _, _ ], reactions: State.Reactions )
                                           ( implicit tx: S#Tx ) : State.Reactions =
@@ -123,17 +123,24 @@ object StateObserver {
       new Impl[ S, A, Repr ]( key )
    }
 
-   private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]]( key: Int )
+   private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]](
+      key: StateReactor.Key[ S ])
    extends StateObserver[ S, A, Repr ] {
       def add( state: Repr )( implicit tx: S#Tx ) {
-         state.addObserver( this )
+//         state.addObserver( this )
+         state.addReactor( key )
       }
       def remove( state: Repr )( implicit tx: S#Tx ) {
-         state.removeObserver( this )
+//         state.removeObserver( this )
+         state.removeReactor( key )
+      }
+
+      def dispose()( implicit tx: S#Tx ) {
+         tx.removeStateReaction( key )
       }
    }
 }
-sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr /* <: State[ S, A, Repr ] */] {
+sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr ] extends Disposable[ S#Tx ] {
    def add(    state: Repr )( implicit tx: S#Tx ) : Unit
    def remove( state: Repr )( implicit tx: S#Tx ) : Unit
 }

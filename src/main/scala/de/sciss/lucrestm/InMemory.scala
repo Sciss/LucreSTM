@@ -114,8 +114,8 @@ object InMemory {
       def newID() : ID = new IDImpl
 
 //      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ S ] = system.reactionMap.addState( fun )( this )
-      private[lucrestm] def addStateReaction[ A, Repr <: StateReactorBranch[ S, A, Repr ]](
-         /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
+      private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]](
+         /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (Txn, A) => Unit ) : StateReactor.Key[ S ] =
             system.reactionMap.addStateReaction( /* source, */ reader, fun )( this )
 
       private[lucrestm] def mapStateTargets( in: DataInput, targets: StateTargets[ S ],
@@ -125,6 +125,8 @@ object InMemory {
       private[lucrestm] def propagateState( key: Int, state: State[ S, _, _ ],
                                             reactions: State.Reactions ) : State.Reactions =
          system.reactionMap.propagateState( key, state, reactions )( this )
+
+      private[lucrestm] def removeStateReaction( key: StateReactor.Key[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
 //      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.removeState( leaf )( this )}
 //      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.invokeState( leaf )( this )}

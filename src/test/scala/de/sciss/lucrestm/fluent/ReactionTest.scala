@@ -69,7 +69,7 @@ object ReactionTest extends App {
 //      }
 //   }
 
-   sealed trait Expr[ A, Repr <: Expr[ A, Repr ]] extends State[ Confluent, A, Repr ] with Disposable[ Tx ] with Writer {
+   sealed trait Expr[ A, Repr <: Expr[ A, Repr ]] extends StateReactorBranch[ Confluent, A, Repr ] with Disposable[ Tx ] with Writer {
 //      me: Repr =>
 
 //      def observe( update: A => Unit )( implicit tx: Tx ) : Observer = {
