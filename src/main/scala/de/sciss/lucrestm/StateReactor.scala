@@ -52,7 +52,7 @@ object StateReactor {
 
    final case class Key[ S <: Sys[ S ]] private[lucrestm] ( key: Int ) extends StateReactor[ S ] {
       private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = reactions
-      private[lucrestm] def propagateState( state: State[ S, _, _ ], reactions: State.Reactions )
+      private[lucrestm] def propagateState( state: State[ S, _ /*, _ */], reactions: State.Reactions )
                                           ( implicit tx: S#Tx ) : State.Reactions =
          tx.propagateState( key, state, reactions )
 
@@ -67,19 +67,19 @@ object StateReactor {
 
 sealed trait StateReactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
    private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions
-   private[lucrestm] def propagateState( state: State[ S, _, _ ], reactions: State.Reactions )
+   private[lucrestm] def propagateState( state: State[ S, _ /*, _ */], reactions: State.Reactions )
                                        ( implicit tx: S#Tx ) : State.Reactions
 }
 
 object StateObserver {
-   def apply[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]](
+   def apply[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A /*, Repr */]](
       reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
 
       val key = tx.addStateReaction[ A, Repr ]( reader, fun )
       new Impl[ S, A, Repr ]( key )
    }
 
-   private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]](
+   private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A /*, Repr */]](
       key: StateReactor.Key[ S ])
    extends StateObserver[ S, A, Repr ] {
       def add( state: Repr )( implicit tx: S#Tx ) {
@@ -106,7 +106,7 @@ object State {
    type Reactions = IIdxSeq[ Reaction ]
 }
 
-sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]] extends Writer {
+sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A /*, Repr <: State[ S, A, Repr ] */] extends Writer {
 //   me: Repr =>
 
    private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
@@ -114,22 +114,22 @@ sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[
 
    def value( implicit tx: S#Tx ) : A
 
-   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ]
+//   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ]
 }
 
-trait StateConstant[ S <: Sys[ S ], A, Repr <: State[ S, A, Repr ]] extends State[ S, A, Repr ] {
+trait StateConstant[ S <: Sys[ S ], A /*, Repr <: State[ S, A, Repr ]*/] extends State[ S, A /*, Repr */] {
 //   protected def reader: StateReader[ S, Repr ]
 
    protected def constValue : A
 
    final def value( implicit tx: S#Tx ) : A = constValue
 
-   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
-      val o = StateObserver( StateReader.unsupported[ S, Repr ], fun )
-      // this is a no-op anyways:
-//      o.add( this )
-      o
-   }
+//   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
+//      val o = StateObserver( StateReader.unsupported[ S, Repr ], fun )
+//      // this is a no-op anyways:
+////      o.add( this )
+//      o
+//   }
 
    final private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) {}
    final private[lucrestm] def removeReactor(  r: StateReactor[ S ])( implicit tx: S#Tx ) {}
@@ -158,12 +158,12 @@ object StateSources {
    def none[ S <: Sys[ S ]] : StateSources[ S ] = new NoSources[ S ]
 
    private final class NoSources[ S <: Sys[ S ]] extends StateSources[ S ] {
-      def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S, _, _ ]] = IIdxSeq.empty
+      def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S, _ /*, _ */]] = IIdxSeq.empty
    }
 }
 
 trait StateSources[ S <: Sys[ S ]] {
-   def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S, _, _ ]]
+   def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S, _ /*, _ */]]
 }
 
 object StateTargets {
@@ -189,7 +189,7 @@ object StateTargets {
          children.get.foldLeft( reactions )( (rs, r) => r.propagate( rs ))
       }
 
-      private[lucrestm] def propagateState( state: State[ S, _, _ ], reactions: State.Reactions )
+      private[lucrestm] def propagateState( state: State[ S, _ /*, _ */], reactions: State.Reactions )
                                           ( implicit tx: S#Tx ) : State.Reactions = {
          children.get.foldLeft( reactions )( (rs, r) => r.propagateState( state, rs ))
       }
@@ -234,11 +234,11 @@ sealed trait StateTargets[ S <: Sys[ S ]] extends StateReactor[ S ] {
  * A `StateNode` is most similar to EScala's `EventNode` class. It represents an observable
  * object and can also act as an observer itself.
  */
-/* sealed */ trait StateNode[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]]
-extends StateReactor[ S ] with State[ S, A, Repr ] {
-   me: Repr =>
+/* sealed */ trait StateNode[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A /*, Repr <: State[ S, A, Repr ]*/]
+extends StateReactor[ S ] with State[ S, A /*, Repr */] {
+//   me: Repr =>
 
-   protected def reader: StateReader[ S, Repr ]
+//   protected def reader: StateReader[ S, Repr ]
    protected def sources: StateSources[ S ]
    protected def targets: StateTargets[ S ]
    protected def writeData( out: DataOutput ) : Unit
@@ -249,7 +249,7 @@ extends StateReactor[ S ] with State[ S, A, Repr ] {
    final private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions =
       targets.propagateState( this, reactions )
 
-   final private[lucrestm] def propagateState( parent: State[ S, _, _ ], reactions: State.Reactions )
+   final private[lucrestm] def propagateState( parent: State[ S, _ /*, _ */], reactions: State.Reactions )
                                              ( implicit tx: S#Tx ) : State.Reactions =
       targets.propagateState( this, reactions ) // parent state not important
 
@@ -275,17 +275,17 @@ extends StateReactor[ S ] with State[ S, A, Repr ] {
       }
    }
 
-   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
-      val o = StateObserver( reader, fun )
-      o.add( this )
-      o
-   }
+//   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
+//      val o = StateObserver( reader, fun )
+//      o.add( this )
+//      o
+//   }
 
    override def toString = "StateNode" + id
 
    override def equals( that: Any ) : Boolean = {
-      (if( that.isInstanceOf[ StateNode[ _, _, _ ]]) {
-         id == that.asInstanceOf[ StateNode[ _, _, _ ]].id
+      (if( that.isInstanceOf[ StateNode[ _, _ /*, _ */]]) {
+         id == that.asInstanceOf[ StateNode[ _, _ /*, _ */]].id
       } else super.equals( that ))
    }
 
