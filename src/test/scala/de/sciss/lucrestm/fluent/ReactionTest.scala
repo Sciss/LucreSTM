@@ -324,131 +324,134 @@ object ReactionTest extends App {
 
    type StringRef = StringRefOps with Expr[ String ]
 
-//   object LongRef {
-//      implicit def apply( n: Long )( implicit tx: Tx ) : LongRef = new LongConstNew( n, tx )
-//
-//      def plus( a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongPlusNew( a, b, tx )
-//      def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMinNew(  a, b, tx )
-//      def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMaxNew(  a, b, tx )
-//
-//      private sealed trait LongConst extends LongRef with ConstExpr[ Long, LongRef ] {
-//         final def write( out: DataOutput ) {
-//            out.writeUnsignedByte( 0 )
-//            out.writeLong( constValue )
+   object LongRef {
+      implicit def apply( n: Long )( implicit tx: Tx ) : LongRef = new LongConstNew( n, tx )
+
+      def plus( a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongPlusNew( a, b, tx )
+      def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMinNew(  a, b, tx )
+      def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMaxNew(  a, b, tx )
+
+      private sealed trait LongConst extends LongRefOps with ConstExpr[ Long ] {
+         final def write( out: DataOutput ) {
+            out.writeUnsignedByte( 0 )
+            out.writeLong( constValue )
+         }
+      }
+
+      private final class LongConstNew( protected val constValue: Long, tx0: Tx )
+      extends LongConst
+
+      private final class LongConstRead( in: DataInput, tx0: Tx )
+      extends LongConst {
+         protected val constValue: Long = in.readLong()
+      }
+
+      private sealed trait LongBinOp extends LongRefOps with BinaryExpr[ Long ] {
+         protected def opID: Int
+
+         final protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
+            def stateSources( implicit tx: Tx ) = IIdxSeq( a, b )
+         }
+
+         final protected def writeData( out: DataOutput ) {
+            out.writeUnsignedByte( opID )
+            a.write( out )
+            b.write( out )
+//            reactor.write( out )
+         }
+
+//         final protected def connect()( implicit tx: Tx ) {
+//            a.addReactor( reactor )
+//            b.addReactor( reactor )
 //         }
-//      }
 //
-//      private final class LongConstNew( protected val constValue: Long, tx0: Tx )
-//      extends LongConst
-//
-//      private final class LongConstRead( in: DataInput, tx0: Tx )
-//      extends LongConst {
-//         protected val constValue: Long = in.readLong()
-//      }
-//
-//      private sealed trait LongBinOp extends LongRef with BinaryExpr[ Long, LongRef ] {
-//         protected def opID: Int
-//
-//         final protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
-//            def stateSources( implicit tx: Tx ) = IIdxSeq( a, b )
+//         final protected def disconnect()( implicit tx: Tx ) {
+//            a.removeReactor( reactor )
+//            b.removeReactor( reactor )
 //         }
-//
-//         final def write( out: DataOutput ) {
-//            out.writeUnsignedByte( opID )
-//            a.write( out )
-//            b.write( out )
-////            reactor.write( out )
-//         }
-//
-////         final protected def connect()( implicit tx: Tx ) {
-////            a.addReactor( reactor )
-////            b.addReactor( reactor )
-////         }
-////
-////         final protected def disconnect()( implicit tx: Tx ) {
-////            a.removeReactor( reactor )
-////            b.removeReactor( reactor )
-////         }
-//      }
-//
-//      private abstract class LongBinOpNew( tx0: Tx ) extends LongBinOp {
-////         final protected val reactor = StateNode[ Confluent ]( sources )( tx0 )
-//      }
-//
-//      private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
-//      extends LongBinOp {
-//         final protected val a         = ser.read( in, access )( tx0 )
-//         final protected val b         = ser.read( in, access )( tx0 )
-////         final protected val reactor   = StateNode.read[ Confluent ]( sources, in, access )( tx0 )
-//      }
-//
-//      private sealed trait LongPlus {
-//         final protected def op( ac: Long, bc: Long ) = ac + bc
-//         final protected def opID = 1
-//      }
-//
-//      private sealed trait LongMin {
-//         final protected def op( ac: Long, bc: Long ) = math.min( ac, bc )
-//         final protected def opID = 2
-//      }
-//
-//      private sealed trait LongMax extends LongRef with BinaryExpr[ Long, LongRef ] {
-//         final protected def op( ac: Long, bc: Long ) = math.max( ac, bc )
-//         final protected def opID = 3
-//      }
-//
-//      private final class LongPlusNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
-//      extends LongBinOpNew( tx0 ) with LongPlus
-//
-//      private final class LongPlusRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
-//      extends LongBinOpRead( in, access, tx0 ) with LongPlus
-//
-//      private final class LongMinNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
-//      extends LongBinOpNew( tx0 ) with LongMin
-//
-//      private final class LongMinRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
-//      extends LongBinOpRead( in, access, tx0 ) with LongMin
-//
-//      private final class LongMaxNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
-//      extends LongBinOpNew( tx0 ) with LongMax
-//
-//      private final class LongMaxRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
-//      extends LongBinOpRead( in, access, tx0 ) with LongMax
-//
+      }
+
+      private abstract class LongBinOpNew( tx0: Tx ) extends LongBinOp {
+         protected val targets = StateTargets[ Confluent ]( tx0 )
+//         final protected val reactor = StateNode[ Confluent ]( sources )( tx0 )
+      }
+
+      private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
+      extends LongBinOp {
+         final protected val a         = ser.read( in, access )( tx0 )
+         final protected val b         = ser.read( in, access )( tx0 )
+//         final protected val reactor   = StateNode.read[ Confluent ]( sources, in, access )( tx0 )
+      }
+
+      private sealed trait LongPlus {
+         final protected def op( ac: Long, bc: Long ) = ac + bc
+         final protected def opID = 1
+      }
+
+      private sealed trait LongMin {
+         final protected def op( ac: Long, bc: Long ) = math.min( ac, bc )
+         final protected def opID = 2
+      }
+
+      private sealed trait LongMax {
+         final protected def op( ac: Long, bc: Long ) = math.max( ac, bc )
+         final protected def opID = 3
+      }
+
+      private final class LongPlusNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
+      extends LongBinOpNew( tx0 ) with LongPlus
+
+      private final class LongPlusRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
+      extends LongBinOpRead( in, access, tx0 ) with LongPlus
+
+      private final class LongMinNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
+      extends LongBinOpNew( tx0 ) with LongMin
+
+      private final class LongMinRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
+      extends LongBinOpRead( in, access, tx0 ) with LongMin
+
+      private final class LongMaxNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
+      extends LongBinOpNew( tx0 ) with LongMax
+
+      private final class LongMaxRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
+      extends LongBinOpRead( in, access, tx0 ) with LongMax
+
 //      val reader : StateReader[ Confluent, LongRef ] = new StateReader[ Confluent, LongRef ] {
-//         def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
+//         def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = sys.error( "TODO" )
 //      }
-//
-//      implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] =
-//         new TxnSerializer[ Tx, Acc, LongRef ] {
-//            def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
-//               val cookie = in.readUnsignedByte()
-//               if( cookie == 0 ) new LongConstRead( in, tx ) else {
-//                  val targets = StateTargets.read[ Confluent ]( in, access )
-//                  (cookie: @switch) match {
-//                     case 1   => new LongPlusRead( targets, in, access, tx )
-//                     case 2   => new LongMinRead( targets, in, access, tx )
-//                     case 3   => new LongMaxRead( targets, in, access, tx )
-//                     case 100 => new ExprVar.Read[ Long, LongRef ]( targets, in, tx ) with LongRef {
+
+      implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] =
+         new TxnSerializer[ Tx, Acc, LongRef ] {
+            def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
+               val cookie = in.readUnsignedByte()
+               if( cookie == 0 ) new LongConstRead( in, tx ) else {
+                  val targets = StateTargets.read[ Confluent ]( in, access )
+                  (cookie: @switch) match {
+                     case 1   => new LongPlusRead( targets, in, access, tx )
+                     case 2   => new LongMinRead( targets, in, access, tx )
+                     case 3   => new LongMaxRead( targets, in, access, tx )
+                     case 100 => new ExprVar.Read[ Long, LongRef ]( targets, in, tx ) with LongRefOps {
 //                        protected def reader = LongRef.reader
-//                     }
-//                  }
-//               }
-//            }
-//
-//            def write( v: LongRef, out: DataOutput ) {
+                     }
+                  }
+               }
+            }
+
+            def write( v: LongRef, out: DataOutput ) {
 //               v.writeCookie( out )
-//               v.write( out )
-//            }
-//         }
-//   }
-//
-//   trait LongRef extends Writer {
-//      me: Expr[ Long, LongRef ] =>
-//      final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
-//      final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
-//      final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
-//   }
+               v.write( out )
+            }
+         }
+   }
+
+   trait LongRefOps extends Writer {
+      me: Expr[ Long ] =>
+      final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
+      final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
+      final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
+   }
+
+   type LongRef = LongRefOps with Expr[ Long ]
 
 //   object Region {
 //      def apply( name: StringRef, start: LongRef, stop: LongRef ) : Region = new RegionNew( name, start, stop )
