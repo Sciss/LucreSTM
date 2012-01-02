@@ -240,7 +240,7 @@ object ReactionTest extends App {
       private sealed trait StringBinOp extends StringRefOps with BinaryExpr[ String ] {
          protected def opID : Int
 
-         final protected def reader: StateReader[ Confluent, StringBinOp ] = sys.error( "TODO" )
+//         final protected def reader: StateReader[ Confluent, StringBinOp ] = sys.error( "TODO" )
 
          final protected def writeData( out: DataOutput ) {
             out.writeUnsignedByte( opID )
@@ -275,8 +275,8 @@ object ReactionTest extends App {
       private final class StringAppendRead( protected val targets: Targets, in: DataInput,
                                             access: Acc, tx0: Tx )
       extends StringBinOp with StringAppend {
-         protected val a         = ser.read( in, access )( tx0 )
-         protected val b         = ser.read( in, access )( tx0 )
+         protected val a         = stringRefSerializer.read( in, access )( tx0 )
+         protected val b         = stringRefSerializer.read( in, access )( tx0 )
 //         protected val reactor   = StateNode.read[ Confluent ]( sources, in, access )( tx0 )
 //         a.addReactor( reactor )( tx0 )
 //         b.addReactor( reactor )( tx0 )
@@ -297,7 +297,7 @@ object ReactionTest extends App {
 //            def write( v: StringRef, out: DataOutput ) { v.write( out )}
 //         }
 
-      implicit val ser : TxnSerializer[ Tx, Acc, StringRef ] =
+      implicit val stringRefSerializer : TxnSerializer[ Tx, Acc, StringRef ] =
          new TxnSerializer[ Tx, Acc, StringRef ] {
             def read( in: DataInput, access: Acc )( implicit tx: Tx ) : StringRef = {
                val cookie = in.readUnsignedByte()
@@ -378,8 +378,8 @@ object ReactionTest extends App {
 
       private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOp {
-         final protected val a         = ser.read( in, access )( tx0 )
-         final protected val b         = ser.read( in, access )( tx0 )
+         final protected val a         = longRefSerializer.read( in, access )( tx0 )
+         final protected val b         = longRefSerializer.read( in, access )( tx0 )
 //         final protected val reactor   = StateNode.read[ Confluent ]( sources, in, access )( tx0 )
       }
 
@@ -420,7 +420,7 @@ object ReactionTest extends App {
 //         def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = sys.error( "TODO" )
 //      }
 
-      implicit val ser : TxnSerializer[ Tx, Acc, LongRef ] =
+      implicit val longRefSerializer : TxnSerializer[ Tx, Acc, LongRef ] =
          new TxnSerializer[ Tx, Acc, LongRef ] {
             def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
                val cookie = in.readUnsignedByte()
@@ -461,52 +461,54 @@ object ReactionTest extends App {
 //      }
 //   }
 
+   object Region {
+      def apply( name: StringRef, start: LongRef, stop: LongRef )
+               ( implicit tx: Tx ) : Region =
+         new RegionNew( name, start, stop, tx )
 
-//   object Region {
-//      def apply( name: StringRef, start: LongRef, stop: LongRef )
-//               ( implicit tx: Tx ) : Region =
-//         new RegionNew( name, start, stop, tx )
-//
-//      private final class RegionNew( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
-//      extends Region {
-//         region =>
-//
-//         val id = tx0.newID()
-//
-////         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
-//         val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRef {
-//            override def toString = region.toString + ".name_#"
-//         }
-//         def name( implicit tx: Tx ) : StringRef = name_#.get
-//         def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
-//
-////         private val startRef = tx0.newVar[ LongRef ]( id, start0 )
-//         val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef
-//         def start( implicit tx: Tx ) : LongRef = start_#.get
-//         def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
-//
-////         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
-//         val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef
-//         def stop( implicit tx: Tx ) : LongRef = stop_#.get
-//         def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
-//
-//         override def toString = "Region" + id
-//      }
-//   }
-//
-//   trait Region {
-//      def name( implicit tx: Tx ) : StringRef
-//      def name_=( value: StringRef )( implicit tx: Tx ) : Unit
-//      def name_# : StringRef
-//
-//      def start( implicit tx: Tx ) : LongRef
-//      def start_=( value: LongRef )( implicit tx: Tx ) : Unit
-//      def start_# : LongRef
-//
-//      def stop( implicit tx: Tx ) : LongRef
-//      def stop_=( value: LongRef )( implicit tx: Tx ) : Unit
-//      def stop_# : LongRef
-//   }
+      private final class RegionNew( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
+      extends Region {
+         region =>
+
+         import StringRef.stringRefSerializer
+         import LongRef.longRefSerializer
+
+         val id = tx0.newID()
+
+//         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
+         val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRefOps {
+            override def toString = region.toString + ".name_#"
+         }
+         def name( implicit tx: Tx ) : StringRef = name_#.get
+         def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
+
+//         private val startRef = tx0.newVar[ LongRef ]( id, start0 )
+         val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRefOps
+         def start( implicit tx: Tx ) : LongRef = start_#.get
+         def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
+
+//         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
+         val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRefOps
+         def stop( implicit tx: Tx ) : LongRef = stop_#.get
+         def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
+
+         override def toString = "Region" + id
+      }
+   }
+
+   trait Region {
+      def name( implicit tx: Tx ) : StringRef
+      def name_=( value: StringRef )( implicit tx: Tx ) : Unit
+      def name_# : StringRef
+
+      def start( implicit tx: Tx ) : LongRef
+      def start_=( value: LongRef )( implicit tx: Tx ) : Unit
+      def start_# : LongRef
+
+      def stop( implicit tx: Tx ) : LongRef
+      def stop_=( value: LongRef )( implicit tx: Tx ) : Unit
+      def stop_# : LongRef
+   }
 
 //   object RegionList {
 //      def empty( implicit tx: Tx ) : RegionList = new Impl( tx )
