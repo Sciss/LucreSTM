@@ -33,7 +33,7 @@ trait Txn[ S <: Sys[ S ]] {
    def peer: InTxn
 
    def newID() : S#ID
-   private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
+   private[lucrestm] def addStateReaction[ A, Repr <: StateReactorBranch[ S, A, Repr ]]( reader: StateReader[ S, Repr ],
                                                           fun: (S#Tx, A) => Unit ) : Int // Disposable[ S#Tx ]
    private[lucrestm] def mapStateTargets( in: DataInput, targets: StateTargets[ S ], keys: IIdxSeq[ Int ]) : StateReactor[ S ]
    private[lucrestm] def propagateState( key: Int, state: State[ S, _, _ ], reactions: State.Reactions ) : State.Reactions

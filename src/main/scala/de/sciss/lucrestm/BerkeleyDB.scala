@@ -450,7 +450,7 @@ object BerkeleyDB {
 
 //      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ S ] = system.reactionMap.addState( fun )( this )
 
-      private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]](
+      private[lucrestm] def addStateReaction[ A, Repr <: StateReactorBranch[ S, A, Repr ]](
          /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (Txn, A) => Unit ) : Int /* Disposable[ Txn ] */ =
             system.reactionMap.addStateReaction( /* source, */ reader, fun )( this )
 
