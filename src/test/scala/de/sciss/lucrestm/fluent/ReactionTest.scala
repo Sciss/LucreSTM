@@ -42,7 +42,7 @@ object ReactionTest extends App {
    type Acc = Confluent#Acc
 
 //   trait Event[ S <: Sys[ S ], A ] extends State[ S ] with Writer {
-////      protected def reactor: StateReactorBranch[ S ]
+////      protected def reactor: StateNode[ S ]
 //      protected def reactor: State[ S ]
 //      def value( implicit tx: S#Tx ) : A
 //
@@ -69,24 +69,24 @@ object ReactionTest extends App {
 //      }
 //   }
 
-   sealed trait Expr[ A, Repr <: Expr[ A, Repr ]] extends StateReactorBranch[ Confluent, A, Repr ] with Disposable[ Tx ] with Writer {
-//      me: Repr =>
-
-//      def observe( update: A => Unit )( implicit tx: Tx ) : Observer = {
-//         val reaction = tx.addStateReaction { implicit tx =>
-//            val now = value( tx )
-//            update( now )
-//         }
-//         addReactor( reaction )
-//         val res = new Observer {
-//            def remove()( implicit tx: Tx ) {
-//               reaction.dispose()
-//            }
-//         }
-//         update( value( tx ))
-//         res
-//      }
-   }
+//   sealed trait Expr[ A, Repr <: Expr[ A, Repr ]] extends StateNode[ Confluent, A, Repr ] with Disposable[ Tx ] with Writer {
+////      me: Repr =>
+//
+////      def observe( update: A => Unit )( implicit tx: Tx ) : Observer = {
+////         val reaction = tx.addStateReaction { implicit tx =>
+////            val now = value( tx )
+////            update( now )
+////         }
+////         addReactor( reaction )
+////         val res = new Observer {
+////            def remove()( implicit tx: Tx ) {
+////               reaction.dispose()
+////            }
+////         }
+////         update( value( tx ))
+////         res
+////      }
+//   }
 
 //   trait ConstExpr[ A ] extends Expr[ A ] {
 //      final protected val reactor = State.constant[ Confluent ]
@@ -95,20 +95,24 @@ object ReactionTest extends App {
 //      final def dispose()( implicit tx: Tx ) {}
 //   }
 
-   trait ConstExpr[ A, Repr <: ConstExpr[ A, Repr ]] extends Expr[ A, Repr ] {
-//      me: Repr =>
+//   trait ConstExpr[ A, Repr <: ConstExpr[ A, Repr ]] extends Expr[ A, Repr ] {
+////      me: Repr =>
+//
+////      final protected val reactor = State.constant[ Confluent ]
+//      protected def constValue : A
+//      final def get( implicit tx: Tx ) : A = constValue
+//      final def dispose()( implicit tx: Tx ) {}
+//   }
 
-//      final protected val reactor = State.constant[ Confluent ]
-      protected def constValue : A
-      final def get( implicit tx: Tx ) : A = constValue
-      final def dispose()( implicit tx: Tx ) {}
-   }
+//   trait MutableExpr[ A, Repr <: MutableExpr[ A, Repr ]] extends Expr[ A, Repr ] {
+////      me: Repr =>
+//
+////      protected def reactor: StateNode[ Confluent ]
+//   }
 
-   trait MutableExpr[ A, Repr <: MutableExpr[ A, Repr ]] extends Expr[ A, Repr ] {
-//      me: Repr =>
-
-//      protected def reactor: StateReactorBranch[ Confluent ]
-   }
+   type Expr[ A, Repr <: Expr[ A, Repr ]] = State[ Confluent, A, Repr ]
+   type ConstExpr[ A, Repr <: ConstExpr[ A, Repr ]] = StateConstant[ Confluent, A, Repr ]
+   type MutableExpr[ A, Repr <: MutableExpr[ A, Repr ]] = StateNode[ Confluent, A, Repr ]
 
    trait BinaryExpr[ A, Repr <: BinaryExpr[ A, Repr ]] extends MutableExpr[ A, Repr ] {
 //      me: Repr =>
@@ -119,9 +123,9 @@ object ReactionTest extends App {
 
       final def value( implicit tx: Tx ) : A = op( a.value, b.value )
 
-      final def dispose()( implicit tx: Tx ) {
-//         a.removeReactor( reactor )
-//         b.removeReactor( reactor )
+      final protected def disposeData()( implicit tx: Tx ) {
+         a.removeReactor( this )
+         b.removeReactor( this )
 //         reactor.dispose()
       }
    }
@@ -130,11 +134,11 @@ object ReactionTest extends App {
 //      def apply[ A, Ex <: Expr[ A ]]( init: Ex )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, Ex ]) : ExprVar[ Ex ] =
 //         new ExprVarNew[ A, Ex ]( init, tx )
 
-      sealed trait Impl[ A, Ex <: Expr[ A, Ex ]] extends ExprVar[ A, Ex ] {
+      sealed trait Impl[ A, Ex <: MutableExpr[ A, Ex ]] extends ExprVar[ A, Ex ] {
          protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
 //         protected def id: Confluent#ID
          protected def v: Confluent#Var[ Ex ]
-//         protected def reactor: StateReactorBranch[ Confluent ]
+//         protected def reactor: StateNode[ Confluent ]
 
          final def get( implicit tx: Tx ) : Ex = v.get
          final def set( ex: Ex )( implicit tx: Tx ) {
@@ -152,23 +156,22 @@ object ReactionTest extends App {
             set( fun( get ))
          }
 
-//         final def write( out: DataOutput ) {
-//            out.writeUnsignedByte( 100 )
+         final protected def writeData( out: DataOutput ) {
+            out.writeUnsignedByte( 100 )
 //            id.write( out )
-//            v.write( out )
-////            reactor.write( out )
-//         }
-//
-//         final def dispose()( implicit tx: Tx ) {
-//            id.dispose()
-//            v.dispose()
-////            reactor.dispose()
-//         }
+            v.write( out )
+//            reactor.write( out )
+         }
+
+         final protected def disposeData()( implicit tx: Tx ) {
+            v.dispose()
+//            reactor.dispose()
+         }
       }
 
       // XXX the other option is to forget about StringRef, LongRef, etc., and instead
       // pimp Expr[ String ] to StringExprOps, etc.
-      class New[ A, Ex <: Expr[ A, Ex ]]( init: Ex, tx0: Tx )(
+      class New[ A, Ex <: MutableExpr[ A, Ex ]]( init: Ex, tx0: Tx )(
          implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
       extends Impl[ A, Ex ] {
          val id                  = tx0.newID()
@@ -176,7 +179,7 @@ object ReactionTest extends App {
          protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
             def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
          }
-//         protected val reactor   = StateReactorBranch[ Confluent ]( sources )( tx0 )
+//         protected val reactor   = StateNode[ Confluent ]( sources )( tx0 )
 //         init.addReactor( reactor )( tx0 )
       }
 
@@ -188,11 +191,11 @@ object ReactionTest extends App {
          protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
             def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
          }
-//         protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
+//         protected val reactor   = StateNode.read[ Confluent ]( sources, in, access )( tx0 )
 //         init.addReactor( reactor )
       }
    }
-   trait ExprVar[ A, Ex <: Expr[ A, Ex ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with StateReactorBranch[ Confluent, A, Ex ] {
+   trait ExprVar[ A, Ex <: MutableExpr[ A, Ex ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with StateNode[ Confluent, A, Ex ] {
 //      final def get( implicit tx: Tx ) : A = get.get
    }
 
@@ -202,7 +205,7 @@ object ReactionTest extends App {
       def append( a: StringRef, b: StringRef )( implicit tx: Tx ) : StringRef =
          new StringAppendNew( a, b, tx )
 
-      private sealed trait StringConst extends StringRef with ConstExpr[ String, StringRef ] {
+      private sealed trait StringConst extends StringRef with ConstExpr[ String, StringConst ] {
          final def write( out: DataOutput ) {
             out.writeUnsignedByte( 0 )
             out.writeString( constValue )
@@ -218,10 +221,10 @@ object ReactionTest extends App {
          protected val constValue: String = in.readString()
       }
 
-      private sealed trait StringBinOp extends StringRef with BinaryExpr[ String, StringRef ] {
+      private sealed trait StringBinOp extends StringRef with BinaryExpr[ String, StringBinOp ] {
          protected def opID : Int
 
-         final def write( out: DataOutput ) {
+         final protected def writeData( out: DataOutput ) {
             out.writeUnsignedByte( opID )
             a.write( out )
             b.write( out )
@@ -234,7 +237,7 @@ object ReactionTest extends App {
       }
 
       private sealed trait StringAppend {
-         me: BinaryExpr[ String, StringRef ] =>
+         me: BinaryExpr[ String, StringBinOp ] =>
 
          final protected def op( ac: String, bc: String ) : String = ac + bc
          final protected def opID = 1
@@ -244,7 +247,7 @@ object ReactionTest extends App {
 
       private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
       extends StringBinOp with StringAppend {
-//         protected val reactor = StateReactorBranch[ Confluent ]( sources )( tx0 )
+//         protected val reactor = StateNode[ Confluent ]( sources )( tx0 )
 //         a.addReactor( reactor )( tx0 )
 //         b.addReactor( reactor )( tx0 )
       }
@@ -253,7 +256,7 @@ object ReactionTest extends App {
       extends StringBinOp with StringAppend {
          protected val a         = ser.read( in, access )( tx0 )
          protected val b         = ser.read( in, access )( tx0 )
-//         protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
+//         protected val reactor   = StateNode.read[ Confluent ]( sources, in, access )( tx0 )
 //         a.addReactor( reactor )( tx0 )
 //         b.addReactor( reactor )( tx0 )
       }
@@ -274,7 +277,9 @@ object ReactionTest extends App {
          }
    }
 
-   trait StringRef extends Expr[ String, StringRef ] {
+   trait StringRef extends Writer {
+      me: Expr[ String, _ <: StringRef ] =>
+
       final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
    }
 
@@ -326,14 +331,14 @@ object ReactionTest extends App {
       }
 
       private abstract class LongBinOpNew( tx0: Tx ) extends LongBinOp {
-//         final protected val reactor = StateReactorBranch[ Confluent ]( sources )( tx0 )
+//         final protected val reactor = StateNode[ Confluent ]( sources )( tx0 )
       }
 
       private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOp {
          final protected val a         = ser.read( in, access )( tx0 )
          final protected val b         = ser.read( in, access )( tx0 )
-//         final protected val reactor   = StateReactorBranch.read[ Confluent ]( sources, in, access )( tx0 )
+//         final protected val reactor   = StateNode.read[ Confluent ]( sources, in, access )( tx0 )
       }
 
       private sealed trait LongPlus {
@@ -385,7 +390,8 @@ object ReactionTest extends App {
          }
    }
 
-   trait LongRef extends Expr[ Long, LongRef ] {
+   trait LongRef extends Writer {
+      me: Expr[ Long, LongRef ] =>
       final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
       final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
       final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
@@ -400,57 +406,57 @@ object ReactionTest extends App {
 //   }
 
 
-   object Region {
-      def apply( name: StringRef, start: LongRef, stop: LongRef )
-               ( implicit tx: Tx ) : Region =
-         new RegionNew( name, start, stop, tx )
-
-      private final class RegionNew( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
-      extends Region {
-         region =>
-
-         val id = tx0.newID()
-
-//         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
-         val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRef {
-            override def toString = region.toString + ".name_#"
-         }
-         def name( implicit tx: Tx ) : StringRef = name_#.get
-         def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
-
-//         private val startRef = tx0.newVar[ LongRef ]( id, start0 )
-         val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef
-         def start( implicit tx: Tx ) : LongRef = start_#.get
-         def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
-
-//         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
-         val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef
-         def stop( implicit tx: Tx ) : LongRef = stop_#.get
-         def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
-
-         override def toString = "Region" + id
-      }
-   }
-
-   trait Region {
-      def name( implicit tx: Tx ) : StringRef
-      def name_=( value: StringRef )( implicit tx: Tx ) : Unit
-      def name_# : StringRef
-
-      def start( implicit tx: Tx ) : LongRef
-      def start_=( value: LongRef )( implicit tx: Tx ) : Unit
-      def start_# : LongRef
-
-      def stop( implicit tx: Tx ) : LongRef
-      def stop_=( value: LongRef )( implicit tx: Tx ) : Unit
-      def stop_# : LongRef
-   }
+//   object Region {
+//      def apply( name: StringRef, start: LongRef, stop: LongRef )
+//               ( implicit tx: Tx ) : Region =
+//         new RegionNew( name, start, stop, tx )
+//
+//      private final class RegionNew( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
+//      extends Region {
+//         region =>
+//
+//         val id = tx0.newID()
+//
+////         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
+//         val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRef {
+//            override def toString = region.toString + ".name_#"
+//         }
+//         def name( implicit tx: Tx ) : StringRef = name_#.get
+//         def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
+//
+////         private val startRef = tx0.newVar[ LongRef ]( id, start0 )
+//         val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef
+//         def start( implicit tx: Tx ) : LongRef = start_#.get
+//         def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
+//
+////         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
+//         val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef
+//         def stop( implicit tx: Tx ) : LongRef = stop_#.get
+//         def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
+//
+//         override def toString = "Region" + id
+//      }
+//   }
+//
+//   trait Region {
+//      def name( implicit tx: Tx ) : StringRef
+//      def name_=( value: StringRef )( implicit tx: Tx ) : Unit
+//      def name_# : StringRef
+//
+//      def start( implicit tx: Tx ) : LongRef
+//      def start_=( value: LongRef )( implicit tx: Tx ) : Unit
+//      def start_# : LongRef
+//
+//      def stop( implicit tx: Tx ) : LongRef
+//      def stop_=( value: LongRef )( implicit tx: Tx ) : Unit
+//      def stop_# : LongRef
+//   }
 
 //   object RegionList {
 //      def empty( implicit tx: Tx ) : RegionList = new Impl( tx )
 //
 //      private final class Impl( tx0: Tx ) extends RegionList {
-////         protected val reactor = StateReactorBranch[ Confluent ]( StateSources.none )( tx0 )
+////         protected val reactor = StateNode[ Confluent ]( StateSources.none )( tx0 )
 //         def value( implicit tx: Tx ): IIdxSeq[ Change ] = sys.error( "TODO" )
 //         def write( out: DataOutput ) { sys.error( "TODO" )}
 //         def dispose()( implicit tx: Tx ) { sys.error( "TODO" )}

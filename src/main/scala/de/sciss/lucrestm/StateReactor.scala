@@ -140,7 +140,7 @@ object StateObserver {
       }
    }
 }
-sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr ] extends Disposable[ S#Tx ] {
+sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, -Repr ] extends Disposable[ S#Tx ] {
    def add(    state: Repr )( implicit tx: S#Tx ) : Unit
    def remove( state: Repr )( implicit tx: S#Tx ) : Unit
 }
@@ -150,7 +150,7 @@ object State {
    type Reactions = IIdxSeq[ Reaction ]
 }
 
-sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]] /* extends Source[ S#Tx, A ] */ {
+sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, -Repr ] extends Writer {
 //   me: Repr =>
 
    private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
@@ -161,14 +161,22 @@ sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[
    def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: this.type <:< Repr ) : StateObserver[ S, A, Repr ]
 }
 
-trait StateConstant[ S <: Sys[ S ], A, Repr <: StateConstant[ S, A, Repr ]] extends State[ S, A, Repr ] {
-   protected def reader: StateReader[ S, Repr ]
+trait StateConstant[ S <: Sys[ S ], A, -Repr <: StateConstant[ S, A, Repr ]] extends State[ S, A, Repr ] {
+//   protected def reader: StateReader[ S, Repr ]
+
+   protected def constValue : A
+
+   final def value( implicit tx: S#Tx ) : A = constValue
 
    final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: this.type <:< Repr ) : StateObserver[ S, A, Repr ] = {
-      val o = StateObserver( reader, fun )
-      o.add( this )
+      val o = StateObserver( StateReader.unsupported[ S, Repr ], fun )
+      // this is a no-op anyways:
+//      o.add( this )
       o
    }
+
+   final private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) {}
+   final private[lucrestm] def removeReactor(  r: StateReactor[ S ])( implicit tx: S#Tx ) {}
 }
 
 //trait StateVar[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateVar[ S, A, Repr ]]
@@ -177,7 +185,16 @@ trait StateConstant[ S <: Sys[ S ], A, Repr <: StateConstant[ S, A, Repr ]] exte
 //   def value
 //}
 
-trait StateReader[ S <: Sys[ S ], Repr ] {
+object StateReader {
+   def unsupported[ S <: Sys[ S ], Repr ] : StateReader[ S, Repr ] = new Unsupported[ S, Repr ]
+
+   private final class Unsupported[ S <: Sys[ S ], Repr ] extends StateReader[ S, Repr ] {
+      def read( in: DataInput, targets: StateTargets[ S ])( implicit tx: S#Tx ) : Repr =
+         throw new UnsupportedOperationException()
+   }
+}
+
+trait StateReader[ S <: Sys[ S ], +Repr ] {
    def read( in: DataInput, targets: StateTargets[ S ])( implicit tx: S#Tx ) : Repr
 }
 
@@ -193,53 +210,19 @@ trait StateSources[ S <: Sys[ S ]] {
    def stateSources( implicit tx: S#Tx ) : IIdxSeq[ State[ S, _, _ ]]
 }
 
-//object StateReactorBranch {
-//   def apply[ S <: Sys[ S ]]( sources: StateSources[ S ])( implicit tx: S#Tx ) : StateReactorBranch[ S ] =
-//      new New[ S ]( sources, tx )
-//
-//   private final class New[ S <: Sys[ S ]]( protected val sources: StateSources[ S ], tx0: S#Tx )
-//   extends StateReactorBranch[ S ] {
-//      val id = tx0.newID()
-//      protected val children = tx0.newVar[ IIdxSeq[ StateReactor[ S ]]]( id, IIdxSeq.empty )
-//   }
-//
-////      def serializer[ S <: Sys[ S ]]: TxnSerializer[ S#Tx, S#Acc, StateReactorBranch[ S ]] =
-////         new TxnSerializer[ S#Tx, S#Acc, StateReactorBranch[ S ]] {
-////            def write( r: StateReactorBranch[ S ], out: DataOutput ) { r.write( out )}
-////            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : StateReactorBranch[ S ] = {
-////               require( in.readUnsignedByte() == 0 )
-////               new ReactorBranchRead( in, access, tx )
-////            }
-////         }
-//
-//   def read[ S <: Sys[ S ]]( sources: StateSources[ S ], in: DataInput, access: S#Acc )
-//                           ( implicit tx: S#Tx ) : StateReactorBranch[ S ] = {
-//      require( in.readUnsignedByte() == 0 )
-//      new Read[ S ]( sources, in, access, tx )
-//   }
-//
-//   private final class Read[ S <: Sys[ S ]]( protected val sources: StateSources[ S ],
-//                                             in: DataInput, access: S#Acc, tx0: S#Tx )
-//   extends StateReactorBranch[ S ] {
-//      val id = tx0.readID( in, access )
-//      protected val children = tx0.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
-//   }
-//}
-
 sealed trait StateTargets[ S <: Sys[ S ]] extends StateReactor[ S ] {
    private[lucrestm] def id: S#ID
    private[lucrestm] def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
    private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
-//   private[lucrestm] def propagateObserved( )
 }
 
 /**
- * A `StateReactorBranch` is most similar to EScala's `EventNode` class. It represents an observable
+ * A `StateNode` is most similar to EScala's `EventNode` class. It represents an observable
  * object and can also act as an observer itself.
  */
-/* sealed */ trait StateReactorBranch[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateReactorBranch[ S, A, Repr ]]
+/* sealed */ trait StateNode[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateNode[ S, A, Repr ]]
 extends StateReactor[ S ] with State[ S, A, Repr ] {
-
+   protected def reader: StateReader[ S, Repr ]
    protected def sources: StateSources[ S ]
    protected def targets: StateTargets[ S ]
    protected def writeData( out: DataOutput ) : Unit
@@ -276,11 +259,17 @@ extends StateReactor[ S ] with State[ S, A, Repr ] {
       }
    }
 
-   override def toString = "StateReactorBranch" + id
+   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: this.type <:< Repr ) : StateObserver[ S, A, Repr ] = {
+      val o = StateObserver( reader, fun )
+      o.add( this )
+      o
+   }
+
+   override def toString = "StateNode" + id
 
    override def equals( that: Any ) : Boolean = {
-      (if( that.isInstanceOf[ StateReactorBranch[ _, _, _ ]]) {
-         id == that.asInstanceOf[ StateReactorBranch[ _, _, _ ]].id
+      (if( that.isInstanceOf[ StateNode[ _, _, _ ]]) {
+         id == that.asInstanceOf[ StateNode[ _, _, _ ]].id
       } else super.equals( that ))
    }
 

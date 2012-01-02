@@ -34,7 +34,7 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newID() : S#ID
    // note that `Repr` is only required to be subtype of `State`, but `State.addReactor` will make sure
-   // that only really `StateReactorBranch` is storing observers as children. This makes it possible to
+   // that only really `StateNode` is storing observers as children. This makes it possible to
    // create a `StateObserver` for any `State` without needing to check whether the state is actually
    // a reactor source or not. This is a bit ugly, but should be working fine.
    private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( reader: StateReader[ S, Repr ],
