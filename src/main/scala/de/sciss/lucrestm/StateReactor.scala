@@ -72,23 +72,23 @@ sealed trait StateReactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ]
 }
 
 object StateObserver {
-   def apply[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]](
-      reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
+   def apply[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr ]( reader: StateReader[ S, Repr ],
+      fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: Repr <:< State[ S, A, Repr ]) : StateObserver[ S, A, Repr ] = {
 
       val key = tx.addStateReaction[ A, Repr ]( reader, fun )
       new Impl[ S, A, Repr ]( key )
    }
 
-   private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]](
-      key: StateReactor.Key[ S ])
+   private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr ](
+      key: StateReactor.Key[ S ])( implicit ev: Repr <:< State[ S, A, Repr ])
    extends StateObserver[ S, A, Repr ] {
       def add( state: Repr )( implicit tx: S#Tx ) {
 //         state.addObserver( this )
-         state.addReactor( key )
+         ev( state ).addReactor( key )
       }
       def remove( state: Repr )( implicit tx: S#Tx ) {
 //         state.removeObserver( this )
-         state.removeReactor( key )
+         ev( state ).removeReactor( key )
       }
 
       def dispose()( implicit tx: S#Tx ) {
@@ -273,7 +273,7 @@ extends StateReactor[ S ] with State[ S, A, Repr ] {
       }
    }
 
-   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: Repr <:< this.type ) : StateObserver[ S, A, Repr ] = {
+   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: Repr <:< State[ S, A, Repr ]) : StateObserver[ S, A, Repr ] = {
       val o = StateObserver( reader, fun )
       o.add( this )
       o

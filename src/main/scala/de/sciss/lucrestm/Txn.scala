@@ -37,8 +37,8 @@ trait Txn[ S <: Sys[ S ]] {
    // that only really `StateNode` is storing observers as children. This makes it possible to
    // create a `StateObserver` for any `State` without needing to check whether the state is actually
    // a reactor source or not. This is a bit ugly, but should be working fine.
-   private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A, Repr ]]( reader: StateReader[ S, Repr ],
-                                                          fun: (S#Tx, A) => Unit ) : StateReactor.Key[ S ]
+   private[lucrestm] def addStateReaction[ A, Repr ]( reader: StateReader[ S, Repr ],
+      fun: (S#Tx, A) => Unit )( implicit ev: Repr <:< State[ S, A, Repr ]) : StateReactor.Key[ S ]
    private[lucrestm] def mapStateTargets( in: DataInput, targets: StateTargets[ S ], keys: IIdxSeq[ Int ]) : StateReactor[ S ]
    private[lucrestm] def propagateState( key: Int, state: State[ S, _, _ ], reactions: State.Reactions ) : State.Reactions
    private[lucrestm] def removeStateReaction( key: StateReactor.Key[ S ]) : Unit
