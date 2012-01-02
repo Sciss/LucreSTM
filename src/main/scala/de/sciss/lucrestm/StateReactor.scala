@@ -236,8 +236,6 @@ sealed trait StateTargets[ S <: Sys[ S ]] extends StateReactor[ S ] {
  */
 /* sealed */ trait StateNode[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateNode[ S, A, Repr ]]
 extends StateReactor[ S ] with State[ S, A, Repr ] {
-   me: Repr =>
-
    protected def reader: StateReader[ S, Repr ]
    protected def sources: StateSources[ S ]
    protected def targets: StateTargets[ S ]
@@ -277,9 +275,12 @@ extends StateReactor[ S ] with State[ S, A, Repr ] {
 
    final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
       val o = StateObserver( reader, fun )
-      o.add( me )
+//      o.add( this: Repr )
+      addObserver( o )
       o
    }
+
+   protected def addObserver( o: StateObserver[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
 
    override def toString = "StateNode" + id
 
