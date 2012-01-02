@@ -186,6 +186,7 @@ object ReactionTest extends App {
          final def observe( fun: (Tx, A) => Unit )( implicit tx: Tx ) : Observer[ A, Ex ] = {
             val o = StateObserver[ Confluent, A, Ex ]( reader, fun )
             o.add( this )
+            fun( tx, value )
             o
          }
       }
@@ -237,6 +238,12 @@ object ReactionTest extends App {
             out.writeString( constValue )
          }
 
+         final def observe( fun: (Tx, String) => Unit )( implicit tx: Tx ) : Observer[ String, StringRef ] = {
+            val o = StateObserver[ Confluent, String, StringRef ]( StateReader.unsupported[ Confluent, StringRef ], fun )
+            fun( tx, value )
+            o
+         }
+
          override def toString = constValue
       }
 
@@ -265,6 +272,13 @@ object ReactionTest extends App {
 
          final protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
             def stateSources( implicit t: Tx ) = IIdxSeq( a, b )
+         }
+
+         final def observe( fun: (Tx, String) => Unit )( implicit tx: Tx ) : Observer[ String, StringRef ] = {
+            val o = StateObserver[ Confluent, String, StringRef ]( StringRef.reader, fun )
+            o.add( this )
+            fun( tx, value )
+            o
          }
       }
 
@@ -322,7 +336,7 @@ object ReactionTest extends App {
          }
    }
 
-   trait StringRef extends Expr[ String ] /* with Writer */ {
+   trait StringRef extends Expr[ String ] with Observable[ String, StringRef ] {
       me: StringRef =>
 
       final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
@@ -343,7 +357,9 @@ object ReactionTest extends App {
          }
 
          final def observe( fun: (Tx, Long) => Unit )( implicit tx: Tx ) : Observer[ Long, LongRef ] = {
-            StateObserver[ Confluent, Long, LongRef ]( StateReader.unsupported[ Confluent, LongRef ], fun )
+            val o = StateObserver[ Confluent, Long, LongRef ]( StateReader.unsupported[ Confluent, LongRef ], fun )
+            fun( tx, value )
+            o
          }
       }
 
@@ -376,6 +392,7 @@ object ReactionTest extends App {
          final def observe( fun: (Tx, Long) => Unit )( implicit tx: Tx ) : Observer[ Long, LongRef ] = {
             val o = StateObserver[ Confluent, Long, LongRef ]( LongRef.reader, fun )
             o.add( this )
+            fun( tx, value )
             o
          }
 
@@ -611,10 +628,9 @@ object ReactionTest extends App {
       }
 
       def connect()( implicit tx: Tx ) {
-// XXX TODO
-//         r.name_#.observe(  v => defer( ggName.setText(  v )))
-//         r.start_#.observe( v => defer( ggStart.setText( v.toString )))
-//         r.stop_#.observe(  v => defer( ggStop.setText(  v.toString )))
+         r.name_#.observe(  (_, v) => defer( ggName.setText(  v )))
+         r.start_#.observe( (_, v) => defer( ggStart.setText( v.toString )))
+         r.stop_#.observe(  (_, v) => defer( ggStop.setText(  v.toString )))
 
          implicit val system = tx.system
 
