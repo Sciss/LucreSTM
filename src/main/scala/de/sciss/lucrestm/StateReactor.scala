@@ -106,7 +106,11 @@ object State {
    type Reactions = IIdxSeq[ Reaction ]
 }
 
-sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A /*, Repr <: State[ S, A, Repr ] */] extends Writer {
+/**
+ * `State` is not sealed in order to allow you define traits inheriting from it, while the concrete
+ * implementations will still most likely extends `StateConstant` or `StateNode`.
+ */
+/* sealed */ trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A /*, Repr <: State[ S, A, Repr ] */] extends Writer {
 //   me: Repr =>
 
    private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit

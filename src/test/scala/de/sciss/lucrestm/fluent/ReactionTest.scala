@@ -221,7 +221,7 @@ object ReactionTest extends App {
       def append( a: StringRef, b: StringRef )( implicit tx: Tx ) : StringRef =
          new StringAppendNew( a, b, tx )
 
-      private sealed trait StringConst extends StringRefOps with ConstExpr[ String ] {
+      private sealed trait StringConst extends StringRef with ConstExpr[ String ] {
          final def write( out: DataOutput ) {
             out.writeUnsignedByte( 0 )
             out.writeString( constValue )
@@ -237,7 +237,7 @@ object ReactionTest extends App {
          protected val constValue: String = in.readString()
       }
 
-      private sealed trait StringBinOp extends StringRefOps with BinaryExpr[ String ] {
+      private sealed trait StringBinOp extends StringRef with BinaryExpr[ String ] {
          protected def opID : Int
 
 //         final protected def reader: StateReader[ Confluent, StringBinOp ] = sys.error( "TODO" )
@@ -305,7 +305,7 @@ object ReactionTest extends App {
                   val targets = StateTargets.read[ Confluent ]( in, access )
                   (cookie: @switch) match {
                      case 1   => new StringAppendRead( targets, in, access, tx )
-                     case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRefOps {
+                     case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRef {
                         override def toString = "String.ref(" + v + ")"
                      }
                   }
@@ -316,13 +316,11 @@ object ReactionTest extends App {
          }
    }
 
-   trait StringRefOps extends Writer {
+   trait StringRef extends Expr[ String ] /* with Writer */ {
       me: StringRef =>
 
       final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
    }
-
-   type StringRef = StringRefOps with Expr[ String ]
 
    object LongRef {
       implicit def apply( n: Long )( implicit tx: Tx ) : LongRef = new LongConstNew( n, tx )
@@ -331,7 +329,7 @@ object ReactionTest extends App {
       def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMinNew(  a, b, tx )
       def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMaxNew(  a, b, tx )
 
-      private sealed trait LongConst extends LongRefOps with ConstExpr[ Long ] {
+      private sealed trait LongConst extends LongRef with ConstExpr[ Long ] {
          final def write( out: DataOutput ) {
             out.writeUnsignedByte( 0 )
             out.writeLong( constValue )
@@ -346,7 +344,7 @@ object ReactionTest extends App {
          protected val constValue: Long = in.readLong()
       }
 
-      private sealed trait LongBinOp extends LongRefOps with BinaryExpr[ Long ] {
+      private sealed trait LongBinOp extends LongRef with BinaryExpr[ Long ] {
          protected def opID: Int
 
          final protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
@@ -430,7 +428,7 @@ object ReactionTest extends App {
                      case 1   => new LongPlusRead( targets, in, access, tx )
                      case 2   => new LongMinRead( targets, in, access, tx )
                      case 3   => new LongMaxRead( targets, in, access, tx )
-                     case 100 => new ExprVar.Read[ Long, LongRef ]( targets, in, tx ) with LongRefOps {
+                     case 100 => new ExprVar.Read[ Long, LongRef ]( targets, in, tx ) with LongRef {
 //                        protected def reader = LongRef.reader
                      }
                   }
@@ -444,14 +442,11 @@ object ReactionTest extends App {
          }
    }
 
-   trait LongRefOps extends Writer {
-      me: Expr[ Long ] =>
+   trait LongRef extends Expr[ Long ] /* with Writer */ {
       final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
       final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
       final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
    }
-
-   type LongRef = LongRefOps with Expr[ Long ]
 
 //   object Region {
 //      def apply( name: StringRef, start: LongRef, stop: LongRef ) : Region = new RegionNew( name, start, stop )
@@ -476,19 +471,19 @@ object ReactionTest extends App {
          val id = tx0.newID()
 
 //         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
-         val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRefOps {
+         val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRef {
             override def toString = region.toString + ".name_#"
          }
          def name( implicit tx: Tx ) : StringRef = name_#.get
          def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
 
 //         private val startRef = tx0.newVar[ LongRef ]( id, start0 )
-         val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRefOps
+         val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef
          def start( implicit tx: Tx ) : LongRef = start_#.get
          def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
 
 //         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
-         val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRefOps
+         val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef
          def stop( implicit tx: Tx ) : LongRef = stop_#.get
          def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
 
