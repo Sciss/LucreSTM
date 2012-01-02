@@ -170,12 +170,8 @@ object ReactionTest extends App {
             set( fun( get ))
          }
 
-         final def writeState( out: DataOutput ) {
-            out.writeUnsignedByte( 2 )
-            write( out )
-         }
-
          final protected def writeData( out: DataOutput ) {
+            out.writeUnsignedByte( 100 )
             v.write( out )
          }
 
@@ -233,8 +229,7 @@ object ReactionTest extends App {
          new StringAppendNew( a, b, tx )
 
       private sealed trait StringConst extends StringRef with ConstExpr[ String ] {
-         final def writeState( out: DataOutput ) {
-            out.writeUnsignedByte( 0 )
+         final protected def writeData( out: DataOutput ) {
             out.writeString( constValue )
          }
 
@@ -250,7 +245,7 @@ object ReactionTest extends App {
       private final class StringConstNew( protected val constValue: String, tx0: Tx )
       extends StringConst
 
-      private final class StringConstRead( in: DataInput, tx0: Tx ) extends StringConst {
+      private final class StringConstRead( in: DataInput ) extends StringConst {
          protected val constValue: String = in.readString()
       }
 
@@ -259,15 +254,10 @@ object ReactionTest extends App {
 
 //         final protected def reader: StateReader[ Confluent, StringBinOp ] = sys.error( "TODO" )
 
-         final def writeState( out: DataOutput ) {
-            out.writeUnsignedByte( 1 )
-            write( out )
-         }
-
          final protected def writeData( out: DataOutput ) {
             out.writeUnsignedByte( opID )
-            a.writeState( out )
-            b.writeState( out )
+            a.write( out )
+            b.write( out )
          }
 
          final protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
@@ -275,7 +265,7 @@ object ReactionTest extends App {
          }
 
          final def observe( fun: (Tx, String) => Unit )( implicit tx: Tx ) : Observer[ String, StringRef ] = {
-            val o = StateObserver[ Confluent, String, StringRef ]( StringRef.reader, fun )
+            val o = StateObserver[ Confluent, String, StringRef ]( StringRef.serializer, fun )
             o.add( this )
             fun( tx, value )
             o
@@ -310,8 +300,10 @@ object ReactionTest extends App {
 //         b.addReactor( reactor )( tx0 )
       }
 
-      val reader : StateReader[ Confluent, StringRef ] =
-         new StateReader[ Confluent, StringRef ] {
+      implicit val serializer : State.Serializer[ Confluent, StringRef ] =
+         new State.Serializer[ Confluent, StringRef ] {
+            def readConstant( in: DataInput )( implicit tx: Tx ) : StringRef = new StringConstRead( in )
+
             def read( in: DataInput, access: Acc, targets: Targets)( implicit tx: Tx ) : StringRef = {
                (in.readUnsignedByte(): @switch) match {
                   case 1   => new StringAppendRead( targets, in, access, tx )
@@ -321,26 +313,13 @@ object ReactionTest extends App {
                }
             }
          }
-
-      implicit val serializer : TxnSerializer[ Tx, Acc, StringRef ] =
-         new TxnSerializer[ Tx, Acc, StringRef ] {
-            def read( in: DataInput, access: Acc )( implicit tx: Tx ) : StringRef = {
-               val cookie = in.readUnsignedByte()
-               if( cookie == 0 ) new StringConstRead( in, tx ) else {
-                  val targets = StateTargets.read[ Confluent ]( in, access )
-                  reader.read( in, access, targets )
-               }
-            }
-
-            def write( v: StringRef, out: DataOutput ) { v.writeState( out )}
-         }
    }
 
    trait StringRef extends Expr[ String ] with Observable[ String, StringRef ] {
       me: StringRef =>
 
       final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
-      final protected def reader: StateReader[ Confluent, StringRef ] = StringRef.reader
+      final protected def reader: StateReader[ Confluent, StringRef ] = StringRef.serializer
    }
 
    object LongRef {
@@ -351,8 +330,7 @@ object ReactionTest extends App {
       def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMaxNew(  a, b, tx )
 
       private sealed trait LongConst extends LongRef with ConstExpr[ Long ] {
-         final def writeState( out: DataOutput ) {
-            out.writeUnsignedByte( 0 )
+         final protected def writeData( out: DataOutput ) {
             out.writeLong( constValue )
          }
 
@@ -366,7 +344,7 @@ object ReactionTest extends App {
       private final class LongConstNew( protected val constValue: Long, tx0: Tx )
       extends LongConst
 
-      private final class LongConstRead( in: DataInput, tx0: Tx )
+      private final class LongConstRead( in: DataInput )
       extends LongConst {
          protected val constValue: Long = in.readLong()
       }
@@ -378,19 +356,14 @@ object ReactionTest extends App {
             def stateSources( implicit tx: Tx ) = IIdxSeq( a, b )
          }
 
-         final def writeState( out: DataOutput ) {
-            out.writeUnsignedByte( 1 )
-            write( out )
-         }
-
          final protected def writeData( out: DataOutput ) {
             out.writeUnsignedByte( opID )
-            a.writeState( out )
-            b.writeState( out )
+            a.write( out )
+            b.write( out )
          }
 
          final def observe( fun: (Tx, Long) => Unit )( implicit tx: Tx ) : Observer[ Long, LongRef ] = {
-            val o = StateObserver[ Confluent, Long, LongRef ]( LongRef.reader, fun )
+            val o = StateObserver[ Confluent, Long, LongRef ]( LongRef.serializer, fun )
             o.add( this )
             fun( tx, value )
             o
@@ -452,33 +425,20 @@ object ReactionTest extends App {
       private final class LongMaxRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOpRead( in, access, tx0 ) with LongMax
 
-      val reader : StateReader[ Confluent, LongRef ] = new StateReader[ Confluent, LongRef ] {
-         def read( in: DataInput, access: Acc, targets: Targets )( implicit tx: Tx ) : LongRef = {
-            val opID    = in.readUnsignedByte()
-            (opID: @switch) match {
-               case 1   => new LongPlusRead( targets, in, access, tx )
-               case 2   => new LongMinRead( targets, in, access, tx )
-               case 3   => new LongMaxRead( targets, in, access, tx )
-               case 100 => new ExprVar.Read[ Long, LongRef ]( targets, in, tx ) with LongRef {
-//                        protected def reader = LongRef.reader
-               }
-            }
-         }
-      }
+      implicit val serializer : State.Serializer[ Confluent, LongRef ] =
+         new State.Serializer[ Confluent, LongRef ] {
+            def readConstant( in: DataInput )( implicit tx: Tx ) : LongRef = new LongConstRead( in )
 
-      implicit val serializer : TxnSerializer[ Tx, Acc, LongRef ] =
-         new TxnSerializer[ Tx, Acc, LongRef ] {
-            def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = {
-               val cookie = in.readUnsignedByte()
-               if( cookie == 0 ) new LongConstRead( in, tx ) else {
-                  val targets = StateTargets.read[ Confluent ]( in, access )
-                  reader.read( in, access, targets )
+            def read( in: DataInput, access: Acc, targets: Targets )( implicit tx: Tx ) : LongRef = {
+               val opID    = in.readUnsignedByte()
+               (opID: @switch) match {
+                  case 1   => new LongPlusRead( targets, in, access, tx )
+                  case 2   => new LongMinRead( targets, in, access, tx )
+                  case 3   => new LongMaxRead( targets, in, access, tx )
+                  case 100 => new ExprVar.Read[ Long, LongRef ]( targets, in, tx ) with LongRef {
+   //                        protected def reader = LongRef.reader
+                  }
                }
-            }
-
-            def write( v: LongRef, out: DataOutput ) {
-//               v.writeCookie( out )
-               v.writeState( out )
             }
          }
    }
@@ -487,7 +447,7 @@ object ReactionTest extends App {
       final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
       final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
       final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
-      final protected def reader: StateReader[ Confluent, LongRef ] = LongRef.reader
+      final protected def reader: StateReader[ Confluent, LongRef ] = LongRef.serializer
    }
 
 //   object Region {

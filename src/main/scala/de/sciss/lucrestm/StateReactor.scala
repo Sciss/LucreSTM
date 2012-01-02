@@ -26,6 +26,7 @@
 package de.sciss.lucrestm
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
+import annotation.switch
 
 object StateReactor {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, StateReactor[ S ]] = new Ser[ S ]
@@ -34,18 +35,21 @@ object StateReactor {
       def write( r: StateReactor[ S ], out: DataOutput ) { r.write( out )}
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : StateReactor[ S ] = {
-         if( in.readUnsignedByte() == 0 ) {
-            val id            = tx.readID( in, access )
-   //         val children   = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
-            val children      = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
-            val targets       = StateTargets[ S ]( id, children )
-            val observerKeys  = children.get.collect {
-               case Key( key ) => key
-            }
-            tx.mapStateTargets( in, access, targets, observerKeys )
-         } else {
-            val key  = in.readInt()
-            new Key[ S ]( key )
+         (in.readUnsignedByte(): @switch) match {
+            case 0 =>
+               val id            = tx.readID( in, access )
+      //         val children   = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
+               val children      = tx.readVar[ IIdxSeq[ StateReactor[ S ]]]( id, in )
+               val targets       = StateTargets[ S ]( id, children )
+               val observerKeys  = children.get.collect {
+                  case Key( key ) => key
+               }
+               tx.mapStateTargets( in, access, targets, observerKeys )
+            case 1 =>
+               val key  = in.readInt()
+               new Key[ S ]( key )
+
+            case cookie => sys.error( "Unexpected cookie " + cookie )
          }
       }
    }
@@ -104,13 +108,36 @@ sealed trait StateObserver[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, -Repr 
 object State {
    type Reaction  = () => () => Unit
    type Reactions = IIdxSeq[ Reaction ]
+
+   /**
+    * A trait to serialize states which can be both constants and nodes.
+    * An implementation mixing in this trait just needs to implement methods
+    * `readConstant` to return the constant instance, and `read` with the
+    * `StateTargets` argument to return the node instance.
+    */
+   trait Serializer[ S <: Sys[ S ], Repr <: State[ S, _ ]]
+   extends StateReader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
+      final def write( v: Repr, out: DataOutput ) { v.write( out )}
+
+      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
+         (in.readUnsignedByte(): @switch) match {
+            case 2 => readConstant( in )
+            case 0 =>
+               val targets = StateTargets.read[ S ]( in, access )
+               read( in, access, targets )
+            case cookie => sys.error( "Unexpected cookie " + cookie )
+         }
+      }
+
+      def readConstant( in: DataInput )( implicit tx: S#Tx ) : Repr
+   }
 }
 
 /**
  * `State` is not sealed in order to allow you define traits inheriting from it, while the concrete
  * implementations will still most likely extends `StateConstant` or `StateNode`.
  */
-/* sealed */ trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A /*, Repr <: State[ S, A, Repr ] */] /* extends Writer */ {
+/* sealed */ trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A /*, Repr <: State[ S, A, Repr ] */] extends Writer {
 //   me: Repr =>
 
    private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
@@ -118,9 +145,11 @@ object State {
 
    def value( implicit tx: S#Tx ) : A
 
-   def writeState( out: DataOutput ) : Unit
+//   def writeState( out: DataOutput ) : Unit
 
 //   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ]
+
+//   private[lucrestm] def cookie: Int
 }
 
 trait ObservableState[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr ] {
@@ -140,6 +169,13 @@ trait StateConstant[ S <: Sys[ S ], A /*, Repr <: State[ S, A, Repr ]*/] extends
 ////      o.add( this )
 //      o
 //   }
+
+   final def write( out: DataOutput ) {
+      out.writeUnsignedByte( 2 )
+      writeData( out )
+   }
+
+   protected def writeData( out: DataOutput ) : Unit
 
    final private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) {}
    final private[lucrestm] def removeReactor(  r: StateReactor[ S ])( implicit tx: S#Tx ) {}
