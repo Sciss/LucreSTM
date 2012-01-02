@@ -106,7 +106,7 @@ object State {
    type Reactions = IIdxSeq[ Reaction ]
 }
 
-sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, -Repr ] extends Writer {
+sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr ] extends Writer {
 //   me: Repr =>
 
    private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
@@ -114,17 +114,17 @@ sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, -Repr ] extend
 
    def value( implicit tx: S#Tx ) : A
 
-   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: this.type <:< Repr ) : StateObserver[ S, A, Repr ]
+   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: Repr <:< this.type ) : StateObserver[ S, A, this.type ]
 }
 
-trait StateConstant[ S <: Sys[ S ], A, -Repr <: StateConstant[ S, A, Repr ]] extends State[ S, A, Repr ] {
+trait StateConstant[ S <: Sys[ S ], A, Repr <: StateConstant[ S, A, Repr ]] extends State[ S, A, Repr ] {
 //   protected def reader: StateReader[ S, Repr ]
 
    protected def constValue : A
 
    final def value( implicit tx: S#Tx ) : A = constValue
 
-   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: this.type <:< Repr ) : StateObserver[ S, A, Repr ] = {
+   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: Repr <:< this.type ) : StateObserver[ S, A, Repr ] = {
       val o = StateObserver( StateReader.unsupported[ S, Repr ], fun )
       // this is a no-op anyways:
 //      o.add( this )
@@ -273,7 +273,7 @@ extends StateReactor[ S ] with State[ S, A, Repr ] {
       }
    }
 
-   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: this.type <:< Repr ) : StateObserver[ S, A, Repr ] = {
+   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: Repr <:< this.type ) : StateObserver[ S, A, Repr ] = {
       val o = StateObserver( reader, fun )
       o.add( this )
       o
