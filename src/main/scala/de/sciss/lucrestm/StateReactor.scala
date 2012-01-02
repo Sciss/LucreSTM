@@ -55,9 +55,9 @@ object StateReactor {
    }
 
    final case class Key[ S <: Sys[ S ]] private[lucrestm] ( key: Int ) extends StateReactor[ S ] {
-      private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = reactions
-      private[lucrestm] def propagateState( state: State[ S, _ /*, _ */], reactions: State.Reactions )
-                                          ( implicit tx: S#Tx ) : State.Reactions =
+//      private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = reactions
+      private[lucrestm] def propagate( state: State[ S, _ /*, _ */], reactions: State.Reactions )
+                                     ( implicit tx: S#Tx ) : State.Reactions =
          tx.propagateState( key, state, reactions )
 
       def dispose()( implicit tx: S#Tx ) {}
@@ -70,9 +70,9 @@ object StateReactor {
 }
 
 sealed trait StateReactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
-   private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions
-   private[lucrestm] def propagateState( state: State[ S, _ /*, _ */], reactions: State.Reactions )
-                                       ( implicit tx: S#Tx ) : State.Reactions
+//   private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions
+   private[lucrestm] def propagate( state: State[ S, _ /*, _ */], reactions: State.Reactions )
+                                  ( implicit tx: S#Tx ) : State.Reactions
 }
 
 object StateObserver {
@@ -233,13 +233,13 @@ object StateTargets {
    extends StateTargets[ S ] {
       override def toString = "StateTargets" + id
 
-      private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = {
-         children.get.foldLeft( reactions )( (rs, r) => r.propagate( rs ))
-      }
+//      private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = {
+//         children.get.foldLeft( reactions )( (rs, r) => r.propagate( rs ))
+//      }
 
-      private[lucrestm] def propagateState( state: State[ S, _ /*, _ */], reactions: State.Reactions )
+      private[lucrestm] def propagate( state: State[ S, _ /*, _ */], reactions: State.Reactions )
                                           ( implicit tx: S#Tx ) : State.Reactions = {
-         children.get.foldLeft( reactions )( (rs, r) => r.propagateState( state, rs ))
+         children.get.foldLeft( reactions )( (rs, r) => r.propagate( state, rs ))
       }
 
       private[lucrestm] def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean = {
@@ -297,12 +297,12 @@ extends StateReactor[ S ] with State[ S, A /*, Repr */] {
 
    final def id: S#ID = targets.id
 
-   final private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions =
-      targets.propagateState( this, reactions )
+//   final private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions =
+//      targets.propagateState( this, reactions )
 
-   final private[lucrestm] def propagateState( parent: State[ S, _ /*, _ */], reactions: State.Reactions )
+   final private[lucrestm] def propagate( parent: State[ S, _ /*, _ */], reactions: State.Reactions )
                                              ( implicit tx: S#Tx ) : State.Reactions =
-      targets.propagateState( this, reactions ) // parent state not important
+      targets.propagate( this, reactions ) // parent state not important
 
    final def write( out: DataOutput ) {
       targets.write( out )

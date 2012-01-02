@@ -88,7 +88,7 @@ object ReactionTest extends App {
                   v.set( ex )
                   if( conn ) {
                      ex.addReactor( this )
-                     val r = targets.propagateState( this, IIdxSeq.empty )
+                     val r = targets.propagate( this, IIdxSeq.empty )
                      r.map( _.apply() ).foreach( _.apply() )
                   }
                }
