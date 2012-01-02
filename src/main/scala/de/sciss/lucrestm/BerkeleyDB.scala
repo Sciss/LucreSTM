@@ -32,7 +32,6 @@ import java.io.{FileNotFoundException, File, IOException}
 import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus}
 import annotation.elidable
 import elidable.CONFIG
-import de.sciss.lucrestm.BerkeleyDB.CachedIntVar
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object BerkeleyDB {
