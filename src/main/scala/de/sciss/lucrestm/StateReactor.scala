@@ -110,13 +110,15 @@ object State {
  * `State` is not sealed in order to allow you define traits inheriting from it, while the concrete
  * implementations will still most likely extends `StateConstant` or `StateNode`.
  */
-/* sealed */ trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A /*, Repr <: State[ S, A, Repr ] */] extends Writer {
+/* sealed */ trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A /*, Repr <: State[ S, A, Repr ] */] /* extends Writer */ {
 //   me: Repr =>
 
    private[lucrestm] def addReactor(     r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
    private[lucrestm] def removeReactor(  r: StateReactor[ S ])( implicit tx: S#Tx ) : Unit
 
    def value( implicit tx: S#Tx ) : A
+
+   def writeState( out: DataOutput ) : Unit
 
 //   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ]
 }
@@ -249,8 +251,8 @@ extends StateReactor[ S ] with State[ S, A /*, Repr */] {
 //   protected def reader: StateReader[ S, Repr ]
    protected def sources: StateSources[ S ]
    protected def targets: StateTargets[ S ]
-//   protected def writeData( out: DataOutput ) : Unit
-//   protected def disposeData()( implicit tx: S#Tx ) : Unit
+   protected def writeData( out: DataOutput ) : Unit
+   protected def disposeData()( implicit tx: S#Tx ) : Unit
 
    final def id: S#ID = targets.id
 
@@ -261,15 +263,15 @@ extends StateReactor[ S ] with State[ S, A /*, Repr */] {
                                              ( implicit tx: S#Tx ) : State.Reactions =
       targets.propagateState( this, reactions ) // parent state not important
 
-//   final def write( out: DataOutput ) {
-//      targets.write( out )
-//      writeData( out )
-//   }
-//
-//   final def dispose()( implicit tx: S#Tx ) {
-//      targets.dispose()
-//      disposeData()
-//   }
+   final def write( out: DataOutput ) {
+      targets.write( out )
+      writeData( out )
+   }
+
+   final def dispose()( implicit tx: S#Tx ) {
+      targets.dispose()
+      disposeData()
+   }
 
    final private[lucrestm] def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
       if( targets.addReactor( r )) {
