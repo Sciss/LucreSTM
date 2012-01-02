@@ -121,6 +121,10 @@ object State {
 //   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ]
 }
 
+trait ObservableState[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr ] {
+   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ]
+}
+
 trait StateConstant[ S <: Sys[ S ], A /*, Repr <: State[ S, A, Repr ]*/] extends State[ S, A /*, Repr */] {
 //   protected def reader: StateReader[ S, Repr ]
 
@@ -245,8 +249,8 @@ extends StateReactor[ S ] with State[ S, A /*, Repr */] {
 //   protected def reader: StateReader[ S, Repr ]
    protected def sources: StateSources[ S ]
    protected def targets: StateTargets[ S ]
-   protected def writeData( out: DataOutput ) : Unit
-   protected def disposeData()( implicit tx: S#Tx ) : Unit
+//   protected def writeData( out: DataOutput ) : Unit
+//   protected def disposeData()( implicit tx: S#Tx ) : Unit
 
    final def id: S#ID = targets.id
 
@@ -257,15 +261,15 @@ extends StateReactor[ S ] with State[ S, A /*, Repr */] {
                                              ( implicit tx: S#Tx ) : State.Reactions =
       targets.propagateState( this, reactions ) // parent state not important
 
-   final def write( out: DataOutput ) {
-      targets.write( out )
-      writeData( out )
-   }
-
-   final def dispose()( implicit tx: S#Tx ) {
-      targets.dispose()
-      disposeData()
-   }
+//   final def write( out: DataOutput ) {
+//      targets.write( out )
+//      writeData( out )
+//   }
+//
+//   final def dispose()( implicit tx: S#Tx ) {
+//      targets.dispose()
+//      disposeData()
+//   }
 
    final private[lucrestm] def addReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) {
       if( targets.addReactor( r )) {

@@ -110,6 +110,8 @@ object ReactionTest extends App {
 ////      protected def reactor: StateNode[ Confluent ]
 //   }
 
+   type Observer[ A, Repr ] = StateObserver[ Confluent, A, Repr ]
+   type Observable[ A, Repr ] = ObservableState[ Confluent, A, Repr ]
    type Expr[ A ] = State[ Confluent, A ]
    type ConstExpr[ A ] = StateConstant[ Confluent, A ]
    type MutableExpr[ A ] = StateNode[ Confluent, A ]
@@ -128,9 +130,10 @@ object ReactionTest extends App {
 
       final def value( implicit tx: Tx ) : A = op( a.value, b.value )
 
-      final protected def disposeData()( implicit tx: Tx ) {
-         a.removeReactor( this )
-         b.removeReactor( this )
+      final def dispose()( implicit tx: Tx ) {
+         targets.dispose()
+//         a.removeReactor( this )
+//         b.removeReactor( this )
 //         reactor.dispose()
       }
    }
@@ -167,16 +170,19 @@ object ReactionTest extends App {
             set( fun( get ))
          }
 
-         final protected def writeData( out: DataOutput ) {
-            out.writeUnsignedByte( 100 )
-//            id.write( out )
+         final def write( out: DataOutput ) {
+            out.writeUnsignedByte( 2 )
+            targets.write( out )
             v.write( out )
-//            reactor.write( out )
          }
 
-         final protected def disposeData()( implicit tx: Tx ) {
+         final def dispose()( implicit tx: Tx ) {
+            targets.dispose()
             v.dispose()
-//            reactor.dispose()
+         }
+
+         final def observe( fun: (Tx, A) => Unit )( implicit tx: Tx ) : Observer[ A, Ex ] = {
+            sys.error( "TODO" )
          }
       }
 
@@ -242,7 +248,9 @@ object ReactionTest extends App {
 
 //         final protected def reader: StateReader[ Confluent, StringBinOp ] = sys.error( "TODO" )
 
-         final protected def writeData( out: DataOutput ) {
+         final def write( out: DataOutput ) {
+            out.writeUnsignedByte( 1 )
+            targets.write( out )
             out.writeUnsignedByte( opID )
             a.write( out )
             b.write( out )
@@ -334,6 +342,10 @@ object ReactionTest extends App {
             out.writeUnsignedByte( 0 )
             out.writeLong( constValue )
          }
+
+         final def observe( fun: (Tx, Long) => Unit )( implicit tx: Tx ) : Observer[ Long, LongRef ] = {
+            StateObserver[ Confluent, Long, LongRef ]( StateReader.unsupported[ Confluent, LongRef ], fun )
+         }
       }
 
       private final class LongConstNew( protected val constValue: Long, tx0: Tx )
@@ -351,11 +363,18 @@ object ReactionTest extends App {
             def stateSources( implicit tx: Tx ) = IIdxSeq( a, b )
          }
 
-         final protected def writeData( out: DataOutput ) {
+         final def write( out: DataOutput ) {
+            out.writeUnsignedByte( 0 )
+            targets.write( out )
             out.writeUnsignedByte( opID )
             a.write( out )
             b.write( out )
-//            reactor.write( out )
+         }
+
+         final def observe( fun: (Tx, Long) => Unit )( implicit tx: Tx ) : Observer[ Long, LongRef ] = {
+            val o = StateObserver[ Confluent, Long, LongRef ]( LongRef.reader, fun )
+            o.add( this )
+            o
          }
 
 //         final protected def connect()( implicit tx: Tx ) {
@@ -414,9 +433,9 @@ object ReactionTest extends App {
       private final class LongMaxRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
       extends LongBinOpRead( in, access, tx0 ) with LongMax
 
-//      val reader : StateReader[ Confluent, LongRef ] = new StateReader[ Confluent, LongRef ] {
-//         def read( in: DataInput, access: Acc )( implicit tx: Tx ) : LongRef = sys.error( "TODO" )
-//      }
+      val reader : StateReader[ Confluent, LongRef ] = new StateReader[ Confluent, LongRef ] {
+         def read( in: DataInput, targets: Targets )( implicit tx: Tx ) : LongRef = sys.error( "TODO" )
+      }
 
       implicit val longRefSerializer : TxnSerializer[ Tx, Acc, LongRef ] =
          new TxnSerializer[ Tx, Acc, LongRef ] {
@@ -442,7 +461,7 @@ object ReactionTest extends App {
          }
    }
 
-   trait LongRef extends Expr[ Long ] /* with Writer */ {
+   trait LongRef extends Expr[ Long ] with Observable[ Long, LongRef ] {
       final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
       final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
       final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
