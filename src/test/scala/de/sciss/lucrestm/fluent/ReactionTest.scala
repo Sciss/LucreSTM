@@ -28,37 +28,32 @@ package fluent
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
-import java.awt.event.{ActionListener, ActionEvent}
 import javax.swing.{JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import java.awt.{Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 import java.io.File
+import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 
 object ReactionTest extends App {
    defer( args.headOption match {
       case Some( "--test2" )     => test2()
-      case Some( "--confluent" ) => test1( Confluent() )
+      case Some( "--confluent" ) => test1( Confluent() )()
       case Some( "--database" )  =>
          val file = new File( new File( new File( sys.props( "user.home" ), "Desktop" ), "reaction" ), "data" )
          val db   = BerkeleyDB.open( file )
-         try {
-            test1( db )
-         }
-         finally {
-            db.close()
-         }
-      case _                     => test1( InMemory() )
+         test1( db )( db.close() )
+      case _  => test1( InMemory() )()
    })
 
    class System[ S <: Sys[ S ]] {
       type Tx  = S#Tx
       type Acc = S#Acc
 
-      type Observer[ A, Repr ] = StateObserver[ S, A, Repr ]
+      type Observer[ A, Repr ]   = StateObserver[ S, A, Repr ]
       type Observable[ A, Repr ] = ObservableState[ S, A, Repr ]
-      type Expr[ A ] = State[ S, A ]
-      type ConstExpr[ A ] = StateConstant[ S, A ]
-      type MutableExpr[ A ] = StateNode[ S, A ]
-      type Targets = StateTargets[ S ]
+      type Expr[ A ]             = State[ S, A ]
+      type ConstExpr[ A ]        = StateConstant[ S, A ]
+      type MutableExpr[ A ]      = StateNode[ S, A ]
+      type Targets               = StateTargets[ S ]
 
    //   type AnyExpr[ A ] = Expr[ A, Repr <: Expr[ A, Repr ]] forSome { type Repr }
 
@@ -148,8 +143,6 @@ object ReactionTest extends App {
             protected val sources : StateSources[ S ] = new StateSources[ S ] {
                def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
             }
-   //         protected val reactor   = StateNode[ S ]( sources )( tx0 )
-   //         init.addReactor( reactor )( tx0 )
          }
 
          abstract class Read[ A, Ex <: Expr[ A ]]( protected val targets: Targets, in: DataInput, tx0: Tx )(
@@ -157,19 +150,13 @@ object ReactionTest extends App {
          extends Impl[ A, Ex ] {
             me: Ex =>
 
-   //         val id                  = tx0.readID( in, access )
-            protected val v         = tx0.readVar[ Ex ]( id, in )
+            protected val v = tx0.readVar[ Ex ]( id, in )
             protected val sources : StateSources[ S ] = new StateSources[ S ] {
                def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
             }
-   //         protected val reactor   = StateNode.read[ S ]( sources, in, access )( tx0 )
-   //         init.addReactor( reactor )
          }
       }
-      trait ExprVar[ A, Ex <: /* Mutable */ Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with StateNode[ S, A ] {
-         me: Ex =>
-   //      final def get( implicit tx: Tx ) : A = get.get
-      }
+      trait ExprVar[ A, Ex <: /* Mutable */ Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with StateNode[ S, A ]
 
       object StringRef {
          implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -265,8 +252,6 @@ object ReactionTest extends App {
       }
 
       trait StringRef extends Expr[ String ] with Observable[ String, StringRef ] {
-         me: StringRef =>
-
          final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
          final protected def reader: StateReader[ S, StringRef ] = StringRef.serializer
       }
@@ -537,9 +522,9 @@ object ReactionTest extends App {
          }
 
          def connect()( implicit tx: Tx ) {
-            r.name_#.observe(  (_, v) => defer( ggName.setText(  v )))
-            r.start_#.observe( (_, v) => defer( ggStart.setText( v.toString )))
-            r.stop_#.observe(  (_, v) => defer( ggStop.setText(  v.toString )))
+//            r.name_#.observe(  (_, v) => defer( ggName.setText(  v )))
+//            r.start_#.observe( (_, v) => defer( ggStart.setText( v.toString )))
+//            r.stop_#.observe(  (_, v) => defer( ggStop.setText(  v.toString )))
 
             implicit val system = tx.system
 
@@ -566,7 +551,7 @@ object ReactionTest extends App {
 
    def defer( thunk: => Unit ) { EventQueue.invokeLater( new Runnable { def run() { thunk }})}
 
-   def test1[ S <: Sys[ S ]]( system: S ) {
+   def test1[ S <: Sys[ S ]]( system: S )( cleanUp: => Unit ) {
       val infra = new System[ S ]
       import infra._
 
@@ -595,9 +580,20 @@ object ReactionTest extends App {
 
       f.setResizable( false )
       f.pack()
-      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
+      f.setDefaultCloseOperation( WindowConstants.DO_NOTHING_ON_CLOSE )
       f.setLocationRelativeTo( null )
       f.setVisible( true )
+
+      f.addWindowListener( new WindowAdapter {
+         override def windowClosing( e: WindowEvent ) {
+            f.dispose()
+            try {
+               cleanUp
+            } finally {
+               sys.exit( 0 )
+            }
+         }
+      })
    }
 
    class TrackView extends JComponent {
