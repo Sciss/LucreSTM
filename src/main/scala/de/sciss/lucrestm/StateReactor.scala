@@ -231,6 +231,8 @@ object StateTargets {
    private final class Impl[ S <: Sys[ S ]](
       private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ StateReactor[ S ]]])
    extends StateTargets[ S ] {
+      override def toString = "StateTargets" + id
+
       private[lucrestm] def propagate( reactions: State.Reactions )( implicit tx: S#Tx ) : State.Reactions = {
          children.get.foldLeft( reactions )( (rs, r) => r.propagate( rs ))
       }

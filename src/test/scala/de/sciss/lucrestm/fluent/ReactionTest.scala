@@ -55,13 +55,7 @@ object ReactionTest extends App {
       type MutableExpr[ A ]      = StateNode[ S, A ]
       type Targets               = StateTargets[ S ]
 
-   //   type AnyExpr[ A ] = Expr[ A, Repr <: Expr[ A, Repr ]] forSome { type Repr }
-
       trait BinaryExpr[ A ] extends MutableExpr[ A ] {
-   //      me: Repr =>
-
-   //      protected def a: Expr[ A, _ <: Expr[ A, _ ]]
-   //      protected def b: Expr[ A, _ <: Expr[ A, _ ]]
          protected def a: Expr[ A ]
          protected def b: Expr[ A ]
          protected def op( a: A, b: A ) : A
@@ -69,25 +63,16 @@ object ReactionTest extends App {
          final def value( implicit tx: Tx ) : A = op( a.value, b.value )
 
          final protected def disposeData()( implicit tx: Tx ) {
-   //         targets.dispose()
-   //         a.removeReactor( this )
-   //         b.removeReactor( this )
-   //         reactor.dispose()
          }
       }
 
       object ExprVar {
-   //      def apply[ A, Ex <: Expr[ A ]]( init: Ex )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, Ex ]) : ExprVar[ Ex ] =
-   //         new ExprVarNew[ A, Ex ]( init, tx )
-
          sealed trait Impl[ A, Ex <: Expr[ A ]] extends ExprVar[ A, Ex ] {
             me: Ex =>
 
             protected def reader: StateReader[ S, Ex ]
             protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
-   //         protected def id: S#ID
             protected def v: S#Var[ Ex ]
-   //         protected def reactor: StateNode[ S ]
 
             final def value( implicit tx: Tx ) : A = get.value
 
@@ -221,9 +206,6 @@ object ReactionTest extends App {
                                               protected val b: StringRef with Expr[ String ], tx0: Tx )
          extends StringBinOp with StringAppend {
             protected val targets = StateTargets[ S ]( tx0 )
-   //         protected val reactor = StateNode[ S ]( sources )( tx0 )
-   //         a.addReactor( reactor )( tx0 )
-   //         b.addReactor( reactor )( tx0 )
          }
 
          private final class StringAppendRead( protected val targets: Targets, in: DataInput,
@@ -231,9 +213,6 @@ object ReactionTest extends App {
          extends StringBinOp with StringAppend {
             protected val a         = serializer.read( in, access )( tx0 )
             protected val b         = serializer.read( in, access )( tx0 )
-   //         protected val reactor   = StateNode.read[ S ]( sources, in, access )( tx0 )
-   //         a.addReactor( reactor )( tx0 )
-   //         b.addReactor( reactor )( tx0 )
          }
 
          implicit val serializer : State.Serializer[ S, StringRef ] =
@@ -302,28 +281,16 @@ object ReactionTest extends App {
                fun( tx, value )
                o
             }
-
-   //         final protected def connect()( implicit tx: Tx ) {
-   //            a.addReactor( reactor )
-   //            b.addReactor( reactor )
-   //         }
-   //
-   //         final protected def disconnect()( implicit tx: Tx ) {
-   //            a.removeReactor( reactor )
-   //            b.removeReactor( reactor )
-   //         }
          }
 
          private abstract class LongBinOpNew( tx0: Tx ) extends LongBinOp {
             protected val targets = StateTargets[ S ]( tx0 )
-   //         final protected val reactor = StateNode[ S ]( sources )( tx0 )
          }
 
          private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
          extends LongBinOp {
             final protected val a         = serializer.read( in, access )( tx0 )
             final protected val b         = serializer.read( in, access )( tx0 )
-   //         final protected val reactor   = StateNode.read[ S ]( sources, in, access )( tx0 )
          }
 
          private sealed trait LongPlus {
@@ -369,9 +336,7 @@ object ReactionTest extends App {
                      case 1   => new LongPlusRead( targets, in, access, tx )
                      case 2   => new LongMinRead( targets, in, access, tx )
                      case 3   => new LongMaxRead( targets, in, access, tx )
-                     case 100 => new ExprVar.Read[ Long, LongRef ]( targets, in, tx ) with LongRef {
-      //                        protected def reader = LongRef.reader
-                     }
+                     case 100 => new ExprVar.Read[ Long, LongRef ]( targets, in, tx ) with LongRef
                   }
                }
             }
@@ -401,24 +366,18 @@ object ReactionTest extends App {
          extends Region {
             region =>
 
-   //         import StringRef.serializer
-   //         import LongRef.serializer
-
             val id = tx0.newID()
 
-   //         private val nameRef = tx0.newVar[ StringRef ]( id, name0 )
             val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRef {
                override def toString = region.toString + ".name_#"
             }
             def name( implicit tx: Tx ) : StringRef = name_#.get
             def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
 
-   //         private val startRef = tx0.newVar[ LongRef ]( id, start0 )
             val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef
             def start( implicit tx: Tx ) : LongRef = start_#.get
             def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
 
-   //         private val stopRef = tx0.newVar[ LongRef ]( id, stop0 )
             val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef
             def stop( implicit tx: Tx ) : LongRef = stop_#.get
             def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
@@ -522,7 +481,7 @@ object ReactionTest extends App {
          }
 
          def connect()( implicit tx: Tx ) {
-//            r.name_#.observe(  (_, v) => defer( ggName.setText(  v )))
+            r.name_#.observe(  (_, v) => defer( ggName.setText(  v )))
 //            r.start_#.observe( (_, v) => defer( ggStart.setText( v.toString )))
 //            r.stop_#.observe(  (_, v) => defer( ggStop.setText(  v.toString )))
 
@@ -530,7 +489,10 @@ object ReactionTest extends App {
 
             ggName.addActionListener( new ActionListener {
                def actionPerformed( e: ActionEvent ) {
-                  stringToModel( ggName.getText, (tx, s) => { implicit val _tx = tx; r.name = s })
+                  stringToModel( ggName.getText, (tx, s) => {
+                     implicit val _tx = tx
+                     r.name = s
+                  })
                }
             })
 
