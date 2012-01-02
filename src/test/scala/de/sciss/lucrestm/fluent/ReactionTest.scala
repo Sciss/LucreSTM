@@ -538,84 +538,85 @@ object ReactionTest extends App {
 ////      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
 //   }
 
-//   final class RegionView( r: Region, id: String ) extends JPanel {
-//      private val lay = new GroupLayout( this )
-//      lay.setAutoCreateContainerGaps( true )
-//      setLayout( lay )
-//      setBorder( BorderFactory.createTitledBorder( BorderFactory.createEtchedBorder(), id ))
-//
-//      private val lbName   = new JLabel( "Name:", SwingConstants.RIGHT )
-//      private val lbStart  = new JLabel( "Start:", SwingConstants.RIGHT )
-//      private val lbStop   = new JLabel( "Stop:", SwingConstants.RIGHT )
-//
-//      private val ggName   = new JTextField( 12 )
-//      private val ggStart  = new JTextField( 8 )
-//      private val ggStop   = new JTextField( 8 )
-//
-//      lay.setHorizontalGroup( lay.createSequentialGroup()
-//         .addGroup( lay.createParallelGroup()
-//            .addComponent( lbName )
-//            .addComponent( lbStart )
-//            .addComponent( lbStop )
-//         )
-//         .addGroup( lay.createParallelGroup()
-//            .addComponent( ggName )
-//            .addComponent( ggStart )
-//            .addComponent( ggStop )
-//         )
-//      )
-//
-//      lay.setVerticalGroup( lay.createSequentialGroup()
-//         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
-//            .addComponent( lbName )
-//            .addComponent( ggName )
-//         )
-//         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
-//            .addComponent( lbStart )
-//            .addComponent( ggStart )
-//         )
-//         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
-//            .addComponent( lbStop )
-//            .addComponent( ggStop )
-//         )
-//      )
-//
-//      private def stringToModel( s: String, model: (Tx, String) => Unit )( implicit system: Confluent ) {
-//         system.atomic { implicit tx =>
-//            model( tx, s )
-//         }
-//      }
-//
-//      private def longToModel( n: Long, model: (Tx, Long) => Unit )( implicit system: Confluent ) {
-//         system.atomic { implicit tx => model( tx, n )}
-//      }
-//
-//      def connect()( implicit tx: Tx ) {
+   final class RegionView( r: Region, id: String ) extends JPanel {
+      private val lay = new GroupLayout( this )
+      lay.setAutoCreateContainerGaps( true )
+      setLayout( lay )
+      setBorder( BorderFactory.createTitledBorder( BorderFactory.createEtchedBorder(), id ))
+
+      private val lbName   = new JLabel( "Name:", SwingConstants.RIGHT )
+      private val lbStart  = new JLabel( "Start:", SwingConstants.RIGHT )
+      private val lbStop   = new JLabel( "Stop:", SwingConstants.RIGHT )
+
+      private val ggName   = new JTextField( 12 )
+      private val ggStart  = new JTextField( 8 )
+      private val ggStop   = new JTextField( 8 )
+
+      lay.setHorizontalGroup( lay.createSequentialGroup()
+         .addGroup( lay.createParallelGroup()
+            .addComponent( lbName )
+            .addComponent( lbStart )
+            .addComponent( lbStop )
+         )
+         .addGroup( lay.createParallelGroup()
+            .addComponent( ggName )
+            .addComponent( ggStart )
+            .addComponent( ggStop )
+         )
+      )
+
+      lay.setVerticalGroup( lay.createSequentialGroup()
+         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
+            .addComponent( lbName )
+            .addComponent( ggName )
+         )
+         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
+            .addComponent( lbStart )
+            .addComponent( ggStart )
+         )
+         .addGroup( lay.createParallelGroup( GroupLayout.Alignment.BASELINE )
+            .addComponent( lbStop )
+            .addComponent( ggStop )
+         )
+      )
+
+      private def stringToModel( s: String, model: (Tx, String) => Unit )( implicit system: Confluent ) {
+         system.atomic { implicit tx =>
+            model( tx, s )
+         }
+      }
+
+      private def longToModel( n: Long, model: (Tx, Long) => Unit )( implicit system: Confluent ) {
+         system.atomic { implicit tx => model( tx, n )}
+      }
+
+      def connect()( implicit tx: Tx ) {
+// XXX TODO
 //         r.name_#.observe(  v => defer( ggName.setText(  v )))
 //         r.start_#.observe( v => defer( ggStart.setText( v.toString )))
 //         r.stop_#.observe(  v => defer( ggStop.setText(  v.toString )))
-//
-//         implicit val system = tx.system
-//
-//         ggName.addActionListener( new ActionListener {
-//            def actionPerformed( e: ActionEvent ) {
-//               stringToModel( ggName.getText, (tx, s) => { implicit val _tx = tx; r.name = s })
-//            }
-//         })
-//
-//         ggStart.addActionListener( new ActionListener {
-//            def actionPerformed( e: ActionEvent ) {
-//               longToModel( ggStart.getText.toLong, (tx, n) => { implicit val _tx = tx; r.start = n })
-//            }
-//         })
-//
-//         ggStop.addActionListener( new ActionListener {
-//            def actionPerformed( e: ActionEvent ) {
-//               longToModel( ggStop.getText.toLong, (tx, n) => { implicit val _tx = tx; r.stop = n })
-//            }
-//         })
-//      }
-//   }
+
+         implicit val system = tx.system
+
+         ggName.addActionListener( new ActionListener {
+            def actionPerformed( e: ActionEvent ) {
+               stringToModel( ggName.getText, (tx, s) => { implicit val _tx = tx; r.name = StringRef( s )})
+            }
+         })
+
+         ggStart.addActionListener( new ActionListener {
+            def actionPerformed( e: ActionEvent ) {
+               longToModel( ggStart.getText.toLong, (tx, n) => { implicit val _tx = tx; r.start = LongRef( n )})
+            }
+         })
+
+         ggStop.addActionListener( new ActionListener {
+            def actionPerformed( e: ActionEvent ) {
+               longToModel( ggStop.getText.toLong, (tx, n) => { implicit val _tx = tx; r.stop = LongRef( n )})
+            }
+         })
+      }
+   }
 
    def defer( thunk: => Unit ) { EventQueue.invokeLater( new Runnable { def run() { thunk }})}
 
