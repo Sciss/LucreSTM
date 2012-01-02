@@ -117,14 +117,14 @@ sealed trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[
    def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ]
 }
 
-trait StateConstant[ S <: Sys[ S ], A, Repr <: StateConstant[ S, A, Repr ]] extends State[ S, A, Repr ] {
+trait StateConstant[ S <: Sys[ S ], A, Repr <: State[ S, A, Repr ]] extends State[ S, A, Repr ] {
 //   protected def reader: StateReader[ S, Repr ]
 
    protected def constValue : A
 
    final def value( implicit tx: S#Tx ) : A = constValue
 
-   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx, ev: Repr <:< this.type ) : StateObserver[ S, A, Repr ] = {
+   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
       val o = StateObserver( StateReader.unsupported[ S, Repr ], fun )
       // this is a no-op anyways:
 //      o.add( this )
@@ -234,8 +234,10 @@ sealed trait StateTargets[ S <: Sys[ S ]] extends StateReactor[ S ] {
  * A `StateNode` is most similar to EScala's `EventNode` class. It represents an observable
  * object and can also act as an observer itself.
  */
-/* sealed */ trait StateNode[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: StateNode[ S, A, Repr ]]
+/* sealed */ trait StateNode[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A, Repr ]]
 extends StateReactor[ S ] with State[ S, A, Repr ] {
+   me: Repr =>
+
    protected def reader: StateReader[ S, Repr ]
    protected def sources: StateSources[ S ]
    protected def targets: StateTargets[ S ]
@@ -275,12 +277,9 @@ extends StateReactor[ S ] with State[ S, A, Repr ] {
 
    final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : StateObserver[ S, A, Repr ] = {
       val o = StateObserver( reader, fun )
-//      o.add( this: Repr )
-      addObserver( o )
+      o.add( this )
       o
    }
-
-   protected def addObserver( o: StateObserver[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
 
    override def toString = "StateNode" + id
 

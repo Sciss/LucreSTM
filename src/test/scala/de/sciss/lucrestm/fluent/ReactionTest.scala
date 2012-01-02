@@ -111,16 +111,19 @@ object ReactionTest extends App {
 //   }
 
    type Expr[ A, Repr <: Expr[ A, Repr ]] = State[ Confluent, A, Repr ]
-   type ConstExpr[ A, Repr <: ConstExpr[ A, Repr ]] = StateConstant[ Confluent, A, Repr ]
-   type MutableExpr[ A, Repr <: MutableExpr[ A, Repr ]] = StateNode[ Confluent, A, Repr ]
+   type ConstExpr[ A, Repr <: /* Const */ Expr[ A, Repr ]] = StateConstant[ Confluent, A, Repr ]
+   type MutableExpr[ A, Repr <: /* Mutable */ Expr[ A, Repr ]] = StateNode[ Confluent, A, Repr ]
+   type Targets = StateTargets[ Confluent ]
 
 //   type AnyExpr[ A ] = Expr[ A, Repr <: Expr[ A, Repr ]] forSome { type Repr }
 
    trait BinaryExpr[ A, Repr <: BinaryExpr[ A, Repr ]] extends MutableExpr[ A, Repr ] {
 //      me: Repr =>
 
-      protected def a: Expr[ A, _ <: Expr[ A, _ ]]
-      protected def b: Expr[ A, _ <: Expr[ A, _ ]]
+//      protected def a: Expr[ A, _ <: Expr[ A, _ ]]
+//      protected def b: Expr[ A, _ <: Expr[ A, _ ]]
+      protected def a: Expr[ A, _ ]
+      protected def b: Expr[ A, _ ]
       protected def op( a: A, b: A ) : A
 
       final def value( implicit tx: Tx ) : A = op( a.value, b.value )
@@ -136,7 +139,9 @@ object ReactionTest extends App {
 //      def apply[ A, Ex <: Expr[ A ]]( init: Ex )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, Ex ]) : ExprVar[ Ex ] =
 //         new ExprVarNew[ A, Ex ]( init, tx )
 
-      sealed trait Impl[ A, Ex <: MutableExpr[ A, Ex ]] extends ExprVar[ A, Ex ] {
+      sealed trait Impl[ A, Ex <: Expr[ A, Ex ]] extends ExprVar[ A, Ex ] {
+         me: Ex =>
+
          protected def reader: StateReader[ Confluent, Ex ]
          protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
 //         protected def id: Confluent#ID
@@ -180,6 +185,8 @@ object ReactionTest extends App {
       abstract class New[ A, Ex <: MutableExpr[ A, Ex ]]( init: Ex, tx0: Tx )(
          implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
       extends Impl[ A, Ex ] {
+         me: Ex =>
+
          protected val targets   = StateTargets[ Confluent ]( tx0 )
          protected val v         = tx0.newVar[ Ex ]( id, init )
          protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
@@ -189,9 +196,11 @@ object ReactionTest extends App {
 //         init.addReactor( reactor )( tx0 )
       }
 
-      abstract class Read[ A, Ex <: Expr[ A, Ex ]]( protected val targets: StateTargets[ Confluent ], in: DataInput, tx0: Tx )(
+      abstract class Read[ A, Ex <: Expr[ A, Ex ]]( protected val targets: Targets, in: DataInput, tx0: Tx )(
          implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
       extends Impl[ A, Ex ] {
+         me: Ex =>
+
 //         val id                  = tx0.readID( in, access )
          protected val v         = tx0.readVar[ Ex ]( id, in )
          protected val sources : StateSources[ Confluent ] = new StateSources[ Confluent ] {
@@ -201,7 +210,8 @@ object ReactionTest extends App {
 //         init.addReactor( reactor )
       }
    }
-   trait ExprVar[ A, Ex <: MutableExpr[ A, Ex ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with StateNode[ Confluent, A, Ex ] {
+   trait ExprVar[ A, Ex <: /* Mutable */ Expr[ A, Ex ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with StateNode[ Confluent, A, Ex ] {
+      me: Ex =>
 //      final def get( implicit tx: Tx ) : A = get.get
    }
 
@@ -211,7 +221,7 @@ object ReactionTest extends App {
       def append( a: StringRef, b: StringRef )( implicit tx: Tx ) : StringRef =
          new StringAppendNew( a, b, tx )
 
-      private sealed trait StringConst extends StringRef with ConstExpr[ String, StringConst ] {
+      private sealed trait StringConst extends StringRefOps with ConstExpr[ String, StringConst ] {
          final def write( out: DataOutput ) {
             out.writeUnsignedByte( 0 )
             out.writeString( constValue )
@@ -227,7 +237,7 @@ object ReactionTest extends App {
          protected val constValue: String = in.readString()
       }
 
-      private sealed trait StringBinOp extends StringRef with BinaryExpr[ String, StringBinOp ] {
+      private sealed trait StringBinOp extends StringRefOps with BinaryExpr[ String, StringBinOp ] {
          protected def opID : Int
 
          final protected def reader: StateReader[ Confluent, StringBinOp ] = sys.error( "TODO" )
@@ -253,14 +263,16 @@ object ReactionTest extends App {
          override def toString = "String.append(" + a + ", " + b + ")"
       }
 
-      private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
+      private final class StringAppendNew( protected val a: StringRef with Expr[ String, _ ],
+                                           protected val b: StringRef with Expr[ String, _ ], tx0: Tx )
       extends StringBinOp with StringAppend {
+         protected val targets = StateTargets[ Confluent ]( tx0 )
 //         protected val reactor = StateNode[ Confluent ]( sources )( tx0 )
 //         a.addReactor( reactor )( tx0 )
 //         b.addReactor( reactor )( tx0 )
       }
 
-      private final class StringAppendRead( protected val targets: StateTargets[ Confluent ], in: DataInput,
+      private final class StringAppendRead( protected val targets: Targets, in: DataInput,
                                             access: Acc, tx0: Tx )
       extends StringBinOp with StringAppend {
          protected val a         = ser.read( in, access )( tx0 )
@@ -272,7 +284,7 @@ object ReactionTest extends App {
 
 //      val reader : StateReader[ Confluent, StringRef ] =
 //         new StateReader[ Confluent, StringRef ] {
-//            def read( in: DataInput, targets: StateTargets[ Confluent ])( implicit tx: Tx ) : StringRef = {
+//            def read( in: DataInput, targets: Targets)( implicit tx: Tx ) : StringRef = {
 //               (in.readUnsignedByte(): @switch) match {
 //                  case 0   => new StringConstRead( in, tx )
 //                  case 1   => new StringAppendRead( in, access, tx )
@@ -293,7 +305,7 @@ object ReactionTest extends App {
                   val targets = StateTargets.read[ Confluent ]( in, access )
                   (cookie: @switch) match {
                      case 1   => new StringAppendRead( targets, in, access, tx )
-                     case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRef {
+                     case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRefOps {
                         override def toString = "String.ref(" + v + ")"
                      }
                   }
@@ -304,11 +316,13 @@ object ReactionTest extends App {
          }
    }
 
-   trait StringRef extends Writer {
-      me: Expr[ String, _ <: StringRef ] =>
+   trait StringRefOps extends Writer {
+      me: StringRef =>
 
       final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
    }
+
+   type StringRef = StringRefOps with Expr[ String, _ <: Expr[ String, _ ]]
 
 //   object LongRef {
 //      implicit def apply( n: Long )( implicit tx: Tx ) : LongRef = new LongConstNew( n, tx )
@@ -386,19 +400,19 @@ object ReactionTest extends App {
 //      private final class LongPlusNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
 //      extends LongBinOpNew( tx0 ) with LongPlus
 //
-//      private final class LongPlusRead( protected val targets: StateTargets[ Confluent ], in: DataInput, access: Acc, tx0: Tx )
+//      private final class LongPlusRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
 //      extends LongBinOpRead( in, access, tx0 ) with LongPlus
 //
 //      private final class LongMinNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
 //      extends LongBinOpNew( tx0 ) with LongMin
 //
-//      private final class LongMinRead( protected val targets: StateTargets[ Confluent ], in: DataInput, access: Acc, tx0: Tx )
+//      private final class LongMinRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
 //      extends LongBinOpRead( in, access, tx0 ) with LongMin
 //
 //      private final class LongMaxNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
 //      extends LongBinOpNew( tx0 ) with LongMax
 //
-//      private final class LongMaxRead( protected val targets: StateTargets[ Confluent ], in: DataInput, access: Acc, tx0: Tx )
+//      private final class LongMaxRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
 //      extends LongBinOpRead( in, access, tx0 ) with LongMax
 //
 //      val reader : StateReader[ Confluent, LongRef ] = new StateReader[ Confluent, LongRef ] {
