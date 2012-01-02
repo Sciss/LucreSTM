@@ -99,8 +99,11 @@ object BerkeleyDB {
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
       private val idCntVar    = new CachedIntVar( 0, idCnt )
       private val reactCntVar = new CachedIntVar( 1, idCnt )
+      private val inMem       = InMemory()
 
-      def reactionMap: ReactionMap[ S ] = sys.error( "TODO" )
+      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.atomic { implicit tx =>
+         tx.newIntVar( tx.newID(), 0 )
+      })( ctx => inMem.wrap( ctx.peer ))
 
       def root[ A ]( init: => A )( implicit tx: Txn, ser: Serializer[ A ]) : A = {
          val rootID = 1
