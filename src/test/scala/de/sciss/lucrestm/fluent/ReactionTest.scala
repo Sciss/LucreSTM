@@ -73,6 +73,9 @@ object ReactionTest extends App {
             protected def reader: StateReader[ S, Ex ]
             protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
             protected def v: S#Var[ Ex ]
+            protected final def sources : StateSources[ S ] = new StateSources[ S ] {
+               def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
+            }
 
             final def value( implicit tx: Tx ) : A = get.value
 
@@ -125,9 +128,6 @@ object ReactionTest extends App {
 
             protected val targets   = StateTargets[ S ]( tx0 )
             protected val v         = tx0.newVar[ Ex ]( id, init )
-            protected val sources : StateSources[ S ] = new StateSources[ S ] {
-               def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
-            }
          }
 
          abstract class Read[ A, Ex <: Expr[ A ]]( protected val targets: Targets, in: DataInput, tx0: Tx )(
@@ -136,9 +136,6 @@ object ReactionTest extends App {
             me: Ex =>
 
             protected val v = tx0.readVar[ Ex ]( id, in )
-            protected val sources : StateSources[ S ] = new StateSources[ S ] {
-               def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
-            }
          }
       }
       trait ExprVar[ A, Ex <: /* Mutable */ Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with StateNode[ S, A ]
@@ -202,8 +199,7 @@ object ReactionTest extends App {
             override def toString = "String.append(" + a + ", " + b + ")"
          }
 
-         private final class StringAppendNew( protected val a: StringRef with Expr[ String ],
-                                              protected val b: StringRef with Expr[ String ], tx0: Tx )
+         private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
          extends StringBinOp with StringAppend {
             protected val targets = StateTargets[ S ]( tx0 )
          }
@@ -482,8 +478,8 @@ object ReactionTest extends App {
 
          def connect()( implicit tx: Tx ) {
             r.name_#.observe(  (_, v) => defer( ggName.setText(  v )))
-//            r.start_#.observe( (_, v) => defer( ggStart.setText( v.toString )))
-//            r.stop_#.observe(  (_, v) => defer( ggStop.setText(  v.toString )))
+            r.start_#.observe( (_, v) => defer( ggStart.setText( v.toString )))
+            r.stop_#.observe(  (_, v) => defer( ggStop.setText(  v.toString )))
 
             implicit val system = tx.system
 

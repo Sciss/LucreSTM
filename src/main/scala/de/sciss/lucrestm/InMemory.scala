@@ -194,7 +194,7 @@ object InMemory {
    private final class System extends InMemory {
       def manifest: Manifest[ S ] = Manifest.classType( classOf[ InMemory ])
 
-      def reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
+      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
 
       def atomic[ Z ]( block: Tx => Z ) : Z = {
          TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))

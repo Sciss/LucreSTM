@@ -86,12 +86,13 @@ object StateObserver {
    private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A /*, Repr */]](
       key: StateReactor.Key[ S ])
    extends StateObserver[ S, A, Repr ] {
+      override def toString = "StateObserver<" + key.key + ">"
+
       def add( state: Repr )( implicit tx: S#Tx ) {
-//         state.addObserver( this )
          state.addReactor( key )
       }
+
       def remove( state: Repr )( implicit tx: S#Tx ) {
-//         state.removeObserver( this )
          state.removeReactor( key )
       }
 
