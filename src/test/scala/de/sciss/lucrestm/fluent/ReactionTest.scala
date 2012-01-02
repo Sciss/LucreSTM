@@ -158,10 +158,16 @@ object ReactionTest extends App {
          final def set( ex: Ex )( implicit tx: Tx ) {
             val old = get
             if( old.value != ex.value ) {
-//               old.removeReactor( reactor )
+               val conn = targets.isConnected
+               if( conn ) {
+                  old.removeReactor( this )
+               }
                v.set( ex )
-//               ex.addReactor( reactor )
-//               reactor.propagate()
+               if( conn ) {
+                  ex.addReactor( this )
+                  val r = targets.propagateState( this, IIdxSeq.empty )
+                  r.map( _.apply() ).foreach( _.apply() )
+               }
             }
          }
 

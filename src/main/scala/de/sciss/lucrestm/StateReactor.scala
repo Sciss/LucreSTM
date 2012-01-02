@@ -262,8 +262,10 @@ object StateTargets {
          children.write( out )
       }
 
+      private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
+
       def dispose()( implicit tx: S#Tx ) {
-         require( children.get.isEmpty, "Disposing a state reactor which is still being observed" )
+         require( !isConnected, "Disposing a state reactor which is still being observed" )
          id.dispose()
          children.dispose()
       }
@@ -274,6 +276,7 @@ sealed trait StateTargets[ S <: Sys[ S ]] extends StateReactor[ S ] {
    private[lucrestm] def id: S#ID
    private[lucrestm] def addReactor(    r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
    private[lucrestm] def removeReactor( r: StateReactor[ S ])( implicit tx: S#Tx ) : Boolean
+   private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
 }
 
 /**
