@@ -29,9 +29,9 @@ package fluent
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
 import javax.swing.{JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
-import java.awt.{Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 import java.io.File
 import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
+import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 
 object ReactionTest extends App {
    defer( args.headOption match {
@@ -534,7 +534,7 @@ object ReactionTest extends App {
          vs.foreach( _.connect() )
       }
 
-      vs.foreach( cp.add( _ ))
+      vs.foreach( cp.add )
 
       f.setResizable( false )
       f.pack()
@@ -570,14 +570,14 @@ object ReactionTest extends App {
    }
 
    def test2() {
-//      val f    = new JFrame( "Reaction Test 2" )
-//      val cp   = f.getContentPane
-//      val tr   = new TrackView
-//      cp.add( tr, BorderLayout.CENTER )
-//      f.setResizable( false )
-//      f.pack()
-//      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
-//      f.setLocationRelativeTo( null )
-//      f.setVisible( true )
+      val f    = new JFrame( "Reaction Test 2" )
+      val cp   = f.getContentPane
+      val tr   = new TrackView
+      cp.add( tr, BorderLayout.CENTER )
+      f.setResizable( false )
+      f.pack()
+      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
+      f.setLocationRelativeTo( null )
+      f.setVisible( true )
    }
 }
