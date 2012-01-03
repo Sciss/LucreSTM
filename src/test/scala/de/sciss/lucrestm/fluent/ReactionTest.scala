@@ -519,11 +519,11 @@ object ReactionTest extends App {
       cp.setLayout( new GridLayout( 3, 1 ))
       val rs = system.atomic { implicit tx =>
          val _r1   = Region( "eins", 0L, 10000L )
-//         val _r2   = Region( "zwei", 5000L, 12000L )
-//         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
-//                             _r1.start_#.min( _r2.start_# ).+( -100L ),
-//                             _r1.stop_#.max( _r2.stop_# ).+( 100L ))
-         Seq( _r1 ) // , _r2, _r3 )
+         val _r2   = Region( "zwei", 5000L, 12000L )
+         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
+                             _r1.start_#.min( _r2.start_# ).+( -100L ),
+                             _r1.stop_#.max( _r2.stop_# ).+( 100L ))
+         Seq( _r1, _r2, _r3 )
       }
 
       val vs = rs.zipWithIndex.map {

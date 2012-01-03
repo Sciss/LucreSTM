@@ -395,6 +395,7 @@ object BerkeleyDB {
       def setInit( v: Int )( implicit tx: Txn ) { set( v )}
 
       def set( v: Int )( implicit tx: Txn ) {
+         peer.set( v )( tx.peer )
          tx.system.write( id )( _.writeInt( v ))
       }
 
