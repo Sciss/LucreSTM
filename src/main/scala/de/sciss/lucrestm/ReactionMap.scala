@@ -2,7 +2,7 @@
  *  ReactionMap.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -38,19 +38,19 @@ object ReactionMap {
 //   private final case class Observation[ Txn, A ]( reader: A, fun: (Txn, A) => Unit )
 
    private final case class Observation[ S <: Sys[ S ], A, Repr <: State[ S, A /*, Repr */]](
-      reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
+      reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
       private val stateMap = TMap.empty[ Int, Observation[ S, _, _ <: State[ S, _ /*, _*/]]]
 //      private val eventMap = TMap.empty[ Int, S#Tx => Unit ]
 
-      def mapStateTargets( in: DataInput, access: S#Acc, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
-                  ( implicit tx: S#Tx ) : StateReactor[ S ] = {
+      def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], observerKeys: IIdxSeq[ Int ])
+                  ( implicit tx: S#Tx ) : State.Reactor[ S ] = {
          val itx = tx.peer
          val observations = observerKeys.flatMap( stateMap.get( _ )( itx ))
          observations.headOption match {
-            case Some( obs ) => obs.reader.read( in, access, targets ).asInstanceOf[ StateReactor[ S ]] // ugly XXX
+            case Some( obs ) => obs.reader.read( in, access, targets ).asInstanceOf[ State.Reactor[ S ]] // ugly XXX
             case None => targets
          }
       }
@@ -70,29 +70,29 @@ object ReactionMap {
          }
       }
 
-      def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]]( /* source: Repr, */ reader: StateReader[ S, Repr ],
+      def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]]( /* source: Repr, */ reader: State.Reader[ S, Repr ],
                                                      fun: (S#Tx, A) => Unit )
-                                                   ( implicit tx: S#Tx ) : StateReactor.Key[ S ] = {
+                                                   ( implicit tx: S#Tx ) : State.ReactorKey[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
          stateMap.+=( (key, new Observation[ S, A, Repr ]( reader, fun )) )( tx.peer )
-         new StateReactor.Key[ S ]( key )
+         new State.ReactorKey[ S ]( key )
       }
 
-      def removeStateReaction( key: StateReactor.Key[ S ])( implicit tx: S#Tx ) {
+      def removeStateReaction( key: State.ReactorKey[ S ])( implicit tx: S#Tx ) {
          stateMap.-=( key.key )( tx.peer )
       }
    }
 }
 trait ReactionMap[ S <: Sys[ S ]] {
-   def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]]( /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (S#Tx, A) => Unit )
-                                                ( implicit tx: S#Tx ) : StateReactor.Key[ S ]
+   def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]]( /* source: Repr, */ reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
+                                                ( implicit tx: S#Tx ) : State.ReactorKey[ S ]
 
-   def removeStateReaction( key: StateReactor.Key[ S ])( implicit tx: S#Tx ) : Unit
+   def removeStateReaction( key: State.ReactorKey[ S ])( implicit tx: S#Tx ) : Unit
 
-   def mapStateTargets( in: DataInput, access: S#Acc, targets: StateTargets[ S ], observerKeys: IIdxSeq[ Int ])
-               ( implicit tx: S#Tx ) : StateReactor[ S ]
+   def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], observerKeys: IIdxSeq[ Int ])
+               ( implicit tx: S#Tx ) : State.Reactor[ S ]
 
    def propagateState( key: Int, state: State[ S, _ /*, _ */], reactions: State.Reactions )
                      ( implicit tx: S#Tx ) : State.Reactions

@@ -48,12 +48,12 @@ object ReactionTest extends App {
       type Tx  = S#Tx
       type Acc = S#Acc
 
-      type Observer[ A, Repr ]   = StateObserver[ S, A, Repr ]
-      type Observable[ A, Repr ] = ObservableState[ S, A, Repr ]
+      type Observer[ A, Repr ]   = State.Observer[ S, A, Repr ]
+      type Observable[ A, Repr ] = State.Observable[ S, A, Repr ]
       type Expr[ A ]             = State[ S, A ]
-      type ConstExpr[ A ]        = StateConstant[ S, A ]
-      type MutableExpr[ A ]      = StateNode[ S, A ]
-      type Targets               = StateTargets[ S ]
+      type ConstExpr[ A ]        = State.Constant[ S, A ]
+      type MutableExpr[ A ]      = State.Node[ S, A ]
+      type Targets               = State.Targets[ S ]
 
       trait BinaryExpr[ A ] extends MutableExpr[ A ] {
          protected def a: Expr[ A ]
@@ -70,12 +70,10 @@ object ReactionTest extends App {
          sealed trait Impl[ A, Ex <: Expr[ A ]] extends ExprVar[ A, Ex ] {
             me: Ex =>
 
-            protected def reader: StateReader[ S, Ex ]
+            protected def reader: State.Reader[ S, Ex ]
             protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
             protected def v: S#Var[ Ex ]
-            protected final def sources : StateSources[ S ] = new StateSources[ S ] {
-               def stateSources( implicit tx: Tx ) = IIdxSeq( v.get )
-            }
+            protected final def stateSources( implicit tx: Tx ) : State.Sources[ S ] = State.noSources[ S ]
 
             final def value( implicit tx: Tx ) : A = get.value
 
@@ -112,7 +110,7 @@ object ReactionTest extends App {
             }
 
             final def observe( fun: (Tx, A) => Unit )( implicit tx: Tx ) : Observer[ A, Ex ] = {
-               val o = StateObserver[ S, A, Ex ]( reader, fun )
+               val o = State.Observer[ S, A, Ex ]( reader, fun )
                o.add( this )
                fun( tx, value )
                o
@@ -126,7 +124,7 @@ object ReactionTest extends App {
          extends Impl[ A, Ex ] {
             me: Ex =>
 
-            protected val targets   = StateTargets[ S ]( tx0 )
+            protected val targets   = State.Targets[ S ]( tx0 )
             protected val v         = tx0.newVar[ Ex ]( id, init )
          }
 
@@ -138,7 +136,7 @@ object ReactionTest extends App {
             protected val v = tx0.readVar[ Ex ]( id, in )
          }
       }
-      trait ExprVar[ A, Ex <: /* Mutable */ Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with StateNode[ S, A ]
+      trait ExprVar[ A, Ex <: /* Mutable */ Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with State.Node[ S, A ]
 
       object StringRef {
          implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -152,7 +150,7 @@ object ReactionTest extends App {
             }
 
             final def observe( fun: (Tx, String) => Unit )( implicit tx: Tx ) : Observer[ String, StringRef ] = {
-               val o = StateObserver[ S, String, StringRef ]( StateReader.unsupported[ S, StringRef ], fun )
+               val o = State.Observer[ S, String, StringRef ]( State.Reader.unsupported[ S, StringRef ], fun )
                fun( tx, value )
                o
             }
@@ -170,7 +168,7 @@ object ReactionTest extends App {
          private sealed trait StringBinOp extends StringRef with BinaryExpr[ String ] {
             protected def opID : Int
 
-   //         final protected def reader: StateReader[ S, StringBinOp ] = sys.error( "TODO" )
+   //         final protected def reader: State.Reader[ S, StringBinOp ] = sys.error( "TODO" )
 
             final protected def writeData( out: DataOutput ) {
                out.writeUnsignedByte( opID )
@@ -178,12 +176,10 @@ object ReactionTest extends App {
                b.write( out )
             }
 
-            final protected val sources : StateSources[ S ] = new StateSources[ S ] {
-               def stateSources( implicit t: Tx ) = IIdxSeq( a, b )
-            }
+            final protected def stateSources( implicit t: Tx ) : State.Sources[ S ] = IIdxSeq( a, b )
 
             final def observe( fun: (Tx, String) => Unit )( implicit tx: Tx ) : Observer[ String, StringRef ] = {
-               val o = StateObserver[ S, String, StringRef ]( StringRef.serializer, fun )
+               val o = State.Observer[ S, String, StringRef ]( StringRef.serializer, fun )
                o.add( this )
                fun( tx, value )
                o
@@ -201,7 +197,7 @@ object ReactionTest extends App {
 
          private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
          extends StringBinOp with StringAppend {
-            protected val targets = StateTargets[ S ]( tx0 )
+            protected val targets = State.Targets[ S ]( tx0 )
          }
 
          private final class StringAppendRead( protected val targets: Targets, in: DataInput,
@@ -228,7 +224,7 @@ object ReactionTest extends App {
 
       trait StringRef extends Expr[ String ] with Observable[ String, StringRef ] {
          final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
-         final protected def reader: StateReader[ S, StringRef ] = StringRef.serializer
+         final protected def reader: State.Reader[ S, StringRef ] = StringRef.serializer
       }
 
       object LongRef {
@@ -244,7 +240,7 @@ object ReactionTest extends App {
             }
 
             final def observe( fun: (Tx, Long) => Unit )( implicit tx: Tx ) : Observer[ Long, LongRef ] = {
-               val o = StateObserver[ S, Long, LongRef ]( StateReader.unsupported[ S, LongRef ], fun )
+               val o = State.Observer[ S, Long, LongRef ]( State.Reader.unsupported[ S, LongRef ], fun )
                fun( tx, value )
                o
             }
@@ -261,9 +257,7 @@ object ReactionTest extends App {
          private sealed trait LongBinOp extends LongRef with BinaryExpr[ Long ] {
             protected def opID: Int
 
-            final protected val sources : StateSources[ S ] = new StateSources[ S ] {
-               def stateSources( implicit tx: Tx ) = IIdxSeq( a, b )
-            }
+            final protected def stateSources( implicit tx: Tx ) : State.Sources[ S ] = IIdxSeq( a, b )
 
             final protected def writeData( out: DataOutput ) {
                out.writeUnsignedByte( opID )
@@ -272,7 +266,7 @@ object ReactionTest extends App {
             }
 
             final def observe( fun: (Tx, Long) => Unit )( implicit tx: Tx ) : Observer[ Long, LongRef ] = {
-               val o = StateObserver[ S, Long, LongRef ]( LongRef.serializer, fun )
+               val o = State.Observer[ S, Long, LongRef ]( LongRef.serializer, fun )
                o.add( this )
                fun( tx, value )
                o
@@ -280,13 +274,13 @@ object ReactionTest extends App {
          }
 
          private abstract class LongBinOpNew( tx0: Tx ) extends LongBinOp {
-            protected val targets = StateTargets[ S ]( tx0 )
+            protected val targets = State.Targets[ S ]( tx0 )
          }
 
          private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
          extends LongBinOp {
-            final protected val a         = serializer.read( in, access )( tx0 )
-            final protected val b         = serializer.read( in, access )( tx0 )
+            final protected val a   = serializer.read( in, access )( tx0 )
+            final protected val b   = serializer.read( in, access )( tx0 )
          }
 
          private sealed trait LongPlus {
@@ -342,7 +336,7 @@ object ReactionTest extends App {
          final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
          final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
          final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
-         final protected def reader: StateReader[ S, LongRef ] = LongRef.serializer
+         final protected def reader: State.Reader[ S, LongRef ] = LongRef.serializer
       }
 
    //   object Region {

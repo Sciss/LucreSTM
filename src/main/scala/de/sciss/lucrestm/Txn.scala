@@ -2,7 +2,7 @@
  *  Txn.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -37,19 +37,11 @@ trait Txn[ S <: Sys[ S ]] {
    // that only really `StateNode` is storing observers as children. This makes it possible to
    // create a `StateObserver` for any `State` without needing to check whether the state is actually
    // a reactor source or not. This is a bit ugly, but should be working fine.
-   private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]]( reader: StateReader[ S, Repr ],
-                                                          fun: (S#Tx, A) => Unit ) : StateReactor.Key[ S ]
-   private[lucrestm] def mapStateTargets( in: DataInput, access: S#Acc, targets: StateTargets[ S ], keys: IIdxSeq[ Int ]) : StateReactor[ S ]
-   private[lucrestm] def propagateState( key: Int, state: State[ S, _ /*, _ */], reactions: State.Reactions ) : State.Reactions
-   private[lucrestm] def removeStateReaction( key: StateReactor.Key[ S ]) : Unit
-
-//   def addStateReaction[ A ]( reader: A, fun: (S#Tx, A) => Unit ) : StateReactorLeaf[ S ]
-
-//   def addEventReaction( fun: S#Tx => Unit ) : EventReactorLeaf[ S ]
-//   private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) : Unit
-//   private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) : Unit
-//   private[lucrestm] def removeEventReaction( leaf: EventReactorLeaf[ S ]) : Unit
-//   private[lucrestm] def invokeEventReaction( leaf: EventReactorLeaf[ S ], key: Int ) : Unit
+   private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]]( reader: State.Reader[ S, Repr ],
+                                                          fun: (S#Tx, A) => Unit ) : State.ReactorKey[ S ]
+   private[lucrestm] def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], keys: IIdxSeq[ Int ]) : State.Reactor[ S ]
+   private[lucrestm] def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions
+   private[lucrestm] def removeStateReaction( key: State.ReactorKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]

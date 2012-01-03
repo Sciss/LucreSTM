@@ -2,7 +2,7 @@
  *  InMemory.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -115,18 +115,18 @@ object InMemory {
 
 //      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ S ] = system.reactionMap.addState( fun )( this )
       private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]](
-         /* source: Repr, */ reader: StateReader[ S, Repr ], fun: (Txn, A) => Unit ) : StateReactor.Key[ S ] =
+         /* source: Repr, */ reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
             system.reactionMap.addStateReaction( /* source, */ reader, fun )( this )
 
-      private[lucrestm] def mapStateTargets( in: DataInput, access: S#Acc, targets: StateTargets[ S ],
-                                               keys: IIdxSeq[ Int ]) : StateReactor[ S ] =
+      private[lucrestm] def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
+                                               keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
          system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
 
       private[lucrestm] def propagateState( key: Int, state: State[ S, _ /*, _ */],
                                             reactions: State.Reactions ) : State.Reactions =
          system.reactionMap.propagateState( key, state, reactions )( this )
 
-      private[lucrestm] def removeStateReaction( key: StateReactor.Key[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
+      private[lucrestm] def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
 //      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.removeState( leaf )( this )}
 //      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.invokeState( leaf )( this )}

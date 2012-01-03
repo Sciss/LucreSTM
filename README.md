@@ -4,7 +4,7 @@
 
 LucreSTM is a thin wrapper around Scala-STM, providing both a pure in-memory STM and a database backed persistent STM, using the same API. It also adds a reactive observer system, loosely inspired by EScala.
 
-LucreSTM is (C)opyright 2011 by Hanns Holger Rutz. All rights reserved. It is released under the [GNU General Public License](https://raw.github.com/Sciss/LucreSTM/master/licenses/LucreSTM-License.txt) and comes with absolutely no warranties. To contact the author, send an email to `contact at sciss.de`
+LucreSTM is (C)opyright 2011&ndash;2012 by Hanns Holger Rutz. All rights reserved. It is released under the [GNU General Public License](https://raw.github.com/Sciss/LucreSTM/master/licenses/LucreSTM-License.txt) and comes with absolutely no warranties. To contact the author, send an email to `contact at sciss.de`
 
 Further reading:
 
