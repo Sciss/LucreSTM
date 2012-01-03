@@ -185,11 +185,11 @@ object State {
      private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
   }
 
-   type Sources[ S <: Sys[ S ]] = IIdxSeq[ State[ S, _ /*, _ */]]
+   type Sources[ S <: Sys[ S ]] = IIdxSeq[ State[ S, _ ]]
 
    def noSources[ S <: Sys[ S ]] : Sources[ S ] = IIdxSeq.empty
 
-   trait Constant[ S <: Sys[ S ], A /*, Repr <: State[ S, A, Repr ]*/] extends State[ S, A /*, Repr */] {
+   trait Constant[ S <: Sys[ S ], A ] extends State[ S, A ] {
       protected def constValue : A
 
       final def value( implicit tx: S#Tx ) : A = constValue
@@ -258,6 +258,8 @@ object State {
       implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] = new Ser[ S ]
 
       private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
+         override def toString = "State.Reactor.Serializer"
+
          def write( r: Reactor[ S ], out: DataOutput ) { r.write( out )}
 
          def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
@@ -282,14 +284,12 @@ object State {
    }
 
    sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
-   //   private[lucrestm] def propagate( reactions: Reactions )( implicit tx: S#Tx ) : Reactions
-      private[lucrestm] def propagate( state: State[ S, _ /*, _ */], reactions: Reactions )
+      private[lucrestm] def propagate( state: State[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
    }
 
    final case class ReactorKey[ S <: Sys[ S ]] private[lucrestm] ( key: Int ) extends Reactor[ S ] {
-//      private[lucrestm] def propagate( reactions: Reactions )( implicit tx: S#Tx ) : Reactions = reactions
-      private[lucrestm] def propagate( state: State[ S, _ /*, _ */], reactions: Reactions )
+      private[lucrestm] def propagate( state: State[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions =
          tx.propagateState( key, state, reactions )
 
@@ -306,9 +306,7 @@ object State {
  * `State` is not sealed in order to allow you define traits inheriting from it, while the concrete
  * implementations will still most likely extends `StateConstant` or `StateNode`.
  */
-/* sealed */ trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A /*, Repr <: State[ S, A, Repr ] */] extends Writer {
-//   me: Repr =>
-
+trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A ] extends Writer {
    private[lucrestm] def addReactor(     r: State.Reactor[ S ])( implicit tx: S#Tx ) : Unit
    private[lucrestm] def removeReactor(  r: State.Reactor[ S ])( implicit tx: S#Tx ) : Unit
 

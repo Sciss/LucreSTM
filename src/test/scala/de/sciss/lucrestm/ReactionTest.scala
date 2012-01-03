@@ -24,7 +24,6 @@
  */
 
 package de.sciss.lucrestm
-package fluent
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
@@ -36,7 +35,7 @@ import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayou
 object ReactionTest extends App {
    defer( args.headOption match {
       case Some( "--test2" )     => test2()
-      case Some( "--confluent" ) => test1( Confluent() )()
+      case Some( "--confluent" ) => test1( fluent.Confluent() )()
       case Some( "--database" )  =>
          val file = new File( new File( new File( sys.props( "user.home" ), "Desktop" ), "reaction" ), "data" )
          val db   = BerkeleyDB.open( file )
@@ -73,7 +72,7 @@ object ReactionTest extends App {
             protected def reader: State.Reader[ S, Ex ]
             protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
             protected def v: S#Var[ Ex ]
-            protected final def stateSources( implicit tx: Tx ) : State.Sources[ S ] = State.noSources[ S ]
+            protected final def stateSources( implicit tx: Tx ) : State.Sources[ S ] = IIdxSeq( v.get )
 
             final def value( implicit tx: Tx ) : A = get.value
 
