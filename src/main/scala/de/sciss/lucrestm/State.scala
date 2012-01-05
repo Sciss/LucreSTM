@@ -267,7 +267,7 @@ object State {
    }
 
    sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
-      private[lucrestm] def propagate( state: State[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( parent: State[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
    }
 

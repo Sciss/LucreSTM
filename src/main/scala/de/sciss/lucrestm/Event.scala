@@ -127,9 +127,9 @@ object Event {
      extends Targets[ S ] {
         override def toString = "EventTargets" + id
 
-        private[lucrestm] def propagate( event: Event[ S, _ ], reactions: Reactions )
+        private[lucrestm] def propagate( source: Posted[ S ], parent: Event[ S, _ ], reactions: Reactions )
                                        ( implicit tx: S#Tx ) : Reactions = {
-           children.get.foldLeft( reactions )( (rs, r) => r.propagate( event, rs ))
+           children.get.foldLeft( reactions )( (rs, r) => r.propagate( source, parent, rs ))
         }
 
         private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
@@ -187,9 +187,9 @@ object Event {
 
       final def id: S#ID = targets.id
 
-      final private[lucrestm] def propagate( parent: Event[ S, _ ], reactions: Reactions )
-                                                ( implicit tx: S#Tx ) : Reactions =
-         targets.propagate( this, reactions ) // parent event not important
+      final private[lucrestm] def propagate( source: Posted[ S ], parent: Event[ S, _ ], reactions: Reactions )
+                                           ( implicit tx: S#Tx ) : Reactions =
+         targets.propagate( source, this, reactions ) // parent event not important
 
       final def write( out: DataOutput ) {
          targets.write( out )
@@ -253,17 +253,17 @@ object Event {
       }
    }
 
-   final case class Posted( source: AnyRef, key: Int )
+   final case class Posted[ S <: Sys[ S ]] private[lucrestm] ( source: Event[ S, _ ], key: Int )
 
    sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
-      private[lucrestm] def propagate( event: Event[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( source: Posted[ S ], parent: Event[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
    }
 
    final case class ReactorKey[ S <: Sys[ S ]] private[lucrestm] ( key: Int ) extends Reactor[ S ] {
-      private[lucrestm] def propagate( event: Event[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( source: Posted[ S ], parent: Event[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions = {
-//         tx.propagateEvent( key, event, reactions )
+//         tx.propagateEvent( key, parent, reactions )
          sys.error( "TODO" )
       }
 
