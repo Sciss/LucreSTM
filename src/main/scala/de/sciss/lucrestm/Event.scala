@@ -1,5 +1,5 @@
 /*
- *  State.scala
+ *  Event.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -28,17 +28,17 @@ package de.sciss.lucrestm
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
 
-object State {
+object Event {
    type Reaction  = () => () => Unit
    type Reactions = IIdxSeq[ Reaction ]
 
    /**
-    * A trait to serialize states which can be both constants and nodes.
+    * A trait to serialize events which can be both constants and nodes.
     * An implementation mixing in this trait just needs to implement methods
     * `readConstant` to return the constant instance, and `read` with the
-    * `StateTargets` argument to return the node instance.
+    * `EventTargets` argument to return the node instance.
     */
-   trait Serializer[ S <: Sys[ S ], Repr <: State[ S, _ ]]
+   trait Serializer[ S <: Sys[ S ], Repr <: Event[ S, _ ]]
    extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
       final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -61,34 +61,36 @@ object State {
    }
 
    object Observer {
-      def apply[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A ]](
+      def apply[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: Event[ S, A ]](
          reader: Reader[ S, Repr ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
 
-         val key = tx.addStateReaction[ A, Repr ]( reader, fun )
-         new Impl[ S, A, Repr ]( key )
+//         val key = tx.addEventReaction[ A, Repr ]( reader, fun )
+//         new Impl[ S, A, Repr ]( key )
+         sys.error( "TODO" )
       }
 
-      private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A ]](
+      private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: Event[ S, A ]](
          key: ReactorKey[ S ])
       extends Observer[ S, A, Repr ] {
-         override def toString = "StateObserver<" + key.key + ">"
+         override def toString = "EventObserver<" + key.key + ">"
 
-         def add( state: Repr )( implicit tx: S#Tx ) {
-            state.addReactor( key )
+         def add( event: Repr )( implicit tx: S#Tx ) {
+            event.addReactor( key )
          }
 
-         def remove( state: Repr )( implicit tx: S#Tx ) {
-            state.removeReactor( key )
+         def remove( event: Repr )( implicit tx: S#Tx ) {
+            event.removeReactor( key )
          }
 
          def dispose()( implicit tx: S#Tx ) {
-            tx.removeStateReaction( key )
+//            tx.removeEventReaction( key )
+            sys.error( "TODO" )
          }
       }
    }
    sealed trait Observer[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, -Repr ] extends Disposable[ S#Tx ] {
-      def add(    state: Repr )( implicit tx: S#Tx ) : Unit
-      def remove( state: Repr )( implicit tx: S#Tx ) : Unit
+      def add(    event: Repr )( implicit tx: S#Tx ) : Unit
+      def remove( event: Repr )( implicit tx: S#Tx ) : Unit
    }
 
    object Reader {
@@ -123,11 +125,11 @@ object State {
      private final class Impl[ S <: Sys[ S ]](
         private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]])
      extends Targets[ S ] {
-        override def toString = "StateTargets" + id
+        override def toString = "EventTargets" + id
 
-        private[lucrestm] def propagate( state: State[ S, _ ], reactions: Reactions )
+        private[lucrestm] def propagate( event: Event[ S, _ ], reactions: Reactions )
                                        ( implicit tx: S#Tx ) : Reactions = {
-           children.get.foldLeft( reactions )( (rs, r) => r.propagate( state, rs ))
+           children.get.foldLeft( reactions )( (rs, r) => r.propagate( event, rs ))
         }
 
         private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
@@ -155,7 +157,7 @@ object State {
         private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
 
         def dispose()( implicit tx: S#Tx ) {
-           require( !isConnected, "Disposing a state reactor which is still being observed" )
+           require( !isConnected, "Disposing a event reactor which is still being observed" )
            id.dispose()
            children.dispose()
         }
@@ -169,41 +171,25 @@ object State {
      private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
   }
 
-   type Sources[ S <: Sys[ S ]] = IIdxSeq[ State[ S, _ ]]
+   type Sources[ S <: Sys[ S ]] = IIdxSeq[ Event[ S, _ ]]
 
    def noSources[ S <: Sys[ S ]] : Sources[ S ] = IIdxSeq.empty
 
-   trait Constant[ S <: Sys[ S ], A ] extends State[ S, A ] {
-      protected def constValue : A
-
-      final def value( implicit tx: S#Tx ) : A = constValue
-
-      final def write( out: DataOutput ) {
-         out.writeUnsignedByte( 2 )
-         writeData( out )
-      }
-
-      protected def writeData( out: DataOutput ) : Unit
-
-      final private[lucrestm] def addReactor(     r: Reactor[ S ])( implicit tx: S#Tx ) {}
-      final private[lucrestm] def removeReactor(  r: Reactor[ S ])( implicit tx: S#Tx ) {}
-   }
-
    /**
-    * A `StateNode` is most similar to EScala's `EventNode` class. It represents an observable
+    * A `EventNode` is most similar to EScala's `EventNode` class. It represents an observable
     * object and can also act as an observer itself.
     */
-   trait Node[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A ] extends Reactor[ S ] with State[ S, A ] {
-      protected def stateSources( implicit tx: S#Tx ) : Sources[ S ]
+   trait Node[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A ] extends Reactor[ S ] with Event[ S, A ] {
+      protected def eventSources( implicit tx: S#Tx ) : Sources[ S ]
       protected def targets: Targets[ S ]
       protected def writeData( out: DataOutput ) : Unit
       protected def disposeData()( implicit tx: S#Tx ) : Unit
 
       final def id: S#ID = targets.id
 
-      final private[lucrestm] def propagate( parent: State[ S, _ ], reactions: Reactions )
+      final private[lucrestm] def propagate( parent: Event[ S, _ ], reactions: Reactions )
                                                 ( implicit tx: S#Tx ) : Reactions =
-         targets.propagate( this, reactions ) // parent state not important
+         targets.propagate( this, reactions ) // parent event not important
 
       final def write( out: DataOutput ) {
          targets.write( out )
@@ -217,17 +203,17 @@ object State {
 
       final private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
          if( targets.addReactor( r )) {
-            stateSources.foreach( _.addReactor( this ))
+            eventSources.foreach( _.addReactor( this ))
          }
       }
 
       final private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
          if( targets.removeReactor( r )) {
-            stateSources.foreach( _.removeReactor( this ))
+            eventSources.foreach( _.removeReactor( this ))
          }
       }
 
-      override def toString = "StateNode" + id
+      override def toString = "EventNode" + id
 
       override def equals( that: Any ) : Boolean = {
          (if( that.isInstanceOf[ Node[ _, _ ]]) {
@@ -242,7 +228,7 @@ object State {
       implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] = new Ser[ S ]
 
       private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
-         override def toString = "State.Reactor.Serializer"
+         override def toString = "Event.Reactor.Serializer"
 
          def write( r: Reactor[ S ], out: DataOutput ) { r.write( out )}
 
@@ -255,7 +241,8 @@ object State {
                   val observerKeys  = children.get.collect {
                      case ReactorKey( key ) => key
                   }
-                  tx.mapStateTargets( in, access, targets, observerKeys )
+//                  tx.mapEventTargets( in, access, targets, observerKeys )
+                  sys.error( "TODO" )
                case 1 =>
                   val key  = in.readInt()
                   new ReactorKey[ S ]( key )
@@ -267,14 +254,16 @@ object State {
    }
 
    sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
-      private[lucrestm] def propagate( state: State[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( event: Event[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
    }
 
    final case class ReactorKey[ S <: Sys[ S ]] private[lucrestm] ( key: Int ) extends Reactor[ S ] {
-      private[lucrestm] def propagate( state: State[ S, _ ], reactions: Reactions )
-                                     ( implicit tx: S#Tx ) : Reactions =
-         tx.propagateState( key, state, reactions )
+      private[lucrestm] def propagate( event: Event[ S, _ ], reactions: Reactions )
+                                     ( implicit tx: S#Tx ) : Reactions = {
+//         tx.propagateEvent( key, event, reactions )
+         sys.error( "TODO" )
+      }
 
       def dispose()( implicit tx: S#Tx ) {}
 
@@ -286,12 +275,10 @@ object State {
 }
 
 /**
- * `State` is not sealed in order to allow you define traits inheriting from it, while the concrete
- * implementations will still most likely extends `StateConstant` or `StateNode`.
+ * `Event` is not sealed in order to allow you define traits inheriting from it, while the concrete
+ * implementations will still most likely extends `EventConstant` or `EventNode`.
  */
-trait State[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A ] extends Writer {
-   private[lucrestm] def addReactor(     r: State.Reactor[ S ])( implicit tx: S#Tx ) : Unit
-   private[lucrestm] def removeReactor(  r: State.Reactor[ S ])( implicit tx: S#Tx ) : Unit
-
-   def value( implicit tx: S#Tx ) : A
+trait Event[ S <: Sys[ S ], Upd ] extends Writer {
+   private[lucrestm] def addReactor(     r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
+   private[lucrestm] def removeReactor(  r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
 }

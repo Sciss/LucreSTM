@@ -1,0 +1,244 @@
+Region {
+  spanChanged.observe { (tx, (region, newSpan) => ... }
+}
+
+difficult to get an oldSpan/newSpan tuple without adding event reaction source directly to span_#...
+
+::::::::::::::::
+
+- thus, can we arrange for the spatial region list to do without old span info?
+- would work only with caching the previous value
+- that's ok, it would need to be cached anyways
+- but then we need to be able to look up region -> cached span
+
+::::::::::::::::
+
+So maybe the most straight forward approach is to add a changed event to var. Good thing now is we have State.Observable and Event.Observable, so there is no conflict implementing the same trait twice. However, it would be good to have different method names as well, otherwise scalac will force us to provide type args for the observer function.
+
+before:
+r.span_#.observe( (tx, value) => ... )
+
+after:
+r.span_#.evaluated( (tx, value) => ... )
+r.span_#.action( (tx, (span, oldVal, newVal) => ... )
+
+or
+state.observe
+event.react
+
+'to observe a state, to react to an event' (makes sense...)
+
+after:
+r.span_#.observe( (tx, value) => ... )
+r.span_#.react( (tx, (span, oldVal, newVal) => ... )
+
+and then
+r.react { case (tx, (region, span, oldVal, newVal) => ... }
+
+or
+r.react { case (tx, (region, (span, oldVal, newVal)) => ... }
+
+can't distinguish between two variables of the same type, e.g.
+
+r.react { case (tx, (region, (startRef, oldStart, newStart)) => ... }
+
+anyway, we could spare the startRef, here. so:
+
+r.react { case (tx, (region, ("start", oldStart, newStart)) => ... }
+r.react { case (tx, (region, ("stop",  oldStop,  newStop)) => ... }
+
+object Region {
+   sealed trait Update
+   final case class StartChanged( region: Region, oldValue: Long, newValue: Long ) extends Update
+   final case class StopChanged(  region: Region, oldValue: Long, newValue: Long ) extends Update
+}
+
+::::::::::::::::
+
+what kind of composed events does E-Scala have?
+
+    event moved[Unit] = after(moveBy)
+    event resized[Unit]
+    event changed[Unit] = resized || moved || after(setColor)
+    event invalidated[Rectangle] = changed.map(_ => getBounds())
+
+::::::::::::::::
+
+trait Event[ Upd ] {
+   pull( id ) : Upd
+}
+
+trait EventSource[ Upd ] extends Event[ Upd ] with Reactor {
+   final protected def emit( upd: Update ) {
+      if( targets.isConnected ) {
+         val id = tx.emit( update )
+         targets.propagate( id )
+      }
+   }
+
+   final def pull( id: Int ) : Upd = {
+      tx.map( id )
+   }
+}
+
+do we need the `and` and `diff` operators of E-Scala? because they are the only nasty ones involving waiting for two events in one cycle, while `or`, `filter`, `map`, any should be all straight forward (`or` would just propagate both input events)
+
+::::::::::::::::
+
+let's think a moment about the valid time, not to do double work afterwards.
+
+first of all
+- state changes could be written in a v-aware way
+- but events most certainly would bubble up ephemerally
+  (but actions might be scheduled in v-time?)
+
+the crucial thing to solve is
+- editing random-access in time
+- while there is a transport (audio) view
+
+- the view obviously would not be fully in t_p, but observe a sliding window ('latency', 'lookahead').
+- the observation thus could be an event filter, because that wouldn't need to have a state for its
+  window.
+- region-list.dynamicChanges.filter( _.dirtySpan.touches( currentViewSpan ))
+
+::::::::::::::::
+
+interestingly the `T` in `type E_a = [(^T, a)]` (Elliott 2009) is t_p
+so the transactional time is implicit
+
+::::::::::::::::
+
+if we have
+
+   Region:volume
+
+we almost certainly need to maintain a spatial structure of volume's breakpoints.
+
+- so can we maintain that persisted with proper push behaviour from the underlying set?
+- that brings us back to the cache-invalidation stuff that was messy
+- thus, for the current implementation, the answer is no: spatial cache must be
+  recreated for each view opening
+
+
+transport --> container --> region 1, 2, 3, ...
+                                volume
+                                   unsorted
+                                   spatial = evaluated+sorted
+
+; however -- views could be persisted, they are not confluently persisted, but ephemeral, but that doesn't mean they can't use a DB back-end
+; meaning that it would be sufficient to keep a write-id on the container in the push-phase, and the view must rebuild the spatial structures upon opening if the write-id is ahead of the spatial write-id?
+
+`touch`
+
+::::::::::::::::
+
+point moves --> unsorted -->
+
+means a state observation needs to be converted into an event reaction in push phase?
+; which in turn means maybe she should just break it down to event propagation altogether...?
+
+point
+  tx.post( ev[(this, old-pos, new-pos)])
+
+unsorted
+  ev propagate
+
+spatial
+  targets
+    reactions.addInvalidate(this)
+    propagate(reactions)
+
+such that if an event is not consumed, all the registered invalidations are performed
+
+::::::::::::::::
+
+now let's assume there is a persisted super-structure encompassing unordered set and spatial representation
+
+coll
+   set
+   spatial
+     valid: Boolean
+
+-or-
+
+coll
+   set
+   spatial
+     unprocessed: [event]
+
+how does that compose? not nicely. because the unprocessed events can only be the post-ids, in the replay needing to go back to the originating object, which would white-propagate twice...
+
+the first solution (simple invalidation) seems better
+
+so the next problem is, how to write the 'valid' flag without deserializing the outer full object? (simple: it's a Val[Boolean])
+
+::::::::::::::::
+
+Coll {
+  targets: Targets
+  valid: Val[Boolean]
+  
+  set
+  octree
+
+  def revalidate()
+  
+now if the octree is not in a live-view, it would be, naturally, also represented in the main sys, thus confluent. hence, also the valid flag would be confluent? getting nasty?
+
+what is the exact thing triggering revalidate? certainly not access to octree, but something like read or tx.mapEventTargets
+
+a job for 'deploy' (Node:addReactor)
+-- and that's the only time we need to actually check the valid flag
+
+::::::::::::::::
+
+object Collection {
+   sealed trait Update[A, AUpd]
+   final case class Added[A, AUpd]( elem: A ) extends Update[A, AUpd]
+   final case class Removed[A, AUpd]( elem: A ) extends Update[A, AUpd]
+   final case class Modified[A, AUpd]( elem: A, upd: AUpd ) extends Update[A, AUpd]
+}
+Collection[A, AUpd] extends Event.Node[Collection.Update[A, Upd]] {
+}
+
+but without a live view, there is no deployment, and hence Collection wouldn't observe changes to the underlying elements, and hence wouldn't even be called to set valid to false?
+
+so... invalidity needs to be _determined_ at 'deploy'. it's not a field in the dependent object, but a reply from the source's addReactor, indicating that the new listener has missed events. -- how to determine this latter question? [impossible]
+
+the point that answers the question is the transition from state to event, thus an observable var!
+
+region 1
+  span_# <--- observed by collection
+region 2
+  span_# <--- observed by collection
+
+on the other hand, the whole idea of the persisted spatial structure is not to have O(N) when the view opens. but that's what's happening with the deploy.
+
+consequently maybe we should have 'sticky' reactors = collections, which go with strict and not lazy deploy.
+
+::::::::::::::::
+
+what was the main motivation behind lazy deployment?
+- avoid dead end propagation
+
+::::::::::::::::
+
+so could have selective eager deployment with collection types
+
+- event.node    -- normal (lazy)
+- event.mutable -- mutates as part of event processing; thus eager
+(or make node sealed, and have immutable and mutable)
+
+assume it's eager.
+
+we have N regions targeting at one reactor stub, potentially setting the invalid flag
+
+::::::::::::::::
+
+look again at the post mechanism. the collection would be both source and node
+- already added elements mutating will propagate through it
+- adding/ removing elements will initiate events
+- so pull needs a check
+- simplest idea is tuple (sourceID, txnIncrementalKey)
+- but does this work in the confluent setting -- will the pull chain re-establish the correct source ID? would be kind of stupid to need to perform prefix search in every pull step?
+
