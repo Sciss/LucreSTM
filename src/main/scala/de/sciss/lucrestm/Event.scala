@@ -253,6 +253,8 @@ object Event {
       }
    }
 
+   final case class Posted( source: AnyRef, key: Int )
+
    sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
       private[lucrestm] def propagate( event: Event[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions

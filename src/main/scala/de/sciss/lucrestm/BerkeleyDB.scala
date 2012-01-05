@@ -453,19 +453,19 @@ object BerkeleyDB {
 
 //      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ S ] = system.reactionMap.addState( fun )( this )
 
-      private[lucrestm] def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]](
+      def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]](
          /* source: Repr, */ reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
             system.reactionMap.addStateReaction( /* source, */ reader, fun )( this )
 
-      private[lucrestm] def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
+      def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
                                                keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
          system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
 
-      private[lucrestm] def propagateState( key: Int, state: State[ S, _ /*, _ */],
+      def propagateState( key: Int, state: State[ S, _ /*, _ */],
                                             reactions: State.Reactions ) : State.Reactions =
          system.reactionMap.propagateState( key, state, reactions )( this )
 
-      private[lucrestm] def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
+      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
 //      def addState[ A ]( reader: A, fun: (Txn, A) => Unit )( implicit tx: Txn ) : StateReactorLeaf[ S ] =
 //         system.reactionMap.addState( reader, fun )
