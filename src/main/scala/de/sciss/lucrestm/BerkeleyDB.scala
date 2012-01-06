@@ -484,7 +484,7 @@ object BerkeleyDB {
 
       def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
-      def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ],
+      def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr, _ ],
                                                        fun: (S#Tx, A) => Unit ) : Event.ReactorKey[ S ] =
          system.reactionMap.addEventReaction( reader, fun )( this )
 

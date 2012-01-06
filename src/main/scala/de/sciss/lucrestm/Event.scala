@@ -36,13 +36,13 @@ object Event {
       def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
    }
 
-   sealed trait Reader[ S <: Sys[ S ], +Repr ] {
-      def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
+   sealed trait Reader[ S <: Sys[ S ], +Repr, T ] {
+      def read( in: DataInput, access: S#Acc, targets: T )( implicit tx: S#Tx ) : Repr
    }
 
    object Observer {
       def apply[ S <: Sys[ S ], A, Repr <: Event[ S, A ]](
-         reader: Reader[ S, Repr ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
+         reader: Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
 
          val key = tx.addEventReaction[ A, Repr ]( reader, fun )
          new Impl[ S, A, Repr ]( key )
@@ -180,8 +180,8 @@ object Event {
 
       sealed trait Targets[ S <: Sys[ S ]] extends Event.Targets[ S ]
 
-      trait Reader[ S <: Sys[ S ], +Repr ] extends Event.Reader[ S, Repr ] {
-         def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
+      trait Reader[ S <: Sys[ S ], +Repr ] extends Event.Reader[ S, Repr, Targets[ S ]] {
+//         def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
       }
 
       /**
@@ -270,10 +270,9 @@ object Event {
          def validated()( implicit tx: S#Tx ) : Unit
       }
 
-      trait Reader[ S <: Sys[ S ], +Repr ] extends Event.Reader[ S, Repr ]
-//      {
-//         def read( in: DataInput, access: S#Acc, targets: Targets[ S ], revalidate: Boolean )( implicit tx: S#Tx ) : Repr
-//      }
+      trait Reader[ S <: Sys[ S ], +Repr ] extends Event.Reader[ S, Repr, Targets[ S ]] {
+//         def read( in: DataInput, access: S#Acc, targets: Targets[ S ] /*, revalidate: Boolean */)( implicit tx: S#Tx ) : Repr
+      }
 
       /**
        * A trait to serialize events which can be both constants and nodes.

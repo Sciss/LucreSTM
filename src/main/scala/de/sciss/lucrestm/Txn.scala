@@ -43,7 +43,7 @@ trait Txn[ S <: Sys[ S ]] {
    def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions
    def removeStateReaction( key: State.ReactorKey[ S ]) : Unit
 
-   def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ],
+   def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr, _ ],
                                                     fun: (S#Tx, A) => Unit ) : Event.ReactorKey[ S ]
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], keys: IIdxSeq[ Int ]) : Event.Reactor[ S ]
    def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions

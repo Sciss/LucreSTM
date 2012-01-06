@@ -42,7 +42,7 @@ object ReactionMap {
       reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
 
    private final case class EventObservation[ S <: Sys[ S ], A, Repr <: Event[ S, A ]](
-      reader: Event.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
+      reader: Event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
@@ -64,7 +64,8 @@ object ReactionMap {
          val itx = tx.peer
          val observations = observerKeys.flatMap( eventMap.get( _ )( itx ))
          observations.headOption match {
-            case Some( obs ) => obs.reader.read( in, access, targets ).asInstanceOf[ Event.Reactor[ S ]] // ugly XXX
+            case Some( obs ) => obs.reader.asInstanceOf[ Event.Reader[ S, Event.Reactor[ S ], Event.Targets[ S ]]]   // ugly XXX
+               .read( in, access, targets )
             case None => targets
          }
       }
@@ -101,7 +102,7 @@ object ReactionMap {
          }
       }
 
-      def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
+      def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
                                                      ( implicit tx: S#Tx ) : Event.ReactorKey[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
@@ -141,7 +142,7 @@ trait ReactionMap[ S <: Sys[ S ]] {
    def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions )
                      ( implicit tx: S#Tx ) : State.Reactions
 
-   def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
+   def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
                                                   ( implicit tx: S#Tx ) : Event.ReactorKey[ S ]
 
    def removeEventReaction( key: Event.ReactorKey[ S ])( implicit tx: S#Tx ) : Unit
