@@ -42,9 +42,8 @@ object Event {
       def apply[ S <: Sys[ S ], A, Repr <: Event[ S, A ]](
          reader: Reader[ S, Repr ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
 
-//         val key = tx.addEventReaction[ A, Repr ]( reader, fun )
-//         new Impl[ S, A, Repr ]( key )
-         sys.error( "TODO" )
+         val key = tx.addEventReaction[ A, Repr ]( reader, fun )
+         new Impl[ S, A, Repr ]( key )
       }
 
       private final class Impl[ S <: Sys[ S ], A, Repr <: Event[ S, A ]](

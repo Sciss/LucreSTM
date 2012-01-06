@@ -91,6 +91,15 @@ object ReactionMap {
          }
       }
 
+      def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
+                                                     ( implicit tx: S#Tx ) : Event.ReactorKey[ S ] = {
+         val ttx = sysConv( tx )
+         val key = cnt.get( ttx )
+         cnt.set( key + 1 )( ttx )
+         eventMap.+=( (key, new EventObservation[ S, A, Repr ]( reader, fun )) )( tx.peer )
+         new Event.ReactorKey[ S ]( key )
+      }
+
       def addStateReaction[ A, Repr <: State[ S, A ]]( reader: State.Reader[ S, Repr ],
                                                        fun: (S#Tx, A) => Unit )
                                                      ( implicit tx: S#Tx ) : State.ReactorKey[ S ] = {
@@ -117,6 +126,9 @@ trait ReactionMap[ S <: Sys[ S ]] {
 
    def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions )
                      ( implicit tx: S#Tx ) : State.Reactions
+
+   def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
+                                                  ( implicit tx: S#Tx ) : Event.ReactorKey[ S ]
 
    def propagateEvent( key: Int, source: Event.Posted[ S ], event: Event[ S, _ ], reactions: Event.Reactions )
                      ( implicit tx: S#Tx ) : Event.Reactions

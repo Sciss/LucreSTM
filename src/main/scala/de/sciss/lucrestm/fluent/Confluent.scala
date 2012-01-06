@@ -164,6 +164,10 @@ object Confluent {
 
       def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
+      def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ],
+                                                       fun: (S#Tx, A) => Unit ) : Event.ReactorKey[ S ] =
+         system.reactionMap.addEventReaction( reader, fun )( this )
+
       def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
          system.reactionMap.propagateEvent( key, source, state, reactions )( this )
 
