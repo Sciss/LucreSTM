@@ -177,6 +177,7 @@ object Confluent {
          res
       }
 
+      def newBooleanVar( pid: ID, init: Boolean ) : Var[ Boolean ] = newVar[ Boolean ]( pid, init )
       def newIntVar( pid: ID, init: Int ) : Var[ Int ] = newVar[ Int ]( pid, init )
       def newLongVar( pid: ID, init: Long ) : Var[ Long ] = newVar[ Long ]( pid, init )
 
@@ -192,8 +193,8 @@ object Confluent {
          new VarImpl( id, system, ser )
       }
 
+      def readBooleanVar( pid: ID, in: DataInput ) : Var[ Boolean ] = readVar[ Boolean ]( pid, in )
       def readIntVar( pid: ID, in: DataInput ) : Var[ Int ] = readVar[ Int ]( pid, in )
-
       def readLongVar( pid: ID, in: DataInput ) : Var[ Long ] = readVar[ Long ]( pid, in )
 
       def readID( in: DataInput, acc: Acc ) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )

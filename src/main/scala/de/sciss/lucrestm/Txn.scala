@@ -44,12 +44,14 @@ trait Txn[ S <: Sys[ S ]] {
    def removeStateReaction( key: State.ReactorKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+   def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]
    def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]
    def newLongVar( id: S#ID, init: Long ) : S#Var[ Long ]
 
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
    def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+   def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ]
    def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
    def readLongVar( id: S#ID, in: DataInput ) : S#Var[ Long ]
 

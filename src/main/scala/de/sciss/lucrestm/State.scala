@@ -36,7 +36,7 @@ object State {
     * A trait to serialize states which can be both constants and nodes.
     * An implementation mixing in this trait just needs to implement methods
     * `readConstant` to return the constant instance, and `read` with the
-    * `StateTargets` argument to return the node instance.
+    * `State.Targets` argument to return the node instance.
     */
    trait Serializer[ S <: Sys[ S ], Repr <: State[ S, _ ]]
    extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
@@ -44,7 +44,7 @@ object State {
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
          (in.readUnsignedByte(): @switch) match {
-            case 2 => readConstant( in )
+            case 3 => readConstant( in )
             case 0 =>
                val targets = Targets.read[ S ]( in, access )
                read( in, access, targets )
@@ -111,7 +111,7 @@ object State {
          new Impl( id, children )
       }
 
-      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+      private[lucrestm] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
          val id            = tx.readID( in, access )
          val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
          new Impl[ S ]( id, children )
@@ -152,7 +152,7 @@ object State {
             children.write( out )
          }
 
-         private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
+         private /* [lucrestm] */ def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
 
          def dispose()( implicit tx: S#Tx ) {
             require( !isConnected, "Disposing a state reactor which is still being observed" )
@@ -166,7 +166,7 @@ object State {
       private[lucrestm] def id: S#ID
       private[lucrestm] def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
       private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
-      private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
+//      private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
    }
 
    type Sources[ S <: Sys[ S ]] = IIdxSeq[ State[ S, _ ]]
@@ -179,7 +179,7 @@ object State {
       final def value( implicit tx: S#Tx ) : A = constValue
 
       final def write( out: DataOutput ) {
-         out.writeUnsignedByte( 2 )
+         out.writeUnsignedByte( 3 )
          writeData( out )
       }
 
@@ -256,7 +256,7 @@ object State {
                      case ReactorKey( key ) => key
                   }
                   tx.mapStateTargets( in, access, targets, observerKeys )
-               case 1 =>
+               case 2 =>
                   val key  = in.readInt()
                   new ReactorKey[ S ]( key )
 
@@ -279,7 +279,7 @@ object State {
       def dispose()( implicit tx: S#Tx ) {}
 
       def write( out: DataOutput ) {
-         out.writeUnsignedByte( 1 )
+         out.writeUnsignedByte( 2 )
          out.writeInt( key )
       }
    }

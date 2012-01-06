@@ -368,6 +368,26 @@ object BerkeleyDB {
 //      override def toString = "ObsVar[Int](" + id + ")"
 //   }
 
+   private final class BooleanVar( protected val id: Int )
+   extends Var[ Boolean ] with BasicSource {
+      def get( implicit tx: Txn ) : Boolean = {
+         tx.system.read[ Boolean ]( id )( _.readBoolean() )
+      }
+
+      def setInit( v: Boolean )( implicit tx: Txn ) {
+         tx.system.write( id )( _.writeBoolean( v ))
+      }
+
+      def set( v: Boolean )( implicit tx: Txn ) {
+         assertExists()
+         tx.system.write( id )( _.writeBoolean( v ))
+      }
+
+      def transform( f: Boolean => Boolean )( implicit tx: Txn ) { set( f( get ))}
+
+      override def toString = "Var[Boolean](" + id + ")"
+   }
+
    private final class IntVar( protected val id: Int )
    extends Var[ Int ] with BasicSource {
       def get( implicit tx: Txn ) : Int = {
@@ -497,6 +517,12 @@ object BerkeleyDB {
          res
       }
 
+      def newBooleanVar( id: ID, init: Boolean ) : Var[ Boolean ] = {
+         val res = new BooleanVar( system.newIDValue()( this ))
+         res.setInit( init )( this )
+         res
+      }
+
       def newIntVar( id: ID, init: Int ) : Var[ Int ] = {
          val res = new IntVar( system.newIDValue()( this ))
          res.setInit( init )( this )
@@ -526,6 +552,11 @@ object BerkeleyDB {
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val id = in.readInt()
          new VarImpl[ A ]( id, ser )
+      }
+
+      def readBooleanVar( pid: ID, in: DataInput ) : Var[ Boolean ] = {
+         val id = in.readInt()
+         new BooleanVar( id )
       }
 
       def readIntVar( pid: ID, in: DataInput ) : Var[ Int ] = {

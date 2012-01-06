@@ -141,6 +141,11 @@ object InMemory {
          new VarImpl( peer )
       }
 
+      def newBooleanVar( id: ID, init: Boolean ) : Var[ Boolean ] = {
+         val peer = ScalaRef( init )
+         new VarImpl( peer )
+      }
+
       def newLongVar( id: ID, init: Long ) : Var[ Long ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
@@ -160,6 +165,10 @@ object InMemory {
 
       def readVar[ A ]( id: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          opNotSupported( "readVar" )
+      }
+
+      def readBooleanVar( id: ID, in: DataInput ) : Var[ Boolean ] = {
+         opNotSupported( "readBooleanVar" )
       }
 
       def readIntVar( id: ID, in: DataInput ) : Var[ Int ] = {
