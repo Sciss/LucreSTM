@@ -32,16 +32,22 @@ object ReactionMap {
    type Reaction  = () => () => Unit
    type Reactions = IIdxSeq[ Reaction ]
 
+   private val noOpEval                   = () => ()
+   private type AnyObsFun[ S <: Sys[ S ]] =  (S#Tx, AnyRef) => Unit
+
    def apply[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx ) : ReactionMap[ S ] =
       new Impl[ S, T ]( cnt )
 
-   private final case class Observation[ S <: Sys[ S ], A, Repr <: State[ S, A ]](
+   private final case class StateObservation[ S <: Sys[ S ], A, Repr <: State[ S, A ]](
       reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
+
+   private final case class EventObservation[ S <: Sys[ S ], A, Repr <: Event[ S, A ]](
+      reader: Event.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
-      private val stateMap = TMap.empty[ Int, Observation[ S, _, _ <: State[ S, _ ]]]
-//      private val eventMap = TMap.empty[ Int, S#Tx => Unit ]
+      private val stateMap = TMap.empty[ Int, StateObservation[ S, _, _ <: State[ S, _ ]]]
+      private val eventMap = TMap.empty[ Int, EventObservation[ S, _, _ <: Event[ S, _ ]]]
 
       def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], observerKeys: IIdxSeq[ Int ])
                   ( implicit tx: S#Tx ) : State.Reactor[ S ] = {
@@ -60,7 +66,7 @@ object ReactionMap {
             case Some( obs ) =>
                val react: Reaction = () => {
                   val eval = state.value.asInstanceOf[ AnyRef ]
-                  () => obs.fun.asInstanceOf[ (S#Tx, AnyRef) => Unit ]( tx, eval )
+                  () => obs.fun.asInstanceOf[ AnyObsFun[ S ]]( tx, eval )
                }
                reactions :+ react
 
@@ -70,7 +76,19 @@ object ReactionMap {
 
       def propagateEvent( key: Int, source: Event.Posted[ S ], event: Event[ S, _ ], reactions: Event.Reactions )
                            ( implicit tx: S#Tx ) : Event.Reactions = {
-         sys.error( "TODO" )
+         val itx = tx.peer
+         eventMap.get( key )( itx ) match {
+            case Some( obs ) =>
+               val react: Reaction = () => {
+                  event.pull( source ) match {
+                     case Some( update )  => () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, update.asInstanceOf[ AnyRef ])
+                     case None            => noOpEval
+                  }
+               }
+               reactions :+ react
+
+            case None => reactions
+         }
       }
 
       def addStateReaction[ A, Repr <: State[ S, A ]]( reader: State.Reader[ S, Repr ],
@@ -79,7 +97,7 @@ object ReactionMap {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
-         stateMap.+=( (key, new Observation[ S, A, Repr ]( reader, fun )) )( tx.peer )
+         stateMap.+=( (key, new StateObservation[ S, A, Repr ]( reader, fun )) )( tx.peer )
          new State.ReactorKey[ S ]( key )
       }
 
