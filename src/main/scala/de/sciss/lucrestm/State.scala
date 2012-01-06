@@ -152,7 +152,7 @@ object State {
             children.write( out )
          }
 
-         private /* [lucrestm] */ def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
+         private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
 
          def dispose()( implicit tx: S#Tx ) {
             require( !isConnected, "Disposing a state reactor which is still being observed" )
@@ -166,7 +166,7 @@ object State {
       private[lucrestm] def id: S#ID
       private[lucrestm] def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
       private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
-//      private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
+      private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
    }
 
    type Sources[ S <: Sys[ S ]] = IIdxSeq[ State[ S, _ ]]
