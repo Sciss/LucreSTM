@@ -60,8 +60,7 @@ object Event {
          }
 
          def dispose()( implicit tx: S#Tx ) {
-//            tx.removeEventReaction( key )
-            sys.error( "TODO" )
+            tx.removeEventReaction( key )
          }
       }
    }

@@ -132,6 +132,8 @@ object InMemory {
       def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
          system.reactionMap.propagateEvent( key, source, state, reactions )( this )
 
+      def removeEventReaction( key: Event.ReactorKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )

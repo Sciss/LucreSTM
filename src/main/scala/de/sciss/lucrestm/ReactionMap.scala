@@ -110,6 +110,10 @@ object ReactionMap {
          new State.ReactorKey[ S ]( key )
       }
 
+      def removeEventReaction( key: Event.ReactorKey[ S ])( implicit tx: S#Tx ) {
+         eventMap.-=( key.key )( tx.peer )
+      }
+
       def removeStateReaction( key: State.ReactorKey[ S ])( implicit tx: S#Tx ) {
          stateMap.-=( key.key )( tx.peer )
       }
@@ -132,4 +136,6 @@ trait ReactionMap[ S <: Sys[ S ]] {
 
    def propagateEvent( key: Int, source: Event.Posted[ S ], event: Event[ S, _ ], reactions: Event.Reactions )
                      ( implicit tx: S#Tx ) : Event.Reactions
+
+   def removeEventReaction( key: Event.ReactorKey[ S ])( implicit tx: S#Tx ) : Unit
 }

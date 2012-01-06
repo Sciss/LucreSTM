@@ -491,6 +491,8 @@ object BerkeleyDB {
       def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
          system.reactionMap.propagateEvent( key, source, state, reactions )( this )
 
+      def removeEventReaction( key: Event.ReactorKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+
       override def toString = "Txn<" + id + ">"
 
       lazy val dbTxn: Transaction = {

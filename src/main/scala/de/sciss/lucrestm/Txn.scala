@@ -46,6 +46,7 @@ trait Txn[ S <: Sys[ S ]] {
    def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ],
                                                     fun: (S#Tx, A) => Unit ) : Event.ReactorKey[ S ]
    def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions
+   def removeEventReaction( key: Event.ReactorKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]

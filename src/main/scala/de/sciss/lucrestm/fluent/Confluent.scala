@@ -171,6 +171,8 @@ object Confluent {
       def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
          system.reactionMap.propagateEvent( key, source, state, reactions )( this )
 
+      def removeEventReaction( key: Event.ReactorKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 
       def newVar[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] = {
