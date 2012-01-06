@@ -129,6 +129,10 @@ object InMemory {
                                                        fun: (S#Tx, A) => Unit ) : Event.ReactorKey[ S ] =
          system.reactionMap.addEventReaction( reader, fun )( this )
 
+      def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ],
+                           keys: IIdxSeq[ Int ]) : Event.Reactor[ S ] =
+         system.reactionMap.mapEventTargets( in, access, targets, keys )( this )
+
       def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
          system.reactionMap.propagateEvent( key, source, state, reactions )( this )
 

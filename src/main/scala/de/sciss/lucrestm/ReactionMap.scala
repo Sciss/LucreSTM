@@ -50,11 +50,21 @@ object ReactionMap {
       private val eventMap = TMap.empty[ Int, EventObservation[ S, _, _ <: Event[ S, _ ]]]
 
       def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], observerKeys: IIdxSeq[ Int ])
-                  ( implicit tx: S#Tx ) : State.Reactor[ S ] = {
+                         ( implicit tx: S#Tx ) : State.Reactor[ S ] = {
          val itx = tx.peer
          val observations = observerKeys.flatMap( stateMap.get( _ )( itx ))
          observations.headOption match {
             case Some( obs ) => obs.reader.read( in, access, targets ).asInstanceOf[ State.Reactor[ S ]] // ugly XXX
+            case None => targets
+         }
+      }
+
+      def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], observerKeys: IIdxSeq[ Int ])
+                         ( implicit tx: S#Tx ) : Event.Reactor[ S ] = {
+         val itx = tx.peer
+         val observations = observerKeys.flatMap( eventMap.get( _ )( itx ))
+         observations.headOption match {
+            case Some( obs ) => obs.reader.read( in, access, targets ).asInstanceOf[ Event.Reactor[ S ]] // ugly XXX
             case None => targets
          }
       }
@@ -134,8 +144,11 @@ trait ReactionMap[ S <: Sys[ S ]] {
    def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
                                                   ( implicit tx: S#Tx ) : Event.ReactorKey[ S ]
 
+   def removeEventReaction( key: Event.ReactorKey[ S ])( implicit tx: S#Tx ) : Unit
+
+   def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], observerKeys: IIdxSeq[ Int ])
+                      ( implicit tx: S#Tx ) : Event.Reactor[ S ]
+
    def propagateEvent( key: Int, source: Event.Posted[ S ], event: Event[ S, _ ], reactions: Event.Reactions )
                      ( implicit tx: S#Tx ) : Event.Reactions
-
-   def removeEventReaction( key: Event.ReactorKey[ S ])( implicit tx: S#Tx ) : Unit
 }

@@ -476,7 +476,7 @@ object BerkeleyDB {
             system.reactionMap.addStateReaction( reader, fun )( this )
 
       def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
-                                               keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
+                           keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
          system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
 
       def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions =
@@ -487,6 +487,10 @@ object BerkeleyDB {
       def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr ],
                                                        fun: (S#Tx, A) => Unit ) : Event.ReactorKey[ S ] =
          system.reactionMap.addEventReaction( reader, fun )( this )
+
+      def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ],
+                           keys: IIdxSeq[ Int ]) : Event.Reactor[ S ] =
+         system.reactionMap.mapEventTargets( in, access, targets, keys )( this )
 
       def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
          system.reactionMap.propagateEvent( key, source, state, reactions )( this )

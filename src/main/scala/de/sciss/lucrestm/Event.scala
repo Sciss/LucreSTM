@@ -36,7 +36,9 @@ object Event {
       def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
    }
 
-   sealed trait Reader[ S <: Sys[ S ], +Repr ]
+   sealed trait Reader[ S <: Sys[ S ], +Repr ] {
+      def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
+   }
 
    object Observer {
       def apply[ S <: Sys[ S ], A, Repr <: Event[ S, A ]](
@@ -268,9 +270,10 @@ object Event {
          def validated()( implicit tx: S#Tx ) : Unit
       }
 
-      trait Reader[ S <: Sys[ S ], +Repr ] {
-         def read( in: DataInput, access: S#Acc, targets: Targets[ S ], revalidate: Boolean )( implicit tx: S#Tx ) : Repr
-      }
+      trait Reader[ S <: Sys[ S ], +Repr ] extends Event.Reader[ S, Repr ]
+//      {
+//         def read( in: DataInput, access: S#Acc, targets: Targets[ S ], revalidate: Boolean )( implicit tx: S#Tx ) : Repr
+//      }
 
       /**
        * A trait to serialize events which can be both constants and nodes.
@@ -286,7 +289,7 @@ object Event {
             if( cookie == 1 ) {
                val targets = Targets.read[ S ]( in, access )
                val invalid = targets.isInvalid
-               val res     = read( in, access, targets, invalid )
+               val res     = read( in, access, targets /*, invalid */)
                if( invalid ) require( !targets.isInvalid, "Reader did not validate structure" )
                res
             } else {
@@ -320,8 +323,7 @@ object Event {
                   val observerKeys  = children.get.collect {
                      case ReactorKey( key ) => key
                   }
-//                  tx.mapEventTargets( in, access, targets, observerKeys )
-                  sys.error( "TODO" )
+                  tx.mapEventTargets( in, access, targets, observerKeys )
                case 1 =>
                   val id            = tx.readID( in, access )
                   val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
@@ -330,8 +332,7 @@ object Event {
                   val observerKeys  = children.get.collect {
                      case ReactorKey( key ) => key
                   }
-//                  tx.mapEventTargets( in, access, targets, observerKeys )
-                  sys.error( "TODO" )
+                  tx.mapEventTargets( in, access, targets, observerKeys )
                case 2 =>
                   val key  = in.readInt()
                   new ReactorKey[ S ]( key )
