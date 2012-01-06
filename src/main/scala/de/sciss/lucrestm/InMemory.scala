@@ -108,28 +108,25 @@ object InMemory {
 
    sealed trait Txn extends _Txn[ S ]
 
-//   private type ObsVar[ A ] = InMemory#ObsVar[ A ]
-
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
-//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ S ] = system.reactionMap.addState( fun )( this )
-      def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]](
-         /* source: Repr, */ reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
-            system.reactionMap.addStateReaction( /* source, */ reader, fun )( this )
+      def addStateReaction[ A, Repr <: State[ S, A ]](
+         reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
+            system.reactionMap.addStateReaction( reader, fun )( this )
 
       def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
                                                keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
          system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
 
-      def propagateState( key: Int, state: State[ S, _ /*, _ */],
+      def propagateState( key: Int, state: State[ S, _ ],
                                             reactions: State.Reactions ) : State.Reactions =
          system.reactionMap.propagateState( key, state, reactions )( this )
 
       def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
-//      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.removeState( leaf )( this )}
-//      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.invokeState( leaf )( this )}
+      def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
+         system.reactionMap.propagateEvent( key, source, state, reactions )( this )
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )

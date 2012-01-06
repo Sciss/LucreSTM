@@ -150,23 +150,22 @@ object Confluent {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = system.newID()( this )
 
-//      def addStateReaction( fun: Txn => Unit ) : StateReactorLeaf[ S ] = system.reactionMap.addState( fun )( this )
-      def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]](
-         /* source: Repr, */ reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
-            system.reactionMap.addStateReaction( /* source, */ reader, fun )( this )
+      def addStateReaction[ A, Repr <: State[ S, A ]](
+         reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
+            system.reactionMap.addStateReaction( reader, fun )( this )
 
       def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
                                                keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
          system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
 
-      def propagateState( key: Int, state: State[ S, _ /*, _ */],
+      def propagateState( key: Int, state: State[ S, _ ],
                                             reactions: State.Reactions ) : State.Reactions =
          system.reactionMap.propagateState( key, state, reactions )( this )
 
       def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
-//      private[lucrestm] def removeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.removeState( leaf )( this )}
-//      private[lucrestm] def invokeStateReaction( leaf: StateReactorLeaf[ S ]) { system.reactionMap.invokeState( leaf )( this )}
+      def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
+         system.reactionMap.propagateEvent( key, source, state, reactions )( this )
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 
@@ -178,8 +177,8 @@ object Confluent {
       }
 
       def newBooleanVar( pid: ID, init: Boolean ) : Var[ Boolean ] = newVar[ Boolean ]( pid, init )
-      def newIntVar( pid: ID, init: Int ) : Var[ Int ] = newVar[ Int ]( pid, init )
-      def newLongVar( pid: ID, init: Long ) : Var[ Long ] = newVar[ Long ]( pid, init )
+      def newIntVar(     pid: ID, init: Int ) :     Var[ Int ]     = newVar[ Int ](     pid, init )
+      def newLongVar(    pid: ID, init: Long ) :    Var[ Long ]    = newVar[ Long ](    pid, init )
 
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
 
@@ -194,8 +193,8 @@ object Confluent {
       }
 
       def readBooleanVar( pid: ID, in: DataInput ) : Var[ Boolean ] = readVar[ Boolean ]( pid, in )
-      def readIntVar( pid: ID, in: DataInput ) : Var[ Int ] = readVar[ Int ]( pid, in )
-      def readLongVar( pid: ID, in: DataInput ) : Var[ Long ] = readVar[ Long ]( pid, in )
+      def readIntVar(     pid: ID, in: DataInput ) : Var[ Int ]     = readVar[ Int ](     pid, in )
+      def readLongVar(    pid: ID, in: DataInput ) : Var[ Long ]    = readVar[ Long ](    pid, in )
 
       def readID( in: DataInput, acc: Acc ) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
 

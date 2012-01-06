@@ -354,8 +354,7 @@ object Event {
    final case class ReactorKey[ S <: Sys[ S ]] private[lucrestm] ( key: Int ) extends Reactor[ S ] {
       private[lucrestm] def propagate( source: Posted[ S ], parent: Event[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions = {
-//         tx.propagateEvent( key, parent, reactions )
-         sys.error( "TODO" )
+         tx.propagateEvent( key, source, parent, reactions )
       }
 
       def dispose()( implicit tx: S#Tx ) {}

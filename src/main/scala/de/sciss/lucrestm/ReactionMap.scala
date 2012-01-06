@@ -35,14 +35,12 @@ object ReactionMap {
    def apply[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx ) : ReactionMap[ S ] =
       new Impl[ S, T ]( cnt )
 
-//   private final case class Observation[ Txn, A ]( reader: A, fun: (Txn, A) => Unit )
-
-   private final case class Observation[ S <: Sys[ S ], A, Repr <: State[ S, A /*, Repr */]](
+   private final case class Observation[ S <: Sys[ S ], A, Repr <: State[ S, A ]](
       reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
-      private val stateMap = TMap.empty[ Int, Observation[ S, _, _ <: State[ S, _ /*, _*/]]]
+      private val stateMap = TMap.empty[ Int, Observation[ S, _, _ <: State[ S, _ ]]]
 //      private val eventMap = TMap.empty[ Int, S#Tx => Unit ]
 
       def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], observerKeys: IIdxSeq[ Int ])
@@ -55,7 +53,7 @@ object ReactionMap {
          }
       }
 
-      def propagateState( key: Int, state: State[ S, _ /*, _ */], reactions: State.Reactions )
+      def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions )
                   ( implicit tx: S#Tx ) : State.Reactions = {
          val itx = tx.peer
          stateMap.get( key )( itx ) match {
@@ -70,9 +68,14 @@ object ReactionMap {
          }
       }
 
-      def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]]( /* source: Repr, */ reader: State.Reader[ S, Repr ],
-                                                     fun: (S#Tx, A) => Unit )
-                                                   ( implicit tx: S#Tx ) : State.ReactorKey[ S ] = {
+      def propagateEvent( key: Int, source: Event.Posted[ S ], event: Event[ S, _ ], reactions: Event.Reactions )
+                           ( implicit tx: S#Tx ) : Event.Reactions = {
+         sys.error( "TODO" )
+      }
+
+      def addStateReaction[ A, Repr <: State[ S, A ]]( reader: State.Reader[ S, Repr ],
+                                                       fun: (S#Tx, A) => Unit )
+                                                     ( implicit tx: S#Tx ) : State.ReactorKey[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
@@ -86,20 +89,17 @@ object ReactionMap {
    }
 }
 trait ReactionMap[ S <: Sys[ S ]] {
-   def addStateReaction[ A, Repr <: State[ S, A /*, Repr */]]( /* source: Repr, */ reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
-                                                ( implicit tx: S#Tx ) : State.ReactorKey[ S ]
+   def addStateReaction[ A, Repr <: State[ S, A ]]( reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
+                                                  ( implicit tx: S#Tx ) : State.ReactorKey[ S ]
 
    def removeStateReaction( key: State.ReactorKey[ S ])( implicit tx: S#Tx ) : Unit
 
    def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], observerKeys: IIdxSeq[ Int ])
                ( implicit tx: S#Tx ) : State.Reactor[ S ]
 
-   def propagateState( key: Int, state: State[ S, _ /*, _ */], reactions: State.Reactions )
+   def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions )
                      ( implicit tx: S#Tx ) : State.Reactions
 
-//   def invokeState( leaf: StateReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
-
-//   def addEvent( reaction: S#Tx => Unit )( implicit tx: S#Tx ) : EventReactorLeaf[ S ]
-//   def removeEvent( leaf: EventReactorLeaf[ S ])( implicit tx: S#Tx ) : Unit
-//   def invokeEvent( leaf: EventReactorLeaf[ S ], key: Int )( implicit tx: S#Tx ) : Unit
+   def propagateEvent( key: Int, source: Event.Posted[ S ], event: Event[ S, _ ], reactions: Event.Reactions )
+                     ( implicit tx: S#Tx ) : Event.Reactions
 }
