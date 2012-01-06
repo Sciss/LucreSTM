@@ -71,7 +71,7 @@ object State {
       private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: State[ S, A ]](
          key: ReactorKey[ S ])
       extends Observer[ S, A, Repr ] {
-         override def toString = "StateObserver<" + key.key + ">"
+         override def toString = "State.Observer<" + key.key + ">"
 
          def add( state: Repr )( implicit tx: S#Tx ) {
             state.addReactor( key )
@@ -105,69 +105,69 @@ object State {
    }
 
    object Targets {
-     def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
-        val id         = tx.newID()
-        val children   = tx.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
-        new Impl( id, children )
-     }
+      def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
+         val id         = tx.newID()
+         val children   = tx.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
+         new Impl( id, children )
+      }
 
-     def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-        val id            = tx.readID( in, access )
-        val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
-        new Impl[ S ]( id, children )
-     }
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+         val id            = tx.readID( in, access )
+         val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
+         new Impl[ S ]( id, children )
+      }
 
-     private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]]) : Targets[ S ] =
-        new Impl( id, children )
+      private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]]) : Targets[ S ] =
+         new Impl( id, children )
 
-     private final class Impl[ S <: Sys[ S ]](
-        private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]])
-     extends Targets[ S ] {
-        override def toString = "StateTargets" + id
+      private final class Impl[ S <: Sys[ S ]](
+         private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]])
+      extends Targets[ S ] {
+         override def toString = "State.Targets" + id
 
-        private[lucrestm] def propagate( state: State[ S, _ ], reactions: Reactions )
-                                       ( implicit tx: S#Tx ) : Reactions = {
-           children.get.foldLeft( reactions )( (rs, r) => r.propagate( state, rs ))
-        }
+         private[lucrestm] def propagate( state: State[ S, _ ], reactions: Reactions )
+                                        ( implicit tx: S#Tx ) : Reactions = {
+            children.get.foldLeft( reactions )( (rs, r) => r.propagate( state, rs ))
+         }
 
-        private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
-           val old = children.get
-           children.set( old :+ r )
-           old.isEmpty
-        }
+         private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+            val old = children.get
+            children.set( old :+ r )
+            old.isEmpty
+         }
 
-        private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
-           val xs = children.get
-           val i = xs.indexOf( r )
-           if( i >= 0 ) {
-              val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
-              children.set( xs1 )
-              xs1.isEmpty
-           } else false
-        }
+         private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+            val xs = children.get
+            val i = xs.indexOf( r )
+            if( i >= 0 ) {
+               val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
+               children.set( xs1 )
+               xs1.isEmpty
+            } else false
+         }
 
-        def write( out: DataOutput ) {
-           out.writeUnsignedByte( 0 )
-           id.write( out )
-           children.write( out )
-        }
+         def write( out: DataOutput ) {
+            out.writeUnsignedByte( 0 )
+            id.write( out )
+            children.write( out )
+         }
 
-        private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
+         private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
 
-        def dispose()( implicit tx: S#Tx ) {
-           require( !isConnected, "Disposing a state reactor which is still being observed" )
-           id.dispose()
-           children.dispose()
-        }
-     }
-  }
+         def dispose()( implicit tx: S#Tx ) {
+            require( !isConnected, "Disposing a state reactor which is still being observed" )
+            id.dispose()
+            children.dispose()
+         }
+      }
+   }
 
    sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] {
-     private[lucrestm] def id: S#ID
-     private[lucrestm] def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
-     private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
-     private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
-  }
+      private[lucrestm] def id: S#ID
+      private[lucrestm] def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
+      private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
+      private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
+   }
 
    type Sources[ S <: Sys[ S ]] = IIdxSeq[ State[ S, _ ]]
 
@@ -190,7 +190,7 @@ object State {
    }
 
    /**
-    * A `StateNode` is most similar to EScala's `EventNode` class. It represents an observable
+    * A `State.Node` is most similar to EScala's `EventNode` class. It represents an observable
     * object and can also act as an observer itself.
     */
    trait Node[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A ] extends Reactor[ S ] with State[ S, A ] {
@@ -227,7 +227,7 @@ object State {
          }
       }
 
-      override def toString = "StateNode" + id
+      override def toString = "State.Node" + id
 
       override def equals( that: Any ) : Boolean = {
          (if( that.isInstanceOf[ Node[ _, _ ]]) {

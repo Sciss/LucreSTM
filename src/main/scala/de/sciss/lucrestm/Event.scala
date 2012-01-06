@@ -43,25 +43,23 @@ object Event {
       final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
-         (in.readUnsignedByte(): @switch) match {
-            case 2 => readConstant( in )
-            case 0 =>
-               val targets = Targets.read[ S ]( in, access )
-               read( in, access, targets )
-            case cookie => sys.error( "Unexpected cookie " + cookie )
+         val cookie = in.readUnsignedByte()
+         if( cookie == 0 ) {
+            val targets = Targets.read[ S ]( in, access )
+            read( in, access, targets )
+         } else {
+            sys.error( "Unexpected cookie " + cookie )
          }
       }
-
-      def readConstant( in: DataInput )( implicit tx: S#Tx ) : Repr
    }
 
 
-   trait Observable[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr ] {
+   trait Observable[ S <: Sys[ S ], A, Repr ] {
       def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
    }
 
    object Observer {
-      def apply[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: Event[ S, A ]](
+      def apply[ S <: Sys[ S ], A, Repr <: Event[ S, A ]](
          reader: Reader[ S, Repr ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
 
 //         val key = tx.addEventReaction[ A, Repr ]( reader, fun )
@@ -69,10 +67,10 @@ object Event {
          sys.error( "TODO" )
       }
 
-      private final class Impl[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, Repr <: Event[ S, A ]](
+      private final class Impl[ S <: Sys[ S ], A, Repr <: Event[ S, A ]](
          key: ReactorKey[ S ])
       extends Observer[ S, A, Repr ] {
-         override def toString = "EventObserver<" + key.key + ">"
+         override def toString = "Event.Observer<" + key.key + ">"
 
          def add( event: Repr )( implicit tx: S#Tx ) {
             event.addReactor( key )
@@ -88,98 +86,98 @@ object Event {
          }
       }
    }
-   sealed trait Observer[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A, -Repr ] extends Disposable[ S#Tx ] {
+   sealed trait Observer[ S <: Sys[ S ], A, -Repr ] extends Disposable[ S#Tx ] {
       def add(    event: Repr )( implicit tx: S#Tx ) : Unit
       def remove( event: Repr )( implicit tx: S#Tx ) : Unit
    }
 
-   object Reader {
-      def unsupported[ S <: Sys[ S ], Repr ] : Reader[ S, Repr ] = new Unsupported[ S, Repr ]
-
-      private final class Unsupported[ S <: Sys[ S ], Repr ] extends Reader[ S, Repr ] {
-         def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr =
-            throw new UnsupportedOperationException()
-      }
-   }
+//   object Reader {
+//      def unsupported[ S <: Sys[ S ], Repr ] : Reader[ S, Repr ] = new Unsupported[ S, Repr ]
+//
+//      private final class Unsupported[ S <: Sys[ S ], Repr ] extends Reader[ S, Repr ] {
+//         def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr =
+//            throw new UnsupportedOperationException()
+//      }
+//   }
 
    trait Reader[ S <: Sys[ S ], +Repr ] {
       def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
    }
 
    object Targets {
-     def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
-        val id         = tx.newID()
-        val children   = tx.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
-        new Impl( id, children )
-     }
+      def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
+         val id         = tx.newID()
+         val children   = tx.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
+         new Impl( id, children )
+      }
 
-     def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-        val id            = tx.readID( in, access )
-        val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
-        new Impl[ S ]( id, children )
-     }
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+         val id            = tx.readID( in, access )
+         val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
+         new Impl[ S ]( id, children )
+      }
 
-     private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]]) : Targets[ S ] =
-        new Impl( id, children )
+      private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]]) : Targets[ S ] =
+         new Impl( id, children )
 
-     private final class Impl[ S <: Sys[ S ]](
-        private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]])
-     extends Targets[ S ] {
-        override def toString = "EventTargets" + id
+      private final class Impl[ S <: Sys[ S ]](
+         private[lucrestm] val id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]])
+      extends Targets[ S ] {
+         override def toString = "Event.Targets" + id
 
-        private[lucrestm] def propagate( source: Posted[ S ], parent: Event[ S, _ ], reactions: Reactions )
-                                       ( implicit tx: S#Tx ) : Reactions = {
-           children.get.foldLeft( reactions )( (rs, r) => r.propagate( source, parent, rs ))
-        }
+         private[lucrestm] def propagate( source: Posted[ S ], parent: Event[ S, _ ], reactions: Reactions )
+                                        ( implicit tx: S#Tx ) : Reactions = {
+            children.get.foldLeft( reactions )( (rs, r) => r.propagate( source, parent, rs ))
+         }
 
-        private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
-           val old = children.get
-           children.set( old :+ r )
-           old.isEmpty
-        }
+         private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+            val old = children.get
+            children.set( old :+ r )
+            old.isEmpty
+         }
 
-        private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
-           val xs = children.get
-           val i = xs.indexOf( r )
-           if( i >= 0 ) {
-              val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
-              children.set( xs1 )
-              xs1.isEmpty
-           } else false
-        }
+         private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean = {
+            val xs = children.get
+            val i = xs.indexOf( r )
+            if( i >= 0 ) {
+               val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
+               children.set( xs1 )
+               xs1.isEmpty
+            } else false
+         }
 
-        def write( out: DataOutput ) {
-           out.writeUnsignedByte( 0 )
-           id.write( out )
-           children.write( out )
-        }
+         def write( out: DataOutput ) {
+            out.writeUnsignedByte( 0 )
+            id.write( out )
+            children.write( out )
+         }
 
-        private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
+         private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
 
-        def dispose()( implicit tx: S#Tx ) {
-           require( !isConnected, "Disposing a event reactor which is still being observed" )
-           id.dispose()
-           children.dispose()
-        }
-     }
-  }
+         def dispose()( implicit tx: S#Tx ) {
+            require( !isConnected, "Disposing a event reactor which is still being observed" )
+            id.dispose()
+            children.dispose()
+         }
+      }
+   }
 
    sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] {
-     private[lucrestm] def id: S#ID
-     private[lucrestm] def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
-     private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
-     private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
-  }
+      private[lucrestm] def id: S#ID
+      private[lucrestm] def addReactor(    r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
+      private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) : Boolean
+      private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean
+   }
 
    type Sources[ S <: Sys[ S ]] = IIdxSeq[ Event[ S, _ ]]
 
    def noSources[ S <: Sys[ S ]] : Sources[ S ] = IIdxSeq.empty
 
    /**
-    * A `EventNode` is most similar to EScala's `EventNode` class. It represents an observable
+    * An `Event.Node` is most similar to EScala's `EventNode` class. It represents an observable
     * object and can also act as an observer itself.
     */
-   trait Node[ S <: Sys[ S ], /* @specialized SUCKAZZZ */ A ] extends Reactor[ S ] with Event[ S, A ] {
+   sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] with Event[ S, A ] {
       protected def eventSources( implicit tx: S#Tx ) : Sources[ S ]
       protected def targets: Targets[ S ]
       protected def writeData( out: DataOutput ) : Unit
@@ -201,6 +199,18 @@ object Event {
          disposeData()
       }
 
+      override def equals( that: Any ) : Boolean = {
+         (if( that.isInstanceOf[ Node[ _, _ ]]) {
+            id == that.asInstanceOf[ Node[ _, _ ]].id
+         } else super.equals( that ))
+      }
+
+      override def hashCode = id.hashCode()
+   }
+
+   trait Immutable[ S <: Sys[ S ], A ] extends Node[ S, A ] {
+      override def toString = "Event.Immutable" + id
+
       final private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
          if( targets.addReactor( r )) {
             eventSources.foreach( _.addReactor( this ))
@@ -212,16 +222,6 @@ object Event {
             eventSources.foreach( _.removeReactor( this ))
          }
       }
-
-      override def toString = "EventNode" + id
-
-      override def equals( that: Any ) : Boolean = {
-         (if( that.isInstanceOf[ Node[ _, _ ]]) {
-            id == that.asInstanceOf[ Node[ _, _ ]].id
-         } else super.equals( that ))
-      }
-
-      override def hashCode = id.hashCode()
    }
 
    object Reactor {
@@ -283,4 +283,6 @@ object Event {
 trait Event[ S <: Sys[ S ], Upd ] extends Writer {
    private[lucrestm] def addReactor(     r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
    private[lucrestm] def removeReactor(  r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
+
+   private[lucrestm] def pull( source: Event.Posted[ S ])( implicit tx: S#Tx ) : Option[ Upd ]
 }
