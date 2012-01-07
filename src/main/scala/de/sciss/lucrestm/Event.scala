@@ -40,6 +40,29 @@ object Event {
       def read( in: DataInput, access: S#Acc, targets: T )( implicit tx: S#Tx ) : Repr
    }
 
+   /**
+    * A trait to serialize events which can be both constants and immutable nodes.
+    * An implementation mixing in this trait just needs to implement methods
+    * `readConstant` to return the constant instance, and `read` with the
+    * `Event.Immutable.Targets` argument to return the immutable node instance.
+    */
+   trait Serializer[ S <: Sys[ S ], Repr <: Event[ S, _ ]]
+   extends Immutable.Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
+      final def write( v: Repr, out: DataOutput ) { v.write( out )}
+
+      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
+         (in.readUnsignedByte(): @switch) match {
+            case 3 => readConstant( in )
+            case 0 =>
+               val targets = Immutable.Targets.read[ S ]( in, access )
+               read( in, access, targets )
+            case cookie => sys.error( "Unexpected cookie " + cookie )
+         }
+      }
+
+      def readConstant( in: DataInput )( implicit tx: S#Tx ) : Repr
+   }
+
    object Observer {
       def apply[ S <: Sys[ S ], A, Repr <: Event[ S, A ]](
          reader: Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
@@ -102,7 +125,7 @@ object Event {
          } else false
       }
 
-      final protected def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
+      final private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
    }
 
    type Sources[ S <: Sys[ S ]] = IIdxSeq[ Event[ S, _ ]]
@@ -197,11 +220,11 @@ object Event {
       }
 
       /**
-       * A trait to serialize events which can be both constants and nodes.
+       * A trait to serialize events which are immutable nodes.
        * An implementation mixing in this trait just needs to implement
-       * `read` with the `Event.Targets` argument to return the node instance.
+       * `read` with the `Event.Immutable.Targets` argument to return the node instance.
        */
-      trait Serializer[ S <: Sys[ S ], Repr <: Event[ S, _ ]]
+      trait Serializer[ S <: Sys[ S ], Repr <: Immutable[ S, _ ]]
       extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
          final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -345,11 +368,11 @@ object Event {
       }
 
       /**
-       * A trait to serialize events which can be both constants and nodes.
+       * A trait to serialize events which are mutable nodes.
        * An implementation mixing in this trait just needs to implement
-       * `read` with the `Event.Targets` argument to return the node instance.
+       * `read` with the `Event.Mutable.Targets` argument to return the node instance.
        */
-      trait Serializer[ S <: Sys[ S ], Repr <: Event[ S, _ ]]
+      trait Serializer[ S <: Sys[ S ], Repr <: Mutable[ S, _ ]]
       extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
          final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -438,9 +461,9 @@ object Event {
  * `Event` is not sealed in order to allow you define traits inheriting from it, while the concrete
  * implementations will still most likely extends `EventConstant` or `EventNode`.
  */
-trait Event[ S <: Sys[ S ], Upd ] extends Writer {
+trait Event[ S <: Sys[ S ], A ] extends Writer {
    private[lucrestm] def addReactor(     r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
    private[lucrestm] def removeReactor(  r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
 
-   def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ Upd ]
+   def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ A ]
 }

@@ -1,5 +1,5 @@
 /*
- *  ReactionTest.scala
+ *  ReactionTest2.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
@@ -32,7 +32,7 @@ import java.io.File
 import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 
-object ReactionTest extends App {
+object ReactionTest2 extends App {
    defer( args.toSeq.take( 2 ) match {
       case Seq( "--test2" )     => test2( fluent.Confluent() )()
       case Seq( "--confluent" ) => test1( fluent.Confluent() )()
@@ -47,32 +47,64 @@ object ReactionTest extends App {
       type Tx  = S#Tx
       type Acc = S#Acc
 
-      type Observer[ A, Repr ]   = State.Observer[ S, A, Repr ]
-      type Observable[ A, Repr ] = State.Observable[ S, A, Repr ]
-      type Expr[ A ]             = State[ S, A ]
-      type ConstExpr[ A ]        = State.Constant[ S, A ]
-      type MutableExpr[ A ]      = State.Node[ S, A ]
-      type Targets               = State.Targets[ S ]
+//      type Observer[ A, Repr ]   = State.Observer[ S, A, Repr ]
+//      type Observable[ A, Repr ] = State.Observable[ S, A, Repr ]
+//      type Expr[ A ]             = State[ S, A ] with Event[ S, (A, A) ]
+//      type ConstExpr[ A ]        = State.Constant[ S, A ]
+//      type MutableExpr[ A ]      = State.Node[ S, A ]
+//      type Targets               = State.Targets[ S ]
 
-      trait BinaryExpr[ A ] extends MutableExpr[ A ] {
-         protected def a: Expr[ A ]
-         protected def b: Expr[ A ]
+      trait Value[ A ] extends Event[ S, (A, A )] {
+         def value( implicit tx: S#Tx ) : A         
+      }
+
+      trait ConstValue[ A ] extends Value[ A ] {
+         protected def constValue : A
+         final def value( implicit tx: S#Tx ) : A = constValue
+         final protected def eventSources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq.empty
+         final private[lucrestm] def addReactor(     r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
+         final private[lucrestm] def removeReactor(  r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
+
+         final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ (A, A) ] = {
+            if( source.source == this ) Some( source.update.asInstanceOf[ (A, A) ]) else None
+         }
+
+         final def write( out: DataOutput ) {
+            out.writeUnsignedByte( 3 )
+            writeData( out )
+         }
+
+         protected def writeData( out: DataOutput ) : Unit
+      }
+
+      trait BinaryExpr[ A ] extends Value[ A ] with Event.Immutable[ S, (A, A) ] {
+         protected def a: Value[ A ]
+         protected def b: Value[ A ]
          protected def op( a: A, b: A ) : A
 
          final def value( implicit tx: Tx ) : A = op( a.value, b.value )
 
-         final protected def disposeData()( implicit tx: Tx ) {
+         final protected def disposeData()( implicit tx: Tx ) {}
+         
+         final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ (A, A) ] = {
+            if( source.source == this ) Some( source.update.asInstanceOf[ (A, A) ]) else {
+               val av = a.pull( source ).getOrElse { val v = a.value; (v, v)}
+               val bv = b.pull( source ).getOrElse { val v = b.value; (v, v)}
+               val u1 = op( av._1, bv._1 )
+               val u2 = op( av._2, bv._2 )
+               if( u1 != u2 ) Some( (u1, u2) ) else None
+            }
          }
       }
 
       object ExprVar {
-         sealed trait Impl[ A, Ex <: Expr[ A ]] extends ExprVar[ A, Ex ] {
+         sealed trait Impl[ A, Ex <: Value[ A ]] extends ExprVar[ A, Ex ] {
             me: Ex =>
 
-            protected def reader: State.Reader[ S, Ex ]
+            protected def reader: Event.Immutable.Reader[ S, Ex ]
             protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
             protected def v: S#Var[ Ex ]
-            protected final def stateSources( implicit tx: Tx ) : State.Sources[ S ] = IIdxSeq( v.get )
+            final protected def eventSources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( v.get )
 
             final def value( implicit tx: Tx ) : A = get.value
 
@@ -80,7 +112,9 @@ object ReactionTest extends App {
 
             final def set( ex: Ex )( implicit tx: Tx ) {
                val old = get
-               if( old.value != ex.value ) {
+               val oldv = old.value
+               val exv  = ex.value
+               if( oldv != exv ) {
                   val conn = targets.isConnected
                   if( conn ) {
                      old.removeReactor( this )
@@ -88,8 +122,9 @@ object ReactionTest extends App {
                   v.set( ex )
                   if( conn ) {
                      ex.addReactor( this )
-                     val r = targets.propagate( this, IIdxSeq.empty )
-                     r.map( _.apply() ).foreach( _.apply() )
+                     fire( (oldv, exv) )
+//                     val r = targets.propagate( this, IIdxSeq.empty )
+//                     r.map( _.apply() ).foreach( _.apply() )
                   }
                }
             }
@@ -108,26 +143,31 @@ object ReactionTest extends App {
                v.dispose()
             }
 
-            final def observe( fun: (Tx, A) => Unit )( implicit tx: Tx ) : Observer[ A, Ex ] = {
-               val o = State.Observer[ S, A, Ex ]( reader, fun )
+            final def observe( fun: (Tx, (A, A)) => Unit )( implicit tx: Tx ) : Event.Observer[ S, (A, A), Ex ] = {
+               val o = Event.Observer[ S, (A, A), Ex ]( reader, fun )
                o.add( this )
-               fun( tx, value )
+               val v = value
+               fun( tx, (v, v) )
                o
+            }
+
+            final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ (A, A) ] = {
+               if( source.source == this ) Some( source.update.asInstanceOf[ (A, A) ]) else v.get.pull( source )
             }
          }
 
          // XXX the other option is to forget about StringRef, LongRef, etc., and instead
          // pimp Expr[ String ] to StringExprOps, etc.
-         abstract class New[ A, Ex <: Expr[ A ]]( init: Ex, tx0: Tx )(
+         abstract class New[ A, Ex <: Value[ A ]]( init: Ex, tx0: Tx )(
             implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
          extends Impl[ A, Ex ] {
             me: Ex =>
 
-            protected val targets   = State.Targets[ S ]( tx0 )
+            protected val targets   = Event.Immutable.Targets[ S ]( tx0 )
             protected val v         = tx0.newVar[ Ex ]( id, init )
          }
 
-         abstract class Read[ A, Ex <: Expr[ A ]]( protected val targets: Targets, in: DataInput, tx0: Tx )(
+         abstract class Read[ A, Ex <: Value[ A ]]( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, tx0: Tx )(
             implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
          extends Impl[ A, Ex ] {
             me: Ex =>
@@ -135,7 +175,7 @@ object ReactionTest extends App {
             protected val v = tx0.readVar[ Ex ]( id, in )
          }
       }
-      trait ExprVar[ A, Ex <: /* Mutable */ Expr[ A ]] extends /* Expr[ Ex ] with */ Var[ Tx, Ex ] with State.Node[ S, A ]
+      trait ExprVar[ A, Ex <: Value[ A ]] extends Var[ Tx, Ex ] with Value[ A ] with Event.Immutable[ S, (A, A) ] with Event.Source[ S, (A, A) ]
 
       object StringRef {
          implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -143,14 +183,17 @@ object ReactionTest extends App {
          def append( a: StringRef, b: StringRef )( implicit tx: Tx ) : StringRef =
             new StringAppendNew( a, b, tx )
 
-         private sealed trait StringConst extends StringRef with ConstExpr[ String ] {
+         private sealed trait StringConst extends StringRef with ConstValue[ String ] {
             final protected def writeData( out: DataOutput ) {
                out.writeString( constValue )
             }
 
-            final def observe( fun: (Tx, String) => Unit )( implicit tx: Tx ) : Observer[ String, StringRef ] = {
-               val o = State.Observer[ S, String, StringRef ]( State.Reader.unsupported[ S, StringRef ], fun )
-               fun( tx, value )
+            final def observe( fun: (Tx, (String, String)) => Unit )
+                             ( implicit tx: Tx ) : Event.Observer[ S, (String, String), StringRef ] = {
+               val o = Event.Observer[ S, (String, String), StringRef ]( reader, fun )
+//                  Event.Reader.unsupported[ S, StringRef ], fun )
+               val v = value
+               fun( tx, (v, v) )
                o
             }
 
@@ -175,12 +218,16 @@ object ReactionTest extends App {
                b.write( out )
             }
 
-            final protected def stateSources( implicit t: Tx ) : State.Sources[ S ] = IIdxSeq( a, b )
+            final protected def eventSources( implicit t: Tx ) : Event.Sources[ S ] = {
+               IIdxSeq( a, b )
+            }
 
-            final def observe( fun: (Tx, String) => Unit )( implicit tx: Tx ) : Observer[ String, StringRef ] = {
-               val o = State.Observer[ S, String, StringRef ]( StringRef.serializer, fun )
+            final def observe( fun: (Tx, (String, String)) => Unit )
+                             ( implicit tx: Tx ) : Event.Observer[ S, (String, String), StringRef ] = {
+               val o = Event.Observer[ S, (String, String), StringRef ]( StringRef.serializer, fun )
                o.add( this )
-               fun( tx, value )
+               val v = value
+               fun( tx, (v, v) )
                o
             }
          }
@@ -196,21 +243,21 @@ object ReactionTest extends App {
 
          private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
          extends StringBinOp with StringAppend {
-            protected val targets = State.Targets[ S ]( tx0 )
+            protected val targets = Event.Immutable.Targets[ S ]( tx0 )
          }
 
-         private final class StringAppendRead( protected val targets: Targets, in: DataInput,
+         private final class StringAppendRead( protected val targets: Event.Immutable.Targets[ S ], in: DataInput,
                                                access: Acc, tx0: Tx )
          extends StringBinOp with StringAppend {
             protected val a         = serializer.read( in, access )( tx0 )
             protected val b         = serializer.read( in, access )( tx0 )
          }
 
-         implicit val serializer : State.Serializer[ S, StringRef ] =
-            new State.Serializer[ S, StringRef ] {
+         implicit val serializer : Event.Serializer[ S, StringRef ] =
+            new Event.Serializer[ S, StringRef ] {
                def readConstant( in: DataInput )( implicit tx: Tx ) : StringRef = new StringConstRead( in )
 
-               def read( in: DataInput, access: Acc, targets: Targets)( implicit tx: Tx ) : StringRef = {
+               def read( in: DataInput, access: Acc, targets: Event.Immutable.Targets[ S ])( implicit tx: Tx ) : StringRef = {
                   (in.readUnsignedByte(): @switch) match {
                      case 1   => new StringAppendRead( targets, in, access, tx )
                      case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRef {
@@ -221,9 +268,10 @@ object ReactionTest extends App {
             }
       }
 
-      trait StringRef extends Expr[ String ] with Observable[ String, StringRef ] {
+      trait StringRef extends /* State[ S, String ] with */ Value[ String ]
+      /* with State.Observable[ S, String, StringRef ] */ with Event.Observable[ S, (String, String), StringRef ] {
          final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
-         final protected def reader: State.Reader[ S, StringRef ] = StringRef.serializer
+         final protected def reader: Event.Immutable.Reader[ S, StringRef ] = StringRef.serializer
       }
 
       object LongRef {
@@ -233,14 +281,17 @@ object ReactionTest extends App {
          def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMinNew(  a, b, tx )
          def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMaxNew(  a, b, tx )
 
-         private sealed trait LongConst extends LongRef with ConstExpr[ Long ] {
+         private sealed trait LongConst extends LongRef with ConstValue[ Long ] {
             final protected def writeData( out: DataOutput ) {
                out.writeLong( constValue )
             }
 
-            final def observe( fun: (Tx, Long) => Unit )( implicit tx: Tx ) : Observer[ Long, LongRef ] = {
-               val o = State.Observer[ S, Long, LongRef ]( State.Reader.unsupported[ S, LongRef ], fun )
-               fun( tx, value )
+            final def observe( fun: (Tx, (Long, Long)) => Unit )
+                             ( implicit tx: Tx ) : Event.Observer[ S, (Long, Long), LongRef ] = {
+               val o = Event.Observer[ S, (Long, Long), LongRef ]( reader, fun )
+//                  Event.Reader.unsupported[ S, LongRef ], fun )
+               val v = value
+               fun( tx, (v, v) )
                o
             }
          }
@@ -256,7 +307,7 @@ object ReactionTest extends App {
          private sealed trait LongBinOp extends LongRef with BinaryExpr[ Long ] {
             protected def opID: Int
 
-            final protected def stateSources( implicit tx: Tx ) : State.Sources[ S ] = IIdxSeq( a, b )
+            final protected def eventSources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( a, b )
 
             final protected def writeData( out: DataOutput ) {
                out.writeUnsignedByte( opID )
@@ -264,16 +315,18 @@ object ReactionTest extends App {
                b.write( out )
             }
 
-            final def observe( fun: (Tx, Long) => Unit )( implicit tx: Tx ) : Observer[ Long, LongRef ] = {
-               val o = State.Observer[ S, Long, LongRef ]( LongRef.serializer, fun )
+            final def observe( fun: (Tx, (Long, Long)) => Unit )
+                             ( implicit tx: Tx ) : Event.Observer[ S, (Long, Long), LongRef ] = {
+               val o = Event.Observer[ S, (Long, Long), LongRef ]( LongRef.serializer, fun )
                o.add( this )
-               fun( tx, value )
+               val v = value
+               fun( tx, (v, v) )
                o
             }
          }
 
          private abstract class LongBinOpNew( tx0: Tx ) extends LongBinOp {
-            protected val targets = State.Targets[ S ]( tx0 )
+            protected val targets = Event.Immutable.Targets[ S ]( tx0 )
          }
 
          private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
@@ -300,26 +353,26 @@ object ReactionTest extends App {
          private final class LongPlusNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
          extends LongBinOpNew( tx0 ) with LongPlus
 
-         private final class LongPlusRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
+         private final class LongPlusRead( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, access: Acc, tx0: Tx )
          extends LongBinOpRead( in, access, tx0 ) with LongPlus
 
          private final class LongMinNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
          extends LongBinOpNew( tx0 ) with LongMin
 
-         private final class LongMinRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
+         private final class LongMinRead( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, access: Acc, tx0: Tx )
          extends LongBinOpRead( in, access, tx0 ) with LongMin
 
          private final class LongMaxNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
          extends LongBinOpNew( tx0 ) with LongMax
 
-         private final class LongMaxRead( protected val targets: Targets, in: DataInput, access: Acc, tx0: Tx )
+         private final class LongMaxRead( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, access: Acc, tx0: Tx )
          extends LongBinOpRead( in, access, tx0 ) with LongMax
 
-         implicit val serializer : State.Serializer[ S, LongRef ] =
-            new State.Serializer[ S, LongRef ] {
+         implicit val serializer : Event.Serializer[ S, LongRef ] =
+            new Event.Serializer[ S, LongRef ] {
                def readConstant( in: DataInput )( implicit tx: Tx ) : LongRef = new LongConstRead( in )
 
-               def read( in: DataInput, access: Acc, targets: Targets )( implicit tx: Tx ) : LongRef = {
+               def read( in: DataInput, access: Acc, targets: Event.Immutable.Targets[ S ])( implicit tx: Tx ) : LongRef = {
                   val opID    = in.readUnsignedByte()
                   (opID: @switch) match {
                      case 1   => new LongPlusRead( targets, in, access, tx )
@@ -331,11 +384,12 @@ object ReactionTest extends App {
             }
       }
 
-      trait LongRef extends Expr[ Long ] with Observable[ Long, LongRef ] {
+      trait LongRef extends /* State[ S, Long ] with */ Value[ Long ]
+      /* with State.Observable[ S, Long, LongRef ] */ with Event.Observable[ S, (Long, Long), LongRef ] {
          final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
          final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
          final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
-         final protected def reader: State.Reader[ S, LongRef ] = LongRef.serializer
+         final protected def reader: Event.Immutable.Reader[ S, LongRef ] = LongRef.serializer
       }
 
    //   object Region {
@@ -480,9 +534,9 @@ object ReactionTest extends App {
          }
 
          def connect()( implicit tx: Tx ) {
-            r.name_#.observe(  (_, v) => defer( ggName.setText(  v )))
-            r.start_#.observe( (_, v) => defer( ggStart.setText( v.toString )))
-            r.stop_#.observe(  (_, v) => defer( ggStop.setText(  v.toString )))
+            r.name_#.observe { case (_, (_, v)) => defer( ggName.setText(  v ))}
+            r.start_#.observe { case(_, (_, v)) => defer( ggStart.setText( v.toString ))}
+            r.stop_#.observe { case (_, (_, v)) => defer( ggStop.setText(  v.toString ))}
 
             implicit val system = tx.system
 
