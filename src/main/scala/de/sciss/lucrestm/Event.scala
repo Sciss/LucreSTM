@@ -137,7 +137,7 @@ object Event {
     * object and can also act as an observer itself.
     */
    sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] with Event[ S, A ] {
-      protected def eventSources( implicit tx: S#Tx ) : Sources[ S ]
+      protected def sources( implicit tx: S#Tx ) : Sources[ S ]
       protected def targets: Targets[ S ]
       protected def writeData( out: DataOutput ) : Unit
       protected def disposeData()( implicit tx: S#Tx ) : Unit
@@ -247,13 +247,13 @@ object Event {
 
       final private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
          if( targets.addReactor( r )) {
-            eventSources.foreach( _.addReactor( this ))
+            sources.foreach( _.addReactor( this ))
          }
       }
 
       final private[lucrestm] def removeReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
          if( targets.removeReactor( r )) {
-            eventSources.foreach( _.removeReactor( this ))
+            sources.foreach( _.removeReactor( this ))
          }
       }
 
@@ -276,14 +276,41 @@ object Event {
 ////      def apply
 //   }
 
-   trait Trigger[ S <: Sys[ S ], A ] extends Source[ S, A ] with Immutable[ S, A ] {
-//      protected def constValue : A
+   trait Val[ S <: Sys[ S ], A ] extends Event[ S, Change[ A ]] {
+      def value( implicit tx: S#Tx ) : A
+   }
 
-      override def toString = "Event.Trigger" + id
+   trait Root[ S <: Sys[ S ], A ] {
+      final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
 
-      final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ A ] = {
+      final def pull( source: Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ A ] = {
          if( source.source == this ) Some( source.update.asInstanceOf[ A ]) else None
       }
+   }
+
+   final case class Change[ @specialized A ]( before: A, now: A )
+
+   trait Constant[ S <: Sys[ S ], A ] extends Val[ S, A ] with Root[ S, Change[ A ]] {
+      protected def constValue : A
+      final def value( implicit tx: S#Tx ) : A = constValue
+      final private[lucrestm] def addReactor(     r: Reactor[ S ])( implicit tx: S#Tx ) {}
+      final private[lucrestm] def removeReactor(  r: Reactor[ S ])( implicit tx: S#Tx ) {}
+
+      final def write( out: DataOutput ) {
+         out.writeUnsignedByte( 3 )
+         writeData( out )
+      }
+
+      protected def writeData( out: DataOutput ) : Unit
+   }
+
+   trait Singleton[ S <: Sys[ S ]] {
+      final protected def disposeData()( implicit tx: S#Tx ) {}
+      final protected def writeData( out: DataOutput ) {}
+   }
+
+   trait Trigger[ S <: Sys[ S ], A ] extends Source[ S, A ] with Root[ S, A ] with Immutable[ S, A ] {
+      override def toString = "Event.Trigger" + id
 
       final override def fire( update: A )( implicit tx: S#Tx ) { super.fire( update )}
    }
@@ -294,8 +321,6 @@ object Event {
       def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : Obs[ S ] = new ObsImpl[ S ] {
             protected val targets = Immutable.Targets[ S ]
          }
-
-//      def read[ S <: Sys[ S ]]( in: DataInput )
 
       private sealed trait ObsImpl[ S <: Sys[ S ]] extends Bang[ S ] with Immutable.Observable[ S, Unit, Bang[ S ]] {
          protected def reader = serializer[ S ]
@@ -308,12 +333,8 @@ object Event {
             }
       }
    }
-   trait Bang[ S <: Sys[ S ]] extends Trigger[ S, Unit ] {
+   trait Bang[ S <: Sys[ S ]] extends Trigger[ S, Unit ] with Singleton[ S ] {
       def fire()( implicit tx: S#Tx ) { fire( () )}
-
-      protected def disposeData()( implicit tx: S#Tx ) {}
-      protected def writeData( out: DataOutput ) {}
-      protected def eventSources( implicit tx: S#Tx ) : Event.Sources[ S ] = Event.noSources
    }
 
    object Mutable {

@@ -61,7 +61,7 @@ object ReactionTest2 extends App {
       trait ConstValue[ A ] extends Value[ A ] {
          protected def constValue : A
          final def value( implicit tx: S#Tx ) : A = constValue
-         final protected def eventSources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq.empty
+         final protected def sources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq.empty
          final private[lucrestm] def addReactor(     r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
          final private[lucrestm] def removeReactor(  r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
 
@@ -106,7 +106,7 @@ object ReactionTest2 extends App {
             protected def reader: Event.Immutable.Reader[ S, Ex ]
             protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
             protected def v: S#Var[ Ex ]
-            final protected def eventSources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( v.get )
+            final protected def sources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( v.get )
 
             final def value( implicit tx: Tx ) : A = get.value
 
@@ -220,7 +220,7 @@ object ReactionTest2 extends App {
                b.write( out )
             }
 
-            final protected def eventSources( implicit t: Tx ) : Event.Sources[ S ] = {
+            final protected def sources( implicit t: Tx ) : Event.Sources[ S ] = {
                IIdxSeq( a, b )
             }
 
@@ -309,7 +309,7 @@ object ReactionTest2 extends App {
          private sealed trait LongBinOp extends LongRef with BinaryExpr[ Long ] {
             protected def opID: Int
 
-            final protected def eventSources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( a, b )
+            final protected def sources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( a, b )
 
             final protected def writeData( out: DataOutput ) {
                out.writeUnsignedByte( opID )

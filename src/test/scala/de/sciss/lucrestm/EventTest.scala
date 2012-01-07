@@ -18,11 +18,8 @@ object EventTest extends App {
    }
 
    val e2 = system.atomic { implicit tx =>
-      new Event.Trigger[ S, Int ] {
+      new Event.Trigger[ S, Int ] with Event.Singleton[ S ] {
          protected val targets = Event.Immutable.Targets[ S ]
-         protected def disposeData()( implicit tx: S#Tx ) {}
-         protected def writeData( out: DataOutput ) {}
-         protected def eventSources( implicit tx: S#Tx ) : Event.Sources[ S ] = Event.noSources
       }
    }
 
@@ -38,7 +35,7 @@ object EventTest extends App {
 //      protected val targets = Event.Immutable.Targets[ S ]
       protected def disposeData()( implicit tx: S#Tx ) {}
       protected def writeData( out: DataOutput ) {}
-      protected def eventSources( implicit tx: S#Tx ) : Event.Sources[ S ] = IIdxSeq( e2 )
+      protected def sources( implicit tx: S#Tx ) : Event.Sources[ S ] = IIdxSeq( e2 )
 
       def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ Int ] = {
          e2.pull( source ).flatMap( i => if( i < 10 ) Some( i ) else None )
