@@ -54,7 +54,7 @@ object ReactionTest2 extends App {
 //      type MutableExpr[ A ]      = State.Node[ S, A ]
 //      type Targets               = State.Targets[ S ]
 
-      trait Value[ A ] extends Event[ S, (A, A )] {
+      trait Value[ A ] extends Event[ S, Change[ A ]] {
          def value( implicit tx: S#Tx ) : A         
       }
 
@@ -65,8 +65,8 @@ object ReactionTest2 extends App {
          final private[lucrestm] def addReactor(     r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
          final private[lucrestm] def removeReactor(  r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
 
-         final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ (A, A) ] = {
-            if( source.source == this ) Some( source.update.asInstanceOf[ (A, A) ]) else None
+         final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
+            if( source.source == this ) Some( source.update.asInstanceOf[ Change[ A ]]) else None
          }
 
          final def write( out: DataOutput ) {
@@ -77,7 +77,9 @@ object ReactionTest2 extends App {
          protected def writeData( out: DataOutput ) : Unit
       }
 
-      trait BinaryExpr[ A ] extends Value[ A ] with Event.Immutable[ S, (A, A) ] {
+      final case class Change[ @specialized A ]( before: A, now: A )
+
+      trait BinaryExpr[ A ] extends Value[ A ] with Event.Immutable[ S, Change[ A ]] {
          protected def a: Value[ A ]
          protected def b: Value[ A ]
          protected def op( a: A, b: A ) : A
@@ -86,14 +88,14 @@ object ReactionTest2 extends App {
 
          final protected def disposeData()( implicit tx: Tx ) {}
          
-         final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ (A, A) ] = {
-            if( source.source == this ) Some( source.update.asInstanceOf[ (A, A) ]) else {
-               val av = a.pull( source ).getOrElse { val v = a.value; (v, v)}
-               val bv = b.pull( source ).getOrElse { val v = b.value; (v, v)}
-               val u1 = op( av._1, bv._1 )
-               val u2 = op( av._2, bv._2 )
-               if( u1 != u2 ) Some( (u1, u2) ) else None
-            }
+         final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
+            /* if( source.source == this ) Some( source.update.asInstanceOf[ (A, A) ]) else { */
+            val av = a.pull( source ).getOrElse { val v = a.value; Change( v, v )}
+            val bv = b.pull( source ).getOrElse { val v = b.value; Change( v, v )}
+            val u1 = op( av.before, bv.before )
+            val u2 = op( av.now, bv.now )
+            if( u1 != u2 ) Some( Change( u1, u2 )) else None
+            /* } */
          }
       }
 
@@ -122,7 +124,7 @@ object ReactionTest2 extends App {
                   v.set( ex )
                   if( conn ) {
                      ex.addReactor( this )
-                     fire( (oldv, exv) )
+                     fire( Change( oldv, exv ))
 //                     val r = targets.propagate( this, IIdxSeq.empty )
 //                     r.map( _.apply() ).foreach( _.apply() )
                   }
@@ -143,16 +145,16 @@ object ReactionTest2 extends App {
                v.dispose()
             }
 
-            final def observe( fun: (Tx, (A, A)) => Unit )( implicit tx: Tx ) : Event.Observer[ S, (A, A), Ex ] = {
-               val o = Event.Observer[ S, (A, A), Ex ]( reader, fun )
+            final def observe( fun: (Tx, Change[ A ]) => Unit )( implicit tx: Tx ) : Event.Observer[ S, Change[ A ], Ex ] = {
+               val o = Event.Observer[ S, Change[ A ], Ex ]( reader, fun )
                o.add( this )
-               val v = value
-               fun( tx, (v, v) )
+//               val v = value
+//               fun( tx, Change(v, v) )
                o
             }
 
-            final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ (A, A) ] = {
-               if( source.source == this ) Some( source.update.asInstanceOf[ (A, A) ]) else v.get.pull( source )
+            final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
+               if( source.source == this ) Some( source.update.asInstanceOf[ Change[ A ]]) else v.get.pull( source )
             }
          }
 
@@ -175,7 +177,7 @@ object ReactionTest2 extends App {
             protected val v = tx0.readVar[ Ex ]( id, in )
          }
       }
-      trait ExprVar[ A, Ex <: Value[ A ]] extends Var[ Tx, Ex ] with Value[ A ] with Event.Immutable[ S, (A, A) ] with Event.Source[ S, (A, A) ]
+      trait ExprVar[ A, Ex <: Value[ A ]] extends Var[ Tx, Ex ] with Value[ A ] with Event.Immutable[ S, Change[ A ]] with Event.Source[ S, Change[ A ]]
 
       object StringRef {
          implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -188,12 +190,12 @@ object ReactionTest2 extends App {
                out.writeString( constValue )
             }
 
-            final def observe( fun: (Tx, (String, String)) => Unit )
-                             ( implicit tx: Tx ) : Event.Observer[ S, (String, String), StringRef ] = {
-               val o = Event.Observer[ S, (String, String), StringRef ]( reader, fun )
+            final def observe( fun: (Tx, Change[ String ]) => Unit )
+                             ( implicit tx: Tx ) : Event.Observer[ S, Change[ String ], StringRef ] = {
+               val o = Event.Observer[ S, Change[ String ], StringRef ]( reader, fun )
 //                  Event.Reader.unsupported[ S, StringRef ], fun )
-               val v = value
-               fun( tx, (v, v) )
+//               val v = value
+//               fun( tx, (v, v) )
                o
             }
 
@@ -222,12 +224,12 @@ object ReactionTest2 extends App {
                IIdxSeq( a, b )
             }
 
-            final def observe( fun: (Tx, (String, String)) => Unit )
-                             ( implicit tx: Tx ) : Event.Observer[ S, (String, String), StringRef ] = {
-               val o = Event.Observer[ S, (String, String), StringRef ]( StringRef.serializer, fun )
+            final def observe( fun: (Tx, Change[ String ]) => Unit )
+                             ( implicit tx: Tx ) : Event.Observer[ S, Change[ String ], StringRef ] = {
+               val o = Event.Observer[ S, Change[ String ], StringRef ]( StringRef.serializer, fun )
                o.add( this )
-               val v = value
-               fun( tx, (v, v) )
+//               val v = value
+//               fun( tx, (v, v) )
                o
             }
          }
@@ -269,7 +271,7 @@ object ReactionTest2 extends App {
       }
 
       trait StringRef extends /* State[ S, String ] with */ Value[ String ]
-      /* with State.Observable[ S, String, StringRef ] */ with Event.Observable[ S, (String, String), StringRef ] {
+      /* with State.Observable[ S, String, StringRef ] */ with Event.Observable[ S, Change[ String ], StringRef ] {
          final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
          final protected def reader: Event.Immutable.Reader[ S, StringRef ] = StringRef.serializer
       }
@@ -286,12 +288,12 @@ object ReactionTest2 extends App {
                out.writeLong( constValue )
             }
 
-            final def observe( fun: (Tx, (Long, Long)) => Unit )
-                             ( implicit tx: Tx ) : Event.Observer[ S, (Long, Long), LongRef ] = {
-               val o = Event.Observer[ S, (Long, Long), LongRef ]( reader, fun )
+            final def observe( fun: (Tx, Change[ Long ]) => Unit )
+                             ( implicit tx: Tx ) : Event.Observer[ S, Change[ Long ], LongRef ] = {
+               val o = Event.Observer[ S, Change[ Long ], LongRef ]( reader, fun )
 //                  Event.Reader.unsupported[ S, LongRef ], fun )
-               val v = value
-               fun( tx, (v, v) )
+//               val v = value
+//               fun( tx, (v, v) )
                o
             }
          }
@@ -315,12 +317,12 @@ object ReactionTest2 extends App {
                b.write( out )
             }
 
-            final def observe( fun: (Tx, (Long, Long)) => Unit )
-                             ( implicit tx: Tx ) : Event.Observer[ S, (Long, Long), LongRef ] = {
-               val o = Event.Observer[ S, (Long, Long), LongRef ]( LongRef.serializer, fun )
+            final def observe( fun: (Tx, Change[ Long ]) => Unit )
+                             ( implicit tx: Tx ) : Event.Observer[ S, Change[ Long ], LongRef ] = {
+               val o = Event.Observer[ S, Change[ Long ], LongRef ]( LongRef.serializer, fun )
                o.add( this )
-               val v = value
-               fun( tx, (v, v) )
+//               val v = value
+//               fun( tx, (v, v) )
                o
             }
          }
@@ -385,7 +387,7 @@ object ReactionTest2 extends App {
       }
 
       trait LongRef extends /* State[ S, Long ] with */ Value[ Long ]
-      /* with State.Observable[ S, Long, LongRef ] */ with Event.Observable[ S, (Long, Long), LongRef ] {
+      /* with State.Observable[ S, Long, LongRef ] */ with Event.Observable[ S, Change[ Long ], LongRef ] {
          final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
          final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
          final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
@@ -446,7 +448,7 @@ object ReactionTest2 extends App {
 //      object EventRegion {
 //         sealed trait Update
 //         final case class Renamed( r: EventRegion, before: String, now: String ) extends Update
-//         final case class Moved( r: EventRegion, before: (Long, Long), now: (Long, Long) ) extends Update
+//         final case class Moved( r: EventRegion, before: Change[ Long ], now: Change[ Long ] ) extends Update
 //      }
 //      trait EventRegion extends Region with Event.Immutable[ S, EventRegion.Update ] {
 //         name_#.observe { (tx, str) =>
@@ -534,9 +536,18 @@ object ReactionTest2 extends App {
          }
 
          def connect()( implicit tx: Tx ) {
-            r.name_#.observe { case (_, (_, v)) => defer( ggName.setText(  v ))}
-            r.start_#.observe { case(_, (_, v)) => defer( ggStart.setText( v.toString ))}
-            r.stop_#.observe { case (_, (_, v)) => defer( ggStop.setText(  v.toString ))}
+            r.name_#.observe { case (_, Change( _, v )) => defer( ggName.setText(  v ))}
+            r.start_#.observe { case(_, Change( _, v )) => defer( ggStart.setText( v.toString ))}
+            r.stop_#.observe { case (_, Change( _, v )) => defer( ggStop.setText(  v.toString ))}
+
+            val name0   = r.name.value
+            val start0  = r.start.value
+            val stop0   = r.stop.value
+            defer {
+               ggName.setText( name0 )
+               ggStart.setText( start0.toString )
+               ggStop.setText( stop0.toString )
+            }
 
             implicit val system = tx.system
 
