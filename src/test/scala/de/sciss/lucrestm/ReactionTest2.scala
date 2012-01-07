@@ -47,41 +47,11 @@ object ReactionTest2 extends App {
       type Tx  = S#Tx
       type Acc = S#Acc
 
-//      type Observer[ A, Repr ]   = State.Observer[ S, A, Repr ]
-//      type Observable[ A, Repr ] = State.Observable[ S, A, Repr ]
-//      type Expr[ A ]             = State[ S, A ] with Event[ S, (A, A) ]
-//      type ConstExpr[ A ]        = State.Constant[ S, A ]
-//      type MutableExpr[ A ]      = State.Node[ S, A ]
-//      type Targets               = State.Targets[ S ]
+      import Event.{Val, Change, Constant}
 
-      trait Value[ A ] extends Event[ S, Change[ A ]] {
-         def value( implicit tx: S#Tx ) : A         
-      }
-
-      trait ConstValue[ A ] extends Value[ A ] {
-         protected def constValue : A
-         final def value( implicit tx: S#Tx ) : A = constValue
-         final protected def sources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq.empty
-         final private[lucrestm] def addReactor(     r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
-         final private[lucrestm] def removeReactor(  r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
-
-         final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
-            if( source.source == this ) Some( source.update.asInstanceOf[ Change[ A ]]) else None
-         }
-
-         final def write( out: DataOutput ) {
-            out.writeUnsignedByte( 3 )
-            writeData( out )
-         }
-
-         protected def writeData( out: DataOutput ) : Unit
-      }
-
-      final case class Change[ @specialized A ]( before: A, now: A )
-
-      trait BinaryExpr[ A ] extends Value[ A ] with Event.Immutable[ S, Change[ A ]] {
-         protected def a: Value[ A ]
-         protected def b: Value[ A ]
+      trait BinaryExpr[ A ] extends Val[ S, A ] with Event.Immutable[ S, Change[ A ]] {
+         protected def a: Val[ S, A ]
+         protected def b: Val[ S, A ]
          protected def op( a: A, b: A ) : A
 
          final def value( implicit tx: Tx ) : A = op( a.value, b.value )
@@ -100,7 +70,7 @@ object ReactionTest2 extends App {
       }
 
       object ExprVar {
-         sealed trait Impl[ A, Ex <: Value[ A ]] extends ExprVar[ A, Ex ] {
+         sealed trait Impl[ A, Ex <: Val[ S, A ]] extends ExprVar[ A, Ex ] {
             me: Ex =>
 
             protected def reader: Event.Immutable.Reader[ S, Ex ]
@@ -160,7 +130,7 @@ object ReactionTest2 extends App {
 
          // XXX the other option is to forget about StringRef, LongRef, etc., and instead
          // pimp Expr[ String ] to StringExprOps, etc.
-         abstract class New[ A, Ex <: Value[ A ]]( init: Ex, tx0: Tx )(
+         abstract class New[ A, Ex <: Val[ S, A ]]( init: Ex, tx0: Tx )(
             implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
          extends Impl[ A, Ex ] {
             me: Ex =>
@@ -169,7 +139,7 @@ object ReactionTest2 extends App {
             protected val v         = tx0.newVar[ Ex ]( id, init )
          }
 
-         abstract class Read[ A, Ex <: Value[ A ]]( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, tx0: Tx )(
+         abstract class Read[ A, Ex <: Val[ S, A ]]( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, tx0: Tx )(
             implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
          extends Impl[ A, Ex ] {
             me: Ex =>
@@ -177,7 +147,7 @@ object ReactionTest2 extends App {
             protected val v = tx0.readVar[ Ex ]( id, in )
          }
       }
-      trait ExprVar[ A, Ex <: Value[ A ]] extends Var[ Tx, Ex ] with Value[ A ] with Event.Immutable[ S, Change[ A ]] with Event.Source[ S, Change[ A ]]
+      trait ExprVar[ A, Ex <: Val[ S, A ]] extends Var[ Tx, Ex ] with Val[ S, A ] with Event.Immutable[ S, Change[ A ]] with Event.Source[ S, Change[ A ]]
 
       object StringRef {
          implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -185,7 +155,7 @@ object ReactionTest2 extends App {
          def append( a: StringRef, b: StringRef )( implicit tx: Tx ) : StringRef =
             new StringAppendNew( a, b, tx )
 
-         private sealed trait StringConst extends StringRef with ConstValue[ String ] {
+         private sealed trait StringConst extends StringRef with Constant[ S, String ] {
             final protected def writeData( out: DataOutput ) {
                out.writeString( constValue )
             }
@@ -270,7 +240,7 @@ object ReactionTest2 extends App {
             }
       }
 
-      trait StringRef extends /* State[ S, String ] with */ Value[ String ]
+      trait StringRef extends /* State[ S, String ] with */ Val[ S, String ]
       /* with State.Observable[ S, String, StringRef ] */ with Event.Observable[ S, Change[ String ], StringRef ] {
          final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
          final protected def reader: Event.Immutable.Reader[ S, StringRef ] = StringRef.serializer
@@ -283,7 +253,7 @@ object ReactionTest2 extends App {
          def min(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMinNew(  a, b, tx )
          def max(  a: LongRef, b: LongRef )( implicit tx: Tx ) : LongRef = new LongMaxNew(  a, b, tx )
 
-         private sealed trait LongConst extends LongRef with ConstValue[ Long ] {
+         private sealed trait LongConst extends LongRef with Constant[ S, Long ] {
             final protected def writeData( out: DataOutput ) {
                out.writeLong( constValue )
             }
@@ -386,7 +356,7 @@ object ReactionTest2 extends App {
             }
       }
 
-      trait LongRef extends /* State[ S, Long ] with */ Value[ Long ]
+      trait LongRef extends /* State[ S, Long ] with */ Val[ S, Long ]
       /* with State.Observable[ S, Long, LongRef ] */ with Event.Observable[ S, Change[ Long ], LongRef ] {
          final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
          final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
