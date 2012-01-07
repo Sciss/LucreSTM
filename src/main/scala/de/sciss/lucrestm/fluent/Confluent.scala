@@ -172,7 +172,7 @@ object Confluent {
                            keys: IIdxSeq[ Int ]) : Event.Reactor[ S ] =
          system.reactionMap.mapEventTargets( in, access, targets, keys )( this )
 
-      def propagateEvent( key: Int, source: Event.Posted[ S ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
+      def propagateEvent( key: Int, source: Event.Posted[ S, _ ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
          system.reactionMap.propagateEvent( key, source, state, reactions )( this )
 
       def removeEventReaction( key: Event.ReactorKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}

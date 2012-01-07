@@ -85,7 +85,7 @@ object ReactionMap {
          }
       }
 
-      def propagateEvent( key: Int, source: Event.Posted[ S ], event: Event[ S, _ ], reactions: Event.Reactions )
+      def propagateEvent( key: Int, source: Event.Posted[ S, _ ], event: Event[ S, _ ], reactions: Event.Reactions )
                            ( implicit tx: S#Tx ) : Event.Reactions = {
          val itx = tx.peer
          eventMap.get( key )( itx ) match {
@@ -150,6 +150,6 @@ trait ReactionMap[ S <: Sys[ S ]] {
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], observerKeys: IIdxSeq[ Int ])
                       ( implicit tx: S#Tx ) : Event.Reactor[ S ]
 
-   def propagateEvent( key: Int, source: Event.Posted[ S ], event: Event[ S, _ ], reactions: Event.Reactions )
+   def propagateEvent( key: Int, source: Event.Posted[ S, _ ], event: Event[ S, _ ], reactions: Event.Reactions )
                      ( implicit tx: S#Tx ) : Event.Reactions
 }
