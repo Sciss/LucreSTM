@@ -525,20 +525,7 @@ Usages:
             }
 
             private def insert( pred: S#Var[ LO ], r: Region )( implicit tx: S#Tx ) {
-               val l    = new LinkedList[ Region ] {
-                  val id      = tx.newID()
-                  val value   = r
-                  val next_#  = tx.newVar[ LO ]( id, pred.get )
-
-                  protected def writeData( out: DataOutput ) {
-                     value.write( out )
-                     next_#.write( out )
-                  }
-
-                  protected def disposeData()( implicit tx: S#Tx ) {
-                     next_#.dispose()
-                  }
-               }
+               val l = LinkedList[ Region ]( r, pred.get )
                pred.set( Some( l ))
                sizeRef.transform( _ + 1 )
             }
@@ -627,8 +614,40 @@ Usages:
       }
 
       object LinkedList {
+         def apply[ A ]( value: A, next: Option[ LinkedList[ A ]])( implicit tx: S#Tx, peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : LinkedList[ A ] =
+            new New[ A ]( value, next, tx, peerSer )
+
+         private sealed trait Impl[ A ] extends LinkedList[ A ] {
+            protected def peerSer: TxnSerializer[ S#Tx, S#Acc, A ]
+            final protected def writeData( out: DataOutput ) {
+               peerSer.write( value, out )
+               next_#.write( out )
+            }
+
+            final protected def disposeData()( implicit tx: S#Tx ) {
+               next_#.dispose()
+            }
+         }
+
+         private final class New[ A ]( val value: A, next0: Option[ LinkedList[ A ]], tx0: S#Tx,
+                                       protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) extends Impl[ A ] {
+            val id      = tx0.newID()
+            val next_#  = tx0.newVar[ Option[ LinkedList[ A ]]]( id, next0 )
+         }
+
+         private final class Read[ A ]( in: DataInput, acc: S#Acc, tx0: S#Tx,
+                                        protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ] ) extends Impl[ A ] {
+            val id      = tx0.readID( in, acc )
+            val value   = peerSer.read( in, acc )( tx0 )
+            val next_#  = tx0.readVar[ Option[ LinkedList[ A ]]]( id, in )
+         }
+
          implicit def serializer[ A ]( implicit peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] =
-            sys.error( "TODO" )
+            new TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] {
+               def write( v: LinkedList[ A ], out: DataOutput ) { v.write( out )}
+               def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : LinkedList[ A ] =
+                  new Read[ A ]( in, access, tx, peerSer )
+            }
       }
 
       trait LinkedList[ A ] extends Mutable[ S ] {
