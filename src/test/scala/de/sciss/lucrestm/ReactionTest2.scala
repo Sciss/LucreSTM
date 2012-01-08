@@ -201,8 +201,6 @@ Usages:
          private sealed trait StringBinOp extends StringRef with BinaryExpr[ String ] {
             protected def opID : Int
 
-   //         final protected def reader: State.Reader[ S, StringBinOp ] = sys.error( "TODO" )
-
             final protected def writeData( out: DataOutput ) {
                out.writeUnsignedByte( opID )
                a.write( out )
@@ -388,10 +386,37 @@ Usages:
       object Region {
          def apply( name: StringRef, start: LongRef, stop: LongRef )
                   ( implicit tx: Tx ) : Region =
-            new RegionNew( name, start, stop, tx )
+            new New( name, start, stop, tx )
 
-         private final class RegionNew( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
-         extends Region {
+         private sealed trait Impl extends Region {
+            def name_# : ExprVar[ String, StringRef ] with StringRef
+            def start_# : ExprVar[ Long, LongRef ] with LongRef
+            def stop_# : ExprVar[ Long, LongRef ] with LongRef
+
+            final def name( implicit tx: Tx ) : StringRef = name_#.get
+            final def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
+
+            final def start( implicit tx: Tx ) : LongRef = start_#.get
+            final def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
+
+            final def stop( implicit tx: Tx ) : LongRef = stop_#.get
+            final def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
+
+            final protected def writeData( out: DataOutput ) {
+               name_#.write( out )
+               start_#.write( out )
+               stop_#.write( out )
+            }
+
+            final protected def disposeData()( implicit tx: S#Tx ) {
+               name_#.dispose()
+               start_#.dispose()
+               stop_#.dispose()
+            }
+         }
+
+         private final class New( name0: StringRef, start0: LongRef, stop0: LongRef, tx0: Tx )
+         extends Impl {
             region =>
 
             val id = tx0.newID()
@@ -405,30 +430,41 @@ Usages:
             val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef {
                override def toString = region.toString + ".stop_#"
             }
+         }
 
-            def name( implicit tx: Tx ) : StringRef = name_#.get
-            def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
+         private final class Read( in: DataInput, acc: S#Acc, tx0: S#Tx ) extends Impl {
+            region =>
 
-            def start( implicit tx: Tx ) : LongRef = start_#.get
-            def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
+            val id = tx0.readID( in, acc )
 
-            def stop( implicit tx: Tx ) : LongRef = stop_#.get
-            def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
-
-            protected def writeData( out: DataOutput ) {
-               name_#.write( out )
-               start_#.write( out )
-               stop_#.write( out )
+            val name_#  = {
+               val targets = Event.Immutable.Targets.read[ S ]( in, acc )( tx0 )
+               require( in.readUnsignedByte() == 100, "Unexpected cookie" )
+               new ExprVar.Read[ String, StringRef ]( targets, in, tx0 ) with StringRef {
+                  override def toString = region.toString + ".name_#"
+               }
             }
-
-            protected def disposeData()( implicit tx: S#Tx ) {
-               name_#.dispose()
-               start_#.dispose()
-               stop_#.dispose()
+            val start_# = {
+               val targets = Event.Immutable.Targets.read[ S ]( in, acc )( tx0 )
+               require( in.readUnsignedByte() == 100, "Unexpected cookie" )
+               new ExprVar.Read[ Long, LongRef ]( targets, in, tx0 ) with LongRef {
+                  override def toString = region.toString + ".start_#"
+               }
+            }
+            val stop_#  = {
+               val targets = Event.Immutable.Targets.read[ S ]( in, acc )( tx0 )
+               require( in.readUnsignedByte() == 100, "Unexpected cookie" )
+               new ExprVar.Read[ Long, LongRef ]( targets, in, tx0 ) with LongRef {
+                  override def toString = region.toString + ".stop_#"
+               }
             }
          }
 
-         implicit val serializer : TxnSerializer[ S#Tx, S#Acc, Region ] = sys.error( "TODO" )
+         implicit val serializer : TxnSerializer[ S#Tx, S#Acc, Region ] = new TxnSerializer[ S#Tx, S#Acc, Region ] {
+            def write( v: Region, out: DataOutput ) { v.write( out )}
+            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Region =
+               new Read( in, access, tx )
+         }
       }
 
       trait Region extends Mutable[ S ] {
@@ -558,18 +594,36 @@ Usages:
             protected val headRef   = tx0.newVar[ Option[ LinkedList[ Region ]]]( id, None )
          }
 
+         private final class Read( in: DataInput, access: S#Acc, protected val targets: Event.Immutable.Targets[ S ], tx0: S#Tx )
+         extends Impl {
+            protected val sizeRef   = tx0.readIntVar( id, in )
+            protected val headRef   = tx0.readVar[ Option[ LinkedList[ Region ]]]( id, in )
+         }
+
          sealed trait Change
          final case class Added( region: Region )
          final case class Removed( region: Region )
+
+         implicit val serializer : Event.Immutable.Serializer[ S, RegionList ] = new Event.Immutable.Serializer[ S, RegionList ] {
+            def read( in: DataInput, access: S#Acc, targets: Event.Immutable.Targets[ S ])( implicit tx: S#Tx ) : RegionList =
+               new Read( in, access, targets, tx )
+         }
       }
 
-      trait RegionList extends Event.Source[ S, RegionList.Change ] with Event.Root[ S, RegionList.Change ] with Event.Immutable[ S, RegionList.Change ] {
+      trait RegionList extends Event.Source[ S, RegionList.Change ] with Event.Root[ S, RegionList.Change ]
+      with Event.Immutable[ S, RegionList.Change ] with Event.Observable[ S, RegionList.Change, RegionList ] {
          def size( implicit tx: S#Tx ) : Int
          def insert( idx: Int, r: Region )( implicit tx: S#Tx ) : Unit
          final def add( r: Region )( implicit tx: S#Tx ) { insert( size, r )}
          def removeAt( idx: Int )( implicit tx: S#Tx ) : Unit
          def indexOf( r: Region )( implicit tx: S#Tx ) : Int
          def remove( r: Region )( implicit tx: S#Tx ) : Boolean
+
+         final def observe( fun: (S#Tx, RegionList.Change) => Unit )( implicit tx: S#Tx ) : Event.Observer[ S, RegionList.Change, RegionList ] = {
+            val o = Event.Observer[ S, RegionList.Change, RegionList ]( RegionList.serializer, fun )
+            o.add( this )
+            o
+         }
       }
 
       object LinkedList {
@@ -757,16 +811,43 @@ Usages:
    }
 
    def collections[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
-      val (_, cleanUp) = tup
+      val (system, cleanUp) = tup
+      val infra = new System[ S ]
+      import infra._
+
+      val id = system.atomic { implicit tx => tx.newID() }
+
+      val cnt = system.atomic { implicit tx =>
+         tx.newIntVar( id, 0 )
+      }
+
+      def newRegion()( implicit tx: S#Tx ) : Region = {
+         val c = cnt.get + 1
+         cnt.set( c )
+         val name = "Region #" + c
+         Region( name, 0L, 44100L )
+      }
+
+      val coll = system.atomic { implicit tx =>
+         val res = RegionList.empty
+         res
+      }
+
       val f    = frame( "Reaction Test 2", cleanUp )
       val cp   = f.getContentPane
       val tr   = new TrackView
       val actionPane = Box.createHorizontalBox()
       actionPane.add( button( "Add" ) {
          println( "Add" )
+         system.atomic { implicit tx =>
+            coll.add( newRegion() )
+         }
       })
       actionPane.add( button( "Remove" ) {
          println( "Remove" )
+         system.atomic { implicit tx =>
+            if( coll.size > 0 ) coll.removeAt( 0 )
+         }
       })
       cp.add( tr, BorderLayout.CENTER )
       cp.add( actionPane, BorderLayout.SOUTH )
