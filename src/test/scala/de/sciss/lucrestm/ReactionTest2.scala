@@ -31,6 +31,8 @@ import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import annotation.{tailrec, switch}
+import collection.mutable.Buffer
+import de.sciss.lucrestm.ReactionTest2.TrackItem
 
 object ReactionTest2 extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
@@ -793,10 +795,53 @@ Usages:
       showFrame( f )
    }
 
+   class TrackItem( name0: String, start0: Long, stop0: Long ) {
+      var name: String  = name0
+      var start: Long   = start0
+      var stop: Long    = stop0
+   }
+
    class TrackView extends JComponent {
+      private val items = Buffer.empty[ TrackItem ]
+      private val colrRegion = new Color( 0x00, 0x00, 0x00, 0x80 )
+
+      var start         = 0L
+      var stop          = 44100L * 20
+      var regionHeight  = 32
+
       setPreferredSize( new Dimension( 800, 600 ))
 
       private var cycle = 0.0f
+
+      def insert( idx: Int, r: TrackItem ) {
+         items.insert( idx, r )
+         if( idx == items.size - 1 ) {
+            repaintTracks( r.start, r.stop, idx, idx + 1 )
+         } else {
+            repaintTracks( start, stop, idx, items.size )
+         }
+      }
+
+      def removeAt( idx: Int ) {
+         val it = items.remove( idx )
+         if( idx == items.size ) {
+            repaintTracks( it.start, it.stop, idx, idx + 1 )
+         } else {
+            repaintTracks( start, stop, idx, items.size + 1 )
+         }
+      }
+
+      private def trackHeight = regionHeight + 2
+
+      private def repaintTracks( rstart: Long, rstop: Long, ystart: Int, ystop: Int ) {
+         val w          = getWidth
+         val scale      = w.toDouble / (stop - start)
+         val rx1        = (rstart * scale).toInt
+         val rx2        = (rstop * scale).toInt
+         val ry1        = ystart * trackHeight
+         val ry2        = ystop * trackHeight
+         repaint( rx1, ry1, (rx2 - rx1), (ry2 - ry1) )
+      }
 
       override def paintComponent( g: Graphics ) {
          val g2 = g.asInstanceOf[ Graphics2D ]
@@ -805,6 +850,28 @@ Usages:
          val w = getWidth
          val h = getHeight
          g2.fillRect( 0, 0, w, h )  // show last damaged regions
+
+         val scale      = w.toDouble / (stop - start)
+         val cr         = g2.getClipBounds
+         val clipOrig   = g2.getClip
+         val fm         = g2.getFontMetrics
+
+         items.foldLeft( 0 ) { (y, it) =>
+            if( y < (cr.y + cr.height) && (y + regionHeight) > cr.y ) {
+               val x1 = (it.start * scale).toInt
+               val x2 = (it.stop  * scale).toInt
+               if( x1 < (cr.x + cr.width) && x2 > cr.x ) {
+//                  g2.setColor( Color.black )
+                  g2.setColor( colrRegion )
+                  g2.fillRect( x1, y, (x2 - x1), regionHeight )
+                  g2.clipRect( x1, y, (x2 - x1), regionHeight )
+                  g2.setColor( Color.white )
+                  g2.drawString( it.name, x1 + 4, y + fm.getAscent + 2 )
+                  g2.setClip( clipOrig )
+               }
+            }
+            y + trackHeight
+         }
       }
    }
 
@@ -851,34 +918,49 @@ Usages:
          tx.newIntVar( id, 0 )
       }
 
+      val rnd = new scala.util.Random( 1L )
+
       def newRegion()( implicit tx: S#Tx ) : Region = {
          val c = cnt.get + 1
          cnt.set( c )
-         val name = "Region #" + c
-         Region( name, 0L, 44100L )
+         val name    = "Region #" + c
+         val len     = rnd.nextInt( 10 ) + 1
+         val start   = rnd.nextInt( 21 - len )
+         val r = Region( name, start * 44100L, (start + len) * 44100L )
+//         println( "Region(" + r.name.value + ", " + r.start.value + ", " + r.stop.value + ")" )
+         r
       }
+
+      val tr   = new TrackView
 
       val coll = system.atomic { implicit tx =>
          val res = RegionList.empty
          res.observe { (tx, update) => update match {
-            case RegionList.Added( idx, r )   => println( "Added:   " + r.name( tx ))
-            case RegionList.Removed( idx, r ) => println( "Removed: " + r.name( tx ))
+            case RegionList.Added( idx, r ) =>
+               implicit val _tx = tx
+               val name  = r.name.value
+               val start = r.start.value
+               val stop  = r.stop.value
+               defer {
+                  tr.insert( idx, new TrackItem( name, start, stop ))
+               }
+            case RegionList.Removed( idx, r ) =>
+               defer { tr.removeAt( idx )}
          }}
          res
       }
 
       val f    = frame( "Reaction Test 2", cleanUp )
       val cp   = f.getContentPane
-      val tr   = new TrackView
       val actionPane = Box.createHorizontalBox()
       actionPane.add( button( "Add" ) {
-         println( "Add" )
+//         println( "Add" )
          system.atomic { implicit tx =>
             coll.add( newRegion() )
          }
       })
       actionPane.add( button( "Remove" ) {
-         println( "Remove" )
+//         println( "Remove" )
          system.atomic { implicit tx =>
             if( coll.size > 0 ) coll.removeAt( 0 )
          }
