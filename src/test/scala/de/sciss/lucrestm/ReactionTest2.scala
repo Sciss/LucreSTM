@@ -525,9 +525,10 @@ Usages:
             }
 
             private def insert( pred: S#Var[ LO ], r: Region )( implicit tx: S#Tx ) {
-               val l = LinkedList[ Region ]( r, pred.get )
+               val l = LinkedList[ Region ]( r, pred.get: Option[ LinkedList[ Region ]])
                pred.set( Some( l ))
                sizeRef.transform( _ + 1 )
+               fire( RegionList.Added( r ))
             }
 
             final def removeAt( idx: Int )( implicit tx: S#Tx ) {
@@ -546,6 +547,7 @@ Usages:
             private def remove( pred: S#Var[ LO ], r: LinkedList[ Region ])( implicit tx: S#Tx ) {
                pred.set( r.next )
                sizeRef.transform( _ - 1 )
+               fire( RegionList.Removed( r.value ))
             }
 
             final def remove( r: Region )( implicit tx: S#Tx ) : Boolean = {
@@ -588,8 +590,8 @@ Usages:
          }
 
          sealed trait Change
-         final case class Added( region: Region )
-         final case class Removed( region: Region )
+         final case class Added( region: Region ) extends Change
+         final case class Removed( region: Region ) extends Change
 
          implicit val serializer : Event.Immutable.Serializer[ S, RegionList ] = new Event.Immutable.Serializer[ S, RegionList ] {
             def read( in: DataInput, access: S#Acc, targets: Event.Immutable.Targets[ S ])( implicit tx: S#Tx ) : RegionList =
@@ -849,6 +851,10 @@ Usages:
 
       val coll = system.atomic { implicit tx =>
          val res = RegionList.empty
+         res.observe { (tx, update) => update match {
+            case RegionList.Added(   r ) => println( "Added:   " + r.name( tx ))
+            case RegionList.Removed( r ) => println( "Removed: " + r.name( tx ))
+         }}
          res
       }
 
