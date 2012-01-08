@@ -32,7 +32,6 @@ import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayou
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import annotation.{tailrec, switch}
 import collection.mutable.Buffer
-import de.sciss.lucrestm.ReactionTest2.TrackItem
 
 object ReactionTest2 extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
@@ -504,6 +503,8 @@ Usages:
 //         }
 //      }
 
+//      trait RegionRenamed extends Event.Immutable.Observable[ S, Event.Change[ String ], RegionRenamed ] with Event.Singleton[ S ]
+
       object RegionList {
          def empty( implicit tx: Tx ) : RegionList = new New( tx )
 
@@ -511,6 +512,7 @@ Usages:
             private type LO = Option[ LinkedList[ Region ]]
             protected def sizeRef: S#Var[ Int ]
             protected def headRef: S#Var[ LO ]
+//            protected def regionRenamed: RegionRenamed
 
             final protected def writeData( out: DataOutput ) {
                sizeRef.write( out )
@@ -539,6 +541,7 @@ Usages:
                val l = LinkedList[ Region ]( r, pred.get: Option[ LinkedList[ Region ]])
                pred.set( Some( l ))
                sizeRef.transform( _ + 1 )
+//               r.name_#.addReactor( regionRenamed )
                fire( RegionList.Added( idx, r ))
             }
 
@@ -549,6 +552,19 @@ Usages:
                      case None => throw new IndexOutOfBoundsException( idx.toString )
                      case Some( l ) =>
                         if( i == idx ) remove( pred, l, idx )
+                        else step( i + 1, l.next_# )
+                  }
+               }
+               step( 0, headRef )
+            }
+
+            final def apply( idx: Int )( implicit tx: S#Tx ) : Region = {
+               if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) : Region = {
+                  pred.get match {
+                     case None => throw new IndexOutOfBoundsException( idx.toString )
+                     case Some( l ) =>
+                        if( i == idx ) l.value
                         else step( i + 1, l.next_# )
                   }
                }
@@ -589,9 +605,12 @@ Usages:
          }
 
          private final class New( tx0: Tx ) extends Impl {
-            protected val targets   = Event.Immutable.Targets[ S ]( tx0 )
-            protected val sizeRef   = tx0.newIntVar( id, 0 )
-            protected val headRef   = tx0.newVar[ Option[ LinkedList[ Region ]]]( id, None )
+            protected val targets         = Event.Immutable.Targets[ S ]( tx0 )
+            protected val sizeRef         = tx0.newIntVar( id, 0 )
+            protected val headRef         = tx0.newVar[ Option[ LinkedList[ Region ]]]( id, None )
+//            protected val regionRenamed   = new RegionRenamed {
+//               protected val targets      = Event.Immutable.Targets[ S ]( tx0 )
+//            }
          }
 
          private final class Read( in: DataInput, access: S#Acc, protected val targets: Event.Immutable.Targets[ S ], tx0: S#Tx )
@@ -603,6 +622,7 @@ Usages:
          sealed trait Change
          final case class Added( idx: Int, region: Region ) extends Change
          final case class Removed( idx: Int, region: Region ) extends Change
+         final case class Renamed( region: Region, change: Event.Change[ String ]) extends Change
 
          implicit val serializer : Event.Immutable.Serializer[ S, RegionList ] = new Event.Immutable.Serializer[ S, RegionList ] {
             def read( in: DataInput, access: S#Acc, targets: Event.Immutable.Targets[ S ])( implicit tx: S#Tx ) : RegionList =
@@ -618,6 +638,7 @@ Usages:
          def removeAt( idx: Int )( implicit tx: S#Tx ) : Unit
          def indexOf( r: Region )( implicit tx: S#Tx ) : Int
          def remove( r: Region )( implicit tx: S#Tx ) : Boolean
+         def apply( idx: Int )( implicit tx: S#Tx ) : Region
 
          final def observe( fun: (S#Tx, RegionList.Change) => Unit )( implicit tx: S#Tx ) : Event.Observer[ S, RegionList.Change, RegionList ] = {
             val o = Event.Observer[ S, RegionList.Change, RegionList ]( RegionList.serializer, fun )
@@ -920,13 +941,18 @@ Usages:
 
       val rnd = new scala.util.Random( 1L )
 
+      def scramble( s: String ) : String = {
+         val sb = s.toBuffer
+         Seq.fill[ Char ]( s.length )( sb.remove( rnd.nextInt( sb.size ))).mkString
+      }
+
       def newRegion()( implicit tx: S#Tx ) : Region = {
          val c = cnt.get + 1
          cnt.set( c )
          val name    = "Region #" + c
          val len     = rnd.nextInt( 10 ) + 1
          val start   = rnd.nextInt( 21 - len )
-         val r = Region( name, start * 44100L, (start + len) * 44100L )
+         val r       = Region( name, start * 44100L, (start + len) * 44100L )
 //         println( "Region(" + r.name.value + ", " + r.start.value + ", " + r.stop.value + ")" )
          r
       }
@@ -953,18 +979,25 @@ Usages:
       val f    = frame( "Reaction Test 2", cleanUp )
       val cp   = f.getContentPane
       val actionPane = Box.createHorizontalBox()
-      actionPane.add( button( "Add" ) {
-//         println( "Add" )
+      actionPane.add( button( "Add last" ) {
          system.atomic { implicit tx =>
             coll.add( newRegion() )
          }
       })
-      actionPane.add( button( "Remove" ) {
-//         println( "Remove" )
+      actionPane.add( button( "Remove first" ) {
          system.atomic { implicit tx =>
             if( coll.size > 0 ) coll.removeAt( 0 )
          }
       })
+      actionPane.add( button( "Random rename" ) {
+         system.atomic { implicit tx =>
+            if( coll.size > 0 ) {
+               val r    = coll.apply( rnd.nextInt( coll.size ))
+               r.name   = scramble( r.name.value )
+            }
+         }
+      })
+
       cp.add( tr, BorderLayout.CENTER )
       cp.add( actionPane, BorderLayout.SOUTH )
 
