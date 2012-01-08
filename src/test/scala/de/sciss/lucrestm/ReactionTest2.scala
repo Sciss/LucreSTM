@@ -412,6 +412,8 @@ Usages:
 
             override def toString = "Region" + id
          }
+
+         implicit val serializer : TxnSerializer[ S#Tx, S#Acc, Region ] = sys.error( "TODO" )
       }
 
       trait Region {
@@ -443,18 +445,22 @@ Usages:
 
          private sealed trait Impl extends RegionList {
             protected def sizeRef: S#Var[ Int ]
+            protected def headRef: S#Var[ Option[ LinkedList[ Region ]]]
 
             final protected def writeData( out: DataOutput ) {
                sizeRef.write( out )
+               headRef.write( out )
             }
 
             final protected def disposeData()( implicit tx: S#Tx ) {
                sizeRef.dispose()
+               headRef.dispose()
             }
 
             final def size( implicit tx: S#Tx ) : Int = sizeRef.get
 
             final def insert( idx: Int, r: Region )( implicit tx: S#Tx ) {
+               if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
                sys.error( "TODO" )
             }
 
@@ -474,6 +480,7 @@ Usages:
          private final class New( tx0: Tx ) extends Impl {
             protected val targets   = Event.Immutable.Targets[ S ]( tx0 )
             protected val sizeRef   = tx0.newIntVar( id, 0 )
+            protected val headRef   = tx0.newVar[ Option[ LinkedList[ Region ]]]( id, None )
          }
 
          sealed trait Change
@@ -495,10 +502,15 @@ Usages:
    //      def tail_=( r: Option[ List[ Region ]]) : Unit
       }
 
-      trait List[ A ] {
+      object LinkedList {
+         implicit def serializer[ A ]( implicit peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] =
+            sys.error( "TODO" )
+      }
+
+      trait LinkedList[ A ] {
          def value: A
-         def next( implicit tx: Tx ) : Option[ List[ A ]]
-   //      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
+         def next( implicit tx: Tx ) : Option[ LinkedList[ A ]]
+         def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) : Unit
       }
 
       final class RegionView( r: Region, id: String ) extends JPanel {
@@ -674,7 +686,7 @@ Usages:
    }
 
    def collections[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
-      val (system, cleanUp) = tup
+      val (_, cleanUp) = tup
       val f    = frame( "Reaction Test 2", cleanUp )
       val cp   = f.getContentPane
       val tr   = new TrackView
