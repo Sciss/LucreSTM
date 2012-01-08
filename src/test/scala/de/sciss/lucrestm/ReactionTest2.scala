@@ -438,33 +438,68 @@ Usages:
 //         }
 //      }
 
-   //   object RegionList {
-   //      def empty( implicit tx: Tx ) : RegionList = new Impl( tx )
-   //
-   //      private final class Impl( tx0: Tx ) extends RegionList {
-   ////         protected val reactor = StateNode[ S ]( StateSources.none )( tx0 )
-   //         def value( implicit tx: Tx ): IIdxSeq[ Change ] = sys.error( "TODO" )
-   //         def write( out: DataOutput ) { sys.error( "TODO" )}
-   //         def dispose()( implicit tx: Tx ) { sys.error( "TODO" )}
-   //      }
-   //
-   //      sealed trait Change
-   //      final case class Added( region: Region )
-   //      final case class Removed( region: Region )
-   //   }
-   //
-   //   trait RegionList extends Expr[ IIdxSeq[ RegionList.Change ], RegionList ] {
-   ////      def head( implicit tx: Tx ) : Option[ List[ Region ]]
-   ////      def head_=( r: Option[ List[ Region ]]) : Unit
-   ////      def tail( implicit tx: Tx ) : Option[ List[ Region ]]
-   ////      def tail_=( r: Option[ List[ Region ]]) : Unit
-   //   }
-   //
-   //   trait List[ A ] {
-   //      def value: A
-   //      def next( implicit tx: Tx ) : Option[ List[ A ]]
-   ////      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
-   //   }
+      object RegionList {
+         def empty( implicit tx: Tx ) : RegionList = new New( tx )
+
+         private sealed trait Impl extends RegionList {
+            protected def sizeRef: S#Var[ Int ]
+
+            final protected def writeData( out: DataOutput ) {
+               sizeRef.write( out )
+            }
+
+            final protected def disposeData()( implicit tx: S#Tx ) {
+               sizeRef.dispose()
+            }
+
+            final def size( implicit tx: S#Tx ) : Int = sizeRef.get
+
+            final def insert( idx: Int, r: Region )( implicit tx: S#Tx ) {
+               sys.error( "TODO" )
+            }
+
+            final def removeAt( idx: Int )( implicit tx: S#Tx ) {
+               sys.error( "TODO" )
+            }
+
+            final def remove( r: Region )( implicit tx: S#Tx ) {
+               sys.error( "TODO" )
+            }
+
+            final def indexOf( r: Region )( implicit tx: S#Tx ) : Int = {
+               sys.error( "TODO" )
+            }
+         }
+
+         private final class New( tx0: Tx ) extends Impl {
+            protected val targets   = Event.Immutable.Targets[ S ]( tx0 )
+            protected val sizeRef   = tx0.newIntVar( id, 0 )
+         }
+
+         sealed trait Change
+         final case class Added( region: Region )
+         final case class Removed( region: Region )
+      }
+
+      trait RegionList extends Event.Source[ S, RegionList.Change ] with Event.Root[ S, RegionList.Change ] with Event.Immutable[ S, RegionList.Change ] {
+         def size( implicit tx: S#Tx ) : Int
+         def insert( idx: Int, r: Region )( implicit tx: S#Tx ) : Unit
+         final def add( r: Region )( implicit tx: S#Tx ) { insert( size, r )}
+         def removeAt( idx: Int )( implicit tx: S#Tx ) : Unit
+         def indexOf( r: Region )( implicit tx: S#Tx ) : Int
+         def remove( r: Region )( implicit tx: S#Tx ) : Unit
+
+   //      def head( implicit tx: Tx ) : Option[ List[ Region ]]
+   //      def head_=( r: Option[ List[ Region ]]) : Unit
+   //      def tail( implicit tx: Tx ) : Option[ List[ Region ]]
+   //      def tail_=( r: Option[ List[ Region ]]) : Unit
+      }
+
+      trait List[ A ] {
+         def value: A
+         def next( implicit tx: Tx ) : Option[ List[ A ]]
+   //      def next_=( elem: Option[ List[ A ]])( implicit tx: Tx ) : Unit
+      }
 
       final class RegionView( r: Region, id: String ) extends JPanel {
          private val lay = new GroupLayout( this )
@@ -654,5 +689,9 @@ Usages:
       cp.add( actionPane, BorderLayout.SOUTH )
 
       showFrame( f )
+   }
+
+   def warn( message: String ) {
+      new Throwable( message ).printStackTrace()
    }
 }
