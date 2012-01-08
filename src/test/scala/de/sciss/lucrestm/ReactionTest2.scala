@@ -438,22 +438,31 @@ Usages:
             val id = tx0.readID( in, acc )
 
             val name_#  = {
+               val cookie1  = in.readUnsignedByte()
+               require( cookie1 == 0, "Unexpected cookie " + cookie1 )
                val targets = Event.Immutable.Targets.read[ S ]( in, acc )( tx0 )
-               require( in.readUnsignedByte() == 100, "Unexpected cookie" )
+               val cookie2 = in.readUnsignedByte()
+               require( cookie2 == 100, "Unexpected cookie " + cookie2 )
                new ExprVar.Read[ String, StringRef ]( targets, in, tx0 ) with StringRef {
                   override def toString = region.toString + ".name_#"
                }
             }
             val start_# = {
+               val cookie1  = in.readUnsignedByte()
+               require( cookie1 == 0, "Unexpected cookie " + cookie1 )
                val targets = Event.Immutable.Targets.read[ S ]( in, acc )( tx0 )
-               require( in.readUnsignedByte() == 100, "Unexpected cookie" )
+               val cookie2 = in.readUnsignedByte()
+               require( cookie2 == 100, "Unexpected cookie " + cookie2 )
                new ExprVar.Read[ Long, LongRef ]( targets, in, tx0 ) with LongRef {
                   override def toString = region.toString + ".start_#"
                }
             }
             val stop_#  = {
+               val cookie1  = in.readUnsignedByte()
+               require( cookie1 == 0, "Unexpected cookie " + cookie1 )
                val targets = Event.Immutable.Targets.read[ S ]( in, acc )( tx0 )
-               require( in.readUnsignedByte() == 100, "Unexpected cookie" )
+               val cookie2 = in.readUnsignedByte()
+               require( cookie2 == 100, "Unexpected cookie " + cookie2 )
                new ExprVar.Read[ Long, LongRef ]( targets, in, tx0 ) with LongRef {
                   override def toString = region.toString + ".stop_#"
                }
@@ -515,20 +524,20 @@ Usages:
 
             final def insert( idx: Int, r: Region )( implicit tx: S#Tx ) {
                if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
-               @tailrec def step( i: Int, pred: S#Var[ LO ]) : S#Var[ LO ] = {
-                  if( i == idx ) pred else pred.get match {
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) {
+                  if( i == idx ) insert( pred, r, idx ) else pred.get match {
                      case None => throw new IndexOutOfBoundsException( idx.toString )
                      case Some( l ) => step( i + 1, l.next_# )
                   }
                }
-               insert( step( 0, headRef ), r )
+               step( 0, headRef )
             }
 
-            private def insert( pred: S#Var[ LO ], r: Region )( implicit tx: S#Tx ) {
+            private def insert( pred: S#Var[ LO ], r: Region, idx: Int )( implicit tx: S#Tx ) {
                val l = LinkedList[ Region ]( r, pred.get: Option[ LinkedList[ Region ]])
                pred.set( Some( l ))
                sizeRef.transform( _ + 1 )
-               fire( RegionList.Added( r ))
+               fire( RegionList.Added( idx, r ))
             }
 
             final def removeAt( idx: Int )( implicit tx: S#Tx ) {
@@ -537,17 +546,11 @@ Usages:
                   pred.get match {
                      case None => throw new IndexOutOfBoundsException( idx.toString )
                      case Some( l ) =>
-                        if( i == idx ) remove( pred, l )
+                        if( i == idx ) remove( pred, l, idx )
                         else step( i + 1, l.next_# )
                   }
                }
                step( 0, headRef )
-            }
-
-            private def remove( pred: S#Var[ LO ], r: LinkedList[ Region ])( implicit tx: S#Tx ) {
-               pred.set( r.next )
-               sizeRef.transform( _ - 1 )
-               fire( RegionList.Removed( r.value ))
             }
 
             final def remove( r: Region )( implicit tx: S#Tx ) : Boolean = {
@@ -556,13 +559,19 @@ Usages:
                      case None => false
                      case Some( l ) =>
                         if( l == r ) {
-                           remove( pred, l )
+                           remove( pred, l, i )
                            true
                         }
                         else step( i + 1, l.next_# )
                   }
                }
                step( 0, headRef )
+            }
+
+            private def remove( pred: S#Var[ LO ], r: LinkedList[ Region ], idx: Int )( implicit tx: S#Tx ) {
+               pred.set( r.next )
+               sizeRef.transform( _ - 1 )
+               fire( RegionList.Removed( idx, r.value ))
             }
 
             final def indexOf( r: Region )( implicit tx: S#Tx ) : Int = {
@@ -590,8 +599,8 @@ Usages:
          }
 
          sealed trait Change
-         final case class Added( region: Region ) extends Change
-         final case class Removed( region: Region ) extends Change
+         final case class Added( idx: Int, region: Region ) extends Change
+         final case class Removed( idx: Int, region: Region ) extends Change
 
          implicit val serializer : Event.Immutable.Serializer[ S, RegionList ] = new Event.Immutable.Serializer[ S, RegionList ] {
             def read( in: DataInput, access: S#Acc, targets: Event.Immutable.Targets[ S ])( implicit tx: S#Tx ) : RegionList =
@@ -852,8 +861,8 @@ Usages:
       val coll = system.atomic { implicit tx =>
          val res = RegionList.empty
          res.observe { (tx, update) => update match {
-            case RegionList.Added(   r ) => println( "Added:   " + r.name( tx ))
-            case RegionList.Removed( r ) => println( "Removed: " + r.name( tx ))
+            case RegionList.Added( idx, r )   => println( "Added:   " + r.name( tx ))
+            case RegionList.Removed( idx, r ) => println( "Removed: " + r.name( tx ))
          }}
          res
       }
