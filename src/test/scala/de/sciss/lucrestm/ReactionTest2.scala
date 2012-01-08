@@ -27,20 +27,37 @@ package de.sciss.lucrestm
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
-import javax.swing.{JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import java.io.File
 import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
+import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 
 object ReactionTest2 extends App {
+   private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
+   private def confluentSys : (fluent.Confluent, () => Unit) = (fluent.Confluent(), () => ())
+   private def databaseSys  : (BerkeleyDB, () => Unit) = {
+      val file = new File( new File( new File( sys.props( "user.home" ), "Desktop" ), "reaction" ), "data" )
+      val db   = BerkeleyDB.open( file )
+      (db, () => db.close())
+   }
+
    defer( args.toSeq.take( 2 ) match {
-      case Seq( "--test2" )     => test2( fluent.Confluent() )()
-      case Seq( "--confluent" ) => test1( fluent.Confluent() )()
-      case Seq( "--database" )  =>
-         val file = new File( new File( new File( sys.props( "user.home" ), "Desktop" ), "reaction" ), "data" )
-         val db   = BerkeleyDB.open( file )
-         test1( db )( db.close() )
-      case _  => test1( InMemory() )()
+      case Seq( "--coll-memory" )      => collections( memorySys )
+      case Seq( "--coll-confluent" )   => collections( confluentSys )
+      case Seq( "--coll-database" )    => collections( databaseSys )
+      case Seq( "--expr-memory" )      => expressions( memorySys )
+      case Seq( "--expr-confluent" )   => expressions( confluentSys )
+      case Seq( "--expr-database" )    => expressions( databaseSys )
+      case _  => println( """
+Usages:
+   --coll-memory
+   --coll-confluent
+   --coll-database
+
+   --expr-memory
+   --expr-confluent
+   --expr-database
+""" )
    })
 
    class System[ S <: Sys[ S ]] {
@@ -53,6 +70,8 @@ object ReactionTest2 extends App {
          protected def a: Val[ S, A ]
          protected def b: Val[ S, A ]
          protected def op( a: A, b: A ) : A
+
+         final protected def sources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( a, b )
 
          final def value( implicit tx: Tx ) : A = op( a.value, b.value )
 
@@ -190,10 +209,6 @@ object ReactionTest2 extends App {
                b.write( out )
             }
 
-            final protected def sources( implicit t: Tx ) : Event.Sources[ S ] = {
-               IIdxSeq( a, b )
-            }
-
             final def observe( fun: (Tx, Change[ String ]) => Unit )
                              ( implicit tx: Tx ) : Event.Observer[ S, Change[ String ], StringRef ] = {
                val o = Event.Observer[ S, Change[ String ], StringRef ]( StringRef.serializer, fun )
@@ -278,8 +293,6 @@ object ReactionTest2 extends App {
 
          private sealed trait LongBinOp extends LongRef with BinaryExpr[ Long ] {
             protected def opID: Int
-
-            final protected def sources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( a, b )
 
             final protected def writeData( out: DataOutput ) {
                out.writeUnsignedByte( opID )
@@ -547,11 +560,12 @@ object ReactionTest2 extends App {
 
    def defer( thunk: => Unit ) { EventQueue.invokeLater( new Runnable { def run() { thunk }})}
 
-   def test1[ S <: Sys[ S ]]( system: S )( cleanUp: => Unit ) {
+   def expressions[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
+      val (system, cleanUp) = tup
       val infra = new System[ S ]
       import infra._
 
-      val f    = new JFrame( "Reaction Test" )
+      val f    = frame( "Reaction Test", cleanUp )
       val cp   = f.getContentPane
 
       cp.setLayout( new GridLayout( 3, 1 ))
@@ -574,22 +588,7 @@ object ReactionTest2 extends App {
 
       vs.foreach( cp.add )
 
-      f.setResizable( false )
-      f.pack()
-      f.setDefaultCloseOperation( WindowConstants.DO_NOTHING_ON_CLOSE )
-      f.setLocationRelativeTo( null )
-      f.setVisible( true )
-
-      f.addWindowListener( new WindowAdapter {
-         override def windowClosing( e: WindowEvent ) {
-            f.dispose()
-            try {
-               cleanUp
-            } finally {
-               sys.exit( 0 )
-            }
-         }
-      })
+      showFrame( f )
    }
 
    class TrackView extends JComponent {
@@ -607,15 +606,53 @@ object ReactionTest2 extends App {
       }
    }
 
-   def test2[ S <: Sys[ S ]]( system: S )( cleanUp: => Unit ) {
-      val f    = new JFrame( "Reaction Test 2" )
-      val cp   = f.getContentPane
-      val tr   = new TrackView
-      cp.add( tr, BorderLayout.CENTER )
+   def button( label: String )( action: => Unit ) : JButton = {
+      val b = new JButton( new AbstractAction( label ) {
+         def actionPerformed( e: ActionEvent ) { action }
+      })
+      b.setFocusable( false )
+      b.putClientProperty( "JButton.buttonType", "bevel" )
+      b
+   }
+
+   def frame( label: String, cleanUp: () => Unit ) : JFrame = {
+      val f = new JFrame( label )
       f.setResizable( false )
+      f.setDefaultCloseOperation( WindowConstants.DO_NOTHING_ON_CLOSE )
+      f.addWindowListener( new WindowAdapter {
+         override def windowClosing( e: WindowEvent ) {
+            f.dispose()
+            try {
+               cleanUp()
+            } finally {
+               sys.exit( 0 )
+            }
+         }
+      })
+      f
+   }
+
+   def showFrame( f: JFrame ) {
       f.pack()
-      f.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE )
       f.setLocationRelativeTo( null )
       f.setVisible( true )
+   }
+
+   def collections[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
+      val (system, cleanUp) = tup
+      val f    = frame( "Reaction Test 2", cleanUp )
+      val cp   = f.getContentPane
+      val tr   = new TrackView
+      val actionPane = Box.createHorizontalBox()
+      actionPane.add( button( "Add" ) {
+         println( "Add" )
+      })
+      actionPane.add( button( "Remove" ) {
+         println( "Remove" )
+      })
+      cp.add( tr, BorderLayout.CENTER )
+      cp.add( actionPane, BorderLayout.SOUTH )
+
+      showFrame( f )
    }
 }
