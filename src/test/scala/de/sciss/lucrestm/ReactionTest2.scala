@@ -26,11 +26,11 @@
 package de.sciss.lucrestm
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import annotation.switch
 import java.io.File
 import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
+import annotation.{tailrec, switch}
 
 object ReactionTest2 extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
@@ -399,24 +399,41 @@ Usages:
             val name_# = new ExprVar.New[ String, StringRef ]( name0, tx0 ) with StringRef {
                override def toString = region.toString + ".name_#"
             }
+            val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef {
+               override def toString = region.toString + ".start_#"
+            }
+            val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef {
+               override def toString = region.toString + ".stop_#"
+            }
+
             def name( implicit tx: Tx ) : StringRef = name_#.get
             def name_=( value: StringRef )( implicit tx: Tx ) { name_#.set( value )}
 
-            val start_# = new ExprVar.New[ Long, LongRef ]( start0, tx0 ) with LongRef
             def start( implicit tx: Tx ) : LongRef = start_#.get
             def start_=( value: LongRef )( implicit tx: Tx ) { start_#.set( value )}
 
-            val stop_# = new ExprVar.New[ Long, LongRef ]( stop0, tx0 ) with LongRef
             def stop( implicit tx: Tx ) : LongRef = stop_#.get
             def stop_=( value: LongRef )( implicit tx: Tx ) { stop_#.set( value )}
 
-            override def toString = "Region" + id
+            protected def writeData( out: DataOutput ) {
+               name_#.write( out )
+               start_#.write( out )
+               stop_#.write( out )
+            }
+
+            protected def disposeData()( implicit tx: S#Tx ) {
+               name_#.dispose()
+               start_#.dispose()
+               stop_#.dispose()
+            }
          }
 
          implicit val serializer : TxnSerializer[ S#Tx, S#Acc, Region ] = sys.error( "TODO" )
       }
 
-      trait Region {
+      trait Region extends Mutable[ S ] {
+         override def toString = "Region" + id
+
          def name( implicit tx: Tx ) : StringRef
          def name_=( value: StringRef )( implicit tx: Tx ) : Unit
          def name_# : StringRef
@@ -444,8 +461,9 @@ Usages:
          def empty( implicit tx: Tx ) : RegionList = new New( tx )
 
          private sealed trait Impl extends RegionList {
+            private type LO = Option[ LinkedList[ Region ]]
             protected def sizeRef: S#Var[ Int ]
-            protected def headRef: S#Var[ Option[ LinkedList[ Region ]]]
+            protected def headRef: S#Var[ LO ]
 
             final protected def writeData( out: DataOutput ) {
                sizeRef.write( out )
@@ -461,7 +479,31 @@ Usages:
 
             final def insert( idx: Int, r: Region )( implicit tx: S#Tx ) {
                if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
-               sys.error( "TODO" )
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) : S#Var[ LO ] = {
+                  if( i == idx ) pred else pred.get match {
+                     case None => throw new IndexOutOfBoundsException( idx.toString )
+                     case Some( l ) => step( i + 1, l.next_# )
+                  }
+               }
+               insert( step( 0, headRef ), r )
+            }
+
+            private def insert( pred: S#Var[ LO ], r: Region )( implicit tx: S#Tx ) {
+               val l    = new LinkedList[ Region ] {
+                  val id      = tx.newID()
+                  val value   = r
+                  val next_#  = tx.newVar[ LO ]( id, pred.get )
+
+                  protected def writeData( out: DataOutput ) {
+                     value.write( out )
+                     next_#.write( out )
+                  }
+
+                  protected def disposeData()( implicit tx: S#Tx ) {
+                     next_#.dispose()
+                  }
+               }
+               pred.set( Some( l ))
             }
 
             final def removeAt( idx: Int )( implicit tx: S#Tx ) {
@@ -507,10 +549,11 @@ Usages:
             sys.error( "TODO" )
       }
 
-      trait LinkedList[ A ] {
+      trait LinkedList[ A ] extends Mutable[ S ] {
          def value: A
-         def next( implicit tx: Tx ) : Option[ LinkedList[ A ]]
-         def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) : Unit
+         def next_# : S#Var[ Option[ LinkedList[ A ]]]
+         final def next( implicit tx: Tx ) : Option[ LinkedList[ A ]] = next_#.get
+         final def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) { next_#.set( elem )}
       }
 
       final class RegionView( r: Region, id: String ) extends JPanel {
