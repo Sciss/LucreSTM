@@ -504,18 +504,51 @@ Usages:
                   }
                }
                pred.set( Some( l ))
+               sizeRef.transform( _ + 1 )
             }
 
             final def removeAt( idx: Int )( implicit tx: S#Tx ) {
-               sys.error( "TODO" )
+               if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) {
+                  pred.get match {
+                     case None => throw new IndexOutOfBoundsException( idx.toString )
+                     case Some( l ) =>
+                        if( i == idx ) remove( pred, l )
+                        else step( i + 1, l.next_# )
+                  }
+               }
+               step( 0, headRef )
             }
 
-            final def remove( r: Region )( implicit tx: S#Tx ) {
-               sys.error( "TODO" )
+            private def remove( pred: S#Var[ LO ], r: LinkedList[ Region ])( implicit tx: S#Tx ) {
+               pred.set( r.next )
+               sizeRef.transform( _ - 1 )
+            }
+
+            final def remove( r: Region )( implicit tx: S#Tx ) : Boolean = {
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) : Boolean = {
+                  pred.get match {
+                     case None => false
+                     case Some( l ) =>
+                        if( l == r ) {
+                           remove( pred, l )
+                           true
+                        }
+                        else step( i + 1, l.next_# )
+                  }
+               }
+               step( 0, headRef )
             }
 
             final def indexOf( r: Region )( implicit tx: S#Tx ) : Int = {
-               sys.error( "TODO" )
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) : Int = {
+                  pred.get match {
+                     case None => -1
+                     case Some( l ) =>
+                        if( l == r ) i else step( i + 1, l.next_# )
+                  }
+               }
+               step( 0, headRef )
             }
          }
 
@@ -536,12 +569,7 @@ Usages:
          final def add( r: Region )( implicit tx: S#Tx ) { insert( size, r )}
          def removeAt( idx: Int )( implicit tx: S#Tx ) : Unit
          def indexOf( r: Region )( implicit tx: S#Tx ) : Int
-         def remove( r: Region )( implicit tx: S#Tx ) : Unit
-
-   //      def head( implicit tx: Tx ) : Option[ List[ Region ]]
-   //      def head_=( r: Option[ List[ Region ]]) : Unit
-   //      def tail( implicit tx: Tx ) : Option[ List[ Region ]]
-   //      def tail_=( r: Option[ List[ Region ]]) : Unit
+         def remove( r: Region )( implicit tx: S#Tx ) : Boolean
       }
 
       object LinkedList {
