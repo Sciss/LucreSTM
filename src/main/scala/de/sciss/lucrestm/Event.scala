@@ -35,7 +35,7 @@ object Event {
    private type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
 
    object Selector {
-      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = sys.error( "TODO" )   // UUU
+      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
       def apply[ S <: Sys[ S ]]( key: Int, observer: ObserverKey[ S ]) : Selector[ S ] =
          new ObserverSelector[ S ]( key, observer )
@@ -51,8 +51,37 @@ object Event {
          protected def cookie: Int
 
          final def write( out: DataOutput ) {
+            out.writeInt( key )
             out.writeUnsignedByte( cookie )
             targets.write( out )
+         }
+      }
+
+      private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
+         def write( v: Selector[ S ], out: DataOutput ) { v.write( out )}
+         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Selector[ S ] = {
+            val key = in.readInt()
+            // 0 = invariant, 1 = mutating, 2 = observer
+            val reactor = (in.readUnsignedByte(): @switch) match {
+               case 0 =>
+                  val id            = tx.readID( in, access )
+                  val children      = tx.readVar[ Children[ S ]]( id, in )
+                  val targets       = Invariant.Targets[ S ]( id, children )
+                  val observerKeys  = children.get.flatMap( _.observerKey )
+                  tx.mapEventTargets( in, access, targets, observerKeys )
+               case 1 =>
+                  val id            = tx.readID( in, access )
+                  val children      = tx.readVar[ Children[ S ]]( id, in )
+                  val invalid       = tx.readBooleanVar( id, in )
+                  val targets       = Mutating.Targets[ S ]( id, children, invalid )
+                  val observerKeys  = children.get.flatMap( _.observerKey )
+                  tx.mapEventTargets( in, access, targets, observerKeys )
+               case 2 =>
+                  val id = in.readInt()
+                  new ObserverKey[ S ]( id )
+               case cookie => sys.error( "Unexpected cookie " + cookie )
+            }
+            reactor.select( key )
          }
       }
 
@@ -146,8 +175,7 @@ object Event {
       def apply[ S <: Sys[ S ], A, Repr ](
          reader: Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
 
-//         val key = tx.addEventReaction[ A, Repr ]( reader, fun )
-         val key: ObserverKey[ S ] = sys.error( "TODO" )  // UUU
+         val key = tx.addEventReaction[ A, Repr ]( reader, fun )
          new Impl[ S, A, Repr ]( key )
       }
 
@@ -165,8 +193,7 @@ object Event {
          }
 
          def dispose()( implicit tx: S#Tx ) {
-//            tx.removeEventReaction( key )
-            sys.error( "TODO" )  // UUU
+            tx.removeEventReaction( key )
          }
       }
    }

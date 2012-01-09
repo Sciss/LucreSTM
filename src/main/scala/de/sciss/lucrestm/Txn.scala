@@ -43,12 +43,11 @@ trait Txn[ S <: Sys[ S ]] {
    def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions
    def removeStateReaction( key: State.ReactorKey[ S ]) : Unit
 
-// UUU
-//   def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr, _ ],
-//                                                    fun: (S#Tx, A) => Unit ) : Event.ObserverKey[ S ]
-//   def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], keys: IIdxSeq[ Int ]) : Event.Reactor[ S ]
+   def addEventReaction[ A, Repr /* <: Event[ S, A, _ ] */]( reader: Event.Reader[ S, Repr, _ ],
+                                                       fun: (S#Tx, A) => Unit ) : Event.ObserverKey[ S ]
+   def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], keys: IIdxSeq[ Int ]) : Event.Reactor[ S ]
 //   def propagateEvent( key: Int, source: Event.Posted[ S, _ ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions
-//   def removeEventReaction( key: Event.ObserverKey[ S ]) : Unit
+   def removeEventReaction( key: Event.ObserverKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]
