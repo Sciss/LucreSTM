@@ -42,28 +42,45 @@ object Event {
       def apply[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ]) : Selector[ S ] =
          new InvariantSelector[ S ]( key, targets )
 
-      private final case class InvariantSelector[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ])
-      extends Selector[ S ] {
-         private[lucrestm] def observerKey : Option[ Int ] = None
-         private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
-                                        ( implicit tx: S#Tx ) : Reactions = {
-//         tx.propagateEvent( observer.id, visited, parent, reactions )
-            sys.error( "TODO" )
+      def apply[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ]) : Selector[ S ] =
+         new MutatingSelector[ S ]( key, targets )
+
+      private sealed trait Impl[ S <: Sys[ S ]] extends Selector[ S ] {
+         protected def targets: Reactor[ S ]
+         protected def cookie: Int
+
+         final private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+                                              ( implicit tx: S#Tx ) : Reactions =
+            targets.propagate( visited, parent, reactions )
+
+         final def write( out: DataOutput ) {
+            out.writeUnsignedByte( cookie )
+            targets.write( out )
          }
       }
 
-      private final case class ObserverSelector[ S <: Sys[ S ]]( key: Int, observer: ObserverKey[ S ])
-      extends Selector[ S ] {
-         private[lucrestm] def observerKey : Option[ Int ] = Some( observer.id )
-         private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
-                                        ( implicit tx: S#Tx ) : Reactions = {
-//         tx.propagateEvent( observer.id, visited, parent, reactions )
-            sys.error( "TODO" )
-         }
+      private sealed trait NodeSelector[ S <: Sys[ S ]] extends Impl[ S ] {
+         final private[lucrestm] def observerKey : Option[ Int ] = None
+      }
+
+      private final case class InvariantSelector[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ])
+      extends NodeSelector[ S ] {
+         protected def cookie: Int = 0
+      }
+
+      private final case class MutatingSelector[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ])
+      extends NodeSelector[ S ] {
+         protected def cookie: Int = 1
+      }
+
+      private final case class ObserverSelector[ S <: Sys[ S ]]( key: Int, targets: ObserverKey[ S ])
+      extends Impl[ S ] {
+         private[lucrestm] def observerKey : Option[ Int ] = Some( targets.id )
+         protected def cookie: Int = 2
       }
    }
 
-   sealed trait Selector[ S <: Sys[ S ]] {
+   sealed trait Selector[ S <: Sys[ S ]] extends Writer {
       def key: Int
       private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
@@ -733,8 +750,8 @@ object Event {
    sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
       def select( key: Int ) : Selector[ S ]
 //      private[lucrestm] def propagate( source: Posted[ S, _ ], parent: Event[ S, _ ], reactions: Reactions )
-//      private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
-//                                     ( implicit tx: S#Tx ) : Reactions
+      private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+                                     ( implicit tx: S#Tx ) : Reactions
    }
 
    /**
@@ -745,11 +762,11 @@ object Event {
    final case class ObserverKey[ S <: Sys[ S ]] private[lucrestm] ( id: Int ) extends Reactor[ S ] {
 //      private[lucrestm] def propagate( source: Posted[ S, _ ], parent: Event[ S, _ ], reactions: Reactions )
 //                                     ( implicit tx: S#Tx ) : Reactions = {
-//      private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
-//                                     ( implicit tx: S#Tx ) : Reactions = {
-////         tx.propagateEvent( key, source, parent, reactions )
-//         sys.error( "TODO" )  // UUU
-//      }
+      private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+                                     ( implicit tx: S#Tx ) : Reactions = {
+//         tx.propagateEvent( key, source, parent, reactions )
+         sys.error( "TODO" )  // UUU
+      }
 
       def select( key: Int ) : Selector[ S ] = Selector( key, this )
 
