@@ -49,10 +49,6 @@ object Event {
          protected def targets: Reactor[ S ]
          protected def cookie: Int
 
-         final private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
-                                              ( implicit tx: S#Tx ) : Reactions =
-            targets.propagate( visited, parent, reactions )
-
          final def write( out: DataOutput ) {
             out.writeUnsignedByte( cookie )
             targets.write( out )
@@ -60,7 +56,24 @@ object Event {
       }
 
       private sealed trait NodeSelector[ S <: Sys[ S ]] extends Impl[ S ] {
+         protected def targets: Targets[ S ]
+
          final private[lucrestm] def observerKey : Option[ Int ] = None
+
+         final private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+                                              ( implicit tx: S#Tx ) : Reactions = {
+//            val key     = tup._1
+//            val child   = tup._2
+////            val cid     = child.id
+//            val cid: S#ID = sys.error( "TODO" ) // UUU
+//            val bitset  = visited.getOrElse( cid, 0 )
+//            if( (bitset & key) == 0 ) {
+//               visited.+=( (cid, bitset | key) )
+////               child.propagate( visited, parent, rs )
+//            targets.propagate( visited, parent, reactions )
+               sys.error( "TODO" )  // UUU
+//            } else rs
+         }
       }
 
       private final case class InvariantSelector[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ])
@@ -76,6 +89,11 @@ object Event {
       private final case class ObserverSelector[ S <: Sys[ S ]]( key: Int, targets: ObserverKey[ S ])
       extends Impl[ S ] {
          private[lucrestm] def observerKey : Option[ Int ] = Some( targets.id )
+
+         private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+                                        ( implicit tx: S#Tx ) : Reactions =
+            targets.propagate( visited, parent, reactions ) // XXX TODO: do we need to deal with the visited map?
+
          protected def cookie: Int = 2
       }
    }
@@ -87,22 +105,15 @@ object Event {
       private[lucrestm] def observerKey : Option[ Int ]
    }
 
-//   sealed trait Target[ S <: Sys[ S ]] {
-//      def slot: Int
-//      private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
-//                                     ( implicit tx: S#Tx ) : Reactions
-//   }
-
 //   private type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Reactor[ S ])]
    private type Children[ S <: Sys[ S ]] = IIdxSeq[ Selector[ S ]]
-//   sealed trait ReactorTarget[ S <: Sys[ S ]] extends Target[ S ]
 
-   /**
-    * A mixin trait which says that a live view can be attached to this event.
-    */
-   trait Observable[ S <: Sys[ S ], A, Repr ] {
-      def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
-   }
+//   /**
+//    * A mixin trait which says that a live view can be attached to this event.
+//    */
+//   trait Observable[ S <: Sys[ S ], A, Repr ] {
+//      def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
+//   }
 
    /**
     * An abstract trait uniting invariant and mutating readers.
