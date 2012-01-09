@@ -18,7 +18,7 @@ object EventTest extends App {
    }
 
    val e2 = system.atomic { implicit tx =>
-      new Event.Trigger[ S, Int ] with Event.Singleton[ S ] {
+      new Event.Trigger[ S, Int ] with Event.Singleton[ S ] with Event.EarlyBinding[ S, Int ] {
          protected val targets = Event.Invariant.Targets[ S ]
       }
    }
@@ -30,7 +30,7 @@ object EventTest extends App {
          }
    }
 
-   abstract class Filter extends Event.Invariant.Observable[ S, Int, Filter ] {
+   abstract class Filter extends Event.Invariant.Observable[ S, Int, Filter ] with Event.LateBinding[ S, Int ] {
       protected def reader = FilterReader
 //      protected val targets = Event.Invariant.Targets[ S ]
       protected def disposeData()( implicit tx: S#Tx ) {}

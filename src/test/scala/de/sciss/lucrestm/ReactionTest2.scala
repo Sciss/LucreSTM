@@ -67,7 +67,7 @@ Usages:
 
       import Event.{Val, Change, Constant}
 
-      trait BinaryExpr[ A ] extends Val[ S, A ] with Event.Invariant[ S, Change[ A ]] {
+      trait BinaryExpr[ A ] extends Val[ S, A ] with Event.Invariant[ S, Change[ A ]] with Event.LateBinding[ S, Change[ A ]] {
          protected def a: Val[ S, A ]
          protected def b: Val[ S, A ]
          protected def op( a: A, b: A ) : A
@@ -167,7 +167,8 @@ Usages:
             protected val v = tx0.readVar[ Ex ]( id, in )
          }
       }
-      trait ExprVar[ A, Ex <: Val[ S, A ]] extends Var[ Tx, Ex ] with Val[ S, A ] with Event.Invariant[ S, Change[ A ]] with Event.Source[ S, Change[ A ]]
+      trait ExprVar[ A, Ex <: Val[ S, A ]] extends Var[ Tx, Ex ] with Val[ S, A ]
+         with Event.Invariant[ S, Change[ A ]] with Event.Source[ S, Change[ A ]] with Event.LateBinding[ S, Change[ A ]]
 
       object StringRef {
          implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -631,7 +632,8 @@ Usages:
       }
 
       trait RegionList extends Event.Source[ S, RegionList.Change ] with Event.Root[ S, RegionList.Change ]
-      with Event.Invariant[ S, RegionList.Change ] with Event.Observable[ S, RegionList.Change, RegionList ] {
+      with Event.Invariant[ S, RegionList.Change ] with Event.Observable[ S, RegionList.Change, RegionList ]
+      with Event.EarlyBinding[ S, RegionList.Change ] {
          def size( implicit tx: S#Tx ) : Int
          def insert( idx: Int, r: Region )( implicit tx: S#Tx ) : Unit
          final def add( r: Region )( implicit tx: S#Tx ) { insert( size, r )}
