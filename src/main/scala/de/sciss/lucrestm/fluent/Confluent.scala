@@ -164,18 +164,19 @@ object Confluent {
 
       def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
-      def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr, _ ],
-                                                       fun: (S#Tx, A) => Unit ) : Event.ReactorKey[ S ] =
-         system.reactionMap.addEventReaction( reader, fun )( this )
-
-      def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ],
-                           keys: IIdxSeq[ Int ]) : Event.Reactor[ S ] =
-         system.reactionMap.mapEventTargets( in, access, targets, keys )( this )
-
-      def propagateEvent( key: Int, source: Event.Posted[ S, _ ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
-         system.reactionMap.propagateEvent( key, source, state, reactions )( this )
-
-      def removeEventReaction( key: Event.ReactorKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+// UUU
+//      def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr, _ ],
+//                                                       fun: (S#Tx, A) => Unit ) : Event.ReactorKey[ S ] =
+//         system.reactionMap.addEventReaction( reader, fun )( this )
+//
+//      def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ],
+//                           keys: IIdxSeq[ Int ]) : Event.Reactor[ S ] =
+//         system.reactionMap.mapEventTargets( in, access, targets, keys )( this )
+//
+//      def propagateEvent( key: Int, source: Event.Posted[ S, _ ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
+//         system.reactionMap.propagateEvent( key, source, state, reactions )( this )
+//
+//      def removeEventReaction( key: Event.ReactorKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 

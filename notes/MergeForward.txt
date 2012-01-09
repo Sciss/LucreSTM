@@ -508,7 +508,7 @@ trait Targets {
    }
 }
 
-trait Node // unchanged
+trait Node       // unchanged
 trait ReactorKey // unchanged?
 
 ( BTW: since this implementation (Map[ S#ID, Int ]) and of the Event.Key is largely hidden, 'upgrading' to
@@ -552,3 +552,8 @@ trait Event.Keys[ Repr <: Writer ] {
    implicit def reader[ S <: Sys[ S ]] : ...
 }
 
+::::::::::::::::
+
+-- observations --
+
+seems that we solve the self-type problem and can get the observe functionality back into every event (`Dispatcher`) now, because `Repr` comes as type arg into the `event` method!
