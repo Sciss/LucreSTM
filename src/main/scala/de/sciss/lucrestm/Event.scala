@@ -31,8 +31,8 @@ import annotation.switch
 
 object Event {
 //   type Reaction  = () => () => Unit
-   private type Reactions = IIdxSeq[ () => () => Unit ]
-   private type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
+   type Reactions = IIdxSeq[ () => () => Unit ]
+   type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
 
    object Selector {
       implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
@@ -67,15 +67,15 @@ object Event {
                   val id            = tx.readID( in, access )
                   val children      = tx.readVar[ Children[ S ]]( id, in )
                   val targets       = Invariant.Targets[ S ]( id, children )
-                  val observerKeys  = children.get.flatMap( _.observerKey )
-                  tx.mapEventTargets( in, access, targets, observerKeys )
+                  val observers     = children.get.flatMap( _.observerKey )
+                  tx.mapEventTargets( in, access, targets, observers )
                case 1 =>
                   val id            = tx.readID( in, access )
                   val children      = tx.readVar[ Children[ S ]]( id, in )
                   val invalid       = tx.readBooleanVar( id, in )
                   val targets       = Mutating.Targets[ S ]( id, children, invalid )
-                  val observerKeys  = children.get.flatMap( _.observerKey )
-                  tx.mapEventTargets( in, access, targets, observerKeys )
+                  val observers     = children.get.flatMap( _.observerKey )
+                  tx.mapEventTargets( in, access, targets, observers )
                case 2 =>
                   val id = in.readInt()
                   new ObserverKey[ S ]( id )
@@ -88,7 +88,7 @@ object Event {
       private sealed trait NodeSelector[ S <: Sys[ S ]] extends Impl[ S ] {
          protected def targets: Targets[ S ]
 
-         final private[lucrestm] def observerKey : Option[ Int ] = None
+         final private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] = None
 
          final private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                               ( implicit tx: S#Tx ) : Reactions = {
@@ -114,7 +114,7 @@ object Event {
 
       private final case class ObserverSelector[ S <: Sys[ S ]]( key: Int, targets: ObserverKey[ S ])
       extends Impl[ S ] {
-         private[lucrestm] def observerKey : Option[ Int ] = Some( targets.id )
+         private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] = Some( targets )
 
          private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                         ( implicit tx: S#Tx ) : Reactions =
@@ -128,7 +128,7 @@ object Event {
       def key: Int
       private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
-      private[lucrestm] def observerKey : Option[ Int ]
+      private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] // Option[ Int ]
    }
 
 //   private type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Reactor[ S ])]
@@ -339,6 +339,10 @@ object Event {
 
       private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
       private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+
+      final def pull( visited: Visited[ S ])( implicit tx: S#Tx ) : Option[ A ] = {
+         sys.error( "TODO" )  // UUU
+      }
 
       final def id: S#ID = targets.id
 
@@ -713,46 +717,46 @@ object Event {
       override def toString = "Event.Mutating" + id
    }
 
-   object Reactor {
-      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] = new Ser[ S ]
-
-      private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
-         override def toString = "Event.Reactor.Serializer"
-
-         def write( r: Reactor[ S ], out: DataOutput ) { r.write( out )}
-
-         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-            (in.readUnsignedByte(): @switch) match {
-               case 0 =>
-                  val id            = tx.readID( in, access )
-                  val children      = tx.readVar[ Children[ S ]]( id, in )
-                  val targets       = Invariant.Targets[ S ]( id, children )
-                  val observerKeys  = children.get.flatMap( _.observerKey )
-//                     .collect {
-//                     case (_, ObserverKey( key )) => key
-//                  }
-//                  tx.mapEventTargets( in, access, targets, observerKeys )
-                  sys.error( "TODO" )  // UUU
-               case 1 =>
-                  val id            = tx.readID( in, access )
-                  val children      = tx.readVar[ Children[ S ]]( id, in )
-                  val invalid       = tx.readBooleanVar( id, in )
-                  val targets       = Mutating.Targets[ S ]( id, children, invalid )
-                  val observerKeys  = children.get.flatMap( _.observerKey )
-//                  val observerKeys  = children.get.collect {
-//                     case (_, ObserverKey( key )) => key
-//                  }
-//                  tx.mapEventTargets( in, access, targets, observerKeys )
-                  sys.error( "TODO" )  // UUU
-               case 2 =>
-                  val key  = in.readInt()
-                  new ObserverKey[ S ]( key )
-
-               case cookie => sys.error( "Unexpected cookie " + cookie )
-            }
-         }
-      }
-   }
+//   object Reactor {
+//      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] = new Ser[ S ]
+//
+//      private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
+//         override def toString = "Event.Reactor.Serializer"
+//
+//         def write( r: Reactor[ S ], out: DataOutput ) { r.write( out )}
+//
+//         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+//            (in.readUnsignedByte(): @switch) match {
+//               case 0 =>
+//                  val id            = tx.readID( in, access )
+//                  val children      = tx.readVar[ Children[ S ]]( id, in )
+//                  val targets       = Invariant.Targets[ S ]( id, children )
+//                  val observerKeys  = children.get.flatMap( _.observerKey )
+////                     .collect {
+////                     case (_, ObserverKey( key )) => key
+////                  }
+////                  tx.mapEventTargets( in, access, targets, observerKeys )
+//                  sys.error( "TODO" )  // UUU
+//               case 1 =>
+//                  val id            = tx.readID( in, access )
+//                  val children      = tx.readVar[ Children[ S ]]( id, in )
+//                  val invalid       = tx.readBooleanVar( id, in )
+//                  val targets       = Mutating.Targets[ S ]( id, children, invalid )
+//                  val observerKeys  = children.get.flatMap( _.observerKey )
+////                  val observerKeys  = children.get.collect {
+////                     case (_, ObserverKey( key )) => key
+////                  }
+////                  tx.mapEventTargets( in, access, targets, observerKeys )
+//                  sys.error( "TODO" )  // UUU
+//               case 2 =>
+//                  val key  = in.readInt()
+//                  new ObserverKey[ S ]( key )
+//
+//               case cookie => sys.error( "Unexpected cookie " + cookie )
+//            }
+//         }
+//      }
+//   }
 
    /**
     * The sealed `Reactor` trait encompasses the possible targets (dependents) of an event. It defines
@@ -774,8 +778,7 @@ object Event {
    final case class ObserverKey[ S <: Sys[ S ]] private[lucrestm] ( id: Int ) extends Reactor[ S ] {
       private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions = {
-//         tx.propagateEvent( key, source, parent, reactions )
-         sys.error( "TODO" )  // UUU
+         tx.propagateEvent( this, visited, parent, reactions )
       }
 
       def select( key: Int ) : Selector[ S ] = Selector( key, this )

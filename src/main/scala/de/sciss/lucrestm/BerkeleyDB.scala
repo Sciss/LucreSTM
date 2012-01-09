@@ -489,11 +489,12 @@ object BerkeleyDB {
          system.reactionMap.addEventReaction( reader, fun )( this )
 
       def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ],
-                           keys: IIdxSeq[ Int ]) : Event.Reactor[ S ] =
-         system.reactionMap.mapEventTargets( in, access, targets, keys )( this )
+                           observers: IIdxSeq[ Event.ObserverKey[ S ]]) : Event.Reactor[ S ] =
+         system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
 
-//      def propagateEvent( key: Int, source: Event.Posted[ S, _ ], state: Event[ S, _ ], reactions: Event.Reactions ) : Event.Reactions =
-//         system.reactionMap.propagateEvent( key, source, state, reactions )( this )
+      def propagateEvent( observer: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ],
+                          reactions: Event.Reactions ) : Event.Reactions =
+         system.reactionMap.propagateEvent( observer, visited, leaf, reactions )( this )
 
       def removeEventReaction( key: Event.ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
 

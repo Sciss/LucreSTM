@@ -50,10 +50,11 @@ object ReactionMap {
 
       private val eventMap = TMap.empty[ Int, EventObservation[ S, _, _ <: Event[ S, _, _ ]]]
 
-      def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], observerKeys: IIdxSeq[ Int ])
+      def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ],
+                           observers: IIdxSeq[ Event.ObserverKey[ S ]])
                          ( implicit tx: S#Tx ) : Event.Reactor[ S ] = {
          val itx = tx.peer
-         val observations = observerKeys.flatMap( eventMap.get( _ )( itx ))
+         val observations = observers.flatMap( k => eventMap.get( k.id )( itx ))
          observations.headOption match {
             case Some( obs ) => obs.reader.asInstanceOf[ Event.Reader[ S, Event.Reactor[ S ], Event.Targets[ S ]]]   // ugly XXX
                .read( in, access, targets )
@@ -61,22 +62,22 @@ object ReactionMap {
          }
       }
 
-//      def propagateEvent( key: Int, source: Event.Posted[ S, _ ], event: Event[ S, _ ], reactions: Event.Reactions )
-//                           ( implicit tx: S#Tx ) : Event.Reactions = {
-//         val itx = tx.peer
-//         eventMap.get( key )( itx ) match {
-//            case Some( obs ) =>
-//               val react: Reaction = () => {
-//                  event.pull( source ) match {
-//                     case Some( update )  => () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, update.asInstanceOf[ AnyRef ])
-//                     case None            => noOpEval
-//                  }
-//               }
-//               reactions :+ react
-//
-//            case None => reactions
-//         }
-//      }
+      def propagateEvent( observer: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ],
+                          reactions: Event.Reactions )( implicit tx: S#Tx ) : Event.Reactions = {
+         val itx = tx.peer
+         eventMap.get( observer.id )( itx ) match {
+            case Some( obs ) =>
+               val react: Reaction = () => {
+                  leaf.pull( visited ) match {
+                     case Some( update )  => () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, update.asInstanceOf[ AnyRef ])
+                     case None            => noOpEval
+                  }
+               }
+               reactions :+ react
+
+            case None => reactions
+         }
+      }
 
       def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: Event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
                                                      ( implicit tx: S#Tx ) : Event.ObserverKey[ S ] = {
@@ -149,9 +150,9 @@ trait ReactionMap[ S <: Sys[ S ]] {
 
    def removeEventReaction( key: Event.ObserverKey[ S ])( implicit tx: S#Tx ) : Unit
 
-   def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], observerKeys: IIdxSeq[ Int ])
+   def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], observer: IIdxSeq[ Event.ObserverKey[ S ]])
                       ( implicit tx: S#Tx ) : Event.Reactor[ S ]
 
-//   def propagateEvent( key: Int, source: Event.Posted[ S, _ ], event: Event[ S, _ ], reactions: Event.Reactions )
-//                     ( implicit tx: S#Tx ) : Event.Reactions
+   def propagateEvent( observer: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ], reactions: Event.Reactions )
+                     ( implicit tx: S#Tx ) : Event.Reactions
 }
