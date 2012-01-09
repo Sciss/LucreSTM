@@ -97,3 +97,458 @@ Invariant.EarlyBinding
 
 or orthogonal?
 Invariant / Mutating, LateBinding / EarlyBinding
+
+::::::::::::::::
+
+Assume the path is propagated as a Set[ S#ID ]
+
+- would allow quick check which 'input' fired the event
+- however, there is a still unresolved problem in that, for example with Region,
+  one event can produce several events: Say, stop_# and start_# come from the
+  same source; they must be either collapsed into Region.Moved, or fired as two
+  separate Region.StartChanged and Region.StopChanged. In a binary expression
+  we would definitely want the collapsing into one event, invoking the binops
+  reactions only once.
+
+- we should thus _optionally_ allow a node to recognize multiple invocations in one
+  pass
+
+- even name_# could come from the same source (e.g. start_#.toStringExpr),
+  so we might need a mixed model for a particular node!
+
+- how does EScala handle this with the `or` (pipe `|`) operator?
+  -> by storing the event id and ignoring onEvt with already seen ids
+  -> we should avoid having to add an Int field to each such collapsing event
+  -> we could use the Set[ S#ID ] to check if the reactor has already been called
+
+::::::::::::::::
+
+NaryExpr {
+   def value( sources: IIdxSeq[ A ]) : A
+   def pull( posted ) = {
+      val m = sources.map( s => if( posted.contains( s.id )) s.pullOrEval( posted ) else {
+         val v = s.value; Change( v, v )})
+      Change( value( m.map( _.before )), value( m.map( _.now )))
+   }
+}
+
+BinaryExpr {
+   protected def value( a: A, b: A ) : A
+   def pull( posted ) = {
+      val av = if( posted.contains( a.id )) a.pullOrEval( posted ) else {
+         val v = a.value; Change( v, v )}
+      val bv = if( posted.contains( b.id )) b.pullOrEval( posted ) else {
+         val v = b.value; Change( v, v )}
+      Change( value( av.before, bv.before ), value (av.now, bv.now) )
+   }
+}
+
+UnaryExpr {
+   ...
+}
+
+Region {
+   def pull( posted ) = {
+      
+   }
+}
+
+::::::::::::::::
+
+how does this play together with the push-pull mechanism, e.g. Targets not knowing the collapsing/non-collapsing/mixed model?
+
+we could assign keys to the sources, so that multiple sources with the same key are treated in a collapsing way.
+
+thus
+
+def addReactor( r: Event.Reactor[ S ], key: Int )
+
+def propagate( key: Int, posted: ... ) {
+   
+}
+
+::::::::::::::::
+
+the other alternative is again a split of Targets types, and restricting a node to be either merging or not merging. In that case, Region would need two dispatchers, name_#.changed and (start_# | stop_#).changed.
+
+something more high level like the following would be desirable:
+
+object Region {
+   sealed trait Update
+   private def renamedKey = 1 // single bit!
+   final case class Renamed( r: Region, ch: Changed[ String ]) extends Update
+   private def movedKey = 2   // single bit!
+   final case class Moved(   r: Region, ch: Changed[ Span ])   extends Update
+}
+trait Region {
+   import Region._
+   def changed = renamed | moved  // or renamed || moved ??
+   def renamed = Event[ Renamed ]( this, renamedKey )
+   def moved   = Event[ Moved ]( this, movedKey )
+
+   protected def deploy {
+      name_#.addReactor( renamed )
+      start_#.addReactor( moved )
+      stop_#.addReactor( moved )
+   }
+
+   protected def undeploy {
+      ...
+   }
+}
+
+or -- if we completely go this road --
+
+   protected def deploy {
+      name_#.changed  += renamed
+      start_#.changed += moved
+      stop_#.changed  += moved
+   }
+
+(we can use short names now for adding and removal, because they won't pollute the name space of the underlying event source)
+
+::::::::::::::::
+
+((
+	@sys trait Region {
+	   @txn protected def deploy()
+	}
+	
+))
+
+::::::::::::::::
+
+let's pursue the high level approach.
+
+- binary expression: A op B
+
+trait Val[ A ] {
+   def changed = Event[ Changed[ A ]]( this, 0 << 1 )
+}
+trait BinOp[ A ] extends Val[ A ] {
+   protected def a: Val[ A ]
+   protected def b: Val[ A ]
+
+//   def changed = Event[ Changed[ A ]]( this, 0 << 1 )
+
+   protected def deploy() {
+      a.changed += changed
+      b.changed += changed
+   }
+}
+
+this would be pretty straight forward from the user side, except for the slightly ugly need to keep track of the keys.
+
+with a bit-mask, are 32 bits sufficient for most cases? i would say 'yes', because if more event keys are needed, the object would introduce a second event-source without much problems?
+
+object Event {
+   def apply[ A ]( source: Event[ S, ? ], bit: Int ) : Event.Sub = ...
+
+   sealed trait Event.Sub[ S, A ] extends ... {
+      protected def source: Event[ S, ? ]
+      protected def bit: Int
+      def +=( r: Reactor[ S ]) {
+         source.addReactor( bit, r )
+      }
+      def -=( r: Reactor[ S ]) { ... }
+
+      // just as in EScala. but use single pipe?
+      def |[ B >: A, A1 <: B ]( other: Event[ A1 ]) = new Event.SubOr[ B ]( this, other )
+   }
+}
+
+// Event.Sub being a lightweight component which is not persisted
+
+shouldn't it be
+
+trait Val[ A ] {
+   def changed: Event[ Changed[ A ]]
+}
+trait BinOp[ A ] extends Val[ A ] {
+   protected def a: Val[ A ]
+   protected def b: Val[ A ]
+
+   def changed = a.changed || b.changed
+}
+
+?
+
+Most definitely not, because it would fire twice and deliver a and b and not the bin op update
+
+How about
+
+trait BinOp[ A ] extends Val[ A ] {
+   protected def deploy() {
+      (a.changed || b.changed) += this.changed
+   }
+}
+
+and
+
+Region {
+   protected def deploy() {
+      name_#.changed += renamed
+      (start_#.changed || stop_#.changed) += moved
+   }
+
+?
+
+::::::::::::::::
+
+how to trace multiple keys arriving?
+
+Region {
+   def pull( key, posted ) {
+      key match {
+         case `renamedKey` => name_#.pull( ... ).map( Renamed( this, _ ))
+         case `movedKey`   =>
+            val startv = start_#.pullOrEval
+            val stopv  = stop_#.pullOrEval
+            Some( Moved( this, Changed( (startv.before, stopv.before), (startv.now, stopv.now) )))
+      }
+   }
+}
+
+or with some pimping
+
+         case `movedKey` => (start_#, stop_#).pull( ... ).map( Moved( this, _ ))
+
+...nice!
+
+::::::::::::::::
+
+we could even avoid Event.apply from outside dispatchers....
+
+and use something like enumerations for the companion object....
+
+object Region extends Event.Keys  {
+   private val movedKey   = key()
+   private val renamedKey = key()
+}
+trait Region extends Event.Dispatch {
+   def renamed = event[ Renamed ]( Region.renamedKey )
+   def moved   = event[ Moved ]( Region.movedKey )
+}
+
+or even greater funkiness
+
+object Region extends Event.Keys  {
+   private val movedKey   = key[ Renamed ]
+   private val renamedKey = key[ Moved ]
+}
+trait Region extends Event.Dispatch {
+   def renamed = event( Region.renamedKey )
+   def moved   = event( Region.movedKey )
+}
+
+although the only advantage is that you don't mix up keys and events... might be worth it?
+
+but then what happens to pattern matching in `pull`?
+
+
+   def pull( key, posted ) {
+      key match {
+         case `renamedKey.id` => name_#.pull( ... ).map( Renamed( this, _ ))
+         case `movedKey.id`   => (start_#, stop_#).pull( ... ).map( Moved( this, _ ))
+      }
+   }
+
+can we use do something like this:
+
+   def pull( key, posted ) {
+      key match {
+         case renamedKey() => name_#.pull( ... ).map( Renamed( this, _ ))
+         case movedKey()   => (start_#, stop_#).pull( ... ).map( Moved( this, _ ))
+      }
+   }
+
+which would also get rid of the nasty backticks?
+
+::::::::::::::::
+
+SIR, YES SIR!
+
+trait KeyProvider {
+    private var cnt = 0
+    def key[ A ] : Key[ A ] = { val res = new Key[ A ]( cnt ); cnt += 1; res }
+}
+
+class Key[ A ]( val id: Int ) {
+   def unapply( x: Int ) : Boolean = id == x
+}
+
+class EventStub[ A, B >: A ]( dispatch: Dispatch[ B ], key: Int )
+
+trait Dispatch[ U ] {
+   protected def event[ A <: U ]( key: Key[ A ]) = new EventStub[ A, U ]( this, key.id )
+}
+
+"..."
+
+object Region extends KeyProvider {
+   val movedKey   = key[ (Long, Long) ]
+   val renamedKey = key[ String ]
+}
+trait Region extends Dispatch[ Any ] {
+   import Region._
+   
+   def moved   = event( movedKey )
+   def renamed = event( renamedKey )
+   
+   def pull( id: Int ) : String = {
+      id match {
+         case movedKey()    => "moved"
+         case renamedKey()  => "renamed"
+      }
+   }
+}
+
+val r = new Region {}
+
+r.pull( 0 )
+r.pull( 1 )
+
+::::::::::::::::
+
+the BinOp pull would like similar to the moved stuff?
+
+   def pull( _, posted ) {
+      (a, b).pull( ).map { case (ac, bc) => Changed( ??? )}
+   }
+
+well...
+
+   def value( a: A, b: A ) : A
+
+   def pull( _, posted ) {
+      (a, b).pull( ).map { case (ac, bc) => Changed( value( ac.before, bc.before ), value( ac.now, bc.now ))}
+   }
+
+hmmm.... can't make this nicer? like
+
+   def pull( _, posted ) {
+      (a, b).pull( )  // gives Option[ Change[ (A, A) ]]
+         .map(   // Change[ (A, A) ] -> Change[ (A, A) ]
+            .map2( value _ )
+        )
+   }
+
+final case class Change[ A ]( before: A, now: A ) {
+   def map2[ B ]( fun: (B, B) => B )( implicit ev: A <:< (B, B) ) : Change[ B ] = {
+      val beforeTup = ev( before )
+      val nowTup    = ev( now )
+      val funTup    = fun.tupled
+      Change( funTup( beforeTup ), funTup( nowTup ))
+   }
+}
+
+def mult( a: Int, b: Int ) : Int = a * b
+
+Change( (3,4), (5,6) ).map2( mult )
+
+alright...
+
+::::::::::::::::
+
+shouldn't we maybe remove that crappy Option from pull altogether? thus instead of
+
+   def pull( ... ) : Option[ A ]
+
+have
+
+   def pull( ... ) : A
+
+?
+
+It would have impact on filtering events
+
+   val f = someEvent.filter( _ > 33 )
+
+then observation would be
+
+   f.observe { case Some( i ) => ... }
+
+which is kind of stupid. It also produces an irregularity because the event type of before and after the filter differ (the latter obtaining the Option)
+
+...so: No!
+
+this is still 'nice enough' :
+
+   (a, b).pull( ... ).map( _.map2( value ))
+
+::::::::::::::::
+
+side note: we can still provide general .map and .filter and sequence methods for Event, using a user function and falling back to @serializable:
+
+val fun: (Int, Int) => Int = _ + _
+import java.io._
+
+val baos = new ByteArrayOutputStream
+val oos = new ObjectOutputStream( baos )
+oos.writeObject( fun )
+val bais = new ByteArrayInputStream( baos.toByteArray )
+val ois = new ObjectInputStream( bais )
+val fun2 = ois.readObject.asInstanceOf[ (Int, Int) => Int ]
+fun2( 1, 2 ) // voilà
+
+::::::::::::::::
+
+that still leaves us with "how to trace multiple keys arriving?"
+
+trait Targets {
+   def propagate( visited: mutable.Map[ S#ID, Int], parent: Event[ S, _ ], reactions: Reactions ) : Reactions = {
+      children.foldLeft( reactions ) { case (rs, (key, child) =>
+         val cid    = child.id
+         val bitset = visited.getOrElse( cid, 0 )
+         if( (bitset & key) == 0 ) {
+            visited += (cid, bitset | key)
+            child.propagate( visited, parent, rs )
+         } else rs
+      }
+   }
+}
+
+trait Node // unchanged
+trait ReactorKey // unchanged?
+
+( BTW: since this implementation (Map[ S#ID, Int ]) and of the Event.Key is largely hidden, 'upgrading' to
+Map[ S#ID, Long ] or Map[ S#ID, BitSet ] will be pretty transparent )
+
+::::::::::::::::
+
+How would `observe` look now, i.e. how is the event key provided?
+
+   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = ...
+
+   object Observer {
+      def apply[ S <: Sys[ S ], A, Repr ]( e: Event.Key[ A, Repr ])( fun: (S#Tx, A) => Unit ) : Observer[ S, A, Repr ] = {
+         val reader = e.keys.serializer[ S ]
+         new Impl( ... )
+      }
+   }
+
+such that
+
+trait Event.Dispatch[ S <: Sys[ S ], A, Repr ] {
+   def event( key: Event.Key[ A, Repr ]) : Event[ S, A, Repr ]
+}
+
+and 
+
+trait Event.Keys[ Repr ] {
+   implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Repr ]
+   def key[ A ]() : Event.Key[ A, Repr ]
+}
+
+and
+
+trait Event.Key[ A, Repr ] {
+   def keys: Event.Keys[ Repr ]  // eventual access to serializer!
+}
+
+-- or --
+
+trait Event.Keys[ Repr <: Writer ] {
+   implicit def reader[ S <: Sys[ S ]] : ...
+}
+
