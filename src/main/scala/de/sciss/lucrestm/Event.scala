@@ -32,6 +32,7 @@ import annotation.switch
 object Event {
 //   type Reaction  = () => () => Unit
    private type Reactions = IIdxSeq[ () => () => Unit ]
+   private type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
 
    object Selector {
       implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = sys.error( "TODO" )   // UUU
@@ -60,19 +61,15 @@ object Event {
 
          final private[lucrestm] def observerKey : Option[ Int ] = None
 
-         final private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+         final private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                               ( implicit tx: S#Tx ) : Reactions = {
-//            val key     = tup._1
-//            val child   = tup._2
-////            val cid     = child.id
-//            val cid: S#ID = sys.error( "TODO" ) // UUU
-//            val bitset  = visited.getOrElse( cid, 0 )
-//            if( (bitset & key) == 0 ) {
-//               visited.+=( (cid, bitset | key) )
-////               child.propagate( visited, parent, rs )
-//            targets.propagate( visited, parent, reactions )
-               sys.error( "TODO" )  // UUU
-//            } else rs
+
+            val cid     = targets.id
+            val bitset  = visited.getOrElse( cid, 0 )
+            if( (bitset & key) == 0 ) {
+               visited.+=( (cid, bitset | key) )
+               targets.propagate( visited, parent, reactions )
+            } else reactions
          }
       }
 
@@ -90,7 +87,7 @@ object Event {
       extends Impl[ S ] {
          private[lucrestm] def observerKey : Option[ Int ] = Some( targets.id )
 
-         private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+         private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                         ( implicit tx: S#Tx ) : Reactions =
             targets.propagate( visited, parent, reactions ) // XXX TODO: do we need to deal with the visited map?
 
@@ -100,7 +97,7 @@ object Event {
 
    sealed trait Selector[ S <: Sys[ S ]] extends Writer {
       def key: Int
-      private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
       private[lucrestm] def observerKey : Option[ Int ]
    }
@@ -128,7 +125,7 @@ object Event {
     * `readConstant` to return the constant instance, and `read` with the
     * `Event.Invariant.Targets` argument to return the immutable node instance.
     */
-   trait Serializer[ S <: Sys[ S ], Repr <: Dispatcher[ S, _ ]]
+   trait Serializer[ S <: Sys[ S ], Repr <: Node[ S, _ ]]
    extends Invariant.Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
       final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -199,7 +196,7 @@ object Event {
 
 //      final private[lucrestm] def propagate( source: Posted[ S, _ ], parent: Event[ S, _ ], reactions: Reactions )
 //                                     ( implicit tx: S#Tx ) : Reactions = {
-      final private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+      final private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions = {
 //         children.get.foldLeft( reactions )( (rs, r) => r.propagate( source, parent, rs ))
          children.get.foldLeft( reactions ) { (rs, sel) =>
@@ -246,23 +243,32 @@ object Event {
 
    def noSources[ S <: Sys[ S ]] : Sources[ S ] = IIdxSeq.empty
 
-   // UUU what has been Event before
-   trait Dispatcher[ S <: Sys[ S ], A ] extends Writer {
-      private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
-      private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+//   // UUU what has been Event before
+//   trait Dispatcher[ S <: Sys[ S ], A ] extends Writer {
+//      private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+//      private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+//
+//      final protected def event[ A1 <: A, Repr <: Node[ S, A ]]( key: Key[ A1, Repr ]) /* ( implicit ev: this.type <:< Repr ) */ : Trigger[ S, A1, Repr ] = {
+//         new TriggerImpl[ S, A, A1, Repr ]( this, key )
+//      }
+//   }
 
-      final protected def event[ A1 <: A, Repr <: Writer ]( key: Key[ A1, Repr ]) /* ( implicit ev: this.type <:< Repr ) */ : Event[ S, A1, Repr ] = {
-         new EventImpl[ S, A, A1, Repr ]( this, key )
+   private final class TriggerImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( node: Node[ S, A ], key: Key[ A1, Repr ])
+   extends Trigger[ S, A1, Repr ] {
+      override def toString = node.toString + "." + key.name
+
+      def apply( update: A1 )( implicit tx: S#Tx ) {
+         val visited: Visited[ S ] = MMap.empty
+         val n          = node
+         val reactions  = n.propagate( visited, n, IIdxSeq.empty )
+         reactions.map( _.apply() ).foreach( _.apply() )
       }
-   }
 
-   private final class EventImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( disp: Dispatcher[ S, A ], key: Key[ A1, Repr ])
-   extends Event[ S, A1, Repr ] {
       def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
-         disp.addReactor( r.select( key.id ))
+         node.addReactor( r.select( key.id ))
       }
       def -=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
-         disp.removeReactor( r.select( key.id ))
+         node.removeReactor( r.select( key.id ))
       }
 
       def observe( fun: (S#Tx, A1) => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] = {
@@ -273,6 +279,7 @@ object Event {
    }
 
    sealed trait Key[ A, Repr <: Writer ] {
+      def name: String
       private[lucrestm] def id: Int
       private[lucrestm] def keys: Keys[ Repr ]
       def unapply( id: Int ) : Boolean
@@ -284,17 +291,21 @@ object Event {
 //      implicit def reader[ S <: Sys[ S ]]: TxnReader[ S#Tx, S#Acc, Repr ]
       implicit def reader[ S <: Sys[ S ]]: Reader[ S, Repr, _ ]
 
-      final protected def key[ A ] : Key[ A, Repr ] = {
+      final protected def key[ A ] : Key[ A, Repr ] = key[ A ]( "(trigger)" )
+
+      final protected def key[ A ]( name: String ) : Key[ A, Repr ] = {
          require( cnt < 31, "Key overflow" )
          val id = 1 << cnt
          cnt += 1
-         new KeyImpl[ A, Repr ]( id, this )
+         new KeyImpl[ A, Repr ]( id, name, this )
       }
 
-      private final class KeyImpl[ A, Repr <: Writer ]( private[lucrestm] val id: Int,
+      private final class KeyImpl[ A, Repr <: Writer ]( private[lucrestm] val id: Int, val name: String,
                                               private[lucrestm] val keys: Keys[ Repr ])
       extends Key[ A, Repr ] {
          def unapply( i: Int ) : Boolean = i == id
+
+         override def toString = "Key[" + name + "]@" + id
       }
    }
 
@@ -310,17 +321,20 @@ object Event {
     * This trait also implements `equals` and `hashCode` in terms of the `id` inherited from the
     * targets.
     */
-   sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] with Dispatcher[ S, A ] {
+   sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] /* with Dispatcher[ S, A ] */ {
 //      protected def sources( implicit tx: S#Tx ) : Sources[ S ]
       protected def targets: Targets[ S ]
       protected def writeData( out: DataOutput ) : Unit
       protected def disposeData()( implicit tx: S#Tx ) : Unit
 
+      private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+      private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+
       final def id: S#ID = targets.id
 
 //      final private[lucrestm] def propagate( source: Posted[ S, _ ], parent: Event[ S, _ ], reactions: Reactions )
 //                                           ( implicit tx: S#Tx ) : Reactions =
-      private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions =
          targets.propagate( visited, this, reactions ) // parent event not important
 
@@ -501,19 +515,19 @@ object Event {
 //      protected def value( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ A ]
    }
 
-   /**
-    * A `Source` event node is one which can inject an update by itself, instead of just
-    * combining and forwarding source events. This trait provides protected `fire` method
-    * for this injection.
-    */
-   trait Source[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-      protected def fire( update: A )( implicit tx: S#Tx ) {
-//         val posted     = Event.Posted( this, update )
-//         val reactions  = propagate( posted, this, IIdxSeq.empty )
-//         reactions.map( _.apply() ).foreach( _.apply() )
-         sys.error( "TODO" )  // UUU
-      }
-   }
+//   /**
+//    * A `Source` event node is one which can inject an update by itself, instead of just
+//    * combining and forwarding source events. This trait provides protected `fire` method
+//    * for this injection.
+//    */
+//   trait Source[ S <: Sys[ S ], A ] extends Node[ S, A ] {
+//      protected def fire( update: A )( implicit tx: S#Tx ) {
+////         val posted     = Event.Posted( this, update )
+////         val reactions  = propagate( posted, this, IIdxSeq.empty )
+////         reactions.map( _.apply() ).foreach( _.apply() )
+//         sys.error( "TODO" )  // UUU
+//      }
+//   }
 
    /**
     * A value event corresponds to an observable state. That is to say, the instance stores
@@ -521,7 +535,7 @@ object Event {
     * Consequently, the event's type is a change in state, as reflected by the type parameters
     * `Change[ A ]`.
     */
-   trait Val[ S <: Sys[ S ], A ] extends Dispatcher[ S, Change[ A ]] {
+   trait Val[ S <: Sys[ S ], A ] /* extends Dispatcher[ S, Change[ A ]] */ {
       def value( implicit tx: S#Tx ) : A
    }
 
@@ -574,16 +588,27 @@ object Event {
       final protected def writeData( out: DataOutput ) {}
    }
 
-//   /**
-//    * A `Trigger` event is one which can be publically fired. One can think of it as the
-//    * imperative event in EScala.
-//    */
-//   trait Trigger[ S <: Sys[ S ], A ] extends Source[ S, A ] with Root[ S, A ] {
-//      override def toString = "Event.Trigger" + id
+   /**
+    * A `Trigger` event is one which can be publically fired. One can think of it as the
+    * imperative event in EScala.
+    */
+   trait Trigger[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] /* Source[ S, A ] with Root[ S, A ] */ {
+//      override def toString = node.toString + "." + key.name
 //
-//      final override def fire( update: A )( implicit tx: S#Tx ) { super.fire( update )}
-//   }
-//
+//      protected def node: Repr
+//      protected def key: Key[ A, Repr ]
+
+      def apply( update: A )( implicit tx: S#Tx ) : Unit
+//         {
+////         val posted     = Event.Posted( this, update )
+////         val reactions  = propagate( posted, this, IIdxSeq.empty )
+//         val visited: Visited[ S ] = MMap.empty
+//         val n          = node
+//         val reactions  = node.propagate( visited, node, IIdxSeq.empty )
+//         reactions.map( _.apply() ).foreach( _.apply() )
+//      }
+   }
+
 //   object Bang {
 //      private type Obs[ S <: Sys[ S ]] = Bang[ S ] with Invariant.Observable[ S, Unit, Bang[ S ]]
 //
@@ -761,7 +786,7 @@ object Event {
    sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
       def select( key: Int ) : Selector[ S ]
 //      private[lucrestm] def propagate( source: Posted[ S, _ ], parent: Event[ S, _ ], reactions: Reactions )
-      private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
    }
 
@@ -773,7 +798,7 @@ object Event {
    final case class ObserverKey[ S <: Sys[ S ]] private[lucrestm] ( id: Int ) extends Reactor[ S ] {
 //      private[lucrestm] def propagate( source: Posted[ S, _ ], parent: Event[ S, _ ], reactions: Reactions )
 //                                     ( implicit tx: S#Tx ) : Reactions = {
-      private[lucrestm] def propagate( visited: MMap[ S#ID, Int ], parent: Dispatcher[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions = {
 //         tx.propagateEvent( key, source, parent, reactions )
          sys.error( "TODO" )  // UUU
