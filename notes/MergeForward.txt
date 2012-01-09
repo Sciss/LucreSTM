@@ -557,3 +557,21 @@ trait Event.Keys[ Repr <: Writer ] {
 -- observations --
 
 seems that we solve the self-type problem and can get the observe functionality back into every event (`Dispatcher`) now, because `Repr` comes as type arg into the `event` method!
+
+::::::::::::::::
+
+before:
+
+Targets <: Reactor
+Node <: Reactor
+ReactorKey <: Reactor
+Child = (Int, Reactor)
+
+after:
+
+Child = ReactorSelector | ReactorKey
+key :: Child => Int
+
+ReactorSelector
+reactor :: ReactorSelector => Targets | Node
+

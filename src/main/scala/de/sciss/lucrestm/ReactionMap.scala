@@ -81,15 +81,15 @@ object ReactionMap {
 //      }
 //
 //      def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
-//                                                     ( implicit tx: S#Tx ) : Event.ReactorKey[ S ] = {
+//                                                     ( implicit tx: S#Tx ) : Event.ObserverKey[ S ] = {
 //         val ttx = sysConv( tx )
 //         val key = cnt.get( ttx )
 //         cnt.set( key + 1 )( ttx )
 //         eventMap.+=( (key, new EventObservation[ S, A, Repr ]( reader, fun )) )( tx.peer )
-//         new Event.ReactorKey[ S ]( key )
+//         new Event.ObserverKey[ S ]( key )
 //      }
 //
-//      def removeEventReaction( key: Event.ReactorKey[ S ])( implicit tx: S#Tx ) {
+//      def removeEventReaction( key: Event.ObserverKey[ S ])( implicit tx: S#Tx ) {
 //         eventMap.-=( key.key )( tx.peer )
 //      }
 
@@ -147,9 +147,9 @@ trait ReactionMap[ S <: Sys[ S ]] {
 
 // UUU
 //   def addEventReaction[ A, Repr <: Event[ S, A ]]( reader: Event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
-//                                                  ( implicit tx: S#Tx ) : Event.ReactorKey[ S ]
+//                                                  ( implicit tx: S#Tx ) : Event.ObserverKey[ S ]
 //
-//   def removeEventReaction( key: Event.ReactorKey[ S ])( implicit tx: S#Tx ) : Unit
+//   def removeEventReaction( key: Event.ObserverKey[ S ])( implicit tx: S#Tx ) : Unit
 //
 //   def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], observerKeys: IIdxSeq[ Int ])
 //                      ( implicit tx: S#Tx ) : Event.Reactor[ S ]
