@@ -67,7 +67,7 @@ Usages:
 
       import Event.{Val, Change, Constant}
 
-      trait BinaryExpr[ A ] extends Val[ S, A ] with Event.Immutable[ S, Change[ A ]] {
+      trait BinaryExpr[ A ] extends Val[ S, A ] with Event.Invariant[ S, Change[ A ]] {
          protected def a: Val[ S, A ]
          protected def b: Val[ S, A ]
          protected def op( a: A, b: A ) : A
@@ -93,7 +93,7 @@ Usages:
          sealed trait Impl[ A, Ex <: Val[ S, A ]] extends ExprVar[ A, Ex ] {
             me: Ex =>
 
-            protected def reader: Event.Immutable.Reader[ S, Ex ]
+            protected def reader: Event.Invariant.Reader[ S, Ex ]
             protected implicit def peerSer: TxnSerializer[ Tx, Acc, Ex ]
             protected def v: S#Var[ Ex ]
             final protected def sources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( v.get )
@@ -155,11 +155,11 @@ Usages:
          extends Impl[ A, Ex ] {
             me: Ex =>
 
-            protected val targets   = Event.Immutable.Targets[ S ]( tx0 )
+            protected val targets   = Event.Invariant.Targets[ S ]( tx0 )
             protected val v         = tx0.newVar[ Ex ]( id, init )
          }
 
-         abstract class Read[ A, Ex <: Val[ S, A ]]( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, tx0: Tx )(
+         abstract class Read[ A, Ex <: Val[ S, A ]]( protected val targets: Event.Invariant.Targets[ S ], in: DataInput, tx0: Tx )(
             implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
          extends Impl[ A, Ex ] {
             me: Ex =>
@@ -167,7 +167,7 @@ Usages:
             protected val v = tx0.readVar[ Ex ]( id, in )
          }
       }
-      trait ExprVar[ A, Ex <: Val[ S, A ]] extends Var[ Tx, Ex ] with Val[ S, A ] with Event.Immutable[ S, Change[ A ]] with Event.Source[ S, Change[ A ]]
+      trait ExprVar[ A, Ex <: Val[ S, A ]] extends Var[ Tx, Ex ] with Val[ S, A ] with Event.Invariant[ S, Change[ A ]] with Event.Source[ S, Change[ A ]]
 
       object StringRef {
          implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -229,10 +229,10 @@ Usages:
 
          private final class StringAppendNew( protected val a: StringRef, protected val b: StringRef, tx0: Tx )
          extends StringBinOp with StringAppend {
-            protected val targets = Event.Immutable.Targets[ S ]( tx0 )
+            protected val targets = Event.Invariant.Targets[ S ]( tx0 )
          }
 
-         private final class StringAppendRead( protected val targets: Event.Immutable.Targets[ S ], in: DataInput,
+         private final class StringAppendRead( protected val targets: Event.Invariant.Targets[ S ], in: DataInput,
                                                access: Acc, tx0: Tx )
          extends StringBinOp with StringAppend {
             protected val a         = serializer.read( in, access )( tx0 )
@@ -243,7 +243,7 @@ Usages:
             new Event.Serializer[ S, StringRef ] {
                def readConstant( in: DataInput )( implicit tx: Tx ) : StringRef = new StringConstRead( in )
 
-               def read( in: DataInput, access: Acc, targets: Event.Immutable.Targets[ S ])( implicit tx: Tx ) : StringRef = {
+               def read( in: DataInput, access: Acc, targets: Event.Invariant.Targets[ S ])( implicit tx: Tx ) : StringRef = {
                   (in.readUnsignedByte(): @switch) match {
                      case 1   => new StringAppendRead( targets, in, access, tx )
                      case 100 => new ExprVar.Read[ String, StringRef ]( targets, in, tx ) with StringRef {
@@ -257,7 +257,7 @@ Usages:
       trait StringRef extends /* State[ S, String ] with */ Val[ S, String ]
       /* with State.Observable[ S, String, StringRef ] */ with Event.Observable[ S, Change[ String ], StringRef ] {
          final def append( other: StringRef )( implicit tx: Tx ) : StringRef = StringRef.append( this, other )
-         final protected def reader: Event.Immutable.Reader[ S, StringRef ] = StringRef.serializer
+         final protected def reader: Event.Invariant.Reader[ S, StringRef ] = StringRef.serializer
       }
 
       object LongRef {
@@ -310,7 +310,7 @@ Usages:
          }
 
          private abstract class LongBinOpNew( tx0: Tx ) extends LongBinOp {
-            protected val targets = Event.Immutable.Targets[ S ]( tx0 )
+            protected val targets = Event.Invariant.Targets[ S ]( tx0 )
          }
 
          private abstract class LongBinOpRead( in: DataInput, access: Acc, tx0: Tx )
@@ -337,26 +337,26 @@ Usages:
          private final class LongPlusNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
          extends LongBinOpNew( tx0 ) with LongPlus
 
-         private final class LongPlusRead( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, access: Acc, tx0: Tx )
+         private final class LongPlusRead( protected val targets: Event.Invariant.Targets[ S ], in: DataInput, access: Acc, tx0: Tx )
          extends LongBinOpRead( in, access, tx0 ) with LongPlus
 
          private final class LongMinNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
          extends LongBinOpNew( tx0 ) with LongMin
 
-         private final class LongMinRead( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, access: Acc, tx0: Tx )
+         private final class LongMinRead( protected val targets: Event.Invariant.Targets[ S ], in: DataInput, access: Acc, tx0: Tx )
          extends LongBinOpRead( in, access, tx0 ) with LongMin
 
          private final class LongMaxNew( protected val a: LongRef, protected val b: LongRef, tx0: Tx )
          extends LongBinOpNew( tx0 ) with LongMax
 
-         private final class LongMaxRead( protected val targets: Event.Immutable.Targets[ S ], in: DataInput, access: Acc, tx0: Tx )
+         private final class LongMaxRead( protected val targets: Event.Invariant.Targets[ S ], in: DataInput, access: Acc, tx0: Tx )
          extends LongBinOpRead( in, access, tx0 ) with LongMax
 
          implicit val serializer : Event.Serializer[ S, LongRef ] =
             new Event.Serializer[ S, LongRef ] {
                def readConstant( in: DataInput )( implicit tx: Tx ) : LongRef = new LongConstRead( in )
 
-               def read( in: DataInput, access: Acc, targets: Event.Immutable.Targets[ S ])( implicit tx: Tx ) : LongRef = {
+               def read( in: DataInput, access: Acc, targets: Event.Invariant.Targets[ S ])( implicit tx: Tx ) : LongRef = {
                   val opID    = in.readUnsignedByte()
                   (opID: @switch) match {
                      case 1   => new LongPlusRead( targets, in, access, tx )
@@ -373,7 +373,7 @@ Usages:
          final def +(   other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.plus( this, other )
          final def min( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.min(  this, other )
          final def max( other: LongRef )( implicit tx: Tx ) : LongRef = LongRef.max(  this, other )
-         final protected def reader: Event.Immutable.Reader[ S, LongRef ] = LongRef.serializer
+         final protected def reader: Event.Invariant.Reader[ S, LongRef ] = LongRef.serializer
       }
 
    //   object Region {
@@ -441,7 +441,7 @@ Usages:
             val name_#  = {
                val cookie1  = in.readUnsignedByte()
                require( cookie1 == 0, "Unexpected cookie " + cookie1 )
-               val targets = Event.Immutable.Targets.read[ S ]( in, acc )( tx0 )
+               val targets = Event.Invariant.Targets.read[ S ]( in, acc )( tx0 )
                val cookie2 = in.readUnsignedByte()
                require( cookie2 == 100, "Unexpected cookie " + cookie2 )
                new ExprVar.Read[ String, StringRef ]( targets, in, tx0 ) with StringRef {
@@ -451,7 +451,7 @@ Usages:
             val start_# = {
                val cookie1  = in.readUnsignedByte()
                require( cookie1 == 0, "Unexpected cookie " + cookie1 )
-               val targets = Event.Immutable.Targets.read[ S ]( in, acc )( tx0 )
+               val targets = Event.Invariant.Targets.read[ S ]( in, acc )( tx0 )
                val cookie2 = in.readUnsignedByte()
                require( cookie2 == 100, "Unexpected cookie " + cookie2 )
                new ExprVar.Read[ Long, LongRef ]( targets, in, tx0 ) with LongRef {
@@ -461,7 +461,7 @@ Usages:
             val stop_#  = {
                val cookie1  = in.readUnsignedByte()
                require( cookie1 == 0, "Unexpected cookie " + cookie1 )
-               val targets = Event.Immutable.Targets.read[ S ]( in, acc )( tx0 )
+               val targets = Event.Invariant.Targets.read[ S ]( in, acc )( tx0 )
                val cookie2 = in.readUnsignedByte()
                require( cookie2 == 100, "Unexpected cookie " + cookie2 )
                new ExprVar.Read[ Long, LongRef ]( targets, in, tx0 ) with LongRef {
@@ -498,12 +498,12 @@ Usages:
 //         final case class Renamed( r: EventRegion, before: String, now: String ) extends Update
 //         final case class Moved( r: EventRegion, before: Change[ Long ], now: Change[ Long ] ) extends Update
 //      }
-//      trait EventRegion extends Region with Event.Immutable[ S, EventRegion.Update ] {
+//      trait EventRegion extends Region with Event.Invariant[ S, EventRegion.Update ] {
 //         name_#.observe { (tx, str) =>
 //         }
 //      }
 
-//      trait RegionRenamed extends Event.Immutable.Observable[ S, Event.Change[ String ], RegionRenamed ] with Event.Singleton[ S ]
+//      trait RegionRenamed extends Event.Invariant.Observable[ S, Event.Change[ String ], RegionRenamed ] with Event.Singleton[ S ]
 
       object RegionList {
          def empty( implicit tx: Tx ) : RegionList = new New( tx )
@@ -605,15 +605,15 @@ Usages:
          }
 
          private final class New( tx0: Tx ) extends Impl {
-            protected val targets         = Event.Immutable.Targets[ S ]( tx0 )
+            protected val targets         = Event.Invariant.Targets[ S ]( tx0 )
             protected val sizeRef         = tx0.newIntVar( id, 0 )
             protected val headRef         = tx0.newVar[ Option[ LinkedList[ Region ]]]( id, None )
 //            protected val regionRenamed   = new RegionRenamed {
-//               protected val targets      = Event.Immutable.Targets[ S ]( tx0 )
+//               protected val targets      = Event.Invariant.Targets[ S ]( tx0 )
 //            }
          }
 
-         private final class Read( in: DataInput, access: S#Acc, protected val targets: Event.Immutable.Targets[ S ], tx0: S#Tx )
+         private final class Read( in: DataInput, access: S#Acc, protected val targets: Event.Invariant.Targets[ S ], tx0: S#Tx )
          extends Impl {
             protected val sizeRef   = tx0.readIntVar( id, in )
             protected val headRef   = tx0.readVar[ Option[ LinkedList[ Region ]]]( id, in )
@@ -624,14 +624,14 @@ Usages:
          final case class Removed( idx: Int, region: Region ) extends Change
          final case class Renamed( region: Region, change: Event.Change[ String ]) extends Change
 
-         implicit val serializer : Event.Immutable.Serializer[ S, RegionList ] = new Event.Immutable.Serializer[ S, RegionList ] {
-            def read( in: DataInput, access: S#Acc, targets: Event.Immutable.Targets[ S ])( implicit tx: S#Tx ) : RegionList =
+         implicit val serializer : Event.Invariant.Serializer[ S, RegionList ] = new Event.Invariant.Serializer[ S, RegionList ] {
+            def read( in: DataInput, access: S#Acc, targets: Event.Invariant.Targets[ S ])( implicit tx: S#Tx ) : RegionList =
                new Read( in, access, targets, tx )
          }
       }
 
       trait RegionList extends Event.Source[ S, RegionList.Change ] with Event.Root[ S, RegionList.Change ]
-      with Event.Immutable[ S, RegionList.Change ] with Event.Observable[ S, RegionList.Change, RegionList ] {
+      with Event.Invariant[ S, RegionList.Change ] with Event.Observable[ S, RegionList.Change, RegionList ] {
          def size( implicit tx: S#Tx ) : Int
          def insert( idx: Int, r: Region )( implicit tx: S#Tx ) : Unit
          final def add( r: Region )( implicit tx: S#Tx ) { insert( size, r )}

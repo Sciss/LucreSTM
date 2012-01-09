@@ -1,0 +1,99 @@
+name_#.forward(
+   
+)
+
+Reactor.apply[ S, ... ]
+
+val fwd = new Forward[ S, Change[ String ]] {
+   def pull( posted ) {
+      source.pull.map { ch =>
+         RegionList.Renamed( r???, ch )
+      }
+   }
+}
+
+addRegion {
+   fwd.add( r.name_# )
+}
+
+removeRegion {
+   fwd.remove( r.name_# )
+}
+
+::::::::::::::::
+
+Region extends Event.Forward {
+   def sources = IIdxSeq( name_#, start_#, stop_# )
+
+   def pull( posted ) = {
+      name_#.pull(...).map( ch => Region.Renamed( ch )).getOrElse(
+        start_#.pull(...).map( ch => Region.Moved... ).getOrElse(
+          stop_#.pull(...).map( ch => Region.Moved... )
+        )
+      )
+   }
+}
+
+nasty...
+
+::::::::::::::::
+
+so the problem is. propagate:
+
+A         B
+|         |
+|         |
++-->Bin<--+
+     |
+     v
+    Obs
+
+then pull:
+
+A         B
+^         ^
+|         |
++---Bin---+
+     ^
+     |
+    Obs
+
+so how do we determine the route to follow in the pull phase? to go each way is particularily annoying for larger sinks (Region forwarding name_#, start_#, stop_#, perhaps many more)
+
+::::::::::::::::
+
+stub is
+   id
+   children
+
+::::::::::::::::
+
+could pass along an IIdxSeq/ Queue (or single element) in propagate that carries the parents; then we just need to match the sources
+
+   def pull( posted, path ) = {
+      val (path1, parent) = path.dequeue2()
+      parent match {
+         case `name_#`  => name_#.pull(  ).map( )
+         case `start_#` => start_#.pull( ).map( )
+         case `stop_#`  => stop_#.pull(  ).map( )
+      }
+   }
+
+::::::::::::::::
+
+ok, back to forwarding... Region is ok. RegionList -- can't have static sources
+; oh well, should be Event.Mutable
+; which ought to be renamed...
+
+Event.Immutable -> Event.LazyNode
+Event.Mutable   -> Event.StrictNode
+
+Invariant / Mutating
+
+Invariant.LateBinding
+Invariant.EarlyBinding
+
+???
+
+or orthogonal?
+Invariant / Mutating, LateBinding / EarlyBinding

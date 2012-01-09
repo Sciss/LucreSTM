@@ -394,7 +394,7 @@ object ReactionTest extends App {
 //         final case class Renamed( r: EventRegion, before: String, now: String ) extends Update
 //         final case class Moved( r: EventRegion, before: (Long, Long), now: (Long, Long) ) extends Update
 //      }
-//      trait EventRegion extends Region with Event.Immutable[ S, EventRegion.Update ] {
+//      trait EventRegion extends Region with Event.Invariant[ S, EventRegion.Update ] {
 //         name_#.observe { (tx, str) =>
 //         }
 //      }

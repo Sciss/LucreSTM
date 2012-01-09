@@ -19,20 +19,20 @@ object EventTest extends App {
 
    val e2 = system.atomic { implicit tx =>
       new Event.Trigger[ S, Int ] with Event.Singleton[ S ] {
-         protected val targets = Event.Immutable.Targets[ S ]
+         protected val targets = Event.Invariant.Targets[ S ]
       }
    }
 
-   object FilterReader extends Event.Immutable.Serializer[ S, Filter ] {
-      def read( in: DataInput, access: S#Acc, _targets: Event.Immutable.Targets[ S ])( implicit tx: S#Tx ) : Filter =
+   object FilterReader extends Event.Invariant.Serializer[ S, Filter ] {
+      def read( in: DataInput, access: S#Acc, _targets: Event.Invariant.Targets[ S ])( implicit tx: S#Tx ) : Filter =
          new Filter {
             protected val targets = _targets
          }
    }
 
-   abstract class Filter extends Event.Immutable.Observable[ S, Int, Filter ] {
+   abstract class Filter extends Event.Invariant.Observable[ S, Int, Filter ] {
       protected def reader = FilterReader
-//      protected val targets = Event.Immutable.Targets[ S ]
+//      protected val targets = Event.Invariant.Targets[ S ]
       protected def disposeData()( implicit tx: S#Tx ) {}
       protected def writeData( out: DataOutput ) {}
       protected def sources( implicit tx: S#Tx ) : Event.Sources[ S ] = IIdxSeq( e2 )
@@ -44,7 +44,7 @@ object EventTest extends App {
 
    val f = system.atomic { implicit tx =>
       new Filter {
-         protected val targets = Event.Immutable.Targets[ S ]
+         protected val targets = Event.Invariant.Targets[ S ]
       }
    }
 

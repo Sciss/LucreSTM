@@ -44,17 +44,17 @@ object Event {
     * A trait to serialize events which can be both constants and immutable nodes.
     * An implementation mixing in this trait just needs to implement methods
     * `readConstant` to return the constant instance, and `read` with the
-    * `Event.Immutable.Targets` argument to return the immutable node instance.
+    * `Event.Invariant.Targets` argument to return the immutable node instance.
     */
    trait Serializer[ S <: Sys[ S ], Repr <: Event[ S, _ ]]
-   extends Immutable.Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
+   extends Invariant.Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
       final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
          (in.readUnsignedByte(): @switch) match {
             case 3 => readConstant( in )
             case 0 =>
-               val targets = Immutable.Targets.read[ S ]( in, access )
+               val targets = Invariant.Targets.read[ S ]( in, access )
                read( in, access, targets )
             case cookie => sys.error( "Unexpected cookie " + cookie )
          }
@@ -167,9 +167,9 @@ object Event {
       override def hashCode = id.hashCode()
    }
 
-   object Immutable {
+   object Invariant {
       trait Observable[ S <: Sys[ S ], A, Repr <: Event[ S, A ]]
-      extends Immutable[ S, A ] with Event.Observable[ S, A, Repr ] {
+      extends Invariant[ S, A ] with Event.Observable[ S, A, Repr ] {
          me: Repr =>
 
          protected def reader : Reader[ S, Repr ]
@@ -222,9 +222,9 @@ object Event {
       /**
        * A trait to serialize events which are immutable nodes.
        * An implementation mixing in this trait just needs to implement
-       * `read` with the `Event.Immutable.Targets` argument to return the node instance.
+       * `read` with the `Event.Invariant.Targets` argument to return the node instance.
        */
-      trait Serializer[ S <: Sys[ S ], Repr <: Immutable[ S, _ ]]
+      trait Serializer[ S <: Sys[ S ], Repr <: Invariant[ S, _ ]]
       extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
          final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -240,10 +240,10 @@ object Event {
       }
    }
 
-   trait Immutable[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-      protected def targets: Immutable.Targets[ S ]
+   trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
+      protected def targets: Invariant.Targets[ S ]
 
-      override def toString = "Event.Immutable" + id
+      override def toString = "Event.Invariant" + id
 
       final private[lucrestm] def addReactor( r: Reactor[ S ])( implicit tx: S#Tx ) {
          if( targets.addReactor( r )) {
@@ -309,25 +309,25 @@ object Event {
       final protected def writeData( out: DataOutput ) {}
    }
 
-   trait Trigger[ S <: Sys[ S ], A ] extends Source[ S, A ] with Root[ S, A ] with Immutable[ S, A ] {
+   trait Trigger[ S <: Sys[ S ], A ] extends Source[ S, A ] with Root[ S, A ] with Invariant[ S, A ] {
       override def toString = "Event.Trigger" + id
 
       final override def fire( update: A )( implicit tx: S#Tx ) { super.fire( update )}
    }
 
    object Bang {
-      private type Obs[ S <: Sys[ S ]] = Bang[ S ] with Immutable.Observable[ S, Unit, Bang[ S ]]
+      private type Obs[ S <: Sys[ S ]] = Bang[ S ] with Invariant.Observable[ S, Unit, Bang[ S ]]
 
       def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : Obs[ S ] = new ObsImpl[ S ] {
-            protected val targets = Immutable.Targets[ S ]
+            protected val targets = Invariant.Targets[ S ]
          }
 
-      private sealed trait ObsImpl[ S <: Sys[ S ]] extends Bang[ S ] with Immutable.Observable[ S, Unit, Bang[ S ]] {
+      private sealed trait ObsImpl[ S <: Sys[ S ]] extends Bang[ S ] with Invariant.Observable[ S, Unit, Bang[ S ]] {
          protected def reader = serializer[ S ]
       }
 
-      def serializer[ S <: Sys[ S ]] : Immutable.Serializer[ S, Obs[ S ]] = new Immutable.Serializer[ S, Obs[ S ]] {
-         def read( in: DataInput, access: S#Acc, _targets: Immutable.Targets[ S ])( implicit tx: S#Tx ) : Obs[ S ] =
+      def serializer[ S <: Sys[ S ]] : Invariant.Serializer[ S, Obs[ S ]] = new Invariant.Serializer[ S, Obs[ S ]] {
+         def read( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Obs[ S ] =
             new ObsImpl[ S ] {
                protected val targets = _targets
             }
@@ -432,7 +432,7 @@ object Event {
                case 0 =>
                   val id            = tx.readID( in, access )
                   val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
-                  val targets       = Immutable.Targets[ S ]( id, children )
+                  val targets       = Invariant.Targets[ S ]( id, children )
                   val observerKeys  = children.get.collect {
                      case ReactorKey( key ) => key
                   }
