@@ -33,6 +33,8 @@ object Event {
    type Reaction  = () => () => Unit
    type Reactions = IIdxSeq[ Reaction ]
 
+   private type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Reactor[ S ])]
+
    /**
     * A mixin trait which says that a live view can be attached to this event.
     */
@@ -103,7 +105,7 @@ object Event {
     * `Observer` instances are returned by the `observe` method of classes implementing
     * `Observable`. The observe can be registered and unregistered with events.
     */
-   sealed trait Observer[ S <: Sys[ S ], A, -Repr ] extends Disposable[ S#Tx ] {
+   sealed trait Observer[ S <: Sys[ S ], A, Repr ] extends Disposable[ S#Tx ] {
       def add(    event: Event[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
       def remove( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
    }
@@ -118,7 +120,7 @@ object Event {
       private[lucrestm] def id: S#ID
 
 //      protected def children: S#Var[ IIdxSeq[ Reactor[ S ]]]
-      protected def children: S#Var[ IIdxSeq[ (Int, Reactor[ S ])]]
+      protected def children: S#Var[ Children[ S ]]
 
       override def toString = "Event.Targets" + id
 
@@ -195,7 +197,7 @@ object Event {
       }
    }
 
-   sealed trait Key[ A, Repr ] {
+   sealed trait Key[ A, Repr <: Writer ] {
       private[lucrestm] def mask: Int
       private[lucrestm] def keys: Keys[ Repr ]
       def unapply( mask: Int ) : Boolean
@@ -282,21 +284,21 @@ object Event {
       object Targets {
          def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
             val id         = tx.newID()
-            val children   = tx.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
+            val children   = tx.newVar[ Children[ S ]]( id, IIdxSeq.empty )
             new Impl( id, children )
          }
 
          private[lucrestm] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
             val id            = tx.readID( in, access )
-            val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
+            val children      = tx.readVar[ Children[ S ]]( id, in )
             new Impl[ S ]( id, children )
          }
 
-         private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]]) : Targets[ S ] =
+         private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]]) : Targets[ S ] =
             new Impl( id, children )
 
          private final class Impl[ S <: Sys[ S ]](
-            private[lucrestm] val id: S#ID, protected val children: S#Var[ IIdxSeq[ Reactor[ S ]]])
+            private[lucrestm] val id: S#ID, protected val children: S#Var[ Children[ S ]])
          extends Targets[ S ] {
             def write( out: DataOutput ) {
                out.writeUnsignedByte( 0 )
@@ -540,24 +542,24 @@ object Event {
       object Targets {
          def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
             val id         = tx.newID()
-            val children   = tx.newVar[ IIdxSeq[ Reactor[ S ]]]( id, IIdxSeq.empty )
+            val children   = tx.newVar[ Children[ S ]]( id, IIdxSeq.empty )
             val invalid    = tx.newBooleanVar( id, false )
             new Impl( id, children, invalid )
          }
 
          private[lucrestm] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
             val id            = tx.readID( in, access )
-            val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
+            val children      = tx.readVar[ Children[ S ]]( id, in )
             val invalid       = tx.readBooleanVar( id, in )
             new Impl[ S ]( id, children, invalid )
          }
 
-         private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ IIdxSeq[ Reactor[ S ]]],
+         private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]],
                                                       invalid: S#Var[ Boolean ]) : Targets[ S ] =
             new Impl( id, children, invalid )
 
          private final class Impl[ S <: Sys[ S ]](
-            private[lucrestm] val id: S#ID, protected val children: S#Var[ IIdxSeq[ Reactor[ S ]]], invalid: S#Var[ Boolean ])
+            private[lucrestm] val id: S#ID, protected val children: S#Var[ Children[ S ]], invalid: S#Var[ Boolean ])
          extends Targets[ S ] {
             def isInvalid( implicit tx: S#Tx ) : Boolean = invalid.get
             def validated()( implicit tx: S#Tx ) { invalid.set( false )}
@@ -640,20 +642,20 @@ object Event {
             (in.readUnsignedByte(): @switch) match {
                case 0 =>
                   val id            = tx.readID( in, access )
-                  val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
+                  val children      = tx.readVar[ Children[ S ]]( id, in )
                   val targets       = Invariant.Targets[ S ]( id, children )
                   val observerKeys  = children.get.collect {
-                     case ReactorKey( key ) => key
+                     case (_, ReactorKey( key )) => key
                   }
 //                  tx.mapEventTargets( in, access, targets, observerKeys )
                   sys.error( "TODO" )  // UUU
                case 1 =>
                   val id            = tx.readID( in, access )
-                  val children      = tx.readVar[ IIdxSeq[ Reactor[ S ]]]( id, in )
+                  val children      = tx.readVar[ Children[ S ]]( id, in )
                   val invalid       = tx.readBooleanVar( id, in )
                   val targets       = Mutating.Targets[ S ]( id, children, invalid )
                   val observerKeys  = children.get.collect {
-                     case ReactorKey( key ) => key
+                     case (_, ReactorKey( key )) => key
                   }
 //                  tx.mapEventTargets( in, access, targets, observerKeys )
                   sys.error( "TODO" )  // UUU
