@@ -176,12 +176,12 @@ object Event {
       private[lucrestm] def addReactor( mask: Int, r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
       private[lucrestm] def removeReactor( mask: Int, r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
 
-      final protected def event[ A1 <: A, Repr ]( key: Key[ A1, Repr ]) /* ( implicit ev: this.type <:< Repr ) */ : Event[ S, A1, Repr ] = {
+      final protected def event[ A1 <: A, Repr <: Writer ]( key: Key[ A1, Repr ]) /* ( implicit ev: this.type <:< Repr ) */ : Event[ S, A1, Repr ] = {
          new EventImpl[ S, A, A1, Repr ]( this, key )
       }
    }
 
-   private final class EventImpl[ S <: Sys[ S ], A, A1 <: A, Repr ]( disp: Dispatcher[ S, A ], key: Key[ A1, Repr ])
+   private final class EventImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( disp: Dispatcher[ S, A ], key: Key[ A1, Repr ])
    extends Event[ S, A1, Repr ] {
       def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
          disp.addReactor( key.mask, r )
@@ -216,7 +216,7 @@ object Event {
          new KeyImpl[ A, Repr ]( mask, this )
       }
 
-      private final class KeyImpl[ A, Repr ]( private[lucrestm] val mask: Int,
+      private final class KeyImpl[ A, Repr <: Writer ]( private[lucrestm] val mask: Int,
                                               private[lucrestm] val keys: Keys[ Repr ])
       extends Key[ A, Repr ] {
          def unapply( i: Int ) : Boolean = i == mask
