@@ -606,6 +606,7 @@ object Event {
       protected def node: Node[ S, A ]
 
       protected def reader: Reader[ S, Repr, _ ]
+//      implicit protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A1, Repr ]]
 
       final def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
          node.addReactor( r.select( selector ))
@@ -620,6 +621,9 @@ object Event {
          res.add( this )
          res
       }
+
+//      final def filter[ P <: (A) => Boolean ]( pred: P )( implicit tx: S#Tx ) : Event.Flat[ S, A1 ] =
+//         Filter[ S, A1, Event[ S, A1, Repr ], P ]( this )( pred )
    }
 
    trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
@@ -646,7 +650,7 @@ object Event {
       }
 
       object Standalone {
-         def serializer[ S <: Sys[ S ], A ] : Invariant.Serializer[ S, Standalone[ S, A ]] =
+         implicit def serializer[ S <: Sys[ S ], A ] : Invariant.Serializer[ S, Standalone[ S, A ]] =
             new Invariant.Serializer[ S, Standalone[ S, A ]] {
                def read( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Standalone[ S, A ] =
                   new Standalone[ S, A ] {
@@ -654,7 +658,8 @@ object Event {
                   }
             }
       }
-      trait Standalone[ S <: Sys[ S ], A ] extends StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] with Root[ S, A ] {
+      trait Standalone[ S <: Sys[ S ], A ] extends Impl[ S, A, A, Standalone[ S, A ]] with
+      StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] with Root[ S, A ] {
          final protected def reader: Reader[ S, Standalone[ S, A ], _ ] = Standalone.serializer[ S, A ]
       }
    }
@@ -673,7 +678,7 @@ object Event {
       }
 
       private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit ] {
-         protected def reader = serializer[ S ]
+         protected def reader = Bang.serializer[ S ]
       }
 
       def serializer[ S <: Sys[ S ]] : Invariant.Serializer[ S, Bang[ S ]] = new Invariant.Serializer[ S, Bang[ S ]] {
@@ -876,7 +881,7 @@ object Event {
    trait Flat[ S <: Sys[ S ], A ] extends Event[ S, A, Flat[ S, A ]]
 
    object Filter {
-      def apply[ S <: Sys[ S ], A, In <: Event[ S, A, In ], P <: (A) => Boolean ]( in: In )( p: P )(
+      def apply[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ]( in: In )( p: P )(
          implicit tx: S#Tx, inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Flat[ S, A ] = new Impl[ S, A, In, P ] {
          protected val targets   = Invariant.Targets[ S ]
          protected val input     = in
@@ -884,12 +889,13 @@ object Event {
          protected val pred      = p
       }
 
-      private sealed trait Impl[ S <: Sys[ S ], A, In <: Event[ S, A, In ], P <: (A) => Boolean ]
+      private sealed trait Impl[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ]
       extends Flat[ S, A ] with StandaloneLike[ S, A, Flat[ S, A ]] {
          protected def input: In
          protected def pred: P
          protected def inputSer: TxnSerializer[ S#Tx, S#Acc, In ]
-         final protected def reader: Reader[ S, Flat[ S, A ], _ ] = serializer[ S, A, In, P ]( inputSer )
+         final protected def reader: Reader[ S, Flat[ S, A ], _ ] = Filter.serializer[ S, A, In, P ]( inputSer )
+//         protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A, Flat[ S, A ]]] = Filter.serializer[ S, A, In, P ]( inputSer )
 
          final protected def disposeData()( implicit tx: S#Tx ) {}
          final protected def writeData( out: DataOutput ) {
@@ -903,7 +909,7 @@ object Event {
          }
       }
 
-      private def serializer[ S <: Sys[ S ], A, In <: Event[ S, A, In ], P <: (A) => Boolean ](
+      private def serializer[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ](
          inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Invariant.Serializer[ S, Impl[ S, A, In, P ]] =
 
          new Invariant.Serializer[ S, Impl[ S, A, In, P ]] {
@@ -934,8 +940,10 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
 
    def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
-   final def filter[ In <: Event[ S, A, In ], P <: (A) => Boolean ]( pred: P )(
-      implicit tx: S#Tx, ev: this.type <:< In, ser: TxnSerializer[ S#Tx, S#Acc, In ]) : Event.Flat[ S, A ] =
+//   final def filter[ In <: Event[ S, A, In ], P <: (A) => Boolean ]( pred: P )(
+//      implicit tx: S#Tx, ev: this.type <:< In, ser: TxnSerializer[ S#Tx, S#Acc, In ]) : Event.Flat[ S, A ] =
+//
+//      Event.Filter[ S, A, In, P ]( this )( pred )( tx, ser )
 
-      Event.Filter[ S, A, In, P ]( this )( pred )( tx, ser )
+//   def filter[ P <: (A) => Boolean ]( pred: P )( implicit tx: S#Tx ) : Event.Flat[ S, A ]
 }
