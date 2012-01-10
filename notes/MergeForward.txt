@@ -575,3 +575,99 @@ key :: Child => Int
 ReactorSelector
 reactor :: ReactorSelector => Targets | Node
 
+::::::::::::::::
+
+pull path considerations
+
+binop
+
+   def pull( _, posted ) {
+      (a, b).pull( ).map( _.map2( value _ ))
+   }
+
+what happens if events come both from a and b? if we propagate only the first arriving path (= List[ Event ]?) to the observer keys, it means that no previous yielding element can use the path?
+
+imagine the OR operator:
+
+    val changed = moved | renamed
+
+versus
+
+    val aggr = moved + renamed
+
+
+Event[Region.Moved] | Event[Region.Renamed]
+--> Event[Region.Update]
+
+most likely expected to fire twice if single event root emits both moved and renamed?
+
+::::::::::::::::
+
+let's start with the simpler implementation: not using a path at all, but instead only propagating the root event, along with the current key as provided by each reactor:
+
+Reactor {
+   def propagate( parent: Event[ S, _, _ ], visited: Visited[ S ], reactions: Reactions ) : Reactions
+}
+
+ObserverKey : Reactor {
+   def propagate( parent: Event[ S, _, _ ], visited: Visited[ S ], reactions: Reactions ) : Reactions = {
+      tx.propagate( ... )
+   }
+}
+
+tx -> sys -> reaction-map: calls `pull` on leaf, which in turn calls `pull` on the event's node:
+
+Node[ A ] {
+   def pull( key: Key, update: AnyRef ) : Option[ A ]
+}
+
+Expr[ A ] : Node[ Changed[ A ]] {
+   def changed: Event
+
+   def pull( update ) : Changed[ A ]  // this is the pullOrValue. it would need an event origin!
+}
+
+Event[ A ] {
+   def pull( update: AnyRef ) : Option[ A ]
+}
+
+UnaryExpr[ A ] : Expr[ A ] {
+   input: Expr[ A ]
+   def pull( ) : Option[ Changed[ A ]] = input.changed.pull( update ).map( _.map( value ))
+}
+
+BinaryExpr[ A ] : Expr[ A ] {
+   a: Expr[ A ]
+   b: Expr[ A ]
+   def pull( ) : Option[ Changed[ A ]] = (a, b).pull( ... )
+}
+
+thus `propagate` and `pull` do need a `source` parameter
+
+we might even be able to introduce a MaybeChanged which would be returned by pullOrValue, so that a map2 for example would be more efficient (?)
+
+Region {
+   def pull( key: Key, source: Event, update: AnyRef ) : Option[ Region.Update ] = key match {
+      case `renamedKey` => name_#.pull( source, update ).map( Region.Renamed( this, _ ))
+      ...
+   }
+}
+
+damn it -- renamed would need to cast the result to Option[Renamed] ?!
+
+unless instead of passing in key, we pass in the event
+
+   def pull( ev: Event[ S, _, _ ], ... ) {
+      ev match {
+         case renamedKey( f ) => name_#.pull( source, update ).foreach( u => f( Region.Renamed( this, u )))
+         ...
+      }
+   }
+
+... but that doesn't compose if f needs to combine several pulls??
+
+and generic...?
+
+   def pull[ A1 <: A ]( key: Key[ A1, _ ], ... ) : Option[ A1 ] = key match {
+      case `renamedKey` => ... // cast needed for result or not?
+   }

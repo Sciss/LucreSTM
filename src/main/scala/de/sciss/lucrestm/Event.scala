@@ -320,6 +320,10 @@ object Event {
       }
    }
 
+   sealed trait Yield[ S <: Sys[ S ], A ] {
+      def pull( )( implicit tx: S#Tx ) : Option[ A ]
+   }
+
    /**
     * An `Event.Node` is most similar to EScala's `EventNode` class. It represents an observable
     * object and can also act as an observer itself. It adds the `Reactor` functionality in the
@@ -766,8 +770,8 @@ object Event {
     */
    sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
       def select( key: Int ) : Selector[ S ]
-      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
-                                     ( implicit tx: S#Tx ) : Reactions
+//      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
+//                                     ( implicit tx: S#Tx ) : Reactions
    }
 
    /**
