@@ -349,9 +349,7 @@ object Event {
       private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
       private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
-      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
-         sys.error( "TODO" )  // UUU
-      }
+      def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
       final def id: S#ID = targets.id
 
