@@ -161,7 +161,7 @@ object Event {
     * `readConstant` to return the constant instance, and `read` with the
     * `Event.Invariant.Targets` argument to return the immutable node instance.
     */
-   trait Serializer[ S <: Sys[ S ], Repr <: Node[ S, _ ]]
+   trait Serializer[ S <: Sys[ S ], Repr <: Writer /* Node[ S, _ ] */]
    extends Invariant.Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
       final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -449,7 +449,7 @@ object Event {
        * An implementation mixing in this trait just needs to implement
        * `read` with the `Event.Invariant.Targets` argument to return the node instance.
        */
-      trait Serializer[ S <: Sys[ S ], Repr <: Invariant[ S, _ ]]
+      trait Serializer[ S <: Sys[ S ], Repr <: /* Writer */ Invariant[ S, _ ]]
       extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
          final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -545,16 +545,6 @@ object Event {
 //   }
 
    /**
-    * A value event corresponds to an observable state. That is to say, the instance stores
-    * a state of type `A` which can be retrieved with the `value` method defined by this trait.
-    * Consequently, the event's type is a change in state, as reflected by the type parameters
-    * `Change[ A ]`.
-    */
-   trait Val[ S <: Sys[ S ], A ] /* extends Dispatcher[ S, Change[ A ]] */ {
-      def value( implicit tx: S#Tx ) : A
-   }
-
-   /**
     * A rooted event does not have sources. This trait provides a simple
     * implementation of `pull` which merely checks if this event has fired or not.
     */
@@ -568,29 +558,42 @@ object Event {
     * Value based events fire instances of `Change` which provides the value before
     * and after modification.
     */
-   final case class Change[ @specialized A ]( before: A, now: A )
+   final case class Change[ @specialized A ]( before: A, now: A ) {
+      def isSignificant: Boolean = before != now
+      def toOption: Option[ Change[ A ]] = if( isSignificant ) Some( this ) else None
+   }
 
 //   /**
-//    * A constant "event" is one which doesn't actually fire. It thus arguably isn't really an event,
-//    * but it can be used to implement the constant type of an expression system which can use a unified
-//    * event approach, where the `Constant` event just acts as a dummy event. `addReactor` and `removeReactor`
-//    * have no-op implementations. Also `pull` in inherited from `Root`, but will always return `None`
-//    * as there is no way to fire this event. Implementation must provide a constant value method
-//    * `constValue` and implement its serialization via `writeData`.
+//    * A value event corresponds to an observable state. That is to say, the instance stores
+//    * a state of type `A` which can be retrieved with the `value` method defined by this trait.
+//    * Consequently, the event's type is a change in state, as reflected by the type parameters
+//    * `Change[ A ]`.
 //    */
-//   trait Constant[ S <: Sys[ S ], A ] extends Val[ S, A ] with Root[ S, Change[ A ]] {
+//   trait Val[ S <: Sys[ S ], A ] /* extends Dispatcher[ S, Change[ A ]] */ {
+//      def value( implicit tx: S#Tx ) : A
+//   }
+
+   /**
+    * A constant "event" is one which doesn't actually fire. It thus arguably isn't really an event,
+    * but it can be used to implement the constant type of an expression system which can use a unified
+    * event approach, where the `Constant` event just acts as a dummy event. `addReactor` and `removeReactor`
+    * have no-op implementations. Also `pull` in inherited from `Root`, but will always return `None`
+    * as there is no way to fire this event. Implementation must provide a constant value method
+    * `constValue` and implement its serialization via `writeData`.
+    */
+   trait Constant[ S <: Sys[ S ] /*, A */] /* extends Val[ S, A ] with Root[ S, Change[ A ]] */ {
 //      protected def constValue : A
 //      final def value( implicit tx: S#Tx ) : A = constValue
-//      final private[lucrestm] def addReactor(     r: Reactor[ S ])( implicit tx: S#Tx ) {}
-//      final private[lucrestm] def removeReactor(  r: Reactor[ S ])( implicit tx: S#Tx ) {}
-//
-//      final def write( out: DataOutput ) {
-//         out.writeUnsignedByte( 3 )
-//         writeData( out )
-//      }
-//
-//      protected def writeData( out: DataOutput ) : Unit
-//   }
+      final private[lucrestm] def addReactor(     r: Reactor[ S ])( implicit tx: S#Tx ) {}
+      final private[lucrestm] def removeReactor(  r: Reactor[ S ])( implicit tx: S#Tx ) {}
+
+      final def write( out: DataOutput ) {
+         out.writeUnsignedByte( 3 )
+         writeData( out )
+      }
+
+      protected def writeData( out: DataOutput ) : Unit
+   }
 
    /**
     * A `Singleton` event is one which doesn't carry any state. This is a utility trait
@@ -627,7 +630,7 @@ object Event {
    }
 
    trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
-   with EarlyBinding[ S, A] /* with Singleton[ S ] with Root[ S, A ] */ {
+   /* with EarlyBinding[ S, A ] */ /* with Singleton[ S ] with Root[ S, A ] */ {
       final protected def selector = 0
       final protected def node: Node[ S, A ] = this
 
@@ -635,14 +638,22 @@ object Event {
          pull( source, update )
    }
 
+   trait Source[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
+      protected def selector: Int
+      protected def node: Node[ S, A ]
+
+      final protected def fire( update: A1 )( implicit tx: S#Tx ) {
+         val visited: Visited[ S ] = MMap.empty
+         val n          = node
+         val reactions  = n.propagate( this, update, n, selector, visited, IIdxSeq.empty )
+         reactions.map( _.apply() ).foreach( _.apply() )
+      }
+   }
+
    object Trigger {
-      trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Trigger[ S, A1, Repr ] with Event.Impl[ S, A, A1, Repr ] {
-         final def apply( update: A1 )( implicit tx: S#Tx ) {
-            val visited: Visited[ S ] = MMap.empty
-            val n          = node
-            val reactions  = n.propagate( this, update, n, selector, visited, IIdxSeq.empty )
-            reactions.map( _.apply() ).foreach( _.apply() )
-         }
+      trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Trigger[ S, A1, Repr ] with Event.Impl[ S, A, A1, Repr ]
+      with Source[ S, A, A1, Repr ] {
+         final def apply( update: A1 )( implicit tx: S#Tx ) { fire( update )}
       }
 
       def apply[ S <: Sys[ S ], A ]( implicit tx: S#Tx ) : Standalone[ S, A ] = new Standalone[ S, A ] {
@@ -659,7 +670,7 @@ object Event {
             }
       }
       trait Standalone[ S <: Sys[ S ], A ] extends Impl[ S, A, A, Standalone[ S, A ]] with
-      StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] with Root[ S, A ] {
+      StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] with EarlyBinding[ S, A ] with Root[ S, A ] {
          final protected def reader: Reader[ S, Standalone[ S, A ], _ ] = Standalone.serializer[ S, A ]
       }
    }
@@ -694,7 +705,8 @@ object Event {
     * `Unit` type as event type parameter. The `apply` method of the companion object builds a `Bang` which also
     * implements the `Observable` trait, so that the bang can be connected to a live view (e.g. a GUI).
     */
-   trait Bang[ S <: Sys[ S ]] extends Trigger.Impl[ S, Unit, Unit, Bang[ S ]] with StandaloneLike[ S, Unit, Bang[ S ]] {
+   trait Bang[ S <: Sys[ S ]] extends Trigger.Impl[ S, Unit, Unit, Bang[ S ]] with StandaloneLike[ S, Unit, Bang[ S ]]
+   with EarlyBinding[ S, Unit ] {
       /**
        * A parameterless convenience version of the `Trigger`'s `apply` method.
        */
@@ -878,53 +890,53 @@ object Event {
       }
    }
 
-   trait Flat[ S <: Sys[ S ], A ] extends Event[ S, A, Flat[ S, A ]]
-
-   object Filter {
-      def apply[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ]( in: In )( p: P )(
-         implicit tx: S#Tx, inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Flat[ S, A ] = new Impl[ S, A, In, P ] {
-         protected val targets   = Invariant.Targets[ S ]
-         protected val input     = in
-         protected val inputSer  = inSer
-         protected val pred      = p
-      }
-
-      private sealed trait Impl[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ]
-      extends Flat[ S, A ] with StandaloneLike[ S, A, Flat[ S, A ]] {
-         protected def input: In
-         protected def pred: P
-         protected def inputSer: TxnSerializer[ S#Tx, S#Acc, In ]
-         final protected def reader: Reader[ S, Flat[ S, A ], _ ] = Filter.serializer[ S, A, In, P ]( inputSer )
-//         protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A, Flat[ S, A ]]] = Filter.serializer[ S, A, In, P ]( inputSer )
-
-         final protected def disposeData()( implicit tx: S#Tx ) {}
-         final protected def writeData( out: DataOutput ) {
-            inputSer.write( input, out )
-            val oos = new ObjectOutputStream( out )
-            oos.writeObject( pred )
-         }
-
-         final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
-            input.pull( source, update ).filter( pred )
-         }
-      }
-
-      private def serializer[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ](
-         inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Invariant.Serializer[ S, Impl[ S, A, In, P ]] =
-
-         new Invariant.Serializer[ S, Impl[ S, A, In, P ]] {
-            def read( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Impl[ S, A, In, P ] =
-               new Impl[ S, A, In, P ] {
-                  protected val targets   = _targets
-                  protected val input     = inSer.read( in, access )
-                  protected val inputSer  = inSer
-                  protected val pred      = {
-                     val ois = new ObjectInputStream( in )
-                     ois.readObject().asInstanceOf[ P ]
-                  }
-               }
-         }
-   }
+//   trait Flat[ S <: Sys[ S ], A ] extends Event[ S, A, Flat[ S, A ]]
+//
+//   object Filter {
+//      def apply[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ]( in: In )( p: P )(
+//         implicit tx: S#Tx, inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Flat[ S, A ] = new Impl[ S, A, In, P ] {
+//         protected val targets   = Invariant.Targets[ S ]
+//         protected val input     = in
+//         protected val inputSer  = inSer
+//         protected val pred      = p
+//      }
+//
+//      private sealed trait Impl[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ]
+//      extends Flat[ S, A ] with StandaloneLike[ S, A, Flat[ S, A ]] {
+//         protected def input: In
+//         protected def pred: P
+//         protected def inputSer: TxnSerializer[ S#Tx, S#Acc, In ]
+//         final protected def reader: Reader[ S, Flat[ S, A ], _ ] = Filter.serializer[ S, A, In, P ]( inputSer )
+////         protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A, Flat[ S, A ]]] = Filter.serializer[ S, A, In, P ]( inputSer )
+//
+//         final protected def disposeData()( implicit tx: S#Tx ) {}
+//         final protected def writeData( out: DataOutput ) {
+//            inputSer.write( input, out )
+//            val oos = new ObjectOutputStream( out )
+//            oos.writeObject( pred )
+//         }
+//
+//         final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+//            input.pull( source, update ).filter( pred )
+//         }
+//      }
+//
+//      private def serializer[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ](
+//         inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Invariant.Serializer[ S, Impl[ S, A, In, P ]] =
+//
+//         new Invariant.Serializer[ S, Impl[ S, A, In, P ]] {
+//            def read( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Impl[ S, A, In, P ] =
+//               new Impl[ S, A, In, P ] {
+//                  protected val targets   = _targets
+//                  protected val input     = inSer.read( in, access )
+//                  protected val inputSer  = inSer
+//                  protected val pred      = {
+//                     val ois = new ObjectInputStream( in )
+//                     ois.readObject().asInstanceOf[ P ]
+//                  }
+//               }
+//         }
+//   }
 }
 
 /**

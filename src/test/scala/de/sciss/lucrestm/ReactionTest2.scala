@@ -1,27 +1,27 @@
 ///*
-// *  ReactionTest2.scala
-// *  (LucreSTM)
-// *
-// *  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
-// *
-// *  This software is free software; you can redistribute it and/or
-// *  modify it under the terms of the GNU General Public License
-// *  as published by the Free Software Foundation; either
-// *  version 2, june 1991 of the License, or (at your option) any later version.
-// *
-// *  This software is distributed in the hope that it will be useful,
-// *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-// *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-// *  General Public License for more details.
-// *
-// *  You should have received a copy of the GNU General Public
-// *  License (gpl.txt) along with this software; if not, write to the Free Software
-// *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-// *
-// *
-// *  For further information, please contact Hanns Holger Rutz at
-// *  contact@sciss.de
-// */
+//*  ReactionTest2.scala
+//*  (LucreSTM)
+//*
+//*  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+//*
+//*  This software is free software; you can redistribute it and/or
+//*  modify it under the terms of the GNU General Public License
+//*  as published by the Free Software Foundation; either
+//*  version 2, june 1991 of the License, or (at your option) any later version.
+//*
+//*  This software is distributed in the hope that it will be useful,
+//*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+//*  General Public License for more details.
+//*
+//*  You should have received a copy of the GNU General Public
+//*  License (gpl.txt) along with this software; if not, write to the Free Software
+//*  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+//*
+//*
+//*  For further information, please contact Hanns Holger Rutz at
+//*  contact@sciss.de
+//*/
 //
 //package de.sciss.lucrestm
 //
@@ -65,11 +65,14 @@
 //      type Tx  = S#Tx
 //      type Acc = S#Acc
 //
-//      import Event.{Val, Change, Constant}
+//      import Event.Change
 //
-//      trait BinaryExpr[ A ] extends Val[ S, A ] with Event.Invariant[ S, Change[ A ]] with Event.LateBinding[ S, Change[ A ]] {
-//         protected def a: Val[ S, A ]
-//         protected def b: Val[ S, A ]
+//      trait Expr[ A, Repr ] extends Event[ S, Change[ A ], Repr ] with Event.Val[ S, A ]
+//      trait Constant[ A ]
+//
+//      trait BinaryExpr[ A, Repr ] extends Expr[ A, Repr ] with Event.Invariant[ S, Change[ A ]] with Event.LateBinding[ S, Change[ A ]] {
+//         protected def a: Expr[ A, _ ]
+//         protected def b: Expr[ A, _ ]
 //         protected def op( a: A, b: A ) : A
 //
 //         final protected def sources( implicit tx: Tx ) : Event.Sources[ S ] = IIdxSeq( a, b )
@@ -78,19 +81,19 @@
 //
 //         final protected def disposeData()( implicit tx: Tx ) {}
 //
-//         final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
-//            /* if( source.source == this ) Some( source.update.asInstanceOf[ (A, A) ]) else { */
-//            val av = a.pull( source ).getOrElse { val v = a.value; Change( v, v )}
-//            val bv = b.pull( source ).getOrElse { val v = b.value; Change( v, v )}
-//            val u1 = op( av.before, bv.before )
-//            val u2 = op( av.now, bv.now )
-//            if( u1 != u2 ) Some( Change( u1, u2 )) else None
-//            /* } */
-//         }
+////         final def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
+////            /* if( source.source == this ) Some( source.update.asInstanceOf[ (A, A) ]) else { */
+////            val av = a.pull( source ).getOrElse { val v = a.value; Change( v, v )}
+////            val bv = b.pull( source ).getOrElse { val v = b.value; Change( v, v )}
+////            val u1 = op( av.before, bv.before )
+////            val u2 = op( av.now, bv.now )
+////            if( u1 != u2 ) Some( Change( u1, u2 )) else None
+////            /* } */
+////         }
 //      }
 //
 //      object ExprVar {
-//         sealed trait Impl[ A, Ex <: Val[ S, A ]] extends ExprVar[ A, Ex ] {
+//         sealed trait Impl[ A, Ex <: Expr[ A, Ex ]] extends ExprVar[ A, Ex ] {
 //            me: Ex =>
 //
 //            protected def reader: Event.Invariant.Reader[ S, Ex ]
@@ -109,11 +112,14 @@
 //               if( oldv != exv ) {
 //                  val conn = targets.isConnected
 //                  if( conn ) {
-//                     old.removeReactor( this )
+////                     old.removeReactor( this )
+//                     old -= this
 //                  }
 //                  v.set( ex )
 //                  if( conn ) {
-//                     ex.addReactor( this )
+////                     ex.addReactor( this )
+//                     ex += this
+//
 //                     fire( Change( oldv, exv ))
 ////                     val r = targets.propagate( this, IIdxSeq.empty )
 ////                     r.map( _.apply() ).foreach( _.apply() )
@@ -150,7 +156,7 @@
 //
 //         // XXX the other option is to forget about StringRef, LongRef, etc., and instead
 //         // pimp Expr[ String ] to StringExprOps, etc.
-//         abstract class New[ A, Ex <: Val[ S, A ]]( init: Ex, tx0: Tx )(
+//         abstract class New[ A, Ex <: Expr[ A, Ex ]]( init: Ex, tx0: Tx )(
 //            implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
 //         extends Impl[ A, Ex ] {
 //            me: Ex =>
@@ -159,7 +165,7 @@
 //            protected val v         = tx0.newVar[ Ex ]( id, init )
 //         }
 //
-//         abstract class Read[ A, Ex <: Val[ S, A ]]( protected val targets: Event.Invariant.Targets[ S ], in: DataInput, tx0: Tx )(
+//         abstract class Read[ A, Ex <: Expr[ A, Ex ]]( protected val targets: Event.Invariant.Targets[ S ], in: DataInput, tx0: Tx )(
 //            implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
 //         extends Impl[ A, Ex ] {
 //            me: Ex =>
@@ -167,8 +173,8 @@
 //            protected val v = tx0.readVar[ Ex ]( id, in )
 //         }
 //      }
-//      trait ExprVar[ A, Ex <: Val[ S, A ]] extends Var[ Tx, Ex ] with Val[ S, A ]
-//         with Event.Invariant[ S, Change[ A ]] with Event.Source[ S, Change[ A ]] with Event.LateBinding[ S, Change[ A ]]
+//      trait ExprVar[ A, Ex <: Expr[ A, Ex ]] extends Var[ Tx, Ex ] with Expr[ A, Ex ]
+//         with Event.Invariant[ S, Change[ A ]] /* with Event.Source[ S, Change[ A ]] */ with Event.LateBinding[ S, Change[ A ]]
 //
 //      object StringRef {
 //         implicit def apply( s: String )( implicit tx: Tx ) : StringRef = new StringConstNew( s, tx )
@@ -176,7 +182,7 @@
 //         def append( a: StringRef, b: StringRef )( implicit tx: Tx ) : StringRef =
 //            new StringAppendNew( a, b, tx )
 //
-//         private sealed trait StringConst extends StringRef with Constant[ S, String ] {
+//         private sealed trait StringConst extends StringRef with Constant[ String ] {
 //            final protected def writeData( out: DataOutput ) {
 //               out.writeString( constValue )
 //            }
