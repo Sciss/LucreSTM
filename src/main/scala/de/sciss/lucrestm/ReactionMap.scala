@@ -62,15 +62,17 @@ object ReactionMap {
          }
       }
 
-      def propagateEvent( observer: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ],
-                          selector: Int, update: Any, reactions: Event.Reactions )( implicit tx: S#Tx ) : Event.Reactions = {
+      def propagateEvent( observer: Event.ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
+                          leaf: Event.Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
+                          reactions: Event.Reactions )( implicit tx: S#Tx ) : Event.Reactions = {
          val itx = tx.peer
          eventMap.get( observer.id )( itx ) match {
             case Some( obs ) =>
                val react: Reaction = () => {
-                  leaf.pull( visited ) match {
-                     case Some( update )  => () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, update.asInstanceOf[ AnyRef ])
-                     case None            => noOpEval
+                  leaf.pull( selector, source, update ) match {
+                     case Some( result ) =>
+                        () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
+                     case None => noOpEval
                   }
                }
                reactions :+ react
@@ -156,6 +158,7 @@ trait ReactionMap[ S <: Sys[ S ]] {
 //   def propagateEvent( observer: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ], reactions: Event.Reactions )
 //                     ( implicit tx: S#Tx ) : Event.Reactions
 
-   def propagateEvent( key: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ], selector: Int,
-                       update: Any, reactions: Event.Reactions )( implicit tx: S#Tx ) : Event.Reactions
+   def propagateEvent( observer: Event.ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
+                       leaf: Event.Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
+                       reactions: Event.Reactions )( implicit tx: S#Tx ) : Event.Reactions
 }

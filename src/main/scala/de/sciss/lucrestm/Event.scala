@@ -90,13 +90,13 @@ object Event {
 
          final private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] = None
 
-         final private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* parentKey: Int, */
-                                                update: Any, reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
+         final private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
+                                          visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) = {
             val cid     = targets.id
             val bitset  = visited.getOrElse( cid, 0 )
             if( (bitset & key) == 0 ) {
                visited.+=( (cid, bitset | key) )
-               targets.propagate( visited, parent, /* key, */ update, reactions )
+               targets.propagate( source, update, parent, key, visited, reactions )
             } else reactions
          }
       }
@@ -115,10 +115,9 @@ object Event {
       extends Impl[ S ] {
          private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] = Some( targets )
 
-         private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* parentKey: Int, */
-                                          update: Any, reactions: Reactions )
-                                        ( implicit tx: S#Tx ) : Reactions =
-            targets.propagate( visited, parent, key, update, reactions ) // XXX TODO: do we need to deal with the visited map?
+         private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
+                                          visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) =
+            targets.propagate( source, update, parent, key, visited, reactions ) // XXX TODO: do we need to deal with the visited map?
 
          protected def cookie: Int = 2
       }
@@ -126,8 +125,8 @@ object Event {
 
    sealed trait Selector[ S <: Sys[ S ]] extends Writer {
       def key: Int
-      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* key: Int, */
-                                       update: Any, reactions: Reactions )
+      private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
+                                       visited: Visited[ S ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
       private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] // Option[ Int ]
    }
@@ -221,10 +220,15 @@ object Event {
 
       override def toString = "Event.Targets" + id
 
-      final private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* key: Int, */
-                                             update: Any, reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
+      /**
+       * @param   key   the key of the event or selector that invoked this target's node's `propagate`
+       */
+      final private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+                                             visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
          children.get.foldLeft( reactions ) { (rs, sel) =>
-            sel.propagate( visited, parent, /* sel.key, */ update, reactions )
+            if( sel.key == key ) {  // XXX bitmask?
+               sel.propagate( source, update, parent, /* key, */ visited, reactions )
+            } else reactions
          }
       }
 
@@ -272,7 +276,7 @@ object Event {
       def apply( update: A1 )( implicit tx: S#Tx ) {
          val visited: Visited[ S ] = MMap.empty
          val n          = node
-         val reactions  = n.propagate( visited, n, /* key.id, */ update, IIdxSeq.empty )
+         val reactions  = n.propagate( this, update, n, key.id, visited, IIdxSeq.empty )
          reactions.map( _.apply() ).foreach( _.apply() )
       }
 
@@ -321,9 +325,9 @@ object Event {
       }
    }
 
-   sealed trait Yield[ S <: Sys[ S ], A ] {
-      def pull( )( implicit tx: S#Tx ) : Option[ A ]
-   }
+//   sealed trait Yield[ S <: Sys[ S ], A ] {
+//      def pull( )( implicit tx: S#Tx ) : Option[ A ]
+//   }
 
    /**
     * An `Event.Node` is most similar to EScala's `EventNode` class. It represents an observable
@@ -345,7 +349,7 @@ object Event {
       private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
       private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
-      final def pull( visited: Visited[ S ])( implicit tx: S#Tx ) : Option[ A ] = {
+      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
          sys.error( "TODO" )  // UUU
       }
 
@@ -355,9 +359,13 @@ object Event {
          new TriggerImpl[ S, A, A1, Repr ]( this, key )
       }
 
-      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* key: Int, */ update: Any, reactions: Reactions )
+      /**
+       * @param   key   the key of the event or selector that invoked this method
+       */
+      private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+                                       visited: Visited[ S ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions =
-         targets.propagate( visited, this, /* key, */ update: Any, reactions ) // replace parent event node
+         targets.propagate( source, update, this, key, visited, reactions ) // replace parent event node
 
       final def write( out: DataOutput ) {
          targets.write( out )
@@ -781,9 +789,9 @@ object Event {
     * of the reacting function during the first reaction gathering phase of event propagation.
     */
    final case class ObserverKey[ S <: Sys[ S ]] private[lucrestm] ( id: Int ) extends Reactor[ S ] {
-      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], key: Int, update: Any,
-                                       reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
-         tx.propagateEvent( this, visited, parent, key, update, reactions )
+      private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+                                       visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
+         tx.propagateEvent( this, source, update, parent, key, /* visited, */ reactions )
       }
 
       def select( key: Int ) : Selector[ S ] = Selector( key, this )

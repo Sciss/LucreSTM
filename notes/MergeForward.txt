@@ -671,3 +671,48 @@ and generic...?
    def pull[ A1 <: A ]( key: Key[ A1, _ ], ... ) : Option[ A1 ] = key match {
       case `renamedKey` => ... // cast needed for result or not?
    }
+
+::::::::::::::::
+
+trigger --> node.propagate( source = this, visited, leaf = this, key = key.id, update, reactions = IIdxSeq.empty )
+node.propagate --> targets.propagate (leaf = this)
+targets.propagate = {
+   children.foldLeft( reactions ) { (rs, sel) =>
+      if( (sel.mask & key) != 0 ) {
+         sel.propagate( )
+      } else rs
+   }
+}
+
+nodesel-propagate:
+   val b = visited.getOrElse( reactor-id, 0 )
+   if( visited & key != 0 ) {
+       update visited
+       node.propagate( key = selkey )
+   }
+
+obssel-propagate:
+   txn.propagate()
+
+txn/sys/reactionmap-propagate:
+   () => val gather = leaf.pull( key, source, update ); () => fun( gather )
+
+--- node-pull ---
+
+- single-key nodes like expressions can ignore the key
+- e.g. bin op --> pulls a.changed, b.changed
+
+event-pull( source, update )
+   relay : pull sources
+   root  : if( source == this ) Some( update.asInstanceOf[ A ]) else None
+
+- multi-key nodes like Region check the key
+   renameKey -> name_#.changed.pull
+   moveKey   -> start_#.changed.pull / stop_#.changed.pull
+
+::::::::::::::::
+
+what remains to be discussed is if key at some point is a mask or always a single bit,
+and if it's a mask, what are the propagation semantics when partial bits are filtered?
+
+- first, let's assume there is only single bits and get the whole thing running, before any further investigations
