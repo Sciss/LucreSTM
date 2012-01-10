@@ -28,6 +28,7 @@ package de.sciss.lucrestm
 import collection.mutable.{Map => MMap}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
+import java.io.{ObjectOutputStream, ObjectInputStream}
 
 object Event {
 //   type Reaction  = () => () => Unit
@@ -276,7 +277,7 @@ object Event {
 //   }
 
    private final class TriggerImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( protected val node: Node[ S, A ], key: Key[ A1, Repr ])
-   extends Trigger.Impl[ S, A, A1, Repr ] {
+   extends Trigger.Impl[ S, A, A1, Repr ] with Root[ S, A1 ] {
       override def toString = node.toString + "." + key.name
 
       protected def selector: Int = key.id
@@ -558,7 +559,7 @@ object Event {
     * implementation of `pull` which merely checks if this event has fired or not.
     */
    trait Root[ S <: Sys[ S ], A ] {
-      def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+      def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
          if( source == this ) Some( update.asInstanceOf[ A ]) else None
       }
    }
@@ -600,38 +601,44 @@ object Event {
       final protected def writeData( out: DataOutput ) {}
    }
 
-   object Trigger {
-      trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Trigger[ S, A1, Repr ] {
-         protected def node: Node[ S, A ]
-         protected def reader: Reader[ S, Repr, _ ]
-         protected def selector: Int
+   trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
+      protected def selector: Int
+      protected def node: Node[ S, A ]
 
+      protected def reader: Reader[ S, Repr, _ ]
+
+      final def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
+         node.addReactor( r.select( selector ))
+      }
+
+      final def -=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
+         node.removeReactor( r.select( selector ))
+      }
+
+      final def observe( fun: (S#Tx, A1) => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] = {
+         val res = Observer[ S, A1, Repr ]( reader, fun )
+         res.add( this )
+         res
+      }
+   }
+
+   trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
+   with EarlyBinding[ S, A] /* with Singleton[ S ] with Root[ S, A ] */ {
+      final protected def selector = 0
+      final protected def node: Node[ S, A ] = this
+
+      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
+         pull( source, update )
+   }
+
+   object Trigger {
+      trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Trigger[ S, A1, Repr ] with Event.Impl[ S, A, A1, Repr ] {
          final def apply( update: A1 )( implicit tx: S#Tx ) {
             val visited: Visited[ S ] = MMap.empty
             val n          = node
             val reactions  = n.propagate( this, update, n, selector, visited, IIdxSeq.empty )
             reactions.map( _.apply() ).foreach( _.apply() )
          }
-
-         final def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
-            node.addReactor( r.select( selector ))
-         }
-
-         final def -=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
-            node.removeReactor( r.select( selector ))
-         }
-
-         final def observe( fun: (S#Tx, A1) => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] = {
-            val res = Observer[ S, A1, Repr ]( reader, fun )
-            res.add( this )
-            res
-         }
-      }
-
-      trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
-      with EarlyBinding[ S, A] with Singleton[ S ] with Root[ S, A ] {
-         final protected def selector = 0
-         final protected def node: Node[ S, A ] = this
       }
 
       def apply[ S <: Sys[ S ], A ]( implicit tx: S#Tx ) : Standalone[ S, A ] = new Standalone[ S, A ] {
@@ -647,7 +654,7 @@ object Event {
                   }
             }
       }
-      trait Standalone[ S <: Sys[ S ], A ] extends StandaloneLike[ S, A, Standalone[ S, A ]] {
+      trait Standalone[ S <: Sys[ S ], A ] extends StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] with Root[ S, A ] {
          final protected def reader: Reader[ S, Standalone[ S, A ], _ ] = Standalone.serializer[ S, A ]
       }
    }
@@ -665,7 +672,7 @@ object Event {
          protected val targets = Invariant.Targets[ S ]
       }
 
-      private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] {
+      private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit ] {
          protected def reader = serializer[ S ]
       }
 
@@ -682,7 +689,7 @@ object Event {
     * `Unit` type as event type parameter. The `apply` method of the companion object builds a `Bang` which also
     * implements the `Observable` trait, so that the bang can be connected to a live view (e.g. a GUI).
     */
-   trait Bang[ S <: Sys[ S ]] extends Trigger.StandaloneLike[ S, Unit, Bang[ S ]] {
+   trait Bang[ S <: Sys[ S ]] extends Trigger.Impl[ S, Unit, Unit, Bang[ S ]] with StandaloneLike[ S, Unit, Bang[ S ]] {
       /**
        * A parameterless convenience version of the `Trigger`'s `apply` method.
        */
@@ -865,6 +872,53 @@ object Event {
          out.writeInt( id )
       }
    }
+
+   trait Flat[ S <: Sys[ S ], A ] extends Event[ S, A, Flat[ S, A ]]
+
+   object Filter {
+      def apply[ S <: Sys[ S ], A, In <: Event[ S, A, In ], P <: (A) => Boolean ]( in: In )( p: P )(
+         implicit tx: S#Tx, inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Flat[ S, A ] = new Impl[ S, A, In, P ] {
+         protected val targets   = Invariant.Targets[ S ]
+         protected val input     = in
+         protected val inputSer  = inSer
+         protected val pred      = p
+      }
+
+      private sealed trait Impl[ S <: Sys[ S ], A, In <: Event[ S, A, In ], P <: (A) => Boolean ]
+      extends Flat[ S, A ] with StandaloneLike[ S, A, Flat[ S, A ]] {
+         protected def input: In
+         protected def pred: P
+         protected def inputSer: TxnSerializer[ S#Tx, S#Acc, In ]
+         final protected def reader: Reader[ S, Flat[ S, A ], _ ] = serializer[ S, A, In, P ]( inputSer )
+
+         final protected def disposeData()( implicit tx: S#Tx ) {}
+         final protected def writeData( out: DataOutput ) {
+            inputSer.write( input, out )
+            val oos = new ObjectOutputStream( out )
+            oos.writeObject( pred )
+         }
+
+         final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+            input.pull( source, update ).filter( pred )
+         }
+      }
+
+      private def serializer[ S <: Sys[ S ], A, In <: Event[ S, A, In ], P <: (A) => Boolean ](
+         inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Invariant.Serializer[ S, Impl[ S, A, In, P ]] =
+
+         new Invariant.Serializer[ S, Impl[ S, A, In, P ]] {
+            def read( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Impl[ S, A, In, P ] =
+               new Impl[ S, A, In, P ] {
+                  protected val targets   = _targets
+                  protected val input     = inSer.read( in, access )
+                  protected val inputSer  = inSer
+                  protected val pred      = {
+                     val ois = new ObjectInputStream( in )
+                     ois.readObject().asInstanceOf[ P ]
+                  }
+               }
+         }
+   }
 }
 
 /**
@@ -878,5 +932,10 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
 
    def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Event.Observer[ S, A, Repr ]
 
-//   def pull( source: Event.Posted[ S, _ ])( implicit tx: S#Tx ) : Option[ A ]
+   def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
+
+   final def filter[ In <: Event[ S, A, In ], P <: (A) => Boolean ]( pred: P )(
+      implicit tx: S#Tx, ev: this.type <:< In, ser: TxnSerializer[ S#Tx, S#Acc, In ]) : Event.Flat[ S, A ] =
+
+      Event.Filter[ S, A, In, P ]( this )( pred )( tx, ser )
 }
