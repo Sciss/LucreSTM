@@ -642,9 +642,6 @@ object Event {
          protected val targets = Invariant.Targets[ S ]
       }
 
-      private object Impl {
-
-      }
       private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Trigger.Impl[ S, Unit, Unit, Bang[ S ]] {
 
          protected def selector: Int = 0
@@ -672,6 +669,8 @@ object Event {
        * A parameterless convenience version of the `Trigger`'s `apply` method.
        */
       def apply()( implicit tx: S#Tx ) { apply( () )}
+
+      override def toString = "Bang"
    }
 
    object Mutating {
@@ -844,7 +843,7 @@ object Event {
       def dispose()( implicit tx: S#Tx ) {}  // XXX really?
 
       def write( out: DataOutput ) {
-         out.writeUnsignedByte( 2 )
+//         out.writeUnsignedByte( 2 )
          out.writeInt( id )
       }
    }
