@@ -627,6 +627,29 @@ object Event {
             res
          }
       }
+
+      trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
+      with EarlyBinding[ S, A] with Singleton[ S ] with Root[ S, A ] {
+         final protected def selector = 0
+         final protected def node: Node[ S, A ] = this
+      }
+
+      def apply[ S <: Sys[ S ], A ]( implicit tx: S#Tx ) : Standalone[ S, A ] = new Standalone[ S, A ] {
+         protected val targets = Invariant.Targets[ S ]
+      }
+
+      object Standalone {
+         def serializer[ S <: Sys[ S ], A ] : Invariant.Serializer[ S, Standalone[ S, A ]] =
+            new Invariant.Serializer[ S, Standalone[ S, A ]] {
+               def read( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Standalone[ S, A ] =
+                  new Standalone[ S, A ] {
+                     protected val targets = _targets
+                  }
+            }
+      }
+      trait Standalone[ S <: Sys[ S ], A ] extends StandaloneLike[ S, A, Standalone[ S, A ]] {
+         final protected def reader: Reader[ S, Standalone[ S, A ], _ ] = Standalone.serializer[ S, A ]
+      }
    }
 
    /**
@@ -638,15 +661,11 @@ object Event {
    }
 
    object Bang {
-      def apply[ S <: Sys[ S ]]()( implicit tx: S#Tx ) : Bang[ S ] = new Impl[ S ] {
+      def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Bang[ S ] = new Impl[ S ] {
          protected val targets = Invariant.Targets[ S ]
       }
 
-      private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Trigger.Impl[ S, Unit, Unit, Bang[ S ]] {
-
-         protected def selector: Int = 0
-         protected def node: Node[ S, Unit ] = this
-//         protected def targets: Invariant.Targets[ S ]
+      private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] {
          protected def reader = serializer[ S ]
       }
 
@@ -663,8 +682,7 @@ object Event {
     * `Unit` type as event type parameter. The `apply` method of the companion object builds a `Bang` which also
     * implements the `Observable` trait, so that the bang can be connected to a live view (e.g. a GUI).
     */
-   trait Bang[ S <: Sys[ S ]] extends Trigger[ S, Unit, Bang[ S ]] with Invariant[ S, Unit ] with EarlyBinding[ S, Unit]
-      with Singleton[ S ] with Root[ S, Unit ] {
+   trait Bang[ S <: Sys[ S ]] extends Trigger.StandaloneLike[ S, Unit, Bang[ S ]] {
       /**
        * A parameterless convenience version of the `Trigger`'s `apply` method.
        */

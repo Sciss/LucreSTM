@@ -7,7 +7,7 @@ object EventTest extends App {
    val system  = Confluent()
    type S      = Confluent
 
-   val bang = system.atomic { implicit tx => Event.Bang[ S ]() }
+   val bang = system.atomic { implicit tx => Event.Bang[ S ]}
 
    system.atomic { implicit tx => bang.observe { (tx, _) =>
       println( "Bang!" )
@@ -17,12 +17,8 @@ object EventTest extends App {
       bang()
    }
 
-//   val e2 = system.atomic { implicit tx =>
-//      new Event.Trigger[ S, Int ] with Event.Singleton[ S ] with Event.EarlyBinding[ S, Int ] {
-//         protected val targets = Event.Invariant.Targets[ S ]
-//      }
-//   }
-//
+   val e2 = system.atomic { implicit tx => Event.Trigger[ S, Int ]}
+
 //   object FilterReader extends Event.Invariant.Serializer[ S, Filter ] {
 //      def read( in: DataInput, access: S#Acc, _targets: Event.Invariant.Targets[ S ])( implicit tx: S#Tx ) : Filter =
 //         new Filter {
@@ -53,10 +49,10 @@ object EventTest extends App {
 //         println( "Observed " + i )
 //      }
 //   }
-//
-//   system.atomic { implicit tx =>
-//      e2.fire(  4 )  // observed
-//      e2.fire(  8 )  // observed
-//      e2.fire( 12 )  // filtered out, not observed
-//   }
+
+   system.atomic { implicit tx =>
+      e2(  4 )  // observed
+      e2(  8 )  // observed
+      e2( 12 )  // filtered out, not observed
+   }
 }
