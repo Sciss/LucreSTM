@@ -133,9 +133,9 @@ object InMemory {
                            observers: IIdxSeq[ Event.ObserverKey[ S ]]) : Event.Reactor[ S ] =
          system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
 
-      def propagateEvent( key: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ],
-                          reactions: Event.Reactions ) : Event.Reactions =
-         system.reactionMap.propagateEvent( key, visited, leaf, reactions )( this )
+      def propagateEvent( observer: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ], selector: Int,
+                          update: Any, reactions: Event.Reactions ) : Event.Reactions =
+         system.reactionMap.propagateEvent( observer, visited, leaf, selector, update, reactions )( this )
 
       def removeEventReaction( key: Event.ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
 

@@ -63,7 +63,7 @@ object ReactionMap {
       }
 
       def propagateEvent( observer: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ],
-                          reactions: Event.Reactions )( implicit tx: S#Tx ) : Event.Reactions = {
+                          selector: Int, update: Any, reactions: Event.Reactions )( implicit tx: S#Tx ) : Event.Reactions = {
          val itx = tx.peer
          eventMap.get( observer.id )( itx ) match {
             case Some( obs ) =>
@@ -153,6 +153,9 @@ trait ReactionMap[ S <: Sys[ S ]] {
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], observer: IIdxSeq[ Event.ObserverKey[ S ]])
                       ( implicit tx: S#Tx ) : Event.Reactor[ S ]
 
-   def propagateEvent( observer: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ], reactions: Event.Reactions )
-                     ( implicit tx: S#Tx ) : Event.Reactions
+//   def propagateEvent( observer: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ], reactions: Event.Reactions )
+//                     ( implicit tx: S#Tx ) : Event.Reactions
+
+   def propagateEvent( key: Event.ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Event.Node[ S, _ ], selector: Int,
+                       update: Any, reactions: Event.Reactions )( implicit tx: S#Tx ) : Event.Reactions
 }

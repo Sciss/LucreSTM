@@ -90,14 +90,13 @@ object Event {
 
          final private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] = None
 
-         final private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
-                                              ( implicit tx: S#Tx ) : Reactions = {
-
+         final private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* parentKey: Int, */
+                                                update: Any, reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
             val cid     = targets.id
             val bitset  = visited.getOrElse( cid, 0 )
             if( (bitset & key) == 0 ) {
                visited.+=( (cid, bitset | key) )
-               targets.propagate( visited, parent, reactions )
+               targets.propagate( visited, parent, /* key, */ update, reactions )
             } else reactions
          }
       }
@@ -116,9 +115,10 @@ object Event {
       extends Impl[ S ] {
          private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] = Some( targets )
 
-         private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
+         private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* parentKey: Int, */
+                                          update: Any, reactions: Reactions )
                                         ( implicit tx: S#Tx ) : Reactions =
-            targets.propagate( visited, parent, reactions ) // XXX TODO: do we need to deal with the visited map?
+            targets.propagate( visited, parent, key, update, reactions ) // XXX TODO: do we need to deal with the visited map?
 
          protected def cookie: Int = 2
       }
@@ -126,7 +126,8 @@ object Event {
 
    sealed trait Selector[ S <: Sys[ S ]] extends Writer {
       def key: Int
-      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* key: Int, */
+                                       update: Any, reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
       private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] // Option[ Int ]
    }
@@ -220,10 +221,10 @@ object Event {
 
       override def toString = "Event.Targets" + id
 
-      final private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
-                                     ( implicit tx: S#Tx ) : Reactions = {
+      final private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* key: Int, */
+                                             update: Any, reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
          children.get.foldLeft( reactions ) { (rs, sel) =>
-            sel.propagate( visited, parent, reactions )
+            sel.propagate( visited, parent, /* sel.key, */ update, reactions )
          }
       }
 
@@ -271,7 +272,7 @@ object Event {
       def apply( update: A1 )( implicit tx: S#Tx ) {
          val visited: Visited[ S ] = MMap.empty
          val n          = node
-         val reactions  = n.propagate( visited, n, IIdxSeq.empty )
+         val reactions  = n.propagate( visited, n, /* key.id, */ update, IIdxSeq.empty )
          reactions.map( _.apply() ).foreach( _.apply() )
       }
 
@@ -354,9 +355,9 @@ object Event {
          new TriggerImpl[ S, A, A1, Repr ]( this, key )
       }
 
-      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
+      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], /* key: Int, */ update: Any, reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions =
-         targets.propagate( visited, this, reactions ) // parent event not important
+         targets.propagate( visited, this, /* key, */ update: Any, reactions ) // replace parent event node
 
       final def write( out: DataOutput ) {
          targets.write( out )
@@ -780,9 +781,9 @@ object Event {
     * of the reacting function during the first reaction gathering phase of event propagation.
     */
    final case class ObserverKey[ S <: Sys[ S ]] private[lucrestm] ( id: Int ) extends Reactor[ S ] {
-      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], reactions: Reactions )
-                                     ( implicit tx: S#Tx ) : Reactions = {
-         tx.propagateEvent( this, visited, parent, reactions )
+      private[lucrestm] def propagate( visited: Visited[ S ], parent: Node[ S, _ ], key: Int, update: Any,
+                                       reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
+         tx.propagateEvent( this, visited, parent, key, update, reactions )
       }
 
       def select( key: Int ) : Selector[ S ] = Selector( key, this )
