@@ -1,9 +1,8 @@
 package de.sciss.lucre
-package stm
+package event
 
-import impl.Confluent
-import event.{Event, Bang, Trigger}
 import collection.immutable.{IndexedSeq => IIdxSeq}
+import stm.impl.Confluent
 
 object EventTest extends App {
    val system  = Confluent()

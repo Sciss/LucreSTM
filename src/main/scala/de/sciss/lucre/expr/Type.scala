@@ -35,12 +35,12 @@ trait Type[ S <: Sys[ S ], A ] {
    type Ex     = Expr[ S, A ]
    type Var    = Expr.Var[ S, A ]
    type Change = event.Change[ A ]
-   type Ops
+//   type Ops
 
    protected def readValue( in: DataInput ) : A
    protected def writeValue( v: A, out: DataOutput ) : Unit
 
-   implicit def ops[ A <% Ex ]( ex: A ) : Ops // = new Ops( ex )
+//   implicit def ops[ A <% Ex ]( ex: A ) : Ops // = new Ops( ex )
 
    protected /* sealed */ trait NodeLike extends Expr[ S, A ] {
       final protected def reader = serializer
@@ -82,9 +82,15 @@ trait Type[ S <: Sys[ S ], A ] {
       protected val constValue = init
    }
 
-   def Var( init: A )( implicit tx: S#Tx ) : Var = new NodeLike with Expr.Var[ S, A ] {
+   def Var( init: Ex )( implicit tx: S#Tx ) : Var = new NodeLike with Expr.Var[ S, A ] {
       protected val targets   = Invariant.Targets[ S ]
       protected val ref       = tx.newVar[ Ex ]( id, init )
+   }
+
+   def NamedVar( name: => String, init: Ex )( implicit tx: S#Tx ) : Var = new NodeLike with Expr.Var[ S, A ] {
+      protected val targets   = Invariant.Targets[ S ]
+      protected val ref       = tx.newVar[ Ex ]( id, init )
+      override def toString   = name
    }
 
    private def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption

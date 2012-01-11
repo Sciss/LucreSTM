@@ -33,9 +33,10 @@ import stm.impl.InMemory
 final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
    protected def writeValue( v: Long, out: DataOutput ) { out.writeLong( v )}
    protected def readValue( in: DataInput ) : Long = in.readLong()
-   type Ops = LongOps
+//   type Ops = LongOps
 
-   implicit def ops[ A <% Ex ]( ex: A ) : Ops = new LongOps( ex )
+   // for a stupid reason scalac doesn't eat A <% Ex
+   implicit def longOps[ A <% Expr[ S, Long ]]( ex: A ) : LongOps = new LongOps( ex )
 
    final class LongOps private[Longs]( ex: Ex ) {
       def +( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Plus( ex, that )

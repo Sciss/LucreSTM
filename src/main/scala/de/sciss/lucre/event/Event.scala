@@ -395,7 +395,7 @@ object Invariant {
          new Impl( id, children )
       }
 
-      private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+      /* private[event] */ def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
          val id            = tx.readID( in, access )
          val children      = tx.readVar[ Children[ S ]]( id, in )
          new Impl[ S ]( id, children )
