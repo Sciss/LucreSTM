@@ -24,6 +24,7 @@
  */
 
 package de.sciss.lucre
+package expr
 
 import stm.{Var => _Var, Sys, Writer}
 import stm.impl.InMemory
@@ -85,6 +86,7 @@ object Expr {
       final def -=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
    }
 }
+
 trait Expr[ S <: Sys[ S ], A ] extends /* Event.Val[ S, A ] with */ Event[ S, Change[ A ], Expr[ S, A ]] with Writer {
    def value( implicit tx: S#Tx ) : A
 }
@@ -93,6 +95,7 @@ object Strings extends App {
    val s = new Strings( InMemory() )
    s.test()
 }
+
 class Strings[ S <: Sys[ S ]]( system: S ) {
    type StringExpr   = Expr[ S, String ]
    type StringVar    = Expr.Var[ S, String ]
