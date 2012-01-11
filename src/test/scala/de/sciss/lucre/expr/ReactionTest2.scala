@@ -125,9 +125,9 @@ Usages:
 
             val id = tx0.newID()
 
-            val name_#  = string.NamedVar( region.toString + ".name_#", name0 )( tx0 )
-            val start_# = long.NamedVar( region.toString + ".start_#", start0 )( tx0 )
-            val stop_#  = long.NamedVar( region.toString + ".stop_#", stop0 )( tx0 )
+            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
+            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
+            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
          }
 
          private final class Read( in: DataInput, acc: S#Acc, tx0: S#Tx ) extends Impl {
