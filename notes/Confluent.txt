@@ -1,0 +1,60 @@
+example access path:
+
+root
+ |
+ v
+containers
+ |
+ v
+container1
+ |
+ v
+timeline1
+ |
+ v
+regions
+ |
+ v
+spatially (or transactionally) ordered
+ |
+ v
+region1
+ |
+ v
+name_#
+
+::::::::::::::::::::::
+
+- there is no problem with the `react`, because the observer will still be properly found
+- the problem is view-to-model
+- absolutely impractical to require
+   root_#.containers_#.at(0).timeline_# .... region
+- also impractical, or at least annoying, to update all live objects at once for each txn
+
+the best would be to provide a lightweight, lazy live reference which will be updated on demand
+
+::::::::::::::::::::::
+
+imagine container1 is deleted...
+
+logic dictates that there are parent views of view(region) watching this, because the view can only exist inside some container view.
+
+so we will have
+
+containers-view : would detect erasure of container1
+timelines-view  : would detect erasure of timeline1
+regions-view    : would detect erasure or manipulation of region1
+
+::::::::::::::::::::::
+
+timeline editing: would have structure like this:
+
+coll[views] where view -ref-> model
+
+thus when a view is manipulated we have to initiate a txn and access the model
+
+::::::::::::::::::::::
+
+what happens if a view isn't 'touched' over multiple transactions? a view needs to have a cursor somewhat. (of course, since that will eventually be the txn initiating instance).
+
+so let's first just see how far we get by serialising and deserialising the region which is manipulated.
