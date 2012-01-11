@@ -121,8 +121,12 @@ object BerkeleyDB {
       def atomic[ A ]( fun: Txn => A ) : A =
          TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx )))
 
-      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A =
-         TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx ), () ))
+//      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A =
+//         TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx ), () ))
+
+//      def atomicAccess[ A, B ]( source: S#Var[ A ])( fun: (S#Tx, A) => B ) : B = atomic { tx =>
+//         fun( tx, source.get( tx ))
+//      }
 
       def debugListUserRecords()( implicit tx: Txn ) : Seq[ ID ] = {
          val b   = Seq.newBuilder[ ID ]
@@ -583,6 +587,8 @@ object BerkeleyDB {
       }
 
       def readID( in: DataInput, acc: Unit ) : ID = new IDImpl( in.readInt() )
+
+      def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
 
 //      def readMut[ A <: Mutable[ S ]]( pid: ID, in: DataInput )
 //                                              ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {

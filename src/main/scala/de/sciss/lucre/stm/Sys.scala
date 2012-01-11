@@ -45,7 +45,10 @@ trait Sys[ S <: Sys[ S ]] {
    // should get rid of this in Sys, too
    def atomic[ A ]( fun: S#Tx => A ) : A
 //   def atomicRead[ A, B ]( read: TxnReader[ S#Tx, S#Acc, A ])( fun: (S#Tx, A) => B ) : B
-   def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A
+
+//   def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A
+
+//   def atomicAccess[ A, B ]( source: S#Var[ A ])( fun: (S#Tx, A) => B ) : B
 
    def manifest: Manifest[ S ]
 }

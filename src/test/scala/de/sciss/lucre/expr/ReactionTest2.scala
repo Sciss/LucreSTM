@@ -97,12 +97,12 @@ Usages:
             def start_# : long.Var
             def stop_# : long.Var
 
-            final def access( path: S#Acc )( implicit tx: S#Tx ) : Region = {
-               val out  = new DataOutput( )
-               write( out )
-               val in   = new DataInput( out.toByteArray )
-               new Read( in, path, tx )
-            }
+//            final def access( path: S#Acc )( implicit tx: S#Tx ) : Region = {
+//               val out  = new DataOutput( )
+//               write( out )
+//               val in   = new DataInput( out.toByteArray )
+//               new Read( in, path, tx )
+//            }
 
             final def name( implicit tx: Tx ) : string.Ex = name_#.get
             final def name_=( value: string.Ex )( implicit tx: Tx ) { name_#.set( value )}
@@ -157,8 +157,8 @@ Usages:
       trait Region extends Mutable[ S ] {
          override def toString = "Region" + id
 
-         // ouch
-         def access( path: S#Acc )( implicit tx: Tx ) : Region
+//         // ouch
+//         def access( path: S#Acc )( implicit tx: Tx ) : Region
 
          def name( implicit tx: Tx ) : string.Ex
          def name_=( value: string.Ex )( implicit tx: Tx ) : Unit
@@ -372,7 +372,7 @@ Usages:
          final def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) { next_#.set( elem )}
       }
 
-      final class RegionView( r: Region, id: String ) extends JPanel {
+      final class RegionView( rv: S#Var[ Region ], id: String ) extends JPanel {
          private val lay = new GroupLayout( this )
          lay.setAutoCreateContainerGaps( true )
          setLayout( lay )
@@ -418,8 +418,8 @@ Usages:
 //            system.atomic { implicit tx =>
 //               model( tx, s )
 //            }
-            system.atomicAccess { (tx, acc) =>
-               model( tx, r.access( acc )( tx ), s )
+            system.atomic { tx =>
+               model( tx, tx.access( rv ), s )
             }
          }
 
@@ -428,6 +428,10 @@ Usages:
          }
 
          def connect()( implicit tx: Tx ) {
+            connect( tx.access( rv ))
+         }
+
+         private def connect( r: Region )( implicit tx: Tx ) {
             r.name_#.react  { case (_, event.Change( _, v )) => defer( ggName.setText(  v ))}
             r.start_#.react { case (_, event.Change( _, v )) => defer( ggStart.setText( v.toString ))}
             r.stop_#.react  { case (_, event.Change( _, v )) => defer( ggStop.setText(  v.toString ))}
@@ -484,17 +488,19 @@ Usages:
       val cp   = f.getContentPane
 
       cp.setLayout( new GridLayout( 3, 1 ))
-      val rs = system.atomic { implicit tx =>
+      val rvs = system.atomic { implicit tx =>
          val _r1   = Region( "eins", 0L, 10000L )
          val _r2   = Region( "zwei", 5000L, 12000L )
          val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
             longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),
             longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
-         Seq( _r1, _r2, _r3 )
+         val rootID  = tx.newID()
+         Seq( _r1, _r2, _r3 ).map( tx.newVar( rootID, _ ))
       }
 
-      val vs = rs.zipWithIndex.map {
-         case (r, i) => new RegionView( r, "Region #" + (i+1) )
+      val vs = rvs.zipWithIndex.map {
+//         case (r, i) => new RegionView( r, "Region #" + (i+1) )
+         case (rv, i) => new RegionView( rv, "Region #" + (i+1) )
       }
 
       system.atomic { implicit tx =>

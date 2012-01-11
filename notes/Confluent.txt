@@ -61,3 +61,10 @@ so let's first just see how far we get by serialising and deserialising the regi
 
 ::::::::::::::::::::::
 
+access: S#Var[ A ]
+
+or rather S#Source[ A ] ??
+
+this would work I guess:
+
+access[ A ])( source: S#Var[ A ]) : A

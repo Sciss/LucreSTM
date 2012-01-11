@@ -201,6 +201,8 @@ object InMemory {
 
       def readID( in: DataInput, acc: Unit ) : ID = opNotSupported( "readID" )
 
+      def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
+
 //      def readMut[ A <: Mutable[ S ]]( id: ID, in: DataInput )
 //                                            ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
 //         opNotSupported( "readMut" )
@@ -221,9 +223,13 @@ object InMemory {
          TxnExecutor.defaultAtomic[ A ]( itx => fun( new TxnImpl( this, itx )))
       }
 
-      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A = {
-         TxnExecutor.defaultAtomic[ A ]( itx => fun( new TxnImpl( this, itx ), () ))
-      }
+//      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A = {
+//         TxnExecutor.defaultAtomic[ A ]( itx => fun( new TxnImpl( this, itx ), () ))
+//      }
+
+//      def atomicAccess[ A, B ]( source: S#Var[ A ])( fun: (S#Tx, A) => B ) : B = atomic { tx =>
+//         fun( tx, source.get( tx ))
+//      }
 
       private[stm] def wrap( itx: InTxn ) : Tx = new TxnImpl( this, itx )
    }

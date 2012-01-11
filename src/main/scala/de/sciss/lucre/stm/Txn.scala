@@ -68,4 +68,7 @@ trait Txn[ S <: Sys[ S ]] {
    def readLongVar( id: S#ID, in: DataInput ) : S#Var[ Long ]
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
+
+   // suckaz
+   def access[ A ]( source: S#Var[ A ]) : A
 }

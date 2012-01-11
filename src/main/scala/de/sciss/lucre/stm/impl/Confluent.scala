@@ -45,7 +45,9 @@ object Confluent {
    }
 
    sealed trait Txn extends _Txn[ S ]
-   sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
+   sealed trait Var[ @specialized A ] extends _Var[ Txn, A ] {
+      private[Confluent] def access( path: S#Acc )( implicit tx: S#Tx ) : A
+   }
 
    def apply() : S = new System
 
@@ -88,12 +90,16 @@ object Confluent {
          }
       }
 
-      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A = {
-         TxnExecutor.defaultAtomic[ A ] { itx =>
-            pathVar :+= (pathVar.lastOption.getOrElse( -1 ) + 1)
-            fun( new TxnImpl( this, itx ), pathVar )
-         }
-      }
+//      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A = {
+//         TxnExecutor.defaultAtomic[ A ] { itx =>
+//            pathVar :+= (pathVar.lastOption.getOrElse( -1 ) + 1)
+//            fun( new TxnImpl( this, itx ), pathVar )
+//         }
+//      }
+
+//      def atomicAccess[ A, B ]( source: S#Var[ A ])( fun: (S#Tx, A) => B ) : B = atomic { implicit tx =>
+//         fun( tx, source.access( path ))
+//      }
 
       def newIDCnt()( implicit tx: Tx ) : Int = {
          val id = cnt
@@ -219,6 +225,8 @@ object Confluent {
 
       def readID( in: DataInput, acc: Acc ) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
 
+      def access[ A ]( source: S#Var[ A ]) : A = source.access( system.path( this ))( this )
+
 //      def readMut[ A <: Mutable[ S ]]( pid: ID, in: DataInput )
 //                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
 //         val mid  = in.readInt()
@@ -262,21 +270,23 @@ object Confluent {
             Map.empty[ Acc, Array[ Byte ]]) + (id.path -> bytes))
       }
 
-      final def get( implicit tx: Txn ) : A = {
+      final def get( implicit tx: Txn ) : A = access( id.path )
+
+      final def access( acc: S#Acc )( implicit tx: Txn ) : A = {
          var best: Array[Byte]   = null
          var bestLen = 0
          val map = system.storage.getOrElse( id.id, Map.empty )
          map.foreach {
             case (path, arr) =>
-               val len = path.zip( id.path ).segmentLength({ case (a, b) => a == b }, 0 )
+               val len = path.zip( acc ).segmentLength({ case (a, b) => a == b }, 0 )
                if( len > bestLen && len == path.size ) {
                   best     = arr
                   bestLen  = len
                }
          }
-         require( best != null, "No value for path " + id.path )
+         require( best != null, "No value for path " + acc )
          val in = new DataInput( best )
-         readValue( in, id.path.drop( bestLen ))
+         readValue( in, acc.drop( bestLen ))
       }
 
       final def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
