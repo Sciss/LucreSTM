@@ -99,6 +99,13 @@ trait Type[ S <: Sys[ S ], A ] {
       override def toString   = name
    }
 
+   def readVar( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Var = {
+      // XXX should go somewhere else
+      val targets = Invariant.Targets.read[ S ]( in, access )
+      require( in.readUnsignedByte == 0 )
+      new VarRead( in, access, targets, tx )
+   }
+
    private def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption
 
 //   protected def newBinaryOp( op: BinaryOp, a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( op, a, b, tx )

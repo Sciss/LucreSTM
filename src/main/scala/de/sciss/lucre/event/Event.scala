@@ -397,7 +397,7 @@ object Invariant {
          tx.mapEventTargets( in, access, targets, observers )
       }
 
-      private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+      private[lucre] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
          val cookie = in.readUnsignedByte()
          require( cookie == 0, "Unexpected cookie " + cookie )
          readIdentified( in, access )

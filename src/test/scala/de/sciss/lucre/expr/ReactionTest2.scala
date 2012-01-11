@@ -97,6 +97,13 @@ Usages:
             def start_# : long.Var
             def stop_# : long.Var
 
+            final def access( path: S#Acc )( implicit tx: S#Tx ) : Region = {
+               val out  = new DataOutput( )
+               write( out )
+               val in   = new DataInput( out.toByteArray )
+               new Read( in, path, tx )
+            }
+
             final def name( implicit tx: Tx ) : string.Ex = name_#.get
             final def name_=( value: string.Ex )( implicit tx: Tx ) { name_#.set( value )}
 
@@ -135,39 +142,9 @@ Usages:
 
             val id = tx0.readID( in, acc )
 
-            val name_#  = {
-//               val cookie1  = in.readUnsignedByte()
-//               require( cookie1 == 0, "Unexpected cookie " + cookie1 )
-//               val targets = Invariant.Targets.read[ S ]( in, acc )( tx0 )
-//               val cookie2 = in.readUnsignedByte()
-//               require( cookie2 == 100, "Unexpected cookie " + cookie2 )
-//               new ExprVar.Read[ String, string.Ex ]( targets, in, tx0 ) with string.Ex {
-//                  override def toString = region.toString + ".name_#"
-//               }
-               sys.error( "TODO" )
-            }
-            val start_# = {
-//               val cookie1  = in.readUnsignedByte()
-//               require( cookie1 == 0, "Unexpected cookie " + cookie1 )
-//               val targets = Invariant.Targets.read[ S ]( in, acc )( tx0 )
-//               val cookie2 = in.readUnsignedByte()
-//               require( cookie2 == 100, "Unexpected cookie " + cookie2 )
-//               new ExprVar.Read[ Long, long.Ex ]( targets, in, tx0 ) with long.Ex {
-//                  override def toString = region.toString + ".start_#"
-//               }
-               sys.error( "TODO" )
-            }
-            val stop_#  = {
-//               val cookie1  = in.readUnsignedByte()
-//               require( cookie1 == 0, "Unexpected cookie " + cookie1 )
-//               val targets = Invariant.Targets.read[ S ]( in, acc )( tx0 )
-//               val cookie2 = in.readUnsignedByte()
-//               require( cookie2 == 100, "Unexpected cookie " + cookie2 )
-//               new ExprVar.Read[ Long, long.Ex ]( targets, in, tx0 ) with long.Ex {
-//                  override def toString = region.toString + ".stop_#"
-//               }
-               sys.error( "TODO" )
-            }
+            val name_#  = string.readVar( in, acc )( tx0 )
+            val start_# = long.readVar(   in, acc )( tx0 )
+            val stop_#  = long.readVar(   in, acc )( tx0 )
          }
 
          implicit val serializer : TxnSerializer[ S#Tx, S#Acc, Region ] = new TxnSerializer[ S#Tx, S#Acc, Region ] {
@@ -179,6 +156,9 @@ Usages:
 
       trait Region extends Mutable[ S ] {
          override def toString = "Region" + id
+
+         // ouch
+         def access( path: S#Acc )( implicit tx: Tx ) : Region
 
          def name( implicit tx: Tx ) : string.Ex
          def name_=( value: string.Ex )( implicit tx: Tx ) : Unit
@@ -434,9 +414,12 @@ Usages:
             )
          )
 
-         private def stringToModel( s: String, model: (Tx, String) => Unit )( implicit system: S ) {
-            system.atomic { implicit tx =>
-               model( tx, s )
+         private def stringToModel( s: String, model: (Tx, Region, String) => Unit )( implicit system: S ) {
+//            system.atomic { implicit tx =>
+//               model( tx, s )
+//            }
+            system.atomicAccess { (tx, acc) =>
+               model( tx, r.access( acc )( tx ), s )
             }
          }
 
@@ -462,7 +445,7 @@ Usages:
 
             ggName.addActionListener( new ActionListener {
                def actionPerformed( e: ActionEvent ) {
-                  stringToModel( ggName.getText, (tx, s) => {
+                  stringToModel( ggName.getText, (tx, r, s) => {
                      implicit val _tx = tx
                      r.name = s
                   })
@@ -504,7 +487,7 @@ Usages:
       val rs = system.atomic { implicit tx =>
          val _r1   = Region( "eins", 0L, 10000L )
          val _r2   = Region( "zwei", 5000L, 12000L )
-         val _r3   = Region( _r1.name_#, // .append( "+" ), // .append( _r2.name_# ),
+         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
             longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),
             longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
          Seq( _r1, _r2, _r3 )
