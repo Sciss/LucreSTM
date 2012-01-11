@@ -504,7 +504,7 @@ Usages:
       val rs = system.atomic { implicit tx =>
          val _r1   = Region( "eins", 0L, 10000L )
          val _r2   = Region( "zwei", 5000L, 12000L )
-         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
+         val _r3   = Region( _r1.name_#, // .append( "+" ), // .append( _r2.name_# ),
             longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),
             longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
          Seq( _r1, _r2, _r3 )
