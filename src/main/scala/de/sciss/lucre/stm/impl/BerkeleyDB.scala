@@ -23,9 +23,12 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucrestm
+package de.sciss.lucre
+package stm
+package impl
 
-import de.sciss.lucrestm.{Var => _Var, Txn => _Txn}
+import stm.{Var => _Var, Txn => _Txn}
+import event.Event
 import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{Txn => ScalaTxn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
 import java.io.{FileNotFoundException, File, IOException}
@@ -471,18 +474,18 @@ object BerkeleyDB {
 
       def newID() : ID = new IDImpl( system.newIDValue()( this ))
 
-      def addStateReaction[ A, Repr <: State[ S, A ]](
-         reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
-            system.reactionMap.addStateReaction( reader, fun )( this )
-
-      def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
-                           keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
-         system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
-
-      def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions =
-         system.reactionMap.propagateState( key, state, reactions )( this )
-
-      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
+//      def addStateReaction[ A, Repr <: State[ S, A ]](
+//         reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
+//            system.reactionMap.addStateReaction( reader, fun )( this )
+//
+//      def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
+//                           keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
+//         system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
+//
+//      def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions =
+//         system.reactionMap.propagateState( key, state, reactions )( this )
+//
+//      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
       def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: Event.Reader[ S, Repr, _ ],
                                                        fun: (S#Tx, A) => Unit ) : Event.ObserverKey[ S ] =
@@ -610,6 +613,7 @@ object BerkeleyDB {
       }
    }
 }
+
 sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
    type Var[ @specialized A ] = BerkeleyDB.Var[ A ]
    type ID                    = BerkeleyDB.ID
@@ -642,9 +646,9 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
     */
    def root[ A ]( init: => A )( implicit tx: Tx, ser: Serializer[ A ]) : A
 
-   private[lucrestm] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: BerkeleyDB#Tx ) : A
-   private[lucrestm] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: BerkeleyDB#Tx ) : Unit
-   private[lucrestm] def remove( id: Int )( implicit tx: BerkeleyDB#Tx ) : Unit
-   private[lucrestm] def exists( id: Int )( implicit tx: BerkeleyDB#Tx ) : Boolean
-   private[lucrestm] def newIDValue()( implicit tx: BerkeleyDB#Tx ) : Int
+   private[impl] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: BerkeleyDB#Tx ) : A
+   private[impl] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: BerkeleyDB#Tx ) : Unit
+   private[impl] def remove( id: Int )( implicit tx: BerkeleyDB#Tx ) : Unit
+   private[impl] def exists( id: Int )( implicit tx: BerkeleyDB#Tx ) : Boolean
+   private[impl] def newIDValue()( implicit tx: BerkeleyDB#Tx ) : Int
 }

@@ -23,10 +23,8 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucrestm
-
-//sealed trait MutableOption[ +S ]
-//trait EmptyMutable extends MutableOption[ Nothing ]
+package de.sciss.lucre
+package stm
 
 trait Mutable[ S <: Sys[ S ]] extends /* MutableOption[ S ] with */ Writer with Disposable[ S#Tx ] {
    def id: S#ID

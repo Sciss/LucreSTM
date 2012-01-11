@@ -23,12 +23,14 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucrestm
+package de.sciss.lucre
+package event
 
 import collection.mutable.{Map => MMap}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
 import java.io.{ObjectOutputStream, ObjectInputStream}
+import stm.{Writer, Sys, Disposable, TxnSerializer}
 
 object Event {
 //   type Reaction  = () => () => Unit
@@ -95,9 +97,9 @@ object Event {
       private sealed trait NodeSelector[ S <: Sys[ S ]] extends Impl[ S ] {
          protected def reactor: NodeReactor[ S ]
 
-         final private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] = None
+         final private[event] def observerKey : Option[ ObserverKey[ S ]] = None
 
-         final private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
+         final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
                                           visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) = {
             val cid     = reactor.id
             val bitset  = visited.getOrElse( cid, 0 )
@@ -120,9 +122,9 @@ object Event {
 
       private final case class ObserverSelector[ S <: Sys[ S ]]( key: Int, reactor: ObserverKey[ S ])
       extends Impl[ S ] {
-         private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] = Some( reactor )
+         private[event] def observerKey : Option[ ObserverKey[ S ]] = Some( reactor )
 
-         private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
+         private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
                                           visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) =
             reactor.propagate( source, update, parent, key, visited, reactions ) // XXX TODO: do we need to deal with the visited map?
 
@@ -132,10 +134,10 @@ object Event {
 
    sealed trait Selector[ S <: Sys[ S ]] extends Writer {
       def key: Int
-      private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
+      private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
                                        visited: Visited[ S ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions
-      private[lucrestm] def observerKey : Option[ ObserverKey[ S ]] // Option[ Int ]
+      private[event] def observerKey : Option[ ObserverKey[ S ]] // Option[ Int ]
    }
 
 //   private type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Reactor[ S ])]
@@ -221,7 +223,7 @@ object Event {
     * `propagate` a fired event.
     */
    sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
-//      private[lucrestm] def id: S#ID
+//      private[event] def id: S#ID
 
       protected def children: S#Var[ Children[ S ]]
 
@@ -230,7 +232,7 @@ object Event {
       /**
        * @param   key   the key of the event or selector that invoked this target's node's `propagate`
        */
-      final private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+      final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
                                              visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
          children.get.foldLeft( reactions ) { (rs, sel) =>
             if( sel.key == key ) {  // XXX bitmask?
@@ -239,13 +241,13 @@ object Event {
          }
       }
 
-      final private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+      final private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
          val old  = children.get
          children.set( old :+ sel )
          old.isEmpty
       }
 
-      final private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+      final private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
          val xs   = children.get
          val i    = xs.indexOf( sel )
          if( i >= 0 ) {
@@ -255,7 +257,7 @@ object Event {
          } else false
       }
 
-      final private[lucrestm] def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
+      final def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
    }
 
    /**
@@ -268,8 +270,8 @@ object Event {
 
 //   // UUU what has been Event before
 //   trait Dispatcher[ S <: Sys[ S ], A ] extends Writer {
-//      private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
-//      private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+//      private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+//      private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 //
 //      final protected def event[ A1 <: A, Repr <: Node[ S, A ]]( key: Key[ A1, Repr ]) /* ( implicit ev: this.type <:< Repr ) */ : Trigger[ S, A1, Repr ] = {
 //         new TriggerImpl[ S, A, A1, Repr ]( this, key )
@@ -300,8 +302,8 @@ object Event {
 
    sealed trait Key[ A, Repr <: Writer ] {
       def name: String
-      private[lucrestm] def id: Int
-      private[lucrestm] def keys: Keys[ Repr ]
+      private[event] def id: Int
+      private[event] def keys: Keys[ Repr ]
       def unapply( id: Int ) : Boolean
    }
 
@@ -320,8 +322,8 @@ object Event {
          new KeyImpl[ A, Repr ]( id, name, this )
       }
 
-      private final class KeyImpl[ A, Repr <: Writer ]( private[lucrestm] val id: Int, val name: String,
-                                              private[lucrestm] val keys: Keys[ Repr ])
+      private final class KeyImpl[ A, Repr <: Writer ]( private[event] val id: Int, val name: String,
+                                              private[event] val keys: Keys[ Repr ])
       extends Key[ A, Repr ] {
          def unapply( i: Int ) : Boolean = i == id
 
@@ -350,8 +352,8 @@ object Event {
       protected def writeData( out: DataOutput ) : Unit
       protected def disposeData()( implicit tx: S#Tx ) : Unit
 
-      private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
-      private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+      private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+      private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
       def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
@@ -364,7 +366,7 @@ object Event {
       /**
        * @param   key   the key of the event or selector that invoked this method
        */
-      private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+      private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
                                        visited: Visited[ S ], reactions: Reactions )
                                      ( implicit tx: S#Tx ) : Reactions =
          targets.propagate( source, update, this, key, visited, reactions ) // replace parent event node
@@ -408,13 +410,13 @@ object Event {
             new Impl( id, children )
          }
 
-         private[lucrestm] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+         private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
             val id            = tx.readID( in, access )
             val children      = tx.readVar[ Children[ S ]]( id, in )
             new Impl[ S ]( id, children )
          }
 
-         private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]]) : Targets[ S ] =
+         private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]]) : Targets[ S ] =
             new Impl( id, children )
 
          private final class Impl[ S <: Sys[ S ]](
@@ -474,14 +476,14 @@ object Event {
    trait LateBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
       protected def sources( implicit tx: S#Tx ) : Sources[ S ]
 
-      final private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
+      final private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
          if( targets.addReactor( sel )) {
 //            sources.foreach( _.addReactor( this ))
             sources.foreach( _ += this )
          }
       }
 
-      final private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
+      final private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
          if( targets.removeReactor( sel )) {
 //            sources.foreach( _.removeReactor( this ))
             sources.foreach( _ -= this )
@@ -493,11 +495,11 @@ object Event {
     * An early binding event node simply
     */
    trait EarlyBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-      final private[lucrestm] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
+      final private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
          targets.addReactor( sel )
       }
 
-      final private[lucrestm] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
+      final private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
          targets.removeReactor( sel )
       }
 
@@ -584,8 +586,8 @@ object Event {
    trait Constant[ S <: Sys[ S ] /*, A */] /* extends Val[ S, A ] with Root[ S, Change[ A ]] */ {
 //      protected def constValue : A
 //      final def value( implicit tx: S#Tx ) : A = constValue
-      final private[lucrestm] def addReactor(     r: Reactor[ S ])( implicit tx: S#Tx ) {}
-      final private[lucrestm] def removeReactor(  r: Reactor[ S ])( implicit tx: S#Tx ) {}
+      final private[event] def addReactor(     r: Reactor[ S ])( implicit tx: S#Tx ) {}
+      final private[event] def removeReactor(  r: Reactor[ S ])( implicit tx: S#Tx ) {}
 
       final def write( out: DataOutput ) {
          out.writeUnsignedByte( 3 )
@@ -724,14 +726,14 @@ object Event {
             new Impl( id, children, invalid )
          }
 
-         private[lucrestm] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+         private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
             val id            = tx.readID( in, access )
             val children      = tx.readVar[ Children[ S ]]( id, in )
             val invalid       = tx.readBooleanVar( id, in )
             new Impl[ S ]( id, children, invalid )
          }
 
-         private[lucrestm] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]],
+         private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]],
                                                       invalid: S#Var[ Boolean ]) : Targets[ S ] =
             new Impl( id, children, invalid )
 
@@ -760,7 +762,7 @@ object Event {
       }
 
       sealed trait Targets[ S <: Sys[ S ]] extends Event.Targets[ S ] {
-         private[lucrestm] def isInvalid( implicit tx: S#Tx ) : Boolean
+         private[event] def isInvalid( implicit tx: S#Tx ) : Boolean
 //         final def select( key: Int ) : Selector[ S ] = Selector( key, this )
          def validated()( implicit tx: S#Tx ) : Unit
       }
@@ -861,7 +863,7 @@ object Event {
     */
    sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
       def select( key: Int ) : Selector[ S ]
-      private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+      private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
                                        visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions
    }
 
@@ -874,8 +876,8 @@ object Event {
     * the observing function is not persisted, the key will be used for lookup (again through the transaction)
     * of the reacting function during the first reaction gathering phase of event propagation.
     */
-   final case class ObserverKey[ S <: Sys[ S ]] private[lucrestm] ( id: Int ) extends Reactor[ S ] {
-      private[lucrestm] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+   final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends Reactor[ S ] {
+      private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
                                        visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
          tx.propagateEvent( this, source, update, parent, key, /* visited, */ reactions )
       }

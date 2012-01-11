@@ -23,7 +23,8 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucrestm
+package de.sciss.lucre
+package stm
 
 trait Disposable[ -Tx ] {
    def dispose()( implicit tx: Tx ) : Unit

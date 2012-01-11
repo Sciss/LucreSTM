@@ -23,9 +23,12 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucrestm
+package de.sciss.lucre
+package stm
+package impl
 
-import de.sciss.lucrestm.{Var => _Var, Txn => _Txn}
+import event.Event
+import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
@@ -111,19 +114,19 @@ object InMemory {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = new IDImpl
 
-      def addStateReaction[ A, Repr <: State[ S, A ]](
-         reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
-            system.reactionMap.addStateReaction( reader, fun )( this )
-
-      def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
-                                               keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
-         system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
-
-      def propagateState( key: Int, state: State[ S, _ ],
-                                            reactions: State.Reactions ) : State.Reactions =
-         system.reactionMap.propagateState( key, state, reactions )( this )
-
-      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
+//      def addStateReaction[ A, Repr <: State[ S, A ]](
+//         reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
+//            system.reactionMap.addStateReaction( reader, fun )( this )
+//
+//      def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
+//                                               keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
+//         system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
+//
+//      def propagateState( key: Int, state: State[ S, _ ],
+//                                            reactions: State.Reactions ) : State.Reactions =
+//         system.reactionMap.propagateState( key, state, reactions )( this )
+//
+//      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
       def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: Event.Reader[ S, Repr, _ ],
                                                        fun: (S#Tx, A) => Unit ) : Event.ObserverKey[ S ] =
@@ -218,7 +221,7 @@ object InMemory {
          TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
       }
 
-      private[lucrestm] def wrap( itx: InTxn ) : Tx = new TxnImpl( this, itx )
+      private[stm] def wrap( itx: InTxn ) : Tx = new TxnImpl( this, itx )
    }
 
    def apply() : S = new System
@@ -235,5 +238,5 @@ sealed trait InMemory extends Sys[ InMemory ] {
    type Tx                    = InMemory.Txn
    type Acc                   = Unit
 
-   private[lucrestm] def wrap( itx: InTxn ) : Tx
+   private[stm] def wrap( itx: InTxn ) : Tx
 }

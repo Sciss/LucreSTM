@@ -1,5 +1,5 @@
 /*
- *  Reader.scala
+ *  Identifier.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -23,9 +23,7 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucrestm
+package de.sciss.lucre
+package stm
 
-trait Reader[ @specialized +A ] extends TxnReader[ Any, Any, A ] {
-   def read( in: DataInput ) : A
-   final def read( in: DataInput, access: Any )( implicit tx: Any ) : A = read( in )
-}
+trait Identifier[ Tx ] extends Disposable[ Tx ] with Writer

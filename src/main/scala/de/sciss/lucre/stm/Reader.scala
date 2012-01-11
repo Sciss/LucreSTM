@@ -1,5 +1,5 @@
 /*
- *  Sys.scala
+ *  Reader.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -23,25 +23,10 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucrestm
+package de.sciss.lucre
+package stm
 
-import de.sciss.lucrestm.{Var => _Var}
-
-object Sys {
-// this produces 'diverging fuckyourself' messages
-//   implicit def fromTxn[ S <: Sys[ S ]]( implicit tx: S#Tx ) : S = tx.system
-   implicit def manifest[ S <: Sys[ S ]]( implicit system: S ) : Manifest[ S ] = system.manifest
-}
-trait Sys[ S <: Sys[ S ]] {
-   type Var[ @specialized A ] <: _Var[ S#Tx, A ]
-   type Tx <: Txn[ S ]
-   type ID <: Identifier[ S#Tx ]
-   type Acc
-
-//   final type ObsVar[ A ] = S#Var[ A ] with State[ S, Change[ A ]]
-
-   // should get rid of this in Sys, too
-   def atomic[ Z ]( block: S#Tx => Z ) : Z
-
-   def manifest: Manifest[ S ]
+trait Reader[ @specialized +A ] extends TxnReader[ Any, Any, A ] {
+   def read( in: DataInput ) : A
+   final def read( in: DataInput, access: Any )( implicit tx: Any ) : A = read( in )
 }
