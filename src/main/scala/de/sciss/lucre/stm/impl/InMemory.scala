@@ -217,8 +217,12 @@ object InMemory {
 
       val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
 
-      def atomic[ Z ]( block: Tx => Z ) : Z = {
-         TxnExecutor.defaultAtomic[ Z ]( itx => block( new TxnImpl( this, itx )))
+      def atomic[ A ]( fun: S#Tx => A ) : A = {
+         TxnExecutor.defaultAtomic[ A ]( itx => fun( new TxnImpl( this, itx )))
+      }
+
+      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A = {
+         TxnExecutor.defaultAtomic[ A ]( itx => fun( new TxnImpl( this, itx ), () ))
       }
 
       private[stm] def wrap( itx: InTxn ) : Tx = new TxnImpl( this, itx )

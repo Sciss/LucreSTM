@@ -74,17 +74,24 @@ object Confluent {
          }
       }
 
-      def fromPath[ Z ]( path: Acc )( block: Tx => Z ) : Z = {
-         TxnExecutor.defaultAtomic[ Z ] { itx =>
+      def fromPath[ A ]( path: Acc )( fun: Tx => A ) : A = {
+         TxnExecutor.defaultAtomic[ A ] { itx =>
             pathVar = path :+ (pathVar.lastOption.getOrElse( -1 ) + 1)
-            block( new TxnImpl( this, itx ))
+            fun( new TxnImpl( this, itx ))
          }
       }
 
-      def atomic[ Z ]( block: Tx => Z ) : Z = {
-         TxnExecutor.defaultAtomic[ Z ] { itx =>
+      def atomic[ A ]( fun: S#Tx => A ) : A = {
+         TxnExecutor.defaultAtomic[ A ] { itx =>
             pathVar :+= (pathVar.lastOption.getOrElse( -1 ) + 1)
-            block( new TxnImpl( this, itx ))
+            fun( new TxnImpl( this, itx ))
+         }
+      }
+
+      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A = {
+         TxnExecutor.defaultAtomic[ A ] { itx =>
+            pathVar :+= (pathVar.lastOption.getOrElse( -1 ) + 1)
+            fun( new TxnImpl( this, itx ), pathVar )
          }
       }
 
@@ -301,8 +308,8 @@ sealed trait Confluent extends Sys[ Confluent ] {
    type Tx                    = Confluent.Txn
    type Acc                   = IIdxSeq[ Int ]
 
-   def inPath[ Z ]( _path: Acc )( block: Tx => Z ) : Z
-   def fromPath[ Z ]( _path: Acc )( block: Tx => Z ) : Z
+   def inPath[ A ]( _path: Acc )( fun: Tx => A ) : A
+   def fromPath[ A ]( _path: Acc )( fun: Tx => A ) : A
    def path( implicit tx: Tx ) : Acc
    def update[ A <: Mutable[ Confluent ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A
 }

@@ -58,3 +58,6 @@ thus when a view is manipulated we have to initiate a txn and access the model
 what happens if a view isn't 'touched' over multiple transactions? a view needs to have a cursor somewhat. (of course, since that will eventually be the txn initiating instance).
 
 so let's first just see how far we get by serialising and deserialising the region which is manipulated.
+
+::::::::::::::::::::::
+

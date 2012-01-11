@@ -118,7 +118,11 @@ object BerkeleyDB {
          }
       }
 
-      def atomic[ Z ]( block: Txn => Z ) : Z = TxnExecutor.defaultAtomic( itx => block( new TxnImpl( this, itx )))
+      def atomic[ A ]( fun: Txn => A ) : A =
+         TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx )))
+
+      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A =
+         TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx ), () ))
 
       def debugListUserRecords()( implicit tx: Txn ) : Seq[ ID ] = {
          val b   = Seq.newBuilder[ ID ]

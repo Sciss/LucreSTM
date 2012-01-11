@@ -43,7 +43,9 @@ trait Sys[ S <: Sys[ S ]] {
 //   final type ObsVar[ A ] = S#Var[ A ] with State[ S, Change[ A ]]
 
    // should get rid of this in Sys, too
-   def atomic[ Z ]( block: S#Tx => Z ) : Z
+   def atomic[ A ]( fun: S#Tx => A ) : A
+//   def atomicRead[ A, B ]( read: TxnReader[ S#Tx, S#Acc, A ])( fun: (S#Tx, A) => B ) : B
+   def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A
 
    def manifest: Manifest[ S ]
 }
