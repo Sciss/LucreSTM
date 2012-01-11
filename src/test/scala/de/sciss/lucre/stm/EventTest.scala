@@ -2,14 +2,14 @@ package de.sciss.lucre
 package stm
 
 import impl.Confluent
-import event.Event
+import event.{Event, Bang, Trigger}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object EventTest extends App {
    val system  = Confluent()
    type S      = Confluent
 
-   val bang = system.atomic { implicit tx => Event.Bang[ S ]}
+   val bang = system.atomic { implicit tx => Bang[ S ]}
 
    system.atomic { implicit tx => bang.react { (tx, _) =>
       println( "Bang!" )
@@ -19,7 +19,7 @@ object EventTest extends App {
       bang()
    }
 
-   val e2 = system.atomic { implicit tx => Event.Trigger[ S, Int ]}
+   val e2 = system.atomic { implicit tx => Trigger[ S, Int ]}
 
 //   object FilterReader extends Event.Invariant.Serializer[ S, Filter ] {
 //      def read( in: DataInput, access: S#Acc, _targets: Event.Invariant.Targets[ S ])( implicit tx: S#Tx ) : Filter =
