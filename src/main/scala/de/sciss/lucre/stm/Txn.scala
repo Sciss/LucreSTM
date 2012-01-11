@@ -28,7 +28,7 @@ package stm
 
 import concurrent.stm.InTxn
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.Event
+import event.{Event, ObserverKey, Node, Reactions, Reactor, Targets}
 
 trait Txn[ S <: Sys[ S ]] {
    def system: S
@@ -45,15 +45,15 @@ trait Txn[ S <: Sys[ S ]] {
 //   def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions
 //   def removeStateReaction( key: State.ReactorKey[ S ]) : Unit
 
-   def addEventReaction[ A, Repr /* <: Event[ S, A, _ ] */]( reader: Event.Reader[ S, Repr, _ ],
-                                                       fun: (S#Tx, A) => Unit ) : Event.ObserverKey[ S ]
-//   def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ], keys: IIdxSeq[ Int ]) : Event.Reactor[ S ]
-   def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ],
-                        observers: IIdxSeq[ Event.ObserverKey[ S ]]) : Event.Reactor[ S ]
-   def propagateEvent( observer: Event.ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                       leaf: Event.Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
-                       reactions: Event.Reactions ) : Event.Reactions
-   def removeEventReaction( key: Event.ObserverKey[ S ]) : Unit
+   def addEventReaction[ A, Repr /* <: Event[ S, A, _ ] */]( reader: event.Reader[ S, Repr, _ ],
+                                                       fun: (S#Tx, A) => Unit ) : ObserverKey[ S ]
+//   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], keys: IIdxSeq[ Int ]) : Reactor[ S ]
+   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
+                        observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ]
+   def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
+                       leaf: Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
+                       reactions: Reactions ) : Reactions
+   def removeEventReaction( key: ObserverKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]

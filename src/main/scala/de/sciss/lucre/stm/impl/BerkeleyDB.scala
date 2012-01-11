@@ -28,7 +28,7 @@ package stm
 package impl
 
 import stm.{Var => _Var, Txn => _Txn}
-import event.Event
+import event.{Event, Node, ObserverKey, ReactionMap, Reactions, Reactor, Targets}
 import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{Txn => ScalaTxn, InTxnEnd, TxnExecutor, InTxn, Ref => ScalaRef}
 import java.io.{FileNotFoundException, File, IOException}
@@ -487,20 +487,20 @@ object BerkeleyDB {
 //
 //      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
-      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: Event.Reader[ S, Repr, _ ],
-                                                       fun: (S#Tx, A) => Unit ) : Event.ObserverKey[ S ] =
+      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
+                                                       fun: (S#Tx, A) => Unit ) : ObserverKey[ S ] =
          system.reactionMap.addEventReaction( reader, fun )( this )
 
-      def mapEventTargets( in: DataInput, access: S#Acc, targets: Event.Targets[ S ],
-                           observers: IIdxSeq[ Event.ObserverKey[ S ]]) : Event.Reactor[ S ] =
+      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
+                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
          system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
 
-      def propagateEvent( observer: Event.ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                          leaf: Event.Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
-                          reactions: Event.Reactions ) : Event.Reactions =
+      def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
+                          leaf: Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
+                          reactions: Reactions ) : Reactions =
          system.reactionMap.propagateEvent( observer, source, update, leaf, selector, /* visited, */ reactions )( this )
 
-      def removeEventReaction( key: Event.ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+      def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
 
       override def toString = "Txn<" + id + ">"
 

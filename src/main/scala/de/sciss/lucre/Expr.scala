@@ -27,19 +27,19 @@ package de.sciss.lucre
 
 import stm.{Var => _Var, Sys, Writer}
 import stm.impl.InMemory
-import event.{Event}
+import event.{Change, Event, Invariant, LateBinding, Observer, Reactor, Source, Sources, StandaloneLike}
 import annotation.switch
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object Expr {
    trait Var[ S <: Sys[ S ], A ] extends Expr[ S, A ] with _Var[ S#Tx, Expr[ S, A ]]
-   with Event.StandaloneLike[ S, Event.Change[ A ], Expr[ S, A ]] with Event.LateBinding[ S, Event.Change[ A ]]
-   with Event.Source[ S, Event.Change[ A ], Event.Change[ A ], Expr[ S, A ]] {
+   with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] with LateBinding[ S, Change[ A ]]
+   with Source[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
       private type Ex = Expr[ S, A ]
 
       protected def ref: S#Var[ Ex ]
 
-      protected final def sources( implicit tx: S#Tx ) : Event.Sources[ S ] = IIdxSeq( ref.get )
+      protected final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get )
 
       protected final def writeData( out: DataOutput ) {
          ref.write( out )
@@ -60,7 +60,7 @@ object Expr {
                expr += this
                val beforev = before.value
                val exprv   = expr.value
-               fire( Event.Change( beforev, exprv ))
+               fire( Change( beforev, exprv ))
             }
          }
       }
@@ -69,23 +69,23 @@ object Expr {
 
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 
-      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Event.Change[ A ]] = {
-         if( source == this ) Some( update.asInstanceOf[ Event.Change[ A ]]) else get.pull( source, update )
+      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
+         if( source == this ) Some( update.asInstanceOf[ Change[ A ]]) else get.pull( source, update )
       }
    }
-   trait Const[ S <: Sys[ S ], A ] extends Expr[ S, A ] with Event.Constant[ S ] {
+   trait Const[ S <: Sys[ S ], A ] extends Expr[ S, A ] with event.Constant[ S ] {
       protected def constValue : A
       final def value( implicit tx: S#Tx ) : A = constValue
-      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Event.Change[ A ]] = None
+      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = None
 //      final def observe( fun: (S#Tx, Event.Change[ A ]) => Unit )
 //                       ( implicit tx: S#Tx ) : Event.Observer[ S, Event.Change[ A ], Expr[ S, A ]] = {
 //         Event.Observer[ S, Event.Change[ A ], Expr[ S, A ]]( reader, fun )
 //      }
-      final def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
-      final def -=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {}
+      final def +=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
+      final def -=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
    }
 }
-trait Expr[ S <: Sys[ S ], A ] extends /* Event.Val[ S, A ] with */ Event[ S, Event.Change[ A ], Expr[ S, A ]] with Writer {
+trait Expr[ S <: Sys[ S ], A ] extends /* Event.Val[ S, A ] with */ Event[ S, Change[ A ], Expr[ S, A ]] with Writer {
    def value( implicit tx: S#Tx ) : A
 }
 
@@ -96,10 +96,10 @@ object Strings extends App {
 class Strings[ S <: Sys[ S ]]( system: S ) {
    type StringExpr   = Expr[ S, String ]
    type StringVar    = Expr.Var[ S, String ]
-   type StringChange = Event.Change[ String ]
+   type StringChange = Change[ String ]
 
-   implicit val exprSer : Event.Serializer[ S, StringExpr ] = new Event.Serializer[ S, StringExpr ] {
-      def read( in: DataInput, access: S#Acc, targets: Event.Invariant.Targets[ S ])( implicit tx: S#Tx ) : StringExpr = {
+   implicit val exprSer : event.Serializer[ S, StringExpr ] = new event.Serializer[ S, StringExpr ] {
+      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : StringExpr = {
          // 0 = var, 1 = op
          (in.readUnsignedByte(): @switch) match {
             case 0      => readVar( in, access, targets)
@@ -127,8 +127,8 @@ class Strings[ S <: Sys[ S ]]( system: S ) {
 
    private sealed trait ConstLike extends StringLike with Expr.Const[ S, String ] {
       final def react( fun: (S#Tx, StringChange) => Unit )
-                       ( implicit tx: S#Tx ) : Event.Observer[ S, StringChange, StringExpr ] = {
-         Event.Observer[ S, StringChange, StringExpr ]( exprSer, fun )
+                       ( implicit tx: S#Tx ) : Observer[ S, StringChange, StringExpr ] = {
+         Observer[ S, StringChange, StringExpr ]( exprSer, fun )
       }
 
       final protected def writeData( out: DataOutput ) {
@@ -142,14 +142,14 @@ class Strings[ S <: Sys[ S ]]( system: S ) {
 
    private sealed trait VarLike extends NonConstLike with Expr.Var[ S, String ]
 
-   private def readVar( in: DataInput, access: S#Acc, _targets: Event.Invariant.Targets[ S ])( implicit tx: S#Tx ) : StringVar =
+   private def readVar( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : StringVar =
       new VarLike {
          protected val targets   = _targets
          protected val ref       = tx.readVar[ StringExpr ]( id, in )
       }
 
    def Var( init: String )( implicit tx: S#Tx ) : StringVar = new VarLike {
-      protected val targets   = Event.Invariant.Targets[ S ]
+      protected val targets   = Invariant.Targets[ S ]
       protected val ref       = tx.newVar[ StringExpr ]( id, init )
    }
 
@@ -160,18 +160,18 @@ class Strings[ S <: Sys[ S ]]( system: S ) {
       def toUpperCase( implicit tx: S#Tx ) : StringExpr = new UnaryOpNew( UnaryOp.Upper, ex, tx )
    }
 
-   private def change( before: String, now: String ) : Option[ StringChange ] = new Event.Change( before, now ).toOption
+   private def change( before: String, now: String ) : Option[ StringChange ] = new Change( before, now ).toOption
 
    private final class BinaryOpNew( op: BinaryOp, a: StringExpr, b: StringExpr, tx0: S#Tx )
-   extends NonConstLike with Event.StandaloneLike[ S, StringChange, StringExpr ]
-   with Event.LateBinding[ S, StringChange ] {
-      protected val targets   = Event.Invariant.Targets[ S ]( tx0 )
+   extends NonConstLike with StandaloneLike[ S, StringChange, StringExpr ]
+   with LateBinding[ S, StringChange ] {
+      protected val targets   = Invariant.Targets[ S ]( tx0 )
       def value( implicit tx: S#Tx ) = op.value( a.value, b.value )
       def writeData( out: DataOutput ) {
          out.writeShort( op.id )
       }
       def disposeData()( implicit tx: S#Tx ) {}
-      def sources( implicit tx: S#Tx ) : Event.Sources[ S ] = IIdxSeq( a, b )
+      def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a, b )
 
       def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ StringChange ] = {
          (a.pull( source, update ), b.pull( source, update )) match {
@@ -189,15 +189,15 @@ class Strings[ S <: Sys[ S ]]( system: S ) {
    }
 
    private final class UnaryOpNew( op: UnaryOp, a: StringExpr, tx0: S#Tx )
-   extends NonConstLike with Event.StandaloneLike[ S, StringChange, StringExpr ]
-   with Event.LateBinding[ S, StringChange ] {
-      protected val targets   = Event.Invariant.Targets[ S ]( tx0 )
+   extends NonConstLike with StandaloneLike[ S, StringChange, StringExpr ]
+   with LateBinding[ S, StringChange ] {
+      protected val targets   = Invariant.Targets[ S ]( tx0 )
       def value( implicit tx: S#Tx ) = op.value( a.value )
       def writeData( out: DataOutput ) {
          out.writeShort( op.id )
       }
       def disposeData()( implicit tx: S#Tx ) {}
-      def sources( implicit tx: S#Tx ) : Event.Sources[ S ] = IIdxSeq( a )
+      def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a )
 
       def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ StringChange ] = {
          a.pull( source, update ).flatMap { ach =>
