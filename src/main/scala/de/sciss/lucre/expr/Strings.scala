@@ -27,69 +27,24 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import event.{Event, Invariant, LateBinding, Sources, StandaloneLike}
 import annotation.switch
 import stm.impl.InMemory
-import collection.immutable.{IndexedSeq => IIdxSeq}
 
 final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
    protected def writeValue( v: String, out: DataOutput ) { out.writeString( v )}
    protected def readValue( in: DataInput ) : String = in.readString()
+   type Ops = StringOps
 
-   final class Ops( ex: Ex ) {
-      def append( that: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( BinaryOp.Append, ex, that, tx )
-      def prepend( that: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( BinaryOp.Prepend, ex, that, tx )
-      def reverse( implicit tx: S#Tx ) : Ex = new UnaryOpNew( UnaryOp.Reverse, ex, tx )
-      def toUpperCase( implicit tx: S#Tx ) : Ex = new UnaryOpNew( UnaryOp.Upper, ex, tx )
+   implicit def ops[ A <% Ex ]( ex: A ) : Ops = new StringOps( ex )
+
+   final class StringOps private[Strings]( ex: Ex ) {
+      def append( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Append( ex, that )
+      def prepend( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Prepend( ex, that )
+      def reverse( implicit tx: S#Tx ) : Ex = UnaryOp.Reverse( ex )
+      def toUpperCase( implicit tx: S#Tx ) : Ex = UnaryOp.Upper( ex )
    }
 
-   private def change( before: String, now: String ) : Option[ Change ] = new Change( before, now ).toOption
-
-   private final class BinaryOpNew( op: BinaryOp, a: Ex, b: Ex, tx0: S#Tx )
-   extends NodeLike with StandaloneLike[ S, Change, Ex ]
-   with LateBinding[ S, Change ] {
-      protected val targets   = Invariant.Targets[ S ]( tx0 )
-      def value( implicit tx: S#Tx ) = op.value( a.value, b.value )
-      def writeData( out: DataOutput ) {
-         out.writeShort( op.id )
-      }
-      def disposeData()( implicit tx: S#Tx ) {}
-      def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a, b )
-
-      def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         (a.pull( source, update ), b.pull( source, update )) match {
-            case (None, None)                => None
-            case (Some( ach ), None )        =>
-               val bv = b.value
-               change( op.value( ach.before, bv ), op.value( ach.now, bv ))
-            case (None, Some( bch ))         =>
-               val av = a.value
-               change( op.value( av, bch.before ), op.value( av, bch.now ))
-            case (Some( ach ), Some( bch ))  =>
-               change( op.value( ach.before, bch.before ), op.value( ach.now, bch.now ))
-         }
-      }
-   }
-
-   private final class UnaryOpNew( op: UnaryOp, a: Ex, tx0: S#Tx )
-   extends NodeLike with StandaloneLike[ S, Change, Ex ]
-   with LateBinding[ S, Change ] {
-      protected val targets   = Invariant.Targets[ S ]( tx0 )
-      def value( implicit tx: S#Tx ) = op.value( a.value )
-      def writeData( out: DataOutput ) {
-         out.writeShort( op.id )
-      }
-      def disposeData()( implicit tx: S#Tx ) {}
-      def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a )
-
-      def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         a.pull( source, update ).flatMap { ach =>
-            change( op.value( ach.before ), op.value( ach.now ))
-         }
-      }
-   }
-
-   object UnaryOp {
+   protected object UnaryOp {
       def apply( id: Int ) : UnaryOp = (id: @switch) match {
          case 0 => Reverse
          case 1 => Upper
@@ -105,12 +60,8 @@ final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
          def value( in: String ) = in.toUpperCase
       }
    }
-   sealed trait UnaryOp {
-      def value( in: String ) : String
-      def id: Int
-   }
 
-   object BinaryOp {
+   protected object BinaryOp {
       def apply( id: Int ) : BinaryOp = (id: @switch) match {
          case 0 => Append
          case 1 => Prepend
@@ -126,12 +77,6 @@ final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
          def value( a: String, b: String ) = b + a
       }
    }
-   sealed trait BinaryOp {
-      def value( a: String, b: String ) : String
-      def id: Int
-   }
-
-   implicit def ops[ A <% Ex ]( ex: A ) : Ops = new Ops( ex )
 }
 
 object StringsTests extends App {

@@ -28,15 +28,19 @@ package expr
 
 import stm.Sys
 import annotation.switch
-import event.{Observer, Invariant}
+import event.{StandaloneLike, LateBinding, Event, Observer, Invariant, Sources}
+import collection.immutable.{IndexedSeq => IIdxSeq}
 
 trait Type[ S <: Sys[ S ], A ] {
    type Ex     = Expr[ S, A ]
    type Var    = Expr.Var[ S, A ]
    type Change = event.Change[ A ]
+   type Ops
 
    protected def readValue( in: DataInput ) : A
    protected def writeValue( v: A, out: DataOutput ) : Unit
+
+   implicit def ops[ A <% Ex ]( ex: A ) : Ops // = new Ops( ex )
 
    protected /* sealed */ trait NodeLike extends Expr[ S, A ] {
       final protected def reader = serializer
@@ -81,5 +85,66 @@ trait Type[ S <: Sys[ S ], A ] {
    def Var( init: A )( implicit tx: S#Tx ) : Var = new NodeLike with Expr.Var[ S, A ] {
       protected val targets   = Invariant.Targets[ S ]
       protected val ref       = tx.newVar[ Ex ]( id, init )
+   }
+
+   private def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption
+
+//   protected def newBinaryOp( op: BinaryOp, a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( op, a, b, tx )
+//   protected def newUnaryOp( op: UnaryOp, a: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( op, a, tx )
+
+   private final class BinaryOpNew( op: BinaryOp, a: Ex, b: Ex, tx0: S#Tx )
+   extends NodeLike with StandaloneLike[ S, Change, Ex ]
+   with LateBinding[ S, Change ] {
+      protected val targets   = Invariant.Targets[ S ]( tx0 )
+      def value( implicit tx: S#Tx ) = op.value( a.value, b.value )
+      def writeData( out: DataOutput ) {
+         out.writeShort( op.id )
+      }
+      def disposeData()( implicit tx: S#Tx ) {}
+      def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a, b )
+
+      def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+         (a.pull( source, update ), b.pull( source, update )) match {
+            case (None, None)                => None
+            case (Some( ach ), None )        =>
+               val bv = b.value
+               change( op.value( ach.before, bv ), op.value( ach.now, bv ))
+            case (None, Some( bch ))         =>
+               val av = a.value
+               change( op.value( av, bch.before ), op.value( av, bch.now ))
+            case (Some( ach ), Some( bch ))  =>
+               change( op.value( ach.before, bch.before ), op.value( ach.now, bch.now ))
+         }
+      }
+   }
+
+   private final class UnaryOpNew( op: UnaryOp, a: Ex, tx0: S#Tx )
+   extends NodeLike with StandaloneLike[ S, Change, Ex ]
+   with LateBinding[ S, Change ] {
+      protected val targets   = Invariant.Targets[ S ]( tx0 )
+      def value( implicit tx: S#Tx ) = op.value( a.value )
+      def writeData( out: DataOutput ) {
+         out.writeShort( op.id )
+      }
+      def disposeData()( implicit tx: S#Tx ) {}
+      def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a )
+
+      def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+         a.pull( source, update ).flatMap { ach =>
+            change( op.value( ach.before ), op.value( ach.now ))
+         }
+      }
+   }
+
+   protected trait BinaryOp {
+      def apply( a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( this, a, b, tx )
+      def value( a: A, b: A ) : A
+      def id: Int
+   }
+
+   protected trait UnaryOp {
+      def apply( in: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( this, in, tx )
+      def value( in: A ) : A
+      def id: Int
    }
 }
