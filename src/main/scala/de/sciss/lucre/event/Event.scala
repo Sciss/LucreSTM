@@ -29,7 +29,6 @@ package event
 import collection.mutable.{Map => MMap}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
-import java.io.{ObjectOutputStream, ObjectInputStream}
 import stm.{Writer, Sys, Disposable, TxnSerializer}
 
 object Event {
@@ -621,7 +620,7 @@ object Event {
          node.removeReactor( r.select( selector ))
       }
 
-      final def observe( fun: (S#Tx, A1) => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] = {
+      final def react( fun: (S#Tx, A1) => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] = {
          val res = Observer[ S, A1, Repr ]( reader, fun )
          res.add( this )
          res
@@ -950,7 +949,7 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
    def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
    def -=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) : Unit
 
-   def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Event.Observer[ S, A, Repr ]
+   def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Event.Observer[ S, A, Repr ]
 
    def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
