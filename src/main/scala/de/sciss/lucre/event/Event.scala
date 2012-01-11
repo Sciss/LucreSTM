@@ -58,33 +58,29 @@ object Selector {
          out.writeUnsignedByte( cookie )
          reactor.write( out )
       }
+
+      override def toString = reactor.toString + ".select(" + key + ")"
    }
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
-      def write( v: Selector[ S ], out: DataOutput ) { v.write( out )}
+      def write( v: Selector[ S ], out: DataOutput ) {
+         v.write( out )
+      }
+
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Selector[ S ] = {
-         val key = in.readInt()
+         val selector = in.readInt()
          // 0 = invariant, 1 = mutating, 2 = observer
          val reactor = (in.readUnsignedByte(): @switch) match {
             case 0 =>
-               val id            = tx.readID( in, access )
-               val children      = tx.readVar[ Children[ S ]]( id, in )
-               val targets       = Invariant.Targets[ S ]( id, children )
-               val observers     = children.get.flatMap( _.observerKey )
-               tx.mapEventTargets( in, access, targets, observers )
+               Invariant.Targets.readAndExpand[ S ]( in, access )
             case 1 =>
-               val id            = tx.readID( in, access )
-               val children      = tx.readVar[ Children[ S ]]( id, in )
-               val invalid       = tx.readBooleanVar( id, in )
-               val targets       = Mutating.Targets[ S ]( id, children, invalid )
-               val observers     = children.get.flatMap( _.observerKey )
-               tx.mapEventTargets( in, access, targets, observers )
+               Mutating.Targets.readAndExpand[ S ]( in, access )
             case 2 =>
                val id = in.readInt()
                new ObserverKey[ S ]( id )
             case cookie => sys.error( "Unexpected cookie " + cookie )
          }
-         reactor.select( key )
+         reactor.select( selector )
       }
    }
 
@@ -164,7 +160,7 @@ extends Invariant.Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
       (in.readUnsignedByte(): @switch) match {
          case 3 => readConstant( in )
          case 0 =>
-            val targets = Invariant.Targets.read[ S ]( in, access )
+            val targets = Invariant.Targets.readIdentified[ S ]( in, access )
             read( in, access, targets )
          case cookie => sys.error( "Unexpected cookie " + cookie )
       }
@@ -395,7 +391,19 @@ object Invariant {
          new Impl( id, children )
       }
 
-      /* private[event] */ def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+         val targets    = read( in, access )
+         val observers  = targets.children.get.flatMap( _.observerKey )
+         tx.mapEventTargets( in, access, targets, observers )
+      }
+
+      private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+         val cookie = in.readUnsignedByte()
+         require( cookie == 0, "Unexpected cookie " + cookie )
+         readIdentified( in, access )
+      }
+
+      private[event] def readIdentified[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
          val id            = tx.readID( in, access )
          val children      = tx.readVar[ Children[ S ]]( id, in )
          new Impl[ S ]( id, children )
@@ -441,13 +449,14 @@ object Invariant {
       final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
-         val cookie = in.readUnsignedByte()
-         if( cookie == 0 ) {
+//         val cookie = in.readUnsignedByte()
+//         if( cookie == 0 ) {
+//            val targets = Targets.readIdentified[ S ]( in, access )
             val targets = Targets.read[ S ]( in, access )
             read( in, access, targets )
-         } else {
-            sys.error( "Unexpected cookie " + cookie )
-         }
+//         } else {
+//            sys.error( "Unexpected cookie " + cookie )
+//         }
       }
    }
 }
@@ -711,7 +720,19 @@ object Mutating {
          new Impl( id, children, invalid )
       }
 
+      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+         val targets    = read( in, access )
+         val observers  = targets.children.get.flatMap( _.observerKey )
+         tx.mapEventTargets( in, access, targets, observers )
+      }
+
       private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+         val cookie = in.readUnsignedByte()
+         require( cookie == 1, "Unexpected cookie " + cookie )
+         readIdentified( in, access )
+      }
+
+      private[event] def readIdentified[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
          val id            = tx.readID( in, access )
          val children      = tx.readVar[ Children[ S ]]( id, in )
          val invalid       = tx.readBooleanVar( id, in )
@@ -719,7 +740,7 @@ object Mutating {
       }
 
       private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]],
-                                                   invalid: S#Var[ Boolean ]) : Targets[ S ] =
+                                                invalid: S#Var[ Boolean ]) : Targets[ S ] =
          new Impl( id, children, invalid )
 
       private final class Impl[ S <: Sys[ S ]](
@@ -766,16 +787,16 @@ object Mutating {
       final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
-         val cookie = in.readUnsignedByte()
-         if( cookie == 1 ) {
+//         val cookie = in.readUnsignedByte()
+//         if( cookie == 1 ) {
             val targets = Targets.read[ S ]( in, access )
             val invalid = targets.isInvalid
             val res     = read( in, access, targets /*, invalid */)
             if( invalid ) require( !targets.isInvalid, "Reader did not validate structure" )
             res
-         } else {
-            sys.error( "Unexpected cookie " + cookie )
-         }
+//         } else {
+//            sys.error( "Unexpected cookie " + cookie )
+//         }
       }
    }
 }

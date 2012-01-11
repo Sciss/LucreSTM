@@ -27,9 +27,7 @@ package de.sciss.lucre
 package expr
 
 import stm.{Var => _Var, Sys, Writer}
-import stm.impl.InMemory
-import event.{Change, Event, Invariant, LateBinding, Observer, Reactor, Source, Sources, StandaloneLike}
-import annotation.switch
+import event.{Change, Event, LateBinding, Reactor, Source, Sources, StandaloneLike}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object Expr {
@@ -43,6 +41,7 @@ object Expr {
       protected final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get )
 
       protected final def writeData( out: DataOutput ) {
+         out.writeUnsignedByte( 0 )
          ref.write( out )
       }
 
@@ -59,9 +58,9 @@ object Expr {
             ref.set( expr )
             if( con ) {
                expr += this
-               val beforev = before.value
-               val exprv   = expr.value
-               fire( Change( beforev, exprv ))
+               val beforeV = before.value
+               val exprV   = expr.value
+               fire( Change( beforeV, exprV))
             }
          }
       }

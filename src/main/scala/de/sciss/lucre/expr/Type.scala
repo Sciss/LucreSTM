@@ -39,6 +39,8 @@ trait Type[ S <: Sys[ S ], A ] {
 
    protected def readValue( in: DataInput ) : A
    protected def writeValue( v: A, out: DataOutput ) : Unit
+   protected def unaryOp( id: Int ) : UnaryOp
+   protected def binaryOp( id: Int ) : BinaryOp
 
 //   implicit def ops[ A <% Ex ]( ex: A ) : Ops // = new Ops( ex )
 
@@ -50,22 +52,26 @@ trait Type[ S <: Sys[ S ], A ] {
       def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
          // 0 = var, 1 = op
          (in.readUnsignedByte(): @switch) match {
-            case 0      => readVar( in, access, targets)
-            case 1      => sys.error( "TODO" )
+            case 0      => new VarRead( in, access, targets, tx )
+            case 1      => new UnaryOpRead( in, access, targets, tx )
+            case 2      => new BinaryOpRead( in, access, targets, tx )
             case cookie => sys.error( "Unexpected cookie " + cookie )
          }
       }
 
-      def readVar( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
-         new NodeLike with Expr.Var[ S, A ] {
-            protected val targets   = _targets
-            protected val ref       = tx.readVar[ Ex ]( id, in )
-         }
-
-      def readConstant( in: DataInput )( implicit tx: S#Tx ) : Ex = new ConstLike {
-         protected val constValue = readValue( in )
-      }
+      def readConstant( in: DataInput )( implicit tx: S#Tx ) : Ex = new ConstRead( in )
    }
+
+   private final class ConstRead( in: DataInput ) extends ConstLike {
+      protected val constValue = readValue( in )
+   }
+
+   private final class VarRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+   extends NodeLike with Expr.Var[ S, A ] {
+      protected val ref = tx0.readVar[ Ex ]( id, in )
+   }
+
+   protected def readExpr( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Ex = serializer.read( in, access )
 
    private sealed trait ConstLike extends Expr.Const[ S, A ] {
       final def react( fun: (S#Tx, Change) => Unit )
@@ -98,18 +104,56 @@ trait Type[ S <: Sys[ S ], A ] {
 //   protected def newBinaryOp( op: BinaryOp, a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( op, a, b, tx )
 //   protected def newUnaryOp( op: UnaryOp, a: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( op, a, tx )
 
-   private final class BinaryOpNew( op: BinaryOp, a: Ex, b: Ex, tx0: S#Tx )
+   private sealed trait UnaryOpImpl
    extends NodeLike with StandaloneLike[ S, Change, Ex ]
    with LateBinding[ S, Change ] {
-      protected val targets   = Invariant.Targets[ S ]( tx0 )
-      def value( implicit tx: S#Tx ) = op.value( a.value, b.value )
-      def writeData( out: DataOutput ) {
-         out.writeShort( op.id )
-      }
-      def disposeData()( implicit tx: S#Tx ) {}
-      def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a, b )
+      protected def op: UnaryOp
+      protected def a: Ex
 
-      def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+      final def value( implicit tx: S#Tx ) = op.value( a.value )
+      final def writeData( out: DataOutput ) {
+         out.writeUnsignedByte( 1 )
+         out.writeShort( op.id )
+         a.write( out )
+      }
+      final def disposeData()( implicit tx: S#Tx ) {}
+      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a )
+
+      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+         a.pull( source, update ).flatMap { ach =>
+            change( op.value( ach.before ), op.value( ach.now ))
+         }
+      }
+   }
+
+   private final class UnaryOpNew( protected val op: UnaryOp, protected val a: Ex, tx0: S#Tx )
+   extends UnaryOpImpl {
+      protected val targets   = Invariant.Targets[ S ]( tx0 )
+   }
+
+   private final class UnaryOpRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+   extends UnaryOpImpl {
+      protected val op  = unaryOp( in.readShort() )
+      protected val a   = readExpr( in, access )( tx0 )
+   }
+
+   private sealed trait BinaryOpImpl
+   extends NodeLike with StandaloneLike[ S, Change, Ex ] with LateBinding[ S, Change ] {
+      protected def op: BinaryOp
+      protected def a: Ex
+      protected def b: Ex
+
+      final def value( implicit tx: S#Tx ) = op.value( a.value, b.value )
+      final def writeData( out: DataOutput ) {
+         out.writeUnsignedByte( 2 )
+         out.writeShort( op.id )
+         a.write( out )
+         b.write( out )
+      }
+      final def disposeData()( implicit tx: S#Tx ) {}
+      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a, b )
+
+      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
          (a.pull( source, update ), b.pull( source, update )) match {
             case (None, None)                => None
             case (Some( ach ), None )        =>
@@ -124,22 +168,16 @@ trait Type[ S <: Sys[ S ], A ] {
       }
    }
 
-   private final class UnaryOpNew( op: UnaryOp, a: Ex, tx0: S#Tx )
-   extends NodeLike with StandaloneLike[ S, Change, Ex ]
-   with LateBinding[ S, Change ] {
+   private final class BinaryOpNew( protected val op: BinaryOp, protected val a: Ex, protected val b: Ex, tx0: S#Tx )
+   extends BinaryOpImpl {
       protected val targets   = Invariant.Targets[ S ]( tx0 )
-      def value( implicit tx: S#Tx ) = op.value( a.value )
-      def writeData( out: DataOutput ) {
-         out.writeShort( op.id )
-      }
-      def disposeData()( implicit tx: S#Tx ) {}
-      def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a )
+   }
 
-      def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         a.pull( source, update ).flatMap { ach =>
-            change( op.value( ach.before ), op.value( ach.now ))
-         }
-      }
+   private final class BinaryOpRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+   extends BinaryOpImpl {
+      protected val op  = binaryOp( in.readShort() )
+      protected val a   = readExpr( in, access )( tx0 )
+      protected val b   = readExpr( in, access )( tx0 )
    }
 
    protected trait BinaryOp {

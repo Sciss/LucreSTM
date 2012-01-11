@@ -100,7 +100,7 @@ object BerkeleyDB {
 
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
       private val idCntVar    = new CachedIntVar( 0, idCnt )
-      private val reactCntVar = new CachedIntVar( 1, idCnt )
+//      private val reactCntVar = new CachedIntVar( 1, idCnt )
       private val inMem       = InMemory()
 
       val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.atomic { implicit tx =>
@@ -136,17 +136,17 @@ object BerkeleyDB {
 
       def newIDValue()( implicit tx: Txn ) : Int = {
          val id = idCntVar.get( tx ) + 1
-         logConfig( "new " + id )
+         logConfig( "new   <" + id + ">" )
          idCntVar.set( id )
          id
       }
 
-      def newReactValue()( implicit tx: Txn ) : Int = {
-         val id = reactCntVar.get( tx ) + 1
-         logConfig( "new react " + id )
-         reactCntVar.set( id )
-         id
-      }
+//      def newReactValue()( implicit tx: Txn ) : Int = {
+//         val id = reactCntVar.get( tx ) + 1
+//         logConfig( "new react " + id )
+//         reactCntVar.set( id )
+//         id
+//      }
 
       private def withIO[ A ]( fun: IO => A ) : A = {
          val ioOld   = ioQueue.poll()
@@ -168,12 +168,12 @@ object BerkeleyDB {
       }
 
       def remove( id: Int )( implicit tx: Txn ) {
-         logConfig( "remove <" + id + ">" )
+         logConfig( "remov <" + id + ">" )
          withIO( _.remove( id ))
       }
 
       def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Txn ) : A = {
-         logConfig( "read <" + id + ">" )
+         logConfig( "read  <" + id + ">" )
          withIO { io =>
             val in = io.read( id )
             if( in != null ) {
@@ -508,7 +508,7 @@ object BerkeleyDB {
          ScalaTxn.setExternalDecider( this )( peer )
          val res = system.env.beginTransaction( null, system.txnCfg )
          id = res.getId
-         logConfig( "txn begin <" + id + ">" )
+         logConfig( "txn begin  <" + id + ">" )
          ScalaTxn.afterRollback({ status =>
             try {
                logConfig( "txn rollback <" + id + ">" )

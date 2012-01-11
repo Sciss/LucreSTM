@@ -45,6 +45,8 @@ final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
       def toUpperCase( implicit tx: S#Tx ) : Ex = UnaryOp.Upper( ex )
    }
 
+   protected def unaryOp( id: Int ) = UnaryOp( id )
+
    protected object UnaryOp {
       def apply( id: Int ) : UnaryOp = (id: @switch) match {
          case 0 => Reverse
@@ -61,6 +63,8 @@ final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
          def value( in: String ) = in.toUpperCase
       }
    }
+
+   protected def binaryOp( id: Int ) = BinaryOp( id )
 
    protected object BinaryOp {
       def apply( id: Int ) : BinaryOp = (id: @switch) match {
