@@ -225,7 +225,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
                                           visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
       children.get.foldLeft( reactions ) { (rs, sel) =>
          if( sel.key == key ) {  // XXX bitmask?
-            sel.propagate( source, update, parent, /* key, */ visited, reactions )
+            sel.propagate( source, update, parent, /* key, */ visited, rs )
          } else reactions
       }
    }
