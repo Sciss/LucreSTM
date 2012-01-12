@@ -31,6 +31,7 @@ import stm.{ Txn => _Txn, Var => _Var }
 import event.{Event, Node, ObserverKey, ReactionMap, Reactions, Reactor, Targets}
 import concurrent.stm.{InTxn, TxnExecutor}
 import collection.immutable.{IntMap, IndexedSeq => IIdxSeq}
+import scala.util.MurmurHash
 
 object Confluent {
    private type Acc = IIdxSeq[ Int ]
@@ -42,6 +43,22 @@ object Confluent {
       private[Confluent] def id: Int
       private[Confluent] def path: Acc
       final def shortString : String = path.mkString( "<", ",", ">" )
+
+      override def hashCode = {
+         import MurmurHash._
+         var h = startHash( 2 )
+         val c = startMagicA
+         val k = startMagicB
+         h = extendHash( h, id, c, k )
+         h = extendHash( h, path.##, nextMagicA( c ), nextMagicB( k ))
+         finalizeHash( h )
+      }
+
+      override def equals( that: Any ) : Boolean =
+         that.isInstanceOf[ ID ] && {
+            val b = that.asInstanceOf[ ID ]
+            id == b.id && path == b.path
+         }
    }
 
    sealed trait Txn extends _Txn[ S ]

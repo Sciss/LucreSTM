@@ -627,7 +627,7 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
 
 trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
 /* with EarlyBinding[ S, A ] */ /* with Singleton[ S ] with Root[ S, A ] */ {
-   final protected def selector = 0
+   final protected def selector = 1
    final protected def node: Node[ S, A ] = this
 
    final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =

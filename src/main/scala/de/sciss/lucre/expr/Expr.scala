@@ -70,7 +70,11 @@ object Expr {
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 
       final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
-         if( source == this ) Some( update.asInstanceOf[ Change[ A ]]) else get.pull( source, update )
+         if( source == this ) {
+            Some( update.asInstanceOf[ Change[ A ]])
+         } else {
+            get.pull( source, update )
+         }
       }
    }
    trait Const[ S <: Sys[ S ], A ] extends Expr[ S, A ] with event.Constant[ S ] {
