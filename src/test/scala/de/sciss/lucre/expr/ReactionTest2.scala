@@ -34,9 +34,9 @@ import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, Border
 import annotation.{tailrec, switch}
 import collection.mutable.Buffer
 import stm.{TxnSerializer, Sys}
-import event.{Root, Source, Observer, EarlyBinding, Invariant}
 import stm.impl.{InMemory, Confluent, BerkeleyDB}
 import stm.Mutable
+import event.{LateBinding, Root, Source, Observer, EarlyBinding, Invariant}
 
 object ReactionTest2 extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
@@ -92,17 +92,39 @@ Usages:
                   ( implicit tx: Tx ) : Region =
             new New( name, start, stop, tx )
 
-         private sealed trait Impl extends Region {
+         private final class New( name0: string.Ex, start0: long.Ex, stop0: long.Ex, tx0: Tx )
+         extends RegionLike.Impl with Region {
+            region =>
+
+            val id = tx0.newID()
+
+            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
+            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
+            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
+         }
+
+         private final class Read( in: DataInput, acc: S#Acc, tx0: S#Tx ) extends RegionLike.Impl with Region {
+            region =>
+
+            val id = tx0.readID( in, acc )
+
+            val name_#  = string.readVar( in, acc )( tx0 )
+            val start_# = long.readVar(   in, acc )( tx0 )
+            val stop_#  = long.readVar(   in, acc )( tx0 )
+         }
+
+         implicit val serializer : TxnSerializer[ S#Tx, S#Acc, Region ] = new TxnSerializer[ S#Tx, S#Acc, Region ] {
+            def write( v: Region, out: DataOutput ) { v.write( out )}
+            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Region =
+               new Read( in, access, tx )
+         }
+      }
+
+      object RegionLike {
+         sealed trait Impl extends RegionLike {
             def name_# : string.Var
             def start_# : long.Var
             def stop_# : long.Var
-
-//            final def access( path: S#Acc )( implicit tx: S#Tx ) : Region = {
-//               val out  = new DataOutput( )
-//               write( out )
-//               val in   = new DataInput( out.toByteArray )
-//               new Read( in, path, tx )
-//            }
 
             final def name( implicit tx: Tx ) : string.Ex = name_#.get
             final def name_=( value: string.Ex )( implicit tx: Tx ) { name_#.set( value )}
@@ -125,41 +147,9 @@ Usages:
                stop_#.dispose()
             }
          }
-
-         private final class New( name0: string.Ex, start0: long.Ex, stop0: long.Ex, tx0: Tx )
-         extends Impl {
-            region =>
-
-            val id = tx0.newID()
-
-            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
-            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
-            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
-         }
-
-         private final class Read( in: DataInput, acc: S#Acc, tx0: S#Tx ) extends Impl {
-            region =>
-
-            val id = tx0.readID( in, acc )
-
-            val name_#  = string.readVar( in, acc )( tx0 )
-            val start_# = long.readVar(   in, acc )( tx0 )
-            val stop_#  = long.readVar(   in, acc )( tx0 )
-         }
-
-         implicit val serializer : TxnSerializer[ S#Tx, S#Acc, Region ] = new TxnSerializer[ S#Tx, S#Acc, Region ] {
-            def write( v: Region, out: DataOutput ) { v.write( out )}
-            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Region =
-               new Read( in, access, tx )
-         }
       }
 
-      trait Region extends Mutable[ S ] {
-         override def toString = "Region" + id
-
-//         // ouch
-//         def access( path: S#Acc )( implicit tx: Tx ) : Region
-
+      trait RegionLike {
          def name( implicit tx: Tx ) : string.Ex
          def name_=( value: string.Ex )( implicit tx: Tx ) : Unit
          def name_# : string.Ex
@@ -173,17 +163,19 @@ Usages:
          def stop_# : long.Ex
       }
 
-//      object EventRegion {
-//         sealed trait Update
-//         final case class Renamed( r: EventRegion, before: String, now: String ) extends Update
-//         final case class Moved( r: EventRegion, before: Change[ Long ], now: Change[ Long ] ) extends Update
-//      }
-//      trait EventRegion extends Region with Event.Invariant[ S, EventRegion.Update ] {
-//         name_#.observe { (tx, str) =>
-//         }
-//      }
+      trait Region extends RegionLike with Mutable[ S ] {
+         override def toString = "Region" + id
+      }
 
-//      trait RegionRenamed extends Event.Invariant.Observable[ S, Event.Change[ String ], RegionRenamed ] with Event.Singleton[ S ]
+      final case class Span( start: Long, stop: Long )
+
+      object EventRegion {
+         sealed trait Update
+         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
+         final case class Moved( r: EventRegion, change: event.Change[ Span ]) extends Update
+      }
+      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ] {
+      }
 
 //      object RegionList {
 //         def empty( implicit tx: Tx ) : RegionList = new New( tx )
@@ -327,50 +319,50 @@ Usages:
 //            o
 //         }
 //      }
-
-      object LinkedList {
-         def apply[ A ]( value: A, next: Option[ LinkedList[ A ]])( implicit tx: S#Tx, peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : LinkedList[ A ] =
-            new New[ A ]( value, next, tx, peerSer )
-
-         private sealed trait Impl[ A ] extends LinkedList[ A ] {
-            protected def peerSer: TxnSerializer[ S#Tx, S#Acc, A ]
-            final protected def writeData( out: DataOutput ) {
-               peerSer.write( value, out )
-               next_#.write( out )
-            }
-
-            final protected def disposeData()( implicit tx: S#Tx ) {
-               next_#.dispose()
-            }
-         }
-
-         private final class New[ A ]( val value: A, next0: Option[ LinkedList[ A ]], tx0: S#Tx,
-                                       protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) extends Impl[ A ] {
-            val id      = tx0.newID()
-            val next_#  = tx0.newVar[ Option[ LinkedList[ A ]]]( id, next0 )
-         }
-
-         private final class Read[ A ]( in: DataInput, acc: S#Acc, tx0: S#Tx,
-                                        protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ] ) extends Impl[ A ] {
-            val id      = tx0.readID( in, acc )
-            val value   = peerSer.read( in, acc )( tx0 )
-            val next_#  = tx0.readVar[ Option[ LinkedList[ A ]]]( id, in )
-         }
-
-         implicit def serializer[ A ]( implicit peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] =
-            new TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] {
-               def write( v: LinkedList[ A ], out: DataOutput ) { v.write( out )}
-               def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : LinkedList[ A ] =
-                  new Read[ A ]( in, access, tx, peerSer )
-            }
-      }
-
-      trait LinkedList[ A ] extends Mutable[ S ] {
-         def value: A
-         def next_# : S#Var[ Option[ LinkedList[ A ]]]
-         final def next( implicit tx: Tx ) : Option[ LinkedList[ A ]] = next_#.get
-         final def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) { next_#.set( elem )}
-      }
+//
+//      object LinkedList {
+//         def apply[ A ]( value: A, next: Option[ LinkedList[ A ]])( implicit tx: S#Tx, peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : LinkedList[ A ] =
+//            new New[ A ]( value, next, tx, peerSer )
+//
+//         private sealed trait Impl[ A ] extends LinkedList[ A ] {
+//            protected def peerSer: TxnSerializer[ S#Tx, S#Acc, A ]
+//            final protected def writeData( out: DataOutput ) {
+//               peerSer.write( value, out )
+//               next_#.write( out )
+//            }
+//
+//            final protected def disposeData()( implicit tx: S#Tx ) {
+//               next_#.dispose()
+//            }
+//         }
+//
+//         private final class New[ A ]( val value: A, next0: Option[ LinkedList[ A ]], tx0: S#Tx,
+//                                       protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) extends Impl[ A ] {
+//            val id      = tx0.newID()
+//            val next_#  = tx0.newVar[ Option[ LinkedList[ A ]]]( id, next0 )
+//         }
+//
+//         private final class Read[ A ]( in: DataInput, acc: S#Acc, tx0: S#Tx,
+//                                        protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ] ) extends Impl[ A ] {
+//            val id      = tx0.readID( in, acc )
+//            val value   = peerSer.read( in, acc )( tx0 )
+//            val next_#  = tx0.readVar[ Option[ LinkedList[ A ]]]( id, in )
+//         }
+//
+//         implicit def serializer[ A ]( implicit peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] =
+//            new TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] {
+//               def write( v: LinkedList[ A ], out: DataOutput ) { v.write( out )}
+//               def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : LinkedList[ A ] =
+//                  new Read[ A ]( in, access, tx, peerSer )
+//            }
+//      }
+//
+//      trait LinkedList[ A ] extends Mutable[ S ] {
+//         def value: A
+//         def next_# : S#Var[ Option[ LinkedList[ A ]]]
+//         final def next( implicit tx: Tx ) : Option[ LinkedList[ A ]] = next_#.get
+//         final def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) { next_#.set( elem )}
+//      }
 
       final class RegionView( rv: S#Var[ Region ], id: String ) extends JPanel {
          private val lay = new GroupLayout( this )
