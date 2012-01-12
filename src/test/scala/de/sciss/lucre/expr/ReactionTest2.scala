@@ -187,6 +187,14 @@ Usages:
             val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
 
             val renamed = name_#.changed.map( ch => EventRegion.Renamed( this, ch ))
+            val renamed = event.map( name_#.changed )( ch => EventRegion.Renamed( this, ch ))
+            val removed = event[ EventRegion.Removed ]        // def apply[ A ] : Event[ A ]
+            val removed = event( EventRegion.Removed( this )) // def apply[ A ]( constr: => A ) : Event[ A ]
+
+//            name_#.changed.react { ... }
+//            name_#.react(_.changed) { ... }
+//            react( name_#.changed ) { ... }
+//            name_#.changed ~> { ... }
 
             protected def sources( implicit tx: S#Tx )   = IIdxSeq( name_#, start_#, stop_# )
 

@@ -215,3 +215,16 @@ Txn {
         (full, reactions)
       }
    }
+
+::::::::::::::::::::
+
+observer.add
+ --> event +=
+   --> node.addReactor( (event.selector, observer) )
+
+so an observer
+
+  r.moved.react( ... )
+
+will produce a r.pull( moved.key )
+
