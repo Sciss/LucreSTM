@@ -36,7 +36,7 @@ import collection.mutable.Buffer
 import stm.{TxnSerializer, Sys}
 import stm.impl.{InMemory, Confluent, BerkeleyDB}
 import stm.Mutable
-import event.{LateBinding, Root, Source, Observer, EarlyBinding, Invariant}
+import event.{Event, LateBinding, Root, Source, Observer, EarlyBinding, Invariant}
 
 object ReactionTest2 extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
@@ -97,7 +97,6 @@ Usages:
             region =>
 
             val id = tx0.newID()
-
             val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
             val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
             val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
@@ -173,6 +172,28 @@ Usages:
          sealed trait Update
          final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
          final case class Moved( r: EventRegion, change: event.Change[ Span ]) extends Update
+
+         def apply( name: string.Ex, start: long.Ex, stop: long.Ex )
+                  ( implicit tx: Tx ) : EventRegion =
+            new New( name, start, stop, tx )
+
+         private final class New( name0: string.Ex, start0: long.Ex, stop0: long.Ex, tx0: S#Tx )
+         extends RegionLike.Impl with EventRegion {
+            region =>
+
+            protected val targets                        = Invariant.Targets[ S ]( tx0 )
+            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
+            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
+            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
+
+            val renamed = name_#.changed.map( ch => EventRegion.Renamed( this, ch ))
+
+            protected def sources( implicit tx: S#Tx )   = IIdxSeq( name_#, start_#, stop_# )
+
+            def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ EventRegion.Update ] = {
+               None
+            }
+         }
       }
       trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ] {
       }
