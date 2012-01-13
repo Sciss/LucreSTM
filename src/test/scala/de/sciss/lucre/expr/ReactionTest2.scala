@@ -168,43 +168,43 @@ Usages:
 
       final case class Span( start: Long, stop: Long )
 
-      object EventRegion {
-         sealed trait Update
-         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
-         final case class Moved( r: EventRegion, change: event.Change[ Span ]) extends Update
-
-         def apply( name: string.Ex, start: long.Ex, stop: long.Ex )
-                  ( implicit tx: Tx ) : EventRegion =
-            new New( name, start, stop, tx )
-
-         private final class New( name0: string.Ex, start0: long.Ex, stop0: long.Ex, tx0: S#Tx )
-         extends RegionLike.Impl with EventRegion {
-            region =>
-
-            protected val targets                        = Invariant.Targets[ S ]( tx0 )
-            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
-            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
-            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
-
-            val renamed = name_#.changed.map( ch => EventRegion.Renamed( this, ch ))
-            val renamed = event.map( name_#.changed )( ch => EventRegion.Renamed( this, ch ))
-            val removed = event[ EventRegion.Removed ]        // def apply[ A ] : Event[ A ]
-            val removed = event( EventRegion.Removed( this )) // def apply[ A ]( constr: => A ) : Event[ A ]
-
-//            name_#.changed.react { ... }
-//            name_#.react(_.changed) { ... }
-//            react( name_#.changed ) { ... }
-//            name_#.changed ~> { ... }
-
-            protected def sources( implicit tx: S#Tx )   = IIdxSeq( name_#, start_#, stop_# )
-
-            def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ EventRegion.Update ] = {
-               None
-            }
-         }
-      }
-      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ] {
-      }
+//      object EventRegion {
+//         sealed trait Update
+//         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
+//         final case class Moved( r: EventRegion, change: event.Change[ Span ]) extends Update
+//
+//         def apply( name: string.Ex, start: long.Ex, stop: long.Ex )
+//                  ( implicit tx: Tx ) : EventRegion =
+//            new New( name, start, stop, tx )
+//
+//         private final class New( name0: string.Ex, start0: long.Ex, stop0: long.Ex, tx0: S#Tx )
+//         extends RegionLike.Impl with EventRegion {
+//            region =>
+//
+//            protected val targets                        = Invariant.Targets[ S ]( tx0 )
+//            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
+//            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
+//            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
+//
+//            val renamed = name_#.changed.map( ch => EventRegion.Renamed( this, ch ))
+//            val renamed = event.map( name_#.changed )( ch => EventRegion.Renamed( this, ch ))
+//            val removed = event[ EventRegion.Removed ]        // def apply[ A ] : Event[ A ]
+//            val removed = event( EventRegion.Removed( this )) // def apply[ A ]( constr: => A ) : Event[ A ]
+//
+////            name_#.changed.react { ... }
+////            name_#.react(_.changed) { ... }
+////            react( name_#.changed ) { ... }
+////            name_#.changed ~> { ... }
+//
+//            protected def sources( implicit tx: S#Tx )   = IIdxSeq( name_#, start_#, stop_# )
+//
+//            def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ EventRegion.Update ] = {
+//               None
+//            }
+//         }
+//      }
+//      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ] {
+//      }
 
 //      object RegionList {
 //         def empty( implicit tx: Tx ) : RegionList = new New( tx )
@@ -453,9 +453,9 @@ Usages:
          }
 
          private def connect( r: Region )( implicit tx: Tx ) {
-            r.name_#.react  { case (_, event.Change( _, v )) => defer( ggName.setText(  v ))}
-            r.start_#.react { case (_, event.Change( _, v )) => defer( ggStart.setText( v.toString ))}
-            r.stop_#.react  { case (_, event.Change( _, v )) => defer( ggStop.setText(  v.toString ))}
+            r.name_#.changed.react  { case (_, event.Change( _, v )) => defer( ggName.setText(  v ))}
+            r.start_#.changed.react { case (_, event.Change( _, v )) => defer( ggStart.setText( v.toString ))}
+            r.stop_#.changed.react  { case (_, event.Change( _, v )) => defer( ggStop.setText(  v.toString ))}
 
             val name0   = r.name.value
             val start0  = r.start.value
