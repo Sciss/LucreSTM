@@ -1,0 +1,33 @@
+value = Span( Long, Long )
+
+expr = Expr[ Span ]
+
+::::::::::::::::::::::
+
+the problem is as follows: we would like to have a general Observer for Expr[ A ];
+thus we need a general instance of a serializer (at least reader) for Expr[ A ].
+
+but then other expression types might introduce operations from B to A.
+
+such as span.length : Expr[ Span ] => Expr[ Long ]
+
+now length would be defined in Spans.SpanOps, but the serializer Longs.serializer
+must be capable of reading in something like Spans.SpanLength ...
+
+thus the universe must be either completely closed, or ... ?
+
+and then we cannot extend the expression package in any modular way...
+
+::::::::::::::::::::::
+
+introduce extension points to a serializer
+
+the Expr stuff is already 'cookie driven', so we could add a static IntMap for extensions
+
+this might not be the most pretty approach, but should be rather practical
+
+; question comes up whether we still benefit against dynamic class loader deserialization
+such as Class.forName ...
+
+::::::::::::::::::::::
+
