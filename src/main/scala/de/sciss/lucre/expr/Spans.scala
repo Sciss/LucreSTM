@@ -30,6 +30,7 @@ import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import event.{Event, Invariant, LateBinding}
 import annotation.switch
+import concurrent.stm.{InTxn, Txn, TxnExecutor}
 
 //final case class Span[ S <: Sys[ S ]]( start: Expr[ S, Long ], stop: Expr[ S, Long ])
 final case class Span( start: Long, stop: Long ) {
@@ -103,12 +104,39 @@ final case class Span( start: Long, stop: Long ) {
    def shift( delta: Long ) = Span( start + delta, stop + delta )
 }
 
+object Spans extends Extensions[ Span ] {
+   private def initTx( implicit tx: InTxn ) {
+      // 'Span'
+      Longs.addExtension( 0x5370616E, LongsExtensions )
+   }
+
+   lazy val init : Unit = {
+      Txn.findCurrent match {
+         case Some( itx )  => initTx( itx )
+         case None         => TxnExecutor.defaultAtomic( initTx( _ ))
+      }
+   }
+
+   private object LongsExtensions extends Extensions.ReaderFactory[ Long ] {
+      def reader[ S <: Sys[ S ]] : Invariant.Reader[ S, Expr[ S, Long ]] = new LongsExtReader[ S ]
+   }
+
+   private final class LongsExtReader[ S <: Sys[ S ]] extends Invariant.Reader[ S, Expr[ S, Long ]] {
+      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Expr[ S, Long ] = {
+         val opID = in.readInt()
+         sys.error( "TODO" )
+      }
+   }
+}
+
 final class Spans[ S <: Sys[ S ]]( longs: Longs[ S ]) extends Type[ S, Span ] {
 //   type Span = expr.Span[ S ]
 
    private type LongEx = Expr[ S, Long ]
 
    implicit def spanOps[ A <% Expr[ S, Span ]]( ex: A ) : SpanOps = new SpanOps( ex )
+
+   protected def extensions: Extensions[ Span ] = Spans
 
    final class SpanOps private[Spans]( ex: Ex ) {
       // binary ops

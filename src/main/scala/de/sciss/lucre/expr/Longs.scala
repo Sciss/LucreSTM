@@ -30,6 +30,8 @@ import stm.Sys
 import annotation.switch
 import stm.impl.InMemory
 
+object Longs extends Extensions[ Long ]
+
 final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
    protected def writeValue( v: Long, out: DataOutput ) { out.writeLong( v )}
    protected def readValue( in: DataInput ) : Long = in.readLong()
@@ -45,6 +47,8 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
       def max( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Max( ex, that )
       def abs( implicit tx: S#Tx ) : Ex = UnaryOp.Abs( ex )
    }
+
+   protected def extensions: Extensions[ Long ] = Longs
 
    protected def unaryOp( id: Int ) = UnaryOp( id )
 

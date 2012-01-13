@@ -125,8 +125,8 @@ object Selector {
 sealed trait Selector[ S <: Sys[ S ]] extends Writer {
    def key: Int
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
-                                    visited: Visited[ S ], reactions: Reactions )
-                                  ( implicit tx: S#Tx ) : Reactions
+                                 visited: Visited[ S ], reactions: Reactions )
+                               ( implicit tx: S#Tx ) : Reactions
    private[event] def observerKey : Option[ ObserverKey[ S ]] // Option[ Int ]
 }
 
