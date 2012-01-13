@@ -199,25 +199,25 @@ final class Spans[ S <: Sys[ S ]]( longs: Longs[ S ]) extends Type[ S, Span ] {
       out.writeLong( v.stop )
    }
 
-   private sealed trait DecompLongImpl
-   extends Basic with Expr.Node[ S, LongEx ]
-   with LateBinding[ S, Change ] {
-      protected def op: DecompLongOp
-      protected def a: Ex
-
-      final def value( implicit tx: S#Tx ) = op.value( a.value )
-      final def writeData( out: DataOutput ) {
-         out.writeUnsignedByte( 1 )
-         out.writeShort( op.id )
-         a.write( out )
-      }
-      final def disposeData()( implicit tx: S#Tx ) {}
-      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
-
-      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         a.changed.pull( source, update ).flatMap { ach =>
-            change( op.value( ach.before ), op.value( ach.now ))
-         }
-      }
-   }
+//   private sealed trait DecompLongImpl
+//   extends Basic with Expr.Node[ S, LongEx ]
+//   with LateBinding[ S, Change ] {
+//      protected def op: DecompLongOp
+//      protected def a: Ex
+//
+//      final def value( implicit tx: S#Tx ) = op.value( a.value )
+//      final def writeData( out: DataOutput ) {
+//         out.writeUnsignedByte( 1 )
+//         out.writeShort( op.id )
+//         a.write( out )
+//      }
+//      final def disposeData()( implicit tx: S#Tx ) {}
+//      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
+//
+//      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+//         a.changed.pull( source, update ).flatMap { ach =>
+//            change( op.value( ach.before ), op.value( ach.now ))
+//         }
+//      }
+//   }
 }

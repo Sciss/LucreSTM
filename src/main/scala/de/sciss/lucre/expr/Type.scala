@@ -39,7 +39,7 @@ trait Type[ S <: Sys[ S ], A ] {
 
    protected def readValue( in: DataInput ) : A
    protected def writeValue( v: A, out: DataOutput ) : Unit
-   protected def unaryOp[ B ]( id: Int ) : UnaryOp[ B ]
+   protected def unaryOp( id: Int ) : UnaryOp
    protected def binaryOp( id: Int ) : BinaryOp
 
 //   implicit def ops[ A <% Ex ]( ex: A ) : Ops // = new Ops( ex )
@@ -62,7 +62,7 @@ trait Type[ S <: Sys[ S ], A ] {
       def readConstant( in: DataInput )( implicit tx: S#Tx ) : Ex = new ConstRead( in )
    }
 
-   protected def readDecomp( cookie: Int, in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
+   protected def readDecomp( cookie: Int, in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ], tx: S#Tx ) : Ex =
       sys.error( "Unexpected cookie " + cookie )
 
    private final class ConstRead( in: DataInput ) extends ConstLike {
@@ -109,18 +109,18 @@ trait Type[ S <: Sys[ S ], A ] {
       new VarRead( in, access, targets, tx )
    }
 
-   protected def change[ B ]( before: B, now: B ) : Option[ event.Change[ B ]] = new event.Change( before, now ).toOption
+   protected def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption
 
 //   protected def newBinaryOp( op: BinaryOp, a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( op, a, b, tx )
 //   protected def newUnaryOp( op: UnaryOp, a: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( op, a, tx )
 
-   private sealed trait UnaryOpImpl[ B ]
-   extends Basic with Expr.Node[ S, B ] // with StandaloneLike[ S, Change, Ex ]
+   private sealed trait UnaryOpImpl
+   extends Basic with Expr.Node[ S, A ] // with StandaloneLike[ S, Change, Ex ]
    with LateBinding[ S, Change ] {
-      protected def op: UnaryOp[ B ]
+      protected def op: UnaryOp
       protected def a: Ex
 
-      final def value( implicit tx: S#Tx ) : B = op.value( a.value )
+      final def value( implicit tx: S#Tx ) = op.value( a.value )
       final def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 1 )
          out.writeShort( op.id )
@@ -129,21 +129,21 @@ trait Type[ S <: Sys[ S ], A ] {
       final def disposeData()( implicit tx: S#Tx ) {}
       final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
 
-      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ event.Change[ B ]] = {
+      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
          a.changed.pull( source, update ).flatMap { ach =>
             change( op.value( ach.before ), op.value( ach.now ))
          }
       }
    }
 
-   private final class UnaryOpNew[ B ]( protected val op: UnaryOp[ B ], protected val a: Ex, tx0: S#Tx )
-   extends UnaryOpImpl[ B ] {
+   private final class UnaryOpNew( protected val op: UnaryOp, protected val a: Ex, tx0: S#Tx )
+   extends UnaryOpImpl {
       protected val targets   = Invariant.Targets[ S ]( tx0 )
    }
 
-   private final class UnaryOpRead[ B ]( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
-   extends UnaryOpImpl[ B ] {
-      protected val op  = unaryOp[ B ]( in.readShort() )
+   private final class UnaryOpRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+   extends UnaryOpImpl {
+      protected val op  = unaryOp( in.readShort() )
       protected val a   = readExpr( in, access )( tx0 )
    }
 
@@ -197,8 +197,8 @@ trait Type[ S <: Sys[ S ], A ] {
       def id: Int
    }
 
-   protected trait UnaryOp[ B ] {
-      def apply( in: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew[ B ]( this, in, tx )
+   protected trait UnaryOp {
+      def apply( in: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( this, in, tx )
       def value( in: A ) : A
       def id: Int
    }
