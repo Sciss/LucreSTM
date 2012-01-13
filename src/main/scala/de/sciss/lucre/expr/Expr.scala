@@ -27,40 +27,61 @@ package de.sciss.lucre
 package expr
 
 import stm.{Var => _Var, Sys, Writer}
-import event.{Change, Event, LateBinding, Reactor, Source, Sources, StandaloneLike}
 import collection.immutable.{IndexedSeq => IIdxSeq}
+import event.{Trigger, Invariant, Dummy, Change, Event, LateBinding, Reactor, Source, Sources, StandaloneLike}
 
 object Expr {
+   trait Node[ S <: Sys[ S ], A ] extends Expr[ S, A ] with Invariant[ S, Change[ A ]] {
+      final val changed: Event[ S, Change[ A ], Expr[ S, A ]] = sys.error( "TODO" )
+   }
+
    trait Var[ S <: Sys[ S ], A ] extends Expr[ S, A ] with _Var[ S#Tx, Expr[ S, A ]]
-   with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] with LateBinding[ S, Change[ A ]]
-   with Source[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
+   with Invariant[ S, Change[ A ]] with /* StandaloneLike[ S, Change[ A ], Expr[ S, A ]] with */ LateBinding[ S, Change[ A ]]
+   /* with Source[ S, Change[ A ], Change[ A ], Expr[ S, A ]] */ {
+      expr =>
+
+      import de.sciss.lucre.{event => evt}
+
       private type Ex = Expr[ S, A ]
 
+      private val changedImp = new Trigger.Impl[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
+         def node: evt.Node[ S, Change[ A ]] = expr
+         def selector: Int = 1
+         protected def reader: evt.Reader[ S, Expr[ S, A ], _ ] = expr.reader
+      }
+
+      final def changed: Event[ S, Change[ A ], Expr[ S, A ]] = changedImp
+
+      // ---- these need to be implemented by subtypes ----
       protected def ref: S#Var[ Ex ]
+      protected def reader: evt.Reader[ S, Expr[ S, A ], _ ]
 
-      protected final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get )
+      final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get.changed )
 
-      protected final def writeData( out: DataOutput ) {
+      final protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 0 )
          ref.write( out )
       }
 
-      protected final def disposeData()( implicit tx: S#Tx ) {
+      final protected def disposeData()( implicit tx: S#Tx ) {
          ref.dispose()
       }
+
 
       final def get( implicit tx: S#Tx ) : Ex = ref.get
       final def set( expr: Ex )( implicit tx: S#Tx ) {
          val before = ref.get
          if( before != expr ) {
             val con = targets.isConnected
-            if( con ) before -= this
+//            if( con ) before -= this
+            if( con ) before.changed -= this
             ref.set( expr )
             if( con ) {
-               expr += this
+//               expr += this
+               expr.changed += this
                val beforeV = before.value
                val exprV   = expr.value
-               fire( Change( beforeV, exprV))
+               changedImp( Change( beforeV, exprV))
             }
          }
       }
@@ -69,15 +90,16 @@ object Expr {
 
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 
-      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
-         if( source == this ) {
+      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
+         if( source == changed ) {
             Some( update.asInstanceOf[ Change[ A ]])
          } else {
-            get.pull( source, update )
+            get.changed.pull( source, update )
          }
       }
    }
    trait Const[ S <: Sys[ S ], A ] extends Expr[ S, A ] with event.Constant[ S ] {
+      final def changed = Dummy[ S, Change[ A ], Expr[ S, A ]]
       protected def constValue : A
       final def value( implicit tx: S#Tx ) : A = constValue
       final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = None
@@ -90,6 +112,7 @@ object Expr {
    }
 }
 
-trait Expr[ S <: Sys[ S ], A ] extends /* Event.Val[ S, A ] with */ Event[ S, Change[ A ], Expr[ S, A ]] with Writer {
+trait Expr[ S <: Sys[ S ], A ] extends /* Event.Val[ S, A ] with Event[ S, Change[ A ], Expr[ S, A ]] with */ Writer {
+   def changed: Event[ S, Change[ A ], Expr[ S, A ]]
    def value( implicit tx: S#Tx ) : A
 }

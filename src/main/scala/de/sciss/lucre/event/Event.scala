@@ -194,6 +194,14 @@ object Observer {
          tx.removeEventReaction( key )
       }
    }
+
+   def dummy[ S <: Sys[ S ], A, Repr ] : Observer[ S, A, Repr ] = new Dummy[ S, A, Repr ]
+
+   private final class Dummy[ S <: Sys[ S ], A, Repr ] extends Observer[ S, A, Repr ] {
+      def add( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {}
+      def remove( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {}
+      def dispose()( implicit tx: S#Tx ) {}
+   }
 }
 
 /**
@@ -260,7 +268,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
 //   }
 
 private final class TriggerImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( protected val node: Node[ S, A ], key: Key[ A1, Repr ])
-extends Trigger.Impl[ S, A, A1, Repr ] with Root[ S, A1 ] {
+extends Trigger.Impl[ S, A, A1, Repr ] with Root[ S, A1, Repr ] {
    override def toString = node.toString + "." + key.name
 
    protected def selector: Int = key.id
@@ -544,8 +552,8 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  * A rooted event does not have sources. This trait provides a simple
  * implementation of `pull` which merely checks if this event has fired or not.
  */
-trait Root[ S <: Sys[ S ], A ] {
-   def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+trait Root[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
+   final override def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
       if( source == this ) Some( update.asInstanceOf[ A ]) else None
    }
 }
@@ -621,6 +629,15 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
       res
    }
 
+   def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
+      // no way to make the node's pull be generic in the result type without big big fuss
+      // (http://stackoverflow.com/questions/8798035/possible-to-perform-pattern-match-on-a-generic-value-with-type-conforming-result/8803684#8803684)
+//      node.pull( selector, source, update ).collect {
+//         case value: A1 => value
+//      }
+      node.pull( selector, source, update ).asInstanceOf[ Option[ A1 ]]  // :-(
+   }
+
 //      final def filter[ P <: (A) => Boolean ]( pred: P )( implicit tx: S#Tx ) : Event.Flat[ S, A1 ] =
 //         Filter[ S, A1, Event[ S, A1, Repr ], P ]( this )( pred )
 }
@@ -665,8 +682,9 @@ object Trigger {
                }
          }
    }
-   trait Standalone[ S <: Sys[ S ], A ] extends Impl[ S, A, A, Standalone[ S, A ]] with
-   StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] with EarlyBinding[ S, A ] with Root[ S, A ] {
+   trait Standalone[ S <: Sys[ S ], A ] extends Impl[ S, A, A, Standalone[ S, A ]]
+   with StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] with EarlyBinding[ S, A ]
+   with Root[ S, A, Standalone[ S, A ]] {
       final protected def reader: Reader[ S, Standalone[ S, A ], _ ] = Standalone.serializer[ S, A ]
    }
 }
@@ -684,7 +702,7 @@ object Bang {
       protected val targets = Invariant.Targets[ S ]
    }
 
-   private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit ] {
+   private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit, Bang[ S ]] {
       protected def reader = Bang.serializer[ S ]
    }
 
@@ -875,6 +893,19 @@ sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
 
 sealed trait NodeReactor[ S <: Sys[ S ]] extends Reactor[ S ] {
    def id: S#ID
+}
+
+object Dummy {
+   def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = new Dummy[ S, A, Repr ] {}
+}
+trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
+   final def +=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
+   final def -=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
+
+   final def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
+      Observer.dummy[ S, A, Repr ]
+
+   final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
 }
 
 /**

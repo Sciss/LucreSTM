@@ -44,7 +44,7 @@ trait Type[ S <: Sys[ S ], A ] {
 
 //   implicit def ops[ A <% Ex ]( ex: A ) : Ops // = new Ops( ex )
 
-   protected /* sealed */ trait NodeLike extends Expr[ S, A ] {
+   protected /* sealed */ trait Basic extends Expr[ S, A ] {
       final protected def reader = serializer
    }
 
@@ -67,7 +67,7 @@ trait Type[ S <: Sys[ S ], A ] {
    }
 
    private final class VarRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
-   extends NodeLike with Expr.Var[ S, A ] {
+   extends Basic with Expr.Var[ S, A ] {
       protected val ref = tx0.readVar[ Ex ]( id, in )
    }
 
@@ -88,12 +88,12 @@ trait Type[ S <: Sys[ S ], A ] {
       protected val constValue = init
    }
 
-   def Var( init: Ex )( implicit tx: S#Tx ) : Var = new NodeLike with Expr.Var[ S, A ] {
+   def Var( init: Ex )( implicit tx: S#Tx ) : Var = new Basic with Expr.Var[ S, A ] {
       protected val targets   = Invariant.Targets[ S ]
       protected val ref       = tx.newVar[ Ex ]( id, init )
    }
 
-   def NamedVar( name: => String, init: Ex )( implicit tx: S#Tx ) : Var = new NodeLike with Expr.Var[ S, A ] {
+   def NamedVar( name: => String, init: Ex )( implicit tx: S#Tx ) : Var = new Basic with Expr.Var[ S, A ] {
       protected val targets   = Invariant.Targets[ S ]
       protected val ref       = tx.newVar[ Ex ]( id, init )
       override def toString   = name
@@ -112,7 +112,7 @@ trait Type[ S <: Sys[ S ], A ] {
 //   protected def newUnaryOp( op: UnaryOp, a: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( op, a, tx )
 
    private sealed trait UnaryOpImpl
-   extends NodeLike with StandaloneLike[ S, Change, Ex ]
+   extends Basic with Expr.Node[ S, A ] // with StandaloneLike[ S, Change, Ex ]
    with LateBinding[ S, Change ] {
       protected def op: UnaryOp
       protected def a: Ex
@@ -124,10 +124,10 @@ trait Type[ S <: Sys[ S ], A ] {
          a.write( out )
       }
       final def disposeData()( implicit tx: S#Tx ) {}
-      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a )
+      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
 
-      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         a.pull( source, update ).flatMap { ach =>
+      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+         a.changed.pull( source, update ).flatMap { ach =>
             change( op.value( ach.before ), op.value( ach.now ))
          }
       }
@@ -145,7 +145,8 @@ trait Type[ S <: Sys[ S ], A ] {
    }
 
    private sealed trait BinaryOpImpl
-   extends NodeLike with StandaloneLike[ S, Change, Ex ] with LateBinding[ S, Change ] {
+   extends Basic with Expr.Node[ S, A ] // with StandaloneLike[ S, Change, Ex ]
+   with LateBinding[ S, Change ] {
       protected def op: BinaryOp
       protected def a: Ex
       protected def b: Ex
@@ -158,10 +159,10 @@ trait Type[ S <: Sys[ S ], A ] {
          b.write( out )
       }
       final def disposeData()( implicit tx: S#Tx ) {}
-      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a, b )
+      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed, b.changed )
 
-      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         (a.pull( source, update ), b.pull( source, update )) match {
+      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+         (a.changed.pull( source, update ), b.changed.pull( source, update )) match {
             case (None, None)                => None
             case (Some( ach ), None )        =>
                val bv = b.value

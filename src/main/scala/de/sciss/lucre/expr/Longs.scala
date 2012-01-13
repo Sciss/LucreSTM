@@ -107,7 +107,7 @@ class LongTests[ S <: Sys[ S ]]( system: S ) {
 
    println( "Evaluated: " + eval )
 
-   ◊ { implicit tx => s2.react { (tx, ch) =>
+   ◊ { implicit tx => s2.changed.react { (tx, ch) =>
       println( "Observed: " + ch )
    }}
 
