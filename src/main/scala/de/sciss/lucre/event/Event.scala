@@ -348,9 +348,9 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
 
    final def id: S#ID = targets.id
 
-   final protected def event[ A1 <: A, Repr <: Node[ S, A ]]( key: Key[ A1, Repr ]) /* ( implicit ev: this.type <:< Repr ) */ : Trigger[ S, A1, Repr ] = {
-      new TriggerImpl[ S, A, A1, Repr ]( this, key )
-   }
+//   final protected def event[ A1 <: A, Repr <: Node[ S, A ]]( key: Key[ A1, Repr ]) /* ( implicit ev: this.type <:< Repr ) */ : Trigger[ S, A1, Repr ] = {
+//      new TriggerImpl[ S, A, A1, Repr ]( this, key )
+//   }
 
    /**
     * @param   key   the key of the event or selector that invoked this method
@@ -888,7 +888,7 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
    def select( key: Int ) : Selector[ S ]
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
-                                    visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions
+                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions
 }
 
 sealed trait NodeReactor[ S <: Sys[ S ]] extends Reactor[ S ] {
