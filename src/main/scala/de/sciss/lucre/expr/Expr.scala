@@ -26,12 +26,12 @@
 package de.sciss.lucre
 package expr
 
-import stm.{Var => _Var, Sys, Writer}
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{Trigger, Invariant, Dummy, Change, Event, LateBinding, Reactor, Source, Sources, StandaloneLike}
+import event.{Dummy, Change, Event, LateBinding, Reactor, Source, Sources, StandaloneLike}
+import stm.{Disposable, Var => _Var, Sys, Writer}
 
 object Expr {
-   trait Node[ S <: Sys[ S ], A ] extends Expr[ S, A ] with Invariant[ S, Change[ A ]]
+   trait Node[ S <: Sys[ S ], A ] extends Expr[ S, A ] // with Invariant[ S, Change[ A ]]
    with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] {
       final val changed: Event[ S, Change[ A ], Expr[ S, A ]] = this
 //      expr =>
@@ -48,21 +48,23 @@ object Expr {
    }
 
    trait Var[ S <: Sys[ S ], A ] extends Expr[ S, A ] with _Var[ S#Tx, Expr[ S, A ]]
-   with Invariant[ S, Change[ A ]] with /* StandaloneLike[ S, Change[ A ], Expr[ S, A ]] with */ LateBinding[ S, Change[ A ]]
-   /* with Source[ S, Change[ A ], Change[ A ], Expr[ S, A ]] */ {
+   // with Invariant[ S, Change[ A ]]
+   with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] with LateBinding[ S, Change[ A ]]
+   with Source[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
       expr =>
 
       import de.sciss.lucre.{event => evt}
 
       private type Ex = Expr[ S, A ]
 
-      private val changedImp = new Trigger.Impl[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
-         def node: evt.Node[ S, Change[ A ]] = expr
-         def selector: Int = 1
-         protected def reader: evt.Reader[ S, Expr[ S, A ], _ ] = expr.reader
-      }
+//      private val changedImp = new Trigger.Impl[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
+//         def node: evt.Node[ S, Change[ A ]] = expr
+//         def selector: Int = 1
+//         protected def reader: evt.Reader[ S, Expr[ S, A ], _ ] = expr.reader
+//      }
+//
 
-      final def changed: Event[ S, Change[ A ], Expr[ S, A ]] = changedImp
+      final def changed: Event[ S, Change[ A ], Expr[ S, A ]] = this // changedImp
 
       // ---- these need to be implemented by subtypes ----
       protected def ref: S#Var[ Ex ]
@@ -79,7 +81,6 @@ object Expr {
          ref.dispose()
       }
 
-
       final def get( implicit tx: S#Tx ) : Ex = ref.get
       final def set( expr: Ex )( implicit tx: S#Tx ) {
          val before = ref.get
@@ -93,7 +94,7 @@ object Expr {
                expr.changed += this
                val beforeV = before.value
                val exprV   = expr.value
-               changedImp( Change( beforeV, exprV))
+               fire( Change( beforeV, exprV))
             }
          }
       }
@@ -127,4 +128,10 @@ object Expr {
 trait Expr[ S <: Sys[ S ], A ] extends /* Event.Val[ S, A ] with Event[ S, Change[ A ], Expr[ S, A ]] with */ Writer {
    def changed: Event[ S, Change[ A ], Expr[ S, A ]]
    def value( implicit tx: S#Tx ) : A
+
+   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
+      val o = changed.react { (tx, change) => fun( tx, change.now )}
+      fun( tx, value )
+      o
+   }
 }

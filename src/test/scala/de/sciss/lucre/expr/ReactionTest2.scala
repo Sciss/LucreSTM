@@ -453,15 +453,19 @@ Usages:
          }
 
          private def connect( r: Region )( implicit tx: Tx ) {
-            r.name_#.changed.react  { case (_, event.Change( _, v )) => defer( ggName.setText(  v ))}
+//            r.name_#.changed.react  { case (_, event.Change( _, v )) => defer( ggName.setText(  v ))}
+            // new way -- simpler observer
+            r.name_#.observe { (_, v) => defer( ggName.setText(  v ))}
+            // old full way -- observe changed events
             r.start_#.changed.react { case (_, event.Change( _, v )) => defer( ggStart.setText( v.toString ))}
             r.stop_#.changed.react  { case (_, event.Change( _, v )) => defer( ggStop.setText(  v.toString ))}
 
-            val name0   = r.name.value
+//            val name0   = r.name.value
             val start0  = r.start.value
             val stop0   = r.stop.value
+
             defer {
-               ggName.setText( name0 )
+//               ggName.setText( name0 )
                ggStart.setText( start0.toString )
                ggStop.setText( stop0.toString )
             }
