@@ -1,3 +1,28 @@
+/*
+ *  Spans.scala
+ *  (LucreSTM)
+ *
+ *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License
+ *  as published by the Free Software Foundation; either
+ *  version 2, june 1991 of the License, or (at your option) any later version.
+ *
+ *  This software is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *  General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public
+ *  License (gpl.txt) along with this software; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.lucre
 package expr
 
@@ -83,10 +108,29 @@ final class Spans[ S <: Sys[ S ]]( longs: Longs[ S ]) extends Type[ S, Span ] {
 
    private type LongEx = Expr[ S, Long ]
 
+   implicit def spanOps[ A <% Expr[ S, Span ]]( ex: A ) : SpanOps = new SpanOps( ex )
+
+   final class SpanOps private[Spans]( ex: Ex ) {
+      // binary ops
+      def unite( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Union( ex, that )
+      def intersect( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Intersection( ex, that )
+
+      // decomposition
+      def start( implicit tx: S#Tx ) : LongEx = ex match {
+         case i: Impl   => i.start
+         case _         => sys.error( "TODO" )
+      }
+
+      def stop( implicit tx: S#Tx ) : LongEx = ex match {
+         case i: Impl   => i.stop
+         case _         => sys.error( "TODO" )
+      }
+   }
+
    private sealed trait Impl extends Basic with Expr.Node[ S, expr.Span ]
    with LateBinding[ S, Change ] {
-      protected def start: LongEx
-      protected def stop: LongEx
+      def start: LongEx
+      def stop: LongEx
 
       final protected def sources( implicit tx: S#Tx ) : event.Sources[ S ] = IIdxSeq( start.changed, stop.changed )
 
@@ -119,8 +163,8 @@ final class Spans[ S <: Sys[ S ]]( longs: Longs[ S ]) extends Type[ S, Span ] {
       val _stop:  LongEx = stop
       new Impl {
          protected val targets   = Invariant.Targets[ S ]
-         protected val start     = _start
-         protected val stop      = _stop
+         val start               = _start
+         val stop                = _stop
       }
    }
 
@@ -153,5 +197,27 @@ final class Spans[ S <: Sys[ S ]]( longs: Longs[ S ]) extends Type[ S, Span ] {
    protected def writeValue( v: expr.Span, out: DataOutput ) {
       out.writeLong( v.start )
       out.writeLong( v.stop )
+   }
+
+   private sealed trait DecompLongImpl
+   extends Basic with Expr.Node[ S, LongEx ]
+   with LateBinding[ S, Change ] {
+      protected def op: DecompLongOp
+      protected def a: Ex
+
+      final def value( implicit tx: S#Tx ) = op.value( a.value )
+      final def writeData( out: DataOutput ) {
+         out.writeUnsignedByte( 1 )
+         out.writeShort( op.id )
+         a.write( out )
+      }
+      final def disposeData()( implicit tx: S#Tx ) {}
+      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
+
+      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+         a.changed.pull( source, update ).flatMap { ach =>
+            change( op.value( ach.before ), op.value( ach.now ))
+         }
+      }
    }
 }

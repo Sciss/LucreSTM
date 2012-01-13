@@ -70,46 +70,45 @@ Usages:
       type Tx  = S#Tx
       type Acc = S#Acc
 
-      val string = new Strings[ S ]
-      val long   = new Longs[ S ]
+      val strings = new Strings[ S ]
+      val longs   = new Longs[ S ]
+      val spans   = new Spans[ S ]( longs )
+
 //      import string.{ops => stringOps, Const => stringConst}
 //      import long.{ops => longOps, Const => longConst}
-      import string.stringOps
-      import long.longOps
-      implicit def stringConst( s: String ) : string.Ex = string.Const( s )   // why doesn't the direct import work??
-      implicit def longConst( n: Long ) : long.Ex = long.Const( n )   // why doesn't the direct import work??
+      import strings.{stringOps, Ex => StringEx}
+      import longs.{longOps, Ex => LongEx}
+      import spans.{spanOps, Ex => SpanEx}
+      implicit def stringConst( s: String ) : StringEx = strings.Const( s )   // why doesn't the direct import work??
+      implicit def longConst( n: Long ) : LongEx = longs.Const( n )   // why doesn't the direct import work??
+      implicit def spanConst( span: Span ) : SpanEx = spans.Const( span )   // why doesn't the direct import work??
 
    //   object Region {
-   //      def apply( name: string.Ex, start: long.Ex, stop: long.Ex ) : Region = new RegionNew( name, start, stop )
+   //      def apply( name: StringEx, start: LongEx, stop: LongEx ) : Region = new RegionNew( name, start, stop )
    //
-   //      private final class RegionNew( name0: string.Ex, start0: long.Ex, stop: long.Ex ) extends Region {
+   //      private final class RegionNew( name0: StringEx, start0: LongEx, stop: LongEx ) extends Region {
    //
    //      }
    //   }
 
       object Region {
-         def apply( name: string.Ex, start: long.Ex, stop: long.Ex )
-                  ( implicit tx: Tx ) : Region =
-            new New( name, start, stop, tx )
+         def apply( name: StringEx, span: SpanEx )( implicit tx: Tx ) : Region = new New( name, span, tx )
 
-         private final class New( name0: string.Ex, start0: long.Ex, stop0: long.Ex, tx0: Tx )
+         private final class New( name0: StringEx, span0: SpanEx, tx0: Tx )
          extends RegionLike.Impl with Region {
             region =>
 
-            val id = tx0.newID()
-            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
-            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
-            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
+            val id      = tx0.newID()
+            val name_#  = strings.NamedVar( region.toString + ".name_#", name0 )( tx0 )
+            val span_#  = spans.NamedVar(   region.toString + ".span_#", span0 )( tx0 )
          }
 
          private final class Read( in: DataInput, acc: S#Acc, tx0: S#Tx ) extends RegionLike.Impl with Region {
             region =>
 
-            val id = tx0.readID( in, acc )
-
-            val name_#  = string.readVar( in, acc )( tx0 )
-            val start_# = long.readVar(   in, acc )( tx0 )
-            val stop_#  = long.readVar(   in, acc )( tx0 )
+            val id      = tx0.readID( in, acc )
+            val name_#  = strings.readVar( in, acc )( tx0 )
+            val span_#  = spans.readVar(   in, acc )( tx0 )
          }
 
          implicit val serializer : TxnSerializer[ S#Tx, S#Acc, Region ] = new TxnSerializer[ S#Tx, S#Acc, Region ] {
@@ -121,92 +120,96 @@ Usages:
 
       object RegionLike {
          sealed trait Impl extends RegionLike {
-            def name_# : string.Var
-            def start_# : long.Var
-            def stop_# : long.Var
+            def name_# : strings.Var
+//            def start_# : longs.Var
+//            def stop_# : longs.Var
+            def span_# : spans.Var
 
-            final def name( implicit tx: Tx ) : string.Ex = name_#.get
-            final def name_=( value: string.Ex )( implicit tx: Tx ) { name_#.set( value )}
+            final def name( implicit tx: Tx ) : StringEx = name_#.get
+            final def name_=( value: StringEx )( implicit tx: Tx ) { name_#.set( value )}
 
-            final def start( implicit tx: Tx ) : long.Ex = start_#.get
-            final def start_=( value: long.Ex )( implicit tx: Tx ) { start_#.set( value )}
+//            final def start( implicit tx: Tx ) : LongEx = start_#.get
+//            final def start_=( value: LongEx )( implicit tx: Tx ) { start_#.set( value )}
+//
+//            final def stop( implicit tx: Tx ) : LongEx = stop_#.get
+//            final def stop_=( value: LongEx )( implicit tx: Tx ) { stop_#.set( value )}
 
-            final def stop( implicit tx: Tx ) : long.Ex = stop_#.get
-            final def stop_=( value: long.Ex )( implicit tx: Tx ) { stop_#.set( value )}
+            final def span( implicit tx: Tx ) : SpanEx = span_#.get
+            final def span_=( value: SpanEx )( implicit tx: Tx ) { span_#.set( value )}
 
             final protected def writeData( out: DataOutput ) {
                name_#.write( out )
-               start_#.write( out )
-               stop_#.write( out )
+               span_#.write( out )
             }
 
             final protected def disposeData()( implicit tx: S#Tx ) {
                name_#.dispose()
-               start_#.dispose()
-               stop_#.dispose()
+               span_#.dispose()
             }
          }
       }
 
       trait RegionLike {
-         def name( implicit tx: Tx ) : string.Ex
-         def name_=( value: string.Ex )( implicit tx: Tx ) : Unit
-         def name_# : string.Ex
+         def name( implicit tx: Tx ) : StringEx
+         def name_=( value: StringEx )( implicit tx: Tx ) : Unit
+         def name_# : StringEx
 
-         def start( implicit tx: Tx ) : long.Ex
-         def start_=( value: long.Ex )( implicit tx: Tx ) : Unit
-         def start_# : long.Ex
+//         def start( implicit tx: Tx ) : LongEx
+//         def start_=( value: LongEx )( implicit tx: Tx ) : Unit
+//         def start_# : LongEx
+//
+//         def stop( implicit tx: Tx ) : LongEx
+//         def stop_=( value: LongEx )( implicit tx: Tx ) : Unit
+//         def stop_# : LongEx
 
-         def stop( implicit tx: Tx ) : long.Ex
-         def stop_=( value: long.Ex )( implicit tx: Tx ) : Unit
-         def stop_# : long.Ex
+         def span( implicit tx: Tx ) : SpanEx
+         def span_=( value: SpanEx )( implicit tx: Tx ) : Unit
+         def span_# : SpanEx
       }
 
       trait Region extends RegionLike with Mutable[ S ] {
          override def toString = "Region" + id
       }
 
-      final case class Span( start: Long, stop: Long )
-
-      object EventRegion {
-         sealed trait Update
-         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
-         final case class Moved( r: EventRegion, change: event.Change[ Span ]) extends Update
-         final case class Removed( r: EventRegion ) extends Update
-
-         def apply( name: string.Ex, start: long.Ex, stop: long.Ex )
-                  ( implicit tx: Tx ) : EventRegion =
-            new New( name, start, stop, tx )
-
-         private final class New( name0: string.Ex, start0: long.Ex, stop0: long.Ex, tx0: S#Tx )
-         extends RegionLike.Impl with EventRegion {
-            region =>
-
-            protected val targets = Invariant.Targets[ S ]( tx0 )
-            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
-            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
-            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
-
-            val renamed = name_#.changed.map( ch => EventRegion.Renamed( this, ch ))
-//            val renamed = event.map( name_#.changed )( ch => EventRegion.Renamed( this, ch ))
-            val removed = event[ EventRegion.Removed ]        // def apply[ A ] : Event[ A ]
-//            val removed = event( EventRegion.Removed( this )) // def apply[ A ]( constr: => A ) : Event[ A ]
-
-//            name_#.changed.react { ... }
-//            name_#.react(_.changed) { ... }
-//            react( name_#.changed ) { ... }
-//            name_#.changed ~> { ... }
-
-            protected def sources( implicit tx: S#Tx )   = IIdxSeq( name_#, start_#, stop_# )
-
-            def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ EventRegion.Update ] = {
-               None
-            }
-         }
-      }
-      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ]
-      with Dispatcher[ S, EventRegion.Update, EventRegion ] {
-      }
+//      object EventRegion {
+//         sealed trait Update
+//         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
+//         final case class Moved( r: EventRegion, change: event.Change[ Span ]) extends Update
+//         final case class Removed( r: EventRegion ) extends Update
+//
+//         def apply( name: StringEx, start: LongEx, stop: LongEx )
+//                  ( implicit tx: Tx ) : EventRegion =
+//            new New( name, start, stop, tx )
+//
+//         private final class New( name0: StringEx, start0: LongEx, stop0: LongEx, tx0: S#Tx )
+//         extends RegionLike.Impl with EventRegion {
+//            region =>
+//
+//            protected val targets = Invariant.Targets[ S ]( tx0 )
+//            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
+//            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
+//            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
+//
+//            val renamed = name_#.changed.map( ch => EventRegion.Renamed( this, ch ))
+////            val renamed = event.map( name_#.changed )( ch => EventRegion.Renamed( this, ch ))
+//            val removed = event[ EventRegion.Removed ]        // def apply[ A ] : Event[ A ]
+////            val removed = event( EventRegion.Removed( this )) // def apply[ A ]( constr: => A ) : Event[ A ]
+//
+////            name_#.changed.react { ... }
+////            name_#.react(_.changed) { ... }
+////            react( name_#.changed ) { ... }
+////            name_#.changed ~> { ... }
+//
+//            protected def sources( implicit tx: S#Tx )   = IIdxSeq( name_#, start_#, stop_# )
+//
+//            def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ EventRegion.Update ] = {
+//               None
+//            }
+//         }
+//      }
+//      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ]
+//      with Dispatcher[ S, EventRegion.Update, EventRegion ] {
+//      }
 
 //      object RegionList {
 //         def empty( implicit tx: Tx ) : RegionList = new New( tx )
@@ -459,18 +462,23 @@ Usages:
             // new way -- simpler observer
             r.name_#.observe { (_, v) => defer( ggName.setText(  v ))}
             // old full way -- observe changed events
-            r.start_#.changed.react { case (_, event.Change( _, v )) => defer( ggStart.setText( v.toString ))}
-            r.stop_#.changed.react  { case (_, event.Change( _, v )) => defer( ggStop.setText(  v.toString ))}
+//            r.start_#.changed.react { case (_, event.Change( _, v )) => defer( ggStart.setText( v.toString ))}
+//            r.stop_#.changed.react  { case (_, event.Change( _, v )) => defer( ggStop.setText(  v.toString ))}
+
+            r.span_#.observe( (tx, newSpan) => defer {
+               ggStart.setText( newSpan.start.toString )
+               ggStop.setText( newSpan.stop.toString )
+            })
 
 //            val name0   = r.name.value
-            val start0  = r.start.value
-            val stop0   = r.stop.value
+//            val start0  = r.start.value
+//            val stop0   = r.stop.value
 
-            defer {
-//               ggName.setText( name0 )
-               ggStart.setText( start0.toString )
-               ggStop.setText( stop0.toString )
-            }
+//            defer {
+////               ggName.setText( name0 )
+//               ggStart.setText( start0.toString )
+//               ggStop.setText( stop0.toString )
+//            }
 
             implicit val system = tx.system
 
@@ -485,13 +493,19 @@ Usages:
 
             ggStart.addActionListener( new ActionListener {
                def actionPerformed( e: ActionEvent ) {
-                  longToModel( ggStart.getText.toLong, (tx, n) => { implicit val _tx = tx; r.start = n })
+                  longToModel( ggStart.getText.toLong, (tx, n) => { implicit val _tx = tx
+//                     r.start = n
+                     r.span = spans.Span( n, r.span.stop )
+                  })
                }
             })
 
             ggStop.addActionListener( new ActionListener {
                def actionPerformed( e: ActionEvent ) {
-                  longToModel( ggStop.getText.toLong, (tx, n) => { implicit val _tx = tx; r.stop = n })
+                  longToModel( ggStop.getText.toLong, (tx, n) => { implicit val _tx = tx
+//                     r.stop = n
+                     r.span = spans.Span( r.span.start, n )
+                  })
                }
             })
          }
@@ -506,21 +520,26 @@ Usages:
       import infra._
 //      import string.{ops => stringOps, Const => stringConst}
 //      import long.{ops => longOps, Const => longConst}
-      import string.stringOps
-      import long.longOps
-//      implicit def stringConst( s: String ) : string.Ex = string.Const( s )   // why doesn't the direct import work??
-//      implicit def longConst( n: Long ) : long.Ex = long.Const( n )   // why doesn't the direct import work??
+      import strings.stringOps
+      import longs.longOps
+      import spans.spanOps
+//      implicit def stringConst( s: String ) : StringEx = string.Const( s )   // why doesn't the direct import work??
+//      implicit def longConst( n: Long ) : LongEx = long.Const( n )   // why doesn't the direct import work??
 
       val f    = frame( "Reaction Test", cleanUp )
       val cp   = f.getContentPane
 
       cp.setLayout( new GridLayout( 3, 1 ))
       val rvs = system.atomic { implicit tx =>
-         val _r1   = Region( "eins", 0L, 10000L )
-         val _r2   = Region( "zwei", 5000L, 12000L )
+         val _r1   = Region( "eins", Span( 0L, 10000L ))
+         val _r2   = Region( "zwei", Span( 5000L, 12000L ))
          val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
-            longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),
-            longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
+//            longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),
+//            longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
+            spans.Span(
+               longOps( _r1.span_#.start.min( _r2.span_#.start)).+( -100L ),
+               longOps( _r1.span_#.stop.max( _r2.span_#.stop)).+( 100L ))
+            )
          val rootID  = tx.newID()
          Seq( _r1, _r2, _r3 ).map( tx.newVar( rootID, _ ))
       }
