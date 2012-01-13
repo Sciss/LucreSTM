@@ -268,7 +268,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
 //   }
 
 private final class TriggerImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( protected val node: Node[ S, A ], key: Key[ A1, Repr ])
-extends Trigger.Impl[ S, A, A1, Repr ] with Root[ S, A1, Repr ] {
+extends Trigger.Impl[ S, A, A1, Repr ] with Root[ S, A1 /*, Repr */ ] {
    override def toString = node.toString + "." + key.name
 
    protected def selector: Int = key.id
@@ -552,8 +552,8 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  * A rooted event does not have sources. This trait provides a simple
  * implementation of `pull` which merely checks if this event has fired or not.
  */
-trait Root[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
-   final override def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
+   final /* override */ def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
       if( source == this ) Some( update.asInstanceOf[ A ]) else None
    }
 }
@@ -647,8 +647,8 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] wit
    final protected def selector = 1
    final protected def node: Node[ S, A ] = this
 
-   final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
-      pull( source, update )
+//   final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
+//      pull( source, update )
 }
 
 trait Source[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
@@ -684,7 +684,7 @@ object Trigger {
    }
    trait Standalone[ S <: Sys[ S ], A ] extends Impl[ S, A, A, Standalone[ S, A ]]
    with StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] with EarlyBinding[ S, A ]
-   with Root[ S, A, Standalone[ S, A ]] {
+   with Root[ S, A /*, Standalone[ S, A ] */ ] {
       final protected def reader: Reader[ S, Standalone[ S, A ], _ ] = Standalone.serializer[ S, A ]
    }
 }
@@ -702,7 +702,7 @@ object Bang {
       protected val targets = Invariant.Targets[ S ]
    }
 
-   private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit, Bang[ S ]] {
+   private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit /*, Bang[ S ] */] {
       protected def reader = Bang.serializer[ S ]
    }
 

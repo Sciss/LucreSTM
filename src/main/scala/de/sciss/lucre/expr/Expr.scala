@@ -31,18 +31,20 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 import event.{Trigger, Invariant, Dummy, Change, Event, LateBinding, Reactor, Source, Sources, StandaloneLike}
 
 object Expr {
-   trait Node[ S <: Sys[ S ], A ] extends Expr[ S, A ] with Invariant[ S, Change[ A ]] {
-      expr =>
-
-      import de.sciss.lucre.{event => evt}
-
-      final val changed: Event[ S, Change[ A ], Expr[ S, A ]] = new evt.Impl[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
-         def node: evt.Node[ S, Change[ A ]] = expr
-         def selector: Int = 1
-         protected def reader: evt.Reader[ S, Expr[ S, A ], _ ] = expr.reader
-      }
-
-      protected def reader: evt.Reader[ S, Expr[ S, A ], _ ]
+   trait Node[ S <: Sys[ S ], A ] extends Expr[ S, A ] with Invariant[ S, Change[ A ]]
+   with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] {
+      final val changed: Event[ S, Change[ A ], Expr[ S, A ]] = this
+//      expr =>
+//
+//      import de.sciss.lucre.{event => evt}
+//
+//      final val changed: Event[ S, Change[ A ], Expr[ S, A ]] = new evt.Impl[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
+//         def node: evt.Node[ S, Change[ A ]] = expr
+//         def selector: Int = 1
+//         protected def reader: evt.Reader[ S, Expr[ S, A ], _ ] = expr.reader
+//      }
+//
+//      protected def reader: evt.Reader[ S, Expr[ S, A ], _ ]
    }
 
    trait Var[ S <: Sys[ S ], A ] extends Expr[ S, A ] with _Var[ S#Tx, Expr[ S, A ]]
