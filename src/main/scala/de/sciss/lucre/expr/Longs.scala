@@ -48,7 +48,7 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
 
    protected def unaryOp( id: Int ) = UnaryOp( id )
 
-   protected object UnaryOp {
+   private object UnaryOp {
       def apply( id: Int ) : UnaryOp = (id /*: @switch */) match {
          case 0 => Abs
       }
@@ -61,7 +61,7 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
 
    protected def binaryOp( id: Int ) = BinaryOp( id )
 
-   protected object BinaryOp {
+   private object BinaryOp {
       def apply( id: Int ) : BinaryOp = (id: @switch) match {
          case 0 => Plus
          case 1 => Minus

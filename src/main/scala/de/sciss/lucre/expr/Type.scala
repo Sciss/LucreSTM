@@ -106,7 +106,7 @@ trait Type[ S <: Sys[ S ], A ] {
       new VarRead( in, access, targets, tx )
    }
 
-   private def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption
+   protected def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption
 
 //   protected def newBinaryOp( op: BinaryOp, a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( op, a, b, tx )
 //   protected def newUnaryOp( op: UnaryOp, a: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( op, a, tx )

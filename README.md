@@ -15,6 +15,19 @@ Further reading:
 
 LucreSTM builds with sbt 0.11 against Scala 2.9.1. It depends on Scala-STM 0.4 and currently uses Berkeley DB JE 4.10 as the database backend.
 
+### creating an IntelliJ IDEA project
+
+If you haven't globally installed the sbt-idea plugin yet, create the following contents in `~/.sbt/plugins/build.sbt`:
+
+    resolvers += "sbt-idea-repo" at "http://mpeltonen.github.com/maven/"
+    
+    addSbtPlugin("com.github.mpeltonen" % "sbt-idea" % "0.11.0")
+
+Then to create the IDEA project, run the following two commands from the xsbt shell:
+
+    > set ideaProjectName := "LucreSTM"
+    > gen-idea
+
 ### documentation
 
 At the moment, there are only sparse scaladocs, I'm afraid (run `sbt doc`). The basic concept:

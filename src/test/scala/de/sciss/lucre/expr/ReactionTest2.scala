@@ -36,7 +36,7 @@ import collection.mutable.Buffer
 import stm.{TxnSerializer, Sys}
 import stm.impl.{InMemory, Confluent, BerkeleyDB}
 import stm.Mutable
-import event.{Event, LateBinding, Root, Source, Observer, EarlyBinding, Invariant}
+import event.{Dispatcher, Event, LateBinding, Root, Source, Observer, EarlyBinding, Invariant}
 
 object ReactionTest2 extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
@@ -172,6 +172,7 @@ Usages:
          sealed trait Update
          final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
          final case class Moved( r: EventRegion, change: event.Change[ Span ]) extends Update
+         final case class Removed( r: EventRegion ) extends Update
 
          def apply( name: string.Ex, start: long.Ex, stop: long.Ex )
                   ( implicit tx: Tx ) : EventRegion =
@@ -181,15 +182,15 @@ Usages:
          extends RegionLike.Impl with EventRegion {
             region =>
 
-            protected val targets                        = Invariant.Targets[ S ]( tx0 )
+            protected val targets = Invariant.Targets[ S ]( tx0 )
             val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
             val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
             val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
 
             val renamed = name_#.changed.map( ch => EventRegion.Renamed( this, ch ))
-            val renamed = event.map( name_#.changed )( ch => EventRegion.Renamed( this, ch ))
+//            val renamed = event.map( name_#.changed )( ch => EventRegion.Renamed( this, ch ))
             val removed = event[ EventRegion.Removed ]        // def apply[ A ] : Event[ A ]
-            val removed = event( EventRegion.Removed( this )) // def apply[ A ]( constr: => A ) : Event[ A ]
+//            val removed = event( EventRegion.Removed( this )) // def apply[ A ]( constr: => A ) : Event[ A ]
 
 //            name_#.changed.react { ... }
 //            name_#.react(_.changed) { ... }
@@ -203,7 +204,8 @@ Usages:
             }
          }
       }
-      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ] {
+      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ]
+      with Dispatcher[ S, EventRegion.Update, EventRegion ] {
       }
 
 //      object RegionList {

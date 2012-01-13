@@ -47,7 +47,7 @@ final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
 
    protected def unaryOp( id: Int ) = UnaryOp( id )
 
-   protected object UnaryOp {
+   private object UnaryOp {
       def apply( id: Int ) : UnaryOp = (id: @switch) match {
          case 0 => Reverse
          case 1 => Upper
@@ -66,7 +66,7 @@ final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
 
    protected def binaryOp( id: Int ) = BinaryOp( id )
 
-   protected object BinaryOp {
+   private object BinaryOp {
       def apply( id: Int ) : BinaryOp = (id: @switch) match {
          case 0 => Append
          case 1 => Prepend
