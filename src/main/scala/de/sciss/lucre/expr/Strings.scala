@@ -30,7 +30,7 @@ import stm.Sys
 import annotation.switch
 import stm.impl.InMemory
 
-object Strings extends Extensions[ String ]
+//object Strings extends Extensions[ String ]
 
 final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
    protected def writeValue( v: String, out: DataOutput ) { out.writeString( v )}
@@ -40,7 +40,7 @@ final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
    // for a stupid reason scalac doesn't eat A <% Ex
    implicit def stringOps[ A <% Expr[ S, String ]]( ex: A ) : StringOps = new StringOps( ex )
 
-   protected def extensions: Extensions[ String ] = Strings
+//   protected def extensions: Extensions[ String ] = Strings
 
    final class StringOps private[Strings]( ex: Ex ) {
       def append( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Append( ex, that )

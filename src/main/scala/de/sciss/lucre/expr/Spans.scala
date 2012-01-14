@@ -104,29 +104,29 @@ final case class Span( start: Long, stop: Long ) {
    def shift( delta: Long ) = Span( start + delta, stop + delta )
 }
 
-object Spans extends Extensions[ Span ] {
-   private def initTx( implicit tx: InTxn ) {
-      // 'Span'
-      Longs.addExtension( 0x5370616E, LongsExtensions )
-   }
-
-   lazy val init : Unit = {
-      Txn.findCurrent match {
-         case Some( itx )  => initTx( itx )
-         case None         => TxnExecutor.defaultAtomic( initTx( _ ))
-      }
-   }
-
-   private object LongsExtensions extends Extensions.ReaderFactory[ Long ] {
-      def reader[ S <: Sys[ S ]] : Invariant.Reader[ S, Expr[ S, Long ]] = new LongsExtReader[ S ]
-   }
-
-   private final class LongsExtReader[ S <: Sys[ S ]] extends Invariant.Reader[ S, Expr[ S, Long ]] {
-      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Expr[ S, Long ] = {
-         val opID = in.readInt()
-         sys.error( "TODO" )
-      }
-   }
+object Spans {
+//   private def initTx( implicit tx: InTxn ) {
+//      // 'Span'
+//      Longs.addExtension( 0x5370616E, LongsExtensions )
+//   }
+//
+//   lazy val init : Unit = {
+//      Txn.findCurrent match {
+//         case Some( itx )  => initTx( itx )
+//         case None         => TxnExecutor.defaultAtomic( initTx( _ ))
+//      }
+//   }
+//
+//   private object LongsExtensions extends Extensions.ReaderFactory[ Long ] {
+//      def reader[ S <: Sys[ S ]] : Invariant.Reader[ S, Expr[ S, Long ]] = new LongsExtReader[ S ]
+//   }
+//
+//   private final class LongsExtReader[ S <: Sys[ S ]] extends Invariant.Reader[ S, Expr[ S, Long ]] {
+//      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Expr[ S, Long ] = {
+//         val opID = in.readInt()
+//         sys.error( "TODO" )
+//      }
+//   }
 }
 
 final class Spans[ S <: Sys[ S ]]( longs: Longs[ S ]) extends Type[ S, Span ] {
@@ -136,7 +136,7 @@ final class Spans[ S <: Sys[ S ]]( longs: Longs[ S ]) extends Type[ S, Span ] {
 
    implicit def spanOps[ A <% Expr[ S, Span ]]( ex: A ) : SpanOps = new SpanOps( ex )
 
-   protected def extensions: Extensions[ Span ] = Spans
+//   protected def extensions: Extensions[ Span ] = Spans
 
    final class SpanOps private[Spans]( ex: Ex ) {
       // binary ops

@@ -31,7 +31,7 @@ import annotation.switch
 import event.{StandaloneLike, LateBinding, Event, Observer, Invariant, Sources}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
-trait Type[ S <: Sys[ S ], A ] {
+trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
    type Ex     = Expr[ S, A ]
    type Var    = Expr.Var[ S, A ]
    type Change = event.Change[ A ]
@@ -55,7 +55,7 @@ trait Type[ S <: Sys[ S ], A ] {
             case 0      => new VarRead( in, access, targets, tx )
             case 1      => new UnaryOpRead( in, access, targets, tx )
             case 2      => new BinaryOpRead( in, access, targets, tx )
-            case 4      => extensions.readExtension[ S ]( in.readInt(), in, access, targets )
+            case 4      => readExtension( in.readInt(), in, access, targets )
             case cookie => sys.error( "Unexpected cookie " + cookie )
          }
       }
@@ -63,7 +63,7 @@ trait Type[ S <: Sys[ S ], A ] {
       def readConstant( in: DataInput )( implicit tx: S#Tx ) : Ex = new ConstRead( in )
    }
 
-   protected def extensions: Extensions[ A ]
+//   protected def extensions: Extensions[ A ]
 
 //   protected def readExtension( cookie: Int, in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex
 
