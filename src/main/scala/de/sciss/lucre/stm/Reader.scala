@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package stm
 
-trait Reader[ @specialized +A ] extends TxnReader[ Any, Any, A ] {
-   def read( in: DataInput ) : A
-   final def read( in: DataInput, access: Any )( implicit tx: Any ) : A = read( in )
+trait Reader[ @specialized +A ] {
+//   def read( in: DataInput ) : A
+   def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : A
 }

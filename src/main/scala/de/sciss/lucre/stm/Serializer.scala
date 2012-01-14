@@ -37,49 +37,56 @@ object Serializer {
       def write( v: scala.Boolean, out: DataOutput ) {
          out.writeBoolean( v )
       }
-      def read( in: DataInput ) : scala.Boolean = in.readBoolean()
+//      def read( in: DataInput ) : scala.Boolean = in.readBoolean()
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : scala.Boolean = in.readBoolean()
    }
 
    implicit object Char extends Serializer[ scala.Char ] {
       def write( v: scala.Char, out: DataOutput ) {
          out.writeChar( v )
       }
-      def read( in: DataInput ) : scala.Char = in.readChar()
+//      def read( in: DataInput ) : scala.Char = in.readChar()
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : scala.Char = in.readChar()
    }
 
    implicit object Int extends Serializer[ scala.Int ] {
       def write( v: scala.Int, out: DataOutput ) {
          out.writeInt( v )
       }
-      def read( in: DataInput ) : scala.Int = in.readInt()
+//      def read( in: DataInput ) : scala.Int = in.readInt()
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : scala.Int = in.readInt()
    }
 
    implicit object Float extends Serializer[ scala.Float ] {
       def write( v: scala.Float, out: DataOutput ) {
          out.writeFloat( v )
       }
-      def read( in: DataInput ) : scala.Float = in.readFloat()
+//      def read( in: DataInput ) : scala.Float = in.readFloat()
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : scala.Float = in.readFloat()
    }
 
    implicit object Long extends Serializer[ scala.Long ] {
       def write( v: scala.Long, out: DataOutput ) {
          out.writeLong( v )
       }
-      def read( in: DataInput ) : scala.Long = in.readLong()
+//      def read( in: DataInput ) : scala.Long = in.readLong()
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : scala.Long = in.readLong()
    }
 
    implicit object Double extends Serializer[ scala.Double ] {
       def write( v: scala.Double, out: DataOutput ) {
          out.writeDouble( v )
       }
-      def read( in: DataInput ) : scala.Double = in.readDouble()
+//      def read( in: DataInput ) : scala.Double = in.readDouble()
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : scala.Double = in.readDouble()
    }
 
    implicit object String extends Serializer[ java.lang.String ] {
       def write( v: java.lang.String, out: DataOutput ) {
          out.writeString( v )
       }
-      def read( in: DataInput ) : java.lang.String = in.readString()
+//      def read( in: DataInput ) : java.lang.String = in.readString()
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : java.lang.String = in.readString()
    }
 
    // ---- incremental build-up ----
@@ -88,7 +95,8 @@ object Serializer {
 
    private final class ReaderWrapper[ A <: Writer ]( reader: Reader[ A ]) extends Serializer[ A ] {
       def write( v: A, out: DataOutput ) { v.write( out )}
-      def read( in: DataInput ) : A = reader.read( in )
+//      def read( in: DataInput ) : A = reader.read( in )
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : A = reader.read[ S ]( in, access )
    }
 
    // ---- higher-kinded ----
@@ -102,10 +110,12 @@ object Serializer {
          case None      => out.writeUnsignedByte( 0 )
       }}
 
-      def read( in: DataInput ) : Option[ A ] = (in.readUnsignedByte(): @switch) match {
-         case 1 => Some( peer.read( in ))
-         case 0 => None
-      }
+//      def read( in: DataInput ) : Option[ A ] = (in.readUnsignedByte(): @switch) match {
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Option[ A ] =
+         (in.readUnsignedByte(): @switch) match {
+            case 1 => Some( peer.read( in, access ))
+            case 0 => None
+         }
    }
 
    implicit def either[ A, B ]( implicit peer1: Serializer[ A ], peer2: Serializer[ B ]) : Serializer[ Either[ A, B ]] =
@@ -120,10 +130,12 @@ object Serializer {
          case Right( b ) => out.writeUnsignedByte( 1 ); peer2.write( b, out )
       }}
 
-      def read( in: DataInput ) : Either[ A, B ] = (in.readUnsignedByte(): @switch) match {
-         case 0 => Left(  peer1.read( in ))
-         case 1 => Right( peer2.read( in ))
-      }
+//      def read( in: DataInput ) : Either[ A, B ] = (in.readUnsignedByte(): @switch) match {
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Either[ A, B ] =
+         (in.readUnsignedByte(): @switch) match {
+            case 0 => Left(  peer1.read( in, access ))
+            case 1 => Right( peer2.read( in, access ))
+         }
    }
 
    implicit def tuple2[ A1, A2 ]( implicit peer1: Serializer[ A1 ],
@@ -139,9 +151,10 @@ object Serializer {
          peer2.write( tup._2, out )
       }
 
-      def read( in: DataInput ) : (A1, A2) = {
-         val a1 = peer1.read( in )
-         val a2 = peer2.read( in )
+//      def read( in: DataInput ) : (A1, A2) = {
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : (A1, A2) = {
+         val a1 = peer1.read( in, access )
+         val a2 = peer2.read( in, access )
          (a1, a2)
       }
    }
@@ -160,10 +173,11 @@ object Serializer {
          peer3.write( tup._3, out )
       }
 
-      def read( in: DataInput ) : (A1, A2, A3) = {
-         val a1 = peer1.read( in )
-         val a2 = peer2.read( in )
-         val a3 = peer3.read( in )
+//      def read( in: DataInput ) : (A1, A2, A3) = {
+      def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : (A1, A2, A3) = {
+         val a1 = peer1.read( in, access )
+         val a2 = peer2.read( in, access )
+         val a3 = peer3.read( in, access )
          (a1, a2, a3)
       }
    }
@@ -189,12 +203,13 @@ object Serializer {
          coll.foreach( ser.write( _, out ))
       }
 
-      final def read( in: DataInput ) : That = {
+//      final def read( in: DataInput ) : That = {
+      final def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : That = {
          var sz   = in.readInt()
          val b    = newBuilder
          val ser  = peer
          while( sz > 0 ) {
-            b += ser.read( in )
+            b += ser.read( in, access )
          sz -= 1 }
          b.result()
       }
@@ -221,4 +236,6 @@ object Serializer {
    }
 }
 
-trait Serializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, Any, A ]
+trait Serializer[ @specialized A ] extends Reader[ A ] { // with TxnSerializer[ Any, Any, A ]
+   def write( v: A, out: DataOutput ) : Unit
+}

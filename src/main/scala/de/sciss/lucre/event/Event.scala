@@ -29,10 +29,10 @@ package event
 import collection.mutable.{Map => MMap}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
-import stm.{Writer, Sys, Disposable, TxnSerializer}
+import stm.{Writer, Sys, Disposable}
 
 object Selector {
-   implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
+   implicit def serializer[ S <: Sys[ S ]] : Serializer[ Selector[ S ]] = new Ser[ S ]
 
    def apply[ S <: Sys[ S ]]( key: Int, observer: ObserverKey[ S ]) : Selector[ S ] =
       new ObserverSelector[ S ]( key, observer )
