@@ -105,34 +105,26 @@ final case class Span( start: Long, stop: Long ) {
 }
 
 object Spans {
-//   private def initTx( implicit tx: InTxn ) {
-//      // 'Span'
-//      Longs.addExtension( 0x5370616E, LongsExtensions )
-//   }
-//
-//   lazy val init : Unit = {
-//      Txn.findCurrent match {
-//         case Some( itx )  => initTx( itx )
-//         case None         => TxnExecutor.defaultAtomic( initTx( _ ))
-//      }
-//   }
-//
-//   private object LongsExtensions extends Extensions.ReaderFactory[ Long ] {
-//      def reader[ S <: Sys[ S ]] : Invariant.Reader[ S, Expr[ S, Long ]] = new LongsExtReader[ S ]
-//   }
-//
-//   private final class LongsExtReader[ S <: Sys[ S ]] extends Invariant.Reader[ S, Expr[ S, Long ]] {
-//      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Expr[ S, Long ] = {
-//         val opID = in.readInt()
-//         sys.error( "TODO" )
-//      }
-//   }
+   def apply[ S <: Sys[ S ]]( longs: Longs[ S ])( implicit tx: S#Tx ) : Spans[ S ] = {
+      implicit val itx = tx.peer
+      val spans = new Spans[ S ]( longs )
+      // 'Span'
+      longs.addExtension( 0x5370616E, spans.LongExtensions )
+      spans
+   }
 }
 
-final class Spans[ S <: Sys[ S ]]( longs: Longs[ S ]) extends Type[ S, Span ] {
+final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, Span ] {
 //   type Span = expr.Span[ S ]
 
    private type LongEx = Expr[ S, Long ]
+
+   private object LongExtensions extends Invariant.Reader[ S, LongEx ] {
+      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
+         val opID = in.readInt()
+         sys.error( "TODO" )
+      }
+   }
 
    implicit def spanOps[ A <% Expr[ S, Span ]]( ex: A ) : SpanOps = new SpanOps( ex )
 
