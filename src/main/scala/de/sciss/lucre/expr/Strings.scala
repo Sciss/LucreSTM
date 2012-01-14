@@ -29,6 +29,7 @@ package expr
 import stm.Sys
 import annotation.switch
 import stm.impl.InMemory
+import event.Invariant
 
 object Strings {
    def apply[ S <: Sys[ S ]] : Strings[ S ] = new Strings[ S ]
@@ -50,6 +51,9 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
       def reverse( implicit tx: S#Tx ) : Ex = UnaryOp.Reverse( ex )
       def toUpperCase( implicit tx: S#Tx ) : Ex = UnaryOp.Upper( ex )
    }
+
+   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
+      sys.error( "Strings doesn't define a literal type" )
 
    protected def unaryOp( id: Int ) = UnaryOp( id )
 

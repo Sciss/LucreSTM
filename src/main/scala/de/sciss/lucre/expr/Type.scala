@@ -55,6 +55,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
             case 0      => new VarRead( in, access, targets, tx )
             case 1      => new UnaryOpRead( in, access, targets, tx )
             case 2      => new BinaryOpRead( in, access, targets, tx )
+            case 3      => readLiteral( in, access, targets )
             case 4      => readExtension( in.readInt(), in, access, targets )
             case cookie => sys.error( "Unexpected cookie " + cookie )
          }
@@ -66,6 +67,8 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
 //   protected def extensions: Extensions[ A ]
 
 //   protected def readExtension( cookie: Int, in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex
+
+   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex
 
    private final class ConstRead( in: DataInput ) extends ConstLike {
       protected val constValue = readValue( in )

@@ -29,6 +29,7 @@ package expr
 import stm.Sys
 import annotation.switch
 import stm.impl.InMemory
+import event.Invariant
 
 object Longs {
    def apply[ S <: Sys[ S ]] : Longs[ S ] = new Longs[ S ]
@@ -51,6 +52,9 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
    }
 
 //   protected def extensions: Extensions[ Long ] = Longs
+
+   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
+      sys.error( "Longs doesn't define a literal type" )
 
    protected def unaryOp( id: Int ) = UnaryOp( id )
 

@@ -521,21 +521,13 @@ Usages:
 
    def expressions[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
       val (system, cleanUp) = tup
-      val infra = system.atomic { implicit tx => System[ S ]}
-      import infra._
-//      import string.{ops => stringOps, Const => stringConst}
-//      import long.{ops => longOps, Const => longConst}
-      import strings.stringOps
-      import longs.longOps
-      import spans.spanOps
-//      implicit def stringConst( s: String ) : StringEx = string.Const( s )   // why doesn't the direct import work??
-//      implicit def longConst( n: Long ) : LongEx = long.Const( n )   // why doesn't the direct import work??
+      val (infra, vs) = system.atomic { implicit tx =>
+         val _infra = System[ S ]
+         import _infra._
+         import strings.stringOps
+         import longs.longOps
+         import spans.spanOps
 
-      val f    = frame( "Reaction Test", cleanUp )
-      val cp   = f.getContentPane
-
-      cp.setLayout( new GridLayout( 3, 1 ))
-      val rvs = system.atomic { implicit tx =>
          val _r1   = Region( "eins", Span( 0L, 10000L ))
          val _r2   = Region( "zwei", Span( 5000L, 12000L ))
          val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
@@ -546,13 +538,20 @@ Usages:
                longOps( _r1.span_#.stop.max( _r2.span_#.stop)).+( 100L ))
             )
          val rootID  = tx.newID()
-         Seq( _r1, _r2, _r3 ).map( tx.newVar( rootID, _ ))
+         val _rvs    = Seq( _r1, _r2, _r3 ).map( tx.newVar( rootID, _ ))
+
+         val _vs = _rvs.zipWithIndex.map {
+   //         case (r, i) => new RegionView( r, "Region #" + (i+1) )
+            case (rv, i) => new RegionView( rv, "Region #" + (i+1) )
+         }
+
+         (_infra, _vs)
       }
 
-      val vs = rvs.zipWithIndex.map {
-//         case (r, i) => new RegionView( r, "Region #" + (i+1) )
-         case (rv, i) => new RegionView( rv, "Region #" + (i+1) )
-      }
+      val f    = frame( "Reaction Test", cleanUp )
+      val cp   = f.getContentPane
+
+      cp.setLayout( new GridLayout( 3, 1 ))
 
       system.atomic { implicit tx =>
          vs.foreach( _.connect() )

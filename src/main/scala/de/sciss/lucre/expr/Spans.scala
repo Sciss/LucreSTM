@@ -121,8 +121,8 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
    private object LongExtensions extends Invariant.Reader[ S, LongEx ] {
       def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
          (in.readShort(): @switch) match {
-            case 0 => new UnaryLongRead( UnaryLongOp.Start, in, access, targets, tx )
-            case 1 => new UnaryLongRead( UnaryLongOp.Stop, in, access, targets, tx )
+            case 0 => new UnaryLongRead( UnaryLongOp.Start,  in, access, targets, tx )
+            case 1 => new UnaryLongRead( UnaryLongOp.Stop,   in, access, targets, tx )
             case 2 => new UnaryLongRead( UnaryLongOp.Length, in, access, targets, tx )
             case opID => sys.error( "Unknown operator " + opID )
          }
@@ -140,17 +140,17 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
 
       // decomposition
       def start( implicit tx: S#Tx ) : LongEx = ex match {
-         case i: Impl   => i.start
-         case _         => new UnaryLongNew( UnaryLongOp.Start, ex, tx )
+         case i: Literal   => i.start
+         case _            => new UnaryLongNew( UnaryLongOp.Start, ex, tx )
       }
 
       def stop( implicit tx: S#Tx ) : LongEx = ex match {
-         case i: Impl   => i.stop
-         case _         => new UnaryLongNew( UnaryLongOp.Stop, ex, tx )
+         case i: Literal   => i.stop
+         case _            => new UnaryLongNew( UnaryLongOp.Stop, ex, tx )
       }
    }
 
-   private sealed trait Impl extends Basic with Expr.Node[ S, expr.Span ]
+   private sealed trait Literal extends Basic with Expr.Node[ S, expr.Span ]
    with LateBinding[ S, Change ] {
       def start: LongEx
       def stop: LongEx
@@ -158,6 +158,7 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       final protected def sources( implicit tx: S#Tx ) : event.Sources[ S ] = IIdxSeq( start.changed, stop.changed )
 
       final protected def writeData( out: DataOutput ) {
+         out.writeUnsignedByte( 3 )
          start.write( out )
          stop.write( out )
       }
@@ -181,14 +182,20 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       }
    }
 
-   def Span[ A, B ]( start: A, stop: B )( implicit tx: S#Tx, aView: A => LongEx, bView: B => LongEx ) : Ex = {
-      val _start: LongEx = start
-      val _stop:  LongEx = stop
-      new Impl {
-         protected val targets   = Invariant.Targets[ S ]
-         val start               = _start
-         val stop                = _stop
-      }
+   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
+      new SpanRead( in, access, targets, tx )
+
+   def Span[ A, B ]( start: A, stop: B )( implicit tx: S#Tx, aView: A => LongEx, bView: B => LongEx ) : Ex =
+      new SpanNew( start, stop, tx )
+
+   private final class SpanNew( val start: LongEx, val stop: LongEx, tx0: S#Tx ) extends Literal {
+      protected val targets = Invariant.Targets[ S ]( tx0 )
+   }
+
+   private final class SpanRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ],
+                                 tx0: S#Tx ) extends Literal {
+      val start = longs.readExpr( in, access )( tx0 )
+      val stop  = longs.readExpr( in, access )( tx0 )
    }
 
    protected def unaryOp( id: Int ) : UnaryOp = sys.error( "No unary operations defined" )
