@@ -120,7 +120,7 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
 
    private object LongExtensions extends Invariant.Reader[ S, LongEx ] {
       def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
-         (in.readInt(): @switch) match {
+         (in.readShort(): @switch) match {
             case 0 => new UnaryLongRead( UnaryLongOp.Start, in, access, targets, tx )
             case 1 => new UnaryLongRead( UnaryLongOp.Stop, in, access, targets, tx )
             case 2 => new UnaryLongRead( UnaryLongOp.Length, in, access, targets, tx )
@@ -249,7 +249,8 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
 
       final def value( implicit tx: S#Tx ) = op.value( a.value )
       final def writeData( out: DataOutput ) {
-         out.writeUnsignedByte( 1 )
+         out.writeUnsignedByte( 4 ) // extension
+         out.writeInt( 0x5370616E ) // extension cookie
          out.writeShort( op.id )
          a.write( out )
       }
