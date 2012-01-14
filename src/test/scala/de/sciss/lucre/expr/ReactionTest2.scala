@@ -66,13 +66,18 @@ Usages:
 """ )
    })
 
-   class System[ S <: Sys[ S ]] {
+   object System {
+      def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : System[ S ] = {
+         val strings = Strings[ S ]
+         val longs   = Longs[ S ]
+         val spans   = Spans[ S ]( longs )
+         new System[ S ]( strings, longs, spans )
+      }
+   }
+
+   class System[ S <: Sys[ S ]] private( val strings: Strings[ S ], val longs: Longs[ S ], val spans: Spans[ S ]) {
       type Tx  = S#Tx
       type Acc = S#Acc
-
-      val strings = new Strings[ S ]
-      val longs   = new Longs[ S ]
-      val spans   = new Spans[ S ]( longs )
 
 //      import string.{ops => stringOps, Const => stringConst}
 //      import long.{ops => longOps, Const => longConst}
@@ -516,7 +521,7 @@ Usages:
 
    def expressions[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
       val (system, cleanUp) = tup
-      val infra = new System[ S ]
+      val infra = system.atomic { implicit tx => System[ S ]}
       import infra._
 //      import string.{ops => stringOps, Const => stringConst}
 //      import long.{ops => longOps, Const => longConst}

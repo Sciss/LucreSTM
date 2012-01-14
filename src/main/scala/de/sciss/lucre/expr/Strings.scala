@@ -30,9 +30,11 @@ import stm.Sys
 import annotation.switch
 import stm.impl.InMemory
 
-//object Strings extends Extensions[ String ]
+object Strings {
+   def apply[ S <: Sys[ S ]] : Strings[ S ] = new Strings[ S ]
+}
 
-final class Strings[ S <: Sys[ S ]] extends Type[ S, String ] {
+final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
    protected def writeValue( v: String, out: DataOutput ) { out.writeString( v )}
    protected def readValue( in: DataInput ) : String = in.readString()
 //   type Ops = StringOps
@@ -93,7 +95,7 @@ object StringsTests extends App {
 }
 
 class StringTests[ S <: Sys[ S ]]( system: S ) {
-   val strings = new Strings[ S ]
+   val strings = Strings[ S ]
    import strings._
    import system.{ atomic => ◊ }
 

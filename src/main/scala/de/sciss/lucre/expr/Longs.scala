@@ -30,7 +30,9 @@ import stm.Sys
 import annotation.switch
 import stm.impl.InMemory
 
-// object Longs extends Extensions[ Long ]
+object Longs {
+   def apply[ S <: Sys[ S ]] : Longs[ S ] = new Longs[ S ]
+}
 
 final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
    protected def writeValue( v: Long, out: DataOutput ) { out.writeLong( v )}

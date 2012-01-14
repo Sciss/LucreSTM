@@ -30,7 +30,6 @@ import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import event.{Event, Invariant, LateBinding}
 import annotation.switch
-import concurrent.stm.{InTxn, Txn, TxnExecutor}
 
 //final case class Span[ S <: Sys[ S ]]( start: Expr[ S, Long ], stop: Expr[ S, Long ])
 final case class Span( start: Long, stop: Long ) {
@@ -121,8 +120,12 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
 
    private object LongExtensions extends Invariant.Reader[ S, LongEx ] {
       def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
-         val opID = in.readInt()
-         sys.error( "TODO" )
+         (in.readInt(): @switch) match {
+            case 0 => new UnaryLongRead( UnaryLongOp.Start, in, access, targets, tx )
+            case 1 => new UnaryLongRead( UnaryLongOp.Stop, in, access, targets, tx )
+            case 2 => new UnaryLongRead( UnaryLongOp.Length, in, access, targets, tx )
+            case opID => sys.error( "Unknown operator " + opID )
+         }
       }
    }
 
@@ -138,12 +141,12 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       // decomposition
       def start( implicit tx: S#Tx ) : LongEx = ex match {
          case i: Impl   => i.start
-         case _         => sys.error( "TODO" )
+         case _         => new UnaryLongNew( UnaryLongOp.Start, ex, tx )
       }
 
       def stop( implicit tx: S#Tx ) : LongEx = ex match {
          case i: Impl   => i.stop
-         case _         => sys.error( "TODO" )
+         case _         => new UnaryLongNew( UnaryLongOp.Stop, ex, tx )
       }
    }
 
@@ -219,25 +222,56 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       out.writeLong( v.stop )
    }
 
-//   private sealed trait DecompLongImpl
-//   extends Basic with Expr.Node[ S, LongEx ]
-//   with LateBinding[ S, Change ] {
-//      protected def op: DecompLongOp
-//      protected def a: Ex
-//
-//      final def value( implicit tx: S#Tx ) = op.value( a.value )
-//      final def writeData( out: DataOutput ) {
-//         out.writeUnsignedByte( 1 )
-//         out.writeShort( op.id )
-//         a.write( out )
-//      }
-//      final def disposeData()( implicit tx: S#Tx ) {}
-//      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
-//
-//      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-//         a.changed.pull( source, update ).flatMap { ach =>
-//            change( op.value( ach.before ), op.value( ach.now ))
-//         }
-//      }
-//   }
+   private object UnaryLongOp {
+      object Start extends UnaryLongOp {
+         val id = 0
+         def value( a: Span )( implicit tx: S#Tx ) : Long = a.start
+      }
+      object Stop extends UnaryLongOp {
+         val id = 1
+         def value( a: Span )( implicit tx: S#Tx ) : Long = a.stop
+      }
+      object Length extends UnaryLongOp {
+         val id = 2
+         def value( a: Span )( implicit tx: S#Tx ) : Long = a.length
+      }
+   }
+   private sealed trait UnaryLongOp {
+      def value( a: Span )( implicit tx: S#Tx ) : Long
+      def id: Int
+   }
+
+   private sealed trait UnaryLongImpl
+   extends longs.Basic with Expr.Node[ S, Long ]
+   with LateBinding[ S, longs.Change ] {
+      protected def op: UnaryLongOp
+      protected def a: Ex
+
+      final def value( implicit tx: S#Tx ) = op.value( a.value )
+      final def writeData( out: DataOutput ) {
+         out.writeUnsignedByte( 1 )
+         out.writeShort( op.id )
+         a.write( out )
+      }
+      final def disposeData()( implicit tx: S#Tx ) {}
+      final def sources( implicit tx: S#Tx ) : event.Sources[ S ] = IIdxSeq( a.changed )
+
+      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ longs.Change ] = {
+         a.changed.pull( source, update ).flatMap { ach =>
+            longs.change( op.value( ach.before ), op.value( ach.now ))
+         }
+      }
+   }
+
+   private final class UnaryLongRead( protected val op: UnaryLongOp, in: DataInput, access: S#Acc,
+                                      protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+   extends UnaryLongImpl {
+      protected val a = readExpr( in, access )( tx0 )
+   }
+
+
+   private final class UnaryLongNew( protected val op: UnaryLongOp, protected val a: Ex, tx0: S#Tx )
+   extends UnaryLongImpl {
+      protected val targets = Invariant.Targets[ S ]( tx0 )
+   }
 }

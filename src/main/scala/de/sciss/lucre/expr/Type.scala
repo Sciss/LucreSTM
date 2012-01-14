@@ -44,7 +44,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
 
 //   implicit def ops[ A <% Ex ]( ex: A ) : Ops // = new Ops( ex )
 
-   protected /* sealed */ trait Basic extends Expr[ S, A ] {
+   /* protected */ /* sealed */ trait Basic extends Expr[ S, A ] {
       final protected def reader = serializer
    }
 
@@ -76,7 +76,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
       protected val ref = tx0.readVar[ Ex ]( id, in )
    }
 
-   protected def readExpr( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Ex = serializer.read( in, access )
+   /* protected */ def readExpr( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Ex = serializer.read( in, access )
 
    private sealed trait ConstLike extends Expr.Const[ S, A ] {
       final def react( fun: (S#Tx, Change) => Unit )
@@ -111,7 +111,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
       new VarRead( in, access, targets, tx )
    }
 
-   protected def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption
+   /* protected */ def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption
 
 //   protected def newBinaryOp( op: BinaryOp, a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( op, a, b, tx )
 //   protected def newUnaryOp( op: UnaryOp, a: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( op, a, tx )
