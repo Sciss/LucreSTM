@@ -267,58 +267,58 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
 //      }
 //   }
 
-private final class TriggerImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( protected val node: Node[ S, A ], key: Key[ A1, Repr ])
-extends Trigger.Impl[ S, A, A1, Repr ] with Root[ S, A1 /*, Repr */ ] {
-   override def toString = node.toString + "." + key.name
-
-   protected def selector: Int = key.id
-   protected def reader: Reader[ S, Repr, _ ] = key.keys.reader
-
-//      def apply( update: A1 )( implicit tx: S#Tx ) {
-//         val visited: Visited[ S ] = MMap.empty
-//         val n          = node
-//         val reactions  = n.propagate( this, update, n, key.id, visited, IIdxSeq.empty )
-//         reactions.map( _.apply() ).foreach( _.apply() )
-//      }
+//private final class TriggerImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( protected val node: Node[ S, A ], key: Key[ A1, Repr ])
+//extends Trigger.Impl[ S, A, A1, Repr ] with Root[ S, A1 /*, Repr */ ] {
+//   override def toString = node.toString + "." + key.name
 //
-//      def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
-//         node.addReactor( r.select( key.id ))
-//      }
-//      def -=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
-//         node.removeReactor( r.select( key.id ))
-//      }
-}
+//   protected def selector: Int = key.id
+//   protected def reader: Reader[ S, Repr, _ ] = key.keys.reader
+//
+////      def apply( update: A1 )( implicit tx: S#Tx ) {
+////         val visited: Visited[ S ] = MMap.empty
+////         val n          = node
+////         val reactions  = n.propagate( this, update, n, key.id, visited, IIdxSeq.empty )
+////         reactions.map( _.apply() ).foreach( _.apply() )
+////      }
+////
+////      def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
+////         node.addReactor( r.select( key.id ))
+////      }
+////      def -=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
+////         node.removeReactor( r.select( key.id ))
+////      }
+//}
 
-sealed trait Key[ A, Repr <: Writer ] {
-   def name: String
-   private[event] def id: Int
-   private[event] def keys: Keys[ Repr ]
-   def unapply( id: Int ) : Boolean
-}
-
-trait Keys[ Repr <: Writer ] {
-   private var cnt = 0
-
-//      implicit def reader[ S <: Sys[ S ]]: TxnReader[ S#Tx, S#Acc, Repr ]
-   implicit def reader[ S <: Sys[ S ]]: Reader[ S, Repr, _ ]
-
-   final protected def key[ A ] : Key[ A, Repr ] = key[ A ]( "(trigger)" )
-
-   final protected def key[ A ]( name: String ) : Key[ A, Repr ] = {
-      require( cnt < 31, "Key overflow" )
-      val id = 1 << cnt
-      cnt += 1
-      new KeyImpl[ A, Repr ]( id, name, this )
-   }
-
-   private final class KeyImpl[ A, Repr <: Writer ]( private[event] val id: Int, val name: String,
-                                           private[event] val keys: Keys[ Repr ])
-   extends Key[ A, Repr ] {
-      def unapply( i: Int ) : Boolean = i == id
-
-      override def toString = "Key[" + name + "]@" + id
-   }
-}
+//sealed trait Key[ A, Repr <: Writer ] {
+//   def name: String
+//   private[event] def id: Int
+//   private[event] def keys: Keys[ Repr ]
+//   def unapply( id: Int ) : Boolean
+//}
+//
+//trait Keys[ Repr <: Writer ] {
+//   private var cnt = 0
+//
+////      implicit def reader[ S <: Sys[ S ]]: TxnReader[ S#Tx, S#Acc, Repr ]
+//   implicit def reader[ S <: Sys[ S ]]: Reader[ S, Repr, _ ]
+//
+//   final protected def key[ A ] : Key[ A, Repr ] = key[ A ]( "(trigger)" )
+//
+//   final protected def key[ A ]( name: String ) : Key[ A, Repr ] = {
+//      require( cnt < 31, "Key overflow" )
+//      val id = 1 << cnt
+//      cnt += 1
+//      new KeyImpl[ A, Repr ]( id, name, this )
+//   }
+//
+//   private final class KeyImpl[ A, Repr <: Writer ]( private[event] val id: Int, val name: String,
+//                                           private[event] val keys: Keys[ Repr ])
+//   extends Key[ A, Repr ] {
+//      def unapply( i: Int ) : Boolean = i == id
+//
+//      override def toString = "Key[" + name + "]@" + id
+//   }
+//}
 
 //   sealed trait Yield[ S <: Sys[ S ], A ] {
 //      def pull( )( implicit tx: S#Tx ) : Option[ A ]
