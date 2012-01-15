@@ -16,14 +16,13 @@ import expr.{Span, Expr}
  * the order of their calls is not changed, as these calls
  * associate incremental identifiers with the declared events.
  */
-trait Decl {
-   type Impl[ S <: Sys[ S ]]
-
+trait Decl[ Impl[ S <: Sys[ S ]]] {
    private var cnt      = 0
    private var keyMap   = Map.empty[ Class[ _ ], Int ]
    private var idMap    = Map.empty[ Int, Key[ _ ]]
 
-   def id[ U <: Update ]( clz: Class[ U ]): Int = keyMap( clz )
+//   def id[ U <: Update ]( clz: Class[ U ]): Int = keyMap( clz )
+   def id( clz: Class[ _ ]): Int = keyMap( clz )
    def select[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int ) : Event[ S, _, _ ] = idMap( id ).apply( impl )
 
    private sealed trait Key[ U ] {
@@ -45,51 +44,55 @@ trait Decl {
    }
 
    sealed trait Update
-
-
 }
 
 object Dispatch {
-   final protected class EventOps[ S <: Sys[ S ], A, Repr, B ]( d: Dispatch[ S, A, Repr ] with Node[ S, A ],
+   final protected class EventOps[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B ]( d: Dispatch[ S, A, Repr ] with Node[ S, A ],
                                                                 e: Event[ S, B, _ ]) {
-      def map[ A1 <: A ]( fun: B => A1 ) : Event[ S, A1, Repr ] = sys.error( "TODO" ) // new Map[ S, A, Repr, B, A1 ]( d, e, fun )
+      def map[ A1 <: A ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr[ S ]] =
+         new Map[ S, A, Repr, B, A1 ]( d, e, fun )
    }
 
-//   private final class Map[ S <: Sys[ S ], A, Repr, B, A1 <: A ](
-//      protected val node: Dispatch[ S, A, Repr ] with Node[ S, A ], e: Event[ S, B, _ ], fun: B => A1 )
-//   extends event.Impl[ S, A, A1, Repr ] {
-//      protected def selector: Int = {
+   private final class Map[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B, A1 <: A ](
+      protected val node: Dispatch[ S, A, Repr ] with Node[ S, A ], e: Event[ S, B, _ ], fun: B => A1 )(
+         implicit m: ClassManifest[ A1 ]
+      )
+   extends event.Impl[ S, A, A1, Repr[ S ]] {
+      protected def selector: Int = {
 //         println( "WARNING: Dispatcher.Map.selector -- not yet implemented" )
 //         1
-//      }
-//      protected def reader: Reader[ S, Repr, _ ] = node.reader
-//   }
+         node.decl.id( m.erasure )
+      }
+      protected def reader: Reader[ S, Repr[ S ], _ ] = sys.error( "TODO" ) // node.reader
+   }
 }
-trait Dispatch[ S <: Sys[ S ], A, Repr ] {
+trait Dispatch[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]]] {
    me: Node[ S, A ] =>
 
-   protected def decl: Decl
+   def decl: Decl[ Repr ]
 
    implicit protected def eventOps[ B ]( e: Event[ S, B, _ ]) : Dispatch.EventOps[ S, A, Repr, B ] =
       new Dispatch.EventOps( this, e )
+
+//   protected def event[ A1 <: A ]( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr[ S ]] =
+//      new Dispatch.Trigger
 }
 
-object Test extends Decl {
-   type Impl[ S <: Sys[ S ]] = Test[ S ]
-
+object Test extends Decl[ Test ] {
    case class Renamed( ch: Change[ String ]) extends Update
-   case class Moved( ch: Change[ Span ]) extends Update
+   case class Moved(   ch: Change[ Span   ]) extends Update
 
    declare[ Renamed ]( _.renamed )
    declare[ Moved   ]( _.moved   )
 }
-trait Test[ S <: Sys[ S ]] extends Dispatch[ S, Test.Update, Test[ S ]] with Invariant[ S, Test.Update ] {
+trait Test[ S <: Sys[ S ]] extends Dispatch[ S, Test.Update, Test ] with Invariant[ S, Test.Update ] {
    import Test._
-   protected def decl = Test
+   def decl = Test
 
    def name_# : Expr[ S, String ]
    def span_# : Expr[ S, Span   ]
 
    def renamed = name_#.changed.map( Renamed( _ ))
    def moved   = span_#.changed.map( Moved(   _ ))
+//   def removed = event[ Removed ]
 }
