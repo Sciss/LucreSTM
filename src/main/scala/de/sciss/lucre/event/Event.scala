@@ -130,15 +130,6 @@ sealed trait Selector[ S <: Sys[ S ]] extends Writer {
    private[event] def observerKey : Option[ ObserverKey[ S ]] // Option[ Int ]
 }
 
-//   private type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Reactor[ S ])]
-
-//   /**
-//    * A mixin trait which says that a live view can be attached to this event.
-//    */
-//   trait Observable[ S <: Sys[ S ], A, Repr ] {
-//      def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
-//   }
-
 /**
  * An abstract trait uniting invariant and mutating readers.
  */
@@ -257,16 +248,6 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
    final def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
 }
 
-//   // UUU what has been Event before
-//   trait Dispatcher[ S <: Sys[ S ], A ] extends Writer {
-//      private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
-//      private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
-//
-//      final protected def event[ A1 <: A, Repr <: Node[ S, A ]]( key: Key[ A1, Repr ]) /* ( implicit ev: this.type <:< Repr ) */ : Trigger[ S, A1, Repr ] = {
-//         new TriggerImpl[ S, A, A1, Repr ]( this, key )
-//      }
-//   }
-
 //private final class TriggerImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( protected val node: Node[ S, A ], key: Key[ A1, Repr ])
 //extends Trigger.Impl[ S, A, A1, Repr ] with Root[ S, A1 /*, Repr */ ] {
 //   override def toString = node.toString + "." + key.name
@@ -380,18 +361,6 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
 }
 
 object Invariant {
-//      trait Observable[ S <: Sys[ S ], A, Repr <: Event[ S, A ]]
-//      extends Invariant[ S, A ] with Event.Observable[ S, A, Repr ] {
-//         me: Repr =>
-//
-//         protected def reader : Reader[ S, Repr ]
-//         final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
-//            val res = Observer[ S, A, Repr ]( reader, fun )
-//            res.add( this )
-//            res
-//         }
-//      }
-
    object Targets {
       def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
          val id         = tx.newID()
@@ -534,20 +503,6 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
    override def toString = "Event.Invariant" + id
 }
 
-//   /**
-//    * A `Source` event node is one which can inject an update by itself, instead of just
-//    * combining and forwarding source events. This trait provides protected `fire` method
-//    * for this injection.
-//    */
-//   trait Source[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-//      protected def fire( update: A )( implicit tx: S#Tx ) {
-////         val posted     = Event.Posted( this, update )
-////         val reactions  = propagate( posted, this, IIdxSeq.empty )
-////         reactions.map( _.apply() ).foreach( _.apply() )
-//         sys.error( "TODO" )  // UUU
-//      }
-//   }
-
 /**
  * A rooted event does not have sources. This trait provides a simple
  * implementation of `pull` which merely checks if this event has fired or not.
@@ -566,16 +521,6 @@ final case class Change[ @specialized A ]( before: A, now: A ) {
    def isSignificant: Boolean = before != now
    def toOption: Option[ Change[ A ]] = if( isSignificant ) Some( this ) else None
 }
-
-//   /**
-//    * A value event corresponds to an observable state. That is to say, the instance stores
-//    * a state of type `A` which can be retrieved with the `value` method defined by this trait.
-//    * Consequently, the event's type is a change in state, as reflected by the type parameters
-//    * `Change[ A ]`.
-//    */
-//   trait Val[ S <: Sys[ S ], A ] /* extends Dispatcher[ S, Change[ A ]] */ {
-//      def value( implicit tx: S#Tx ) : A
-//   }
 
 /**
  * A constant "event" is one which doesn't actually fire. It thus arguably isn't really an event,
@@ -838,47 +783,6 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
    override def toString = "Event.Mutating" + id
 }
 
-//   object Reactor {
-//      implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] = new Ser[ S ]
-//
-//      private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
-//         override def toString = "Event.Reactor.Serializer"
-//
-//         def write( r: Reactor[ S ], out: DataOutput ) { r.write( out )}
-//
-//         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-//            (in.readUnsignedByte(): @switch) match {
-//               case 0 =>
-//                  val id            = tx.readID( in, access )
-//                  val children      = tx.readVar[ Children[ S ]]( id, in )
-//                  val targets       = Invariant.Targets[ S ]( id, children )
-//                  val observerKeys  = children.get.flatMap( _.observerKey )
-////                     .collect {
-////                     case (_, ObserverKey( key )) => key
-////                  }
-////                  tx.mapEventTargets( in, access, targets, observerKeys )
-//                  sys.error( "TODO" )  // UUU
-//               case 1 =>
-//                  val id            = tx.readID( in, access )
-//                  val children      = tx.readVar[ Children[ S ]]( id, in )
-//                  val invalid       = tx.readBooleanVar( id, in )
-//                  val targets       = Mutating.Targets[ S ]( id, children, invalid )
-//                  val observerKeys  = children.get.flatMap( _.observerKey )
-////                  val observerKeys  = children.get.collect {
-////                     case (_, ObserverKey( key )) => key
-////                  }
-////                  tx.mapEventTargets( in, access, targets, observerKeys )
-//                  sys.error( "TODO" )  // UUU
-//               case 2 =>
-//                  val key  = in.readInt()
-//                  new ObserverKey[ S ]( key )
-//
-//               case cookie => sys.error( "Unexpected cookie " + cookie )
-//            }
-//         }
-//      }
-//   }
-
 /**
  * The sealed `Reactor` trait encompasses the possible targets (dependents) of an event. It defines
  * the `propagate` method which is used in the push-phase (first phase) of propagation. A `Reactor` is
@@ -929,54 +833,6 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
    }
 }
 
-//   trait Flat[ S <: Sys[ S ], A ] extends Event[ S, A, Flat[ S, A ]]
-//
-//   object Filter {
-//      def apply[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ]( in: In )( p: P )(
-//         implicit tx: S#Tx, inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Flat[ S, A ] = new Impl[ S, A, In, P ] {
-//         protected val targets   = Invariant.Targets[ S ]
-//         protected val input     = in
-//         protected val inputSer  = inSer
-//         protected val pred      = p
-//      }
-//
-//      private sealed trait Impl[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ]
-//      extends Flat[ S, A ] with StandaloneLike[ S, A, Flat[ S, A ]] {
-//         protected def input: In
-//         protected def pred: P
-//         protected def inputSer: TxnSerializer[ S#Tx, S#Acc, In ]
-//         final protected def reader: Reader[ S, Flat[ S, A ], _ ] = Filter.serializer[ S, A, In, P ]( inputSer )
-////         protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A, Flat[ S, A ]]] = Filter.serializer[ S, A, In, P ]( inputSer )
-//
-//         final protected def disposeData()( implicit tx: S#Tx ) {}
-//         final protected def writeData( out: DataOutput ) {
-//            inputSer.write( input, out )
-//            val oos = new ObjectOutputStream( out )
-//            oos.writeObject( pred )
-//         }
-//
-//         final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
-//            input.pull( source, update ).filter( pred )
-//         }
-//      }
-//
-//      private def serializer[ S <: Sys[ S ], A, In <: Event[ S, A, _ ], P <: (A) => Boolean ](
-//         inSer: TxnSerializer[ S#Tx, S#Acc, In ]) : Invariant.Serializer[ S, Impl[ S, A, In, P ]] =
-//
-//         new Invariant.Serializer[ S, Impl[ S, A, In, P ]] {
-//            def read( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Impl[ S, A, In, P ] =
-//               new Impl[ S, A, In, P ] {
-//                  protected val targets   = _targets
-//                  protected val input     = inSer.read( in, access )
-//                  protected val inputSer  = inSer
-//                  protected val pred      = {
-//                     val ois = new ObjectInputStream( in )
-//                     ois.readObject().asInstanceOf[ P ]
-//                  }
-//               }
-//         }
-//   }
-
 /**
  * `Event` is not sealed in order to allow you define traits inheriting from it, while the concrete
  * implementations should extend either of `Event.Constant` or `Event.Node` (which itself is sealed and
@@ -989,11 +845,4 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
    def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
 
    def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
-
-//   final def filter[ In <: Event[ S, A, In ], P <: (A) => Boolean ]( pred: P )(
-//      implicit tx: S#Tx, ev: this.type <:< In, ser: TxnSerializer[ S#Tx, S#Acc, In ]) : Event.Flat[ S, A ] =
-//
-//      Event.Filter[ S, A, In, P ]( this )( pred )( tx, ser )
-
-//   def filter[ P <: (A) => Boolean ]( pred: P )( implicit tx: S#Tx ) : Event.Flat[ S, A ]
 }
