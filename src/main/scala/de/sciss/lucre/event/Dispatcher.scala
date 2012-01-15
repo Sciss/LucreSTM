@@ -29,13 +29,28 @@ package event
 import stm.Sys
 
 object Dispatcher {
-  final protected class EventOps[ S <: Sys[ S ], A, Repr, B ]( d: Dispatcher[ S, A, Repr ], e: Event[ S, B, _ ]) {
-     def map[ A1 ]( fun: B => A1 ) : Event[ S, A1, Repr ] = sys.error( "TODO" )
-  }
+   final protected class EventOps[ S <: Sys[ S ], A, Repr, B ]( d: Dispatcher[ S, A, Repr ] with Node[ S, A ],
+                                                                e: Event[ S, B, _ ]) {
+      def map[ A1 <: A ]( fun: B => A1 ) : Event[ S, A1, Repr ] = new Map[ S, A, Repr, B, A1 ]( d, e, fun )
+   }
+
+   private final class Map[ S <: Sys[ S ], A, Repr, B, A1 <: A ](
+      protected val node: Dispatcher[ S, A, Repr ] with Node[ S, A ], e: Event[ S, B, _ ], fun: B => A1 )
+   extends event.Impl[ S, A, A1, Repr ] {
+      protected def selector: Int = {
+         println( "WARNING: Dispatcher.Map.selector -- not yet implemented" )
+         1
+      }
+      protected def reader: Reader[ S, Repr, _ ] = node.reader
+   }
 }
 trait Dispatcher[ S <: Sys[ S ], A, Repr ] {
+   me: Node[ S, A ] =>
+
    implicit protected def eventOps[ B ]( e: Event[ S, B, _ ]) : Dispatcher.EventOps[ S, A, Repr, B ] =
       new Dispatcher.EventOps( this, e )
 
    final protected def event[ A1 <: A ] : Event[ S, A1, Repr ] = sys.error( "TODO" )
+
+   protected def reader: Reader[ S, Repr, _ ]
 }

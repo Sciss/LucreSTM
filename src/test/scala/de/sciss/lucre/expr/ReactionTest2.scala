@@ -176,45 +176,57 @@ Usages:
          override def toString = "Region" + id
       }
 
-//      object EventRegion {
-//         sealed trait Update
-//         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
-//         final case class Moved( r: EventRegion, change: event.Change[ Span ]) extends Update
-//         final case class Removed( r: EventRegion ) extends Update
-//
-//         def apply( name: StringEx, start: LongEx, stop: LongEx )
-//                  ( implicit tx: Tx ) : EventRegion =
-//            new New( name, start, stop, tx )
-//
-//         private final class New( name0: StringEx, start0: LongEx, stop0: LongEx, tx0: S#Tx )
-//         extends RegionLike.Impl with EventRegion {
-//            region =>
-//
-//            protected val targets = Invariant.Targets[ S ]( tx0 )
-//            val name_#  = string.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
-//            val start_# = long.NamedVar(   region.toString + ".start_#", start0 )( tx0 )
-//            val stop_#  = long.NamedVar(   region.toString + ".stop_#",  stop0 )(  tx0 )
-//
-//            val renamed = name_#.changed.map( ch => EventRegion.Renamed( this, ch ))
-////            val renamed = event.map( name_#.changed )( ch => EventRegion.Renamed( this, ch ))
-//            val removed = event[ EventRegion.Removed ]        // def apply[ A ] : Event[ A ]
-////            val removed = event( EventRegion.Removed( this )) // def apply[ A ]( constr: => A ) : Event[ A ]
-//
-////            name_#.changed.react { ... }
-////            name_#.react(_.changed) { ... }
-////            react( name_#.changed ) { ... }
-////            name_#.changed ~> { ... }
-//
-//            protected def sources( implicit tx: S#Tx )   = IIdxSeq( name_#, start_#, stop_# )
-//
-//            def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ EventRegion.Update ] = {
-//               None
-//            }
-//         }
-//      }
-//      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ]
-//      with Dispatcher[ S, EventRegion.Update, EventRegion ] {
-//      }
+      object EventRegion {
+         sealed trait Update
+         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
+         final case class Moved( r: EventRegion, change: event.Change[ Span ]) extends Update
+
+         def apply( name: StringEx, span: SpanEx )
+                  ( implicit tx: Tx ) : EventRegion = new New( name, span, tx )
+
+         private sealed trait Impl extends RegionLike.Impl with EventRegion {
+            final lazy val renamed = name_#.changed.map( Renamed( this, _ ))
+            final lazy val moved   = span_#.changed.map( Moved( this, _ ))
+            final protected def sources( implicit tx: S#Tx ) = IIdxSeq( name_#, span_# )
+            final protected def reader = serializer
+
+            final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Update ] = {
+               println( "Source " + source )
+               source match {
+                  case `renamed` => Some( update.asInstanceOf[ Update ])
+                  case `moved`   => Some( update.asInstanceOf[ Update ])
+                  case _         =>
+//                     println( "Unknown event source " + source )
+                     None
+               }
+            }
+         }
+
+         private final class New( name0: StringEx, span0: SpanEx, tx0: S#Tx ) extends Impl {
+            region =>
+
+            protected val targets = Invariant.Targets[ S ]( tx0 )
+            val name_#  = strings.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
+            val span_#  = spans.NamedVar(   region.toString + ".span_#",  span0 )(  tx0 )
+         }
+
+         private final class Read( in: DataInput, access: S#Acc,
+                                   protected val targets: Invariant.Targets[ S ], tx0: S#Tx ) extends Impl {
+            val name_#  = strings.readVar( in, access )( tx0 )
+            val span_#  = spans.readVar(   in, access )( tx0 )
+         }
+
+         implicit val serializer : Invariant.Serializer[ S, EventRegion ] = new Invariant.Serializer[ S, EventRegion ] {
+//            def write( v: EventRegion, out: DataOutput ) { v.write( out )}
+            def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : EventRegion =
+               new Read( in, access, targets, tx )
+         }
+      }
+      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ]
+      with Dispatcher[ S, EventRegion.Update, EventRegion ] {
+         def renamed: Event[ S, EventRegion.Renamed, EventRegion ]
+         def moved:   Event[ S, EventRegion.Moved,   EventRegion ]
+      }
 
 //      object RegionList {
 //         def empty( implicit tx: Tx ) : RegionList = new New( tx )
@@ -403,7 +415,7 @@ Usages:
 //         final def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) { next_#.set( elem )}
 //      }
 
-      final class RegionView( rv: S#Var[ Region ], id: String ) extends JPanel {
+      final class RegionView[ R <: RegionLike ]( rv: S#Var[ R ], id: String ) extends JPanel {
          private val lay = new GroupLayout( this )
          lay.setAutoCreateContainerGaps( true )
          setLayout( lay )
@@ -445,7 +457,7 @@ Usages:
             )
          )
 
-         private def stringToModel( s: String, model: (Tx, Region, String) => Unit )( implicit system: S ) {
+         private def stringToModel( s: String, model: (Tx, R, String) => Unit )( implicit system: S ) {
 //            system.atomic { implicit tx =>
 //               model( tx, s )
 //            }
@@ -462,7 +474,7 @@ Usages:
             connect( tx.access( rv ))
          }
 
-         private def connect( r: Region )( implicit tx: Tx ) {
+         private def connect( r: R )( implicit tx: Tx ) {
 //            r.name_#.changed.react  { case (_, event.Change( _, v )) => defer( ggName.setText(  v ))}
             // new way -- simpler observer
             r.name_#.observe { (_, v) => defer( ggName.setText(  v ))}
@@ -521,31 +533,31 @@ Usages:
 
    def expressions[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
       val (system, cleanUp) = tup
-      val (infra, vs) = system.atomic { implicit tx =>
+      val (infra, vs, r3) = system.atomic { implicit tx =>
          val _infra = System[ S ]
          import _infra._
          import strings.stringOps
          import longs.longOps
          import spans.spanOps
 
-         val _r1   = Region( "eins", Span( 0L, 10000L ))
-         val _r2   = Region( "zwei", Span( 5000L, 12000L ))
-         val _r3   = Region( _r1.name_#.append( "+" ).append( _r2.name_# ),
+         val _r1   = EventRegion( "eins", Span( 0L, 10000L ))
+         val _r2   = EventRegion( "zwei", Span( 5000L, 12000L ))
+         val _r3   = EventRegion( _r1.name_#.append( "+" ).append( _r2.name_# ),
 //            longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),
 //            longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
             spans.Span(
                longOps( _r1.span_#.start.min( _r2.span_#.start)).+( -100L ),
-               longOps( _r1.span_#.stop.max( _r2.span_#.stop)).+( 100L ))
+               longOps( _r1.span_#.stop.max(  _r2.span_#.stop)).+(   100L ))
             )
          val rootID  = tx.newID()
          val _rvs    = Seq( _r1, _r2, _r3 ).map( tx.newVar( rootID, _ ))
 
          val _vs = _rvs.zipWithIndex.map {
    //         case (r, i) => new RegionView( r, "Region #" + (i+1) )
-            case (rv, i) => new RegionView( rv, "Region #" + (i+1) )
+            case (rv, i) => new RegionView[ EventRegion ]( rv, "Region #" + (i+1) )
          }
 
-         (_infra, _vs)
+         (_infra, _vs, _r3)
       }
 
       val f    = frame( "Reaction Test", cleanUp )
@@ -555,6 +567,9 @@ Usages:
 
       system.atomic { implicit tx =>
          vs.foreach( _.connect() )
+         r3.renamed.react { case (_, infra.EventRegion.Renamed( _, event.Change( _, newName ))) =>
+            println( "Renamed to '" + newName + "'" )
+         }
       }
 
       vs.foreach( cp.add )
