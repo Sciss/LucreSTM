@@ -849,39 +849,39 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
 
 
 object Compound {
-   final protected class EventOps[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B ]( d: Compound[ S, A, Repr ] with Node[ S, A ],
+   final protected class EventOps[ S <: Sys[ S ], Repr[ ~ <: Sys[ ~ ]], D <: Decl[ Repr ], B ]( d: Compound[ S, Repr, D ],
                                                                 e: Event[ S, B, _ ]) {
-      def map[ A1 <: A ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr[ S ]] =
-         new Map[ S, A, Repr, B, A1 ]( d, e, fun, d.decl.eventID[ A1 ])
+      def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr[ S ]] =
+         new Map[ S, Repr, D, B, A1 ]( d, e, fun, d.decl.eventID[ A1 ])
    }
 
-   private final class Map[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B, A1 <: A ](
-      protected val node: Compound[ S, A, Repr ] with Node[ S, A ], e: Event[ S, B, _ ], fun: B => A1,
+   private final class Map[ S <: Sys[ S ], Repr[ ~ <: Sys[ ~ ]], D <: Decl[ Repr ], B, A1 <: D#Update ](
+      protected val node: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: B => A1,
       protected val selector: Int )
-   extends event.Impl[ S, A, A1, Repr[ S ]] {
+   extends event.Impl[ S, D#Update, A1, Repr[ S ]] {
       protected def reader: Reader[ S, Repr[ S ], _ ] = node.decl.serializer[ S ]
    }
 
-   private final class Trigger[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], A1 <: A ](
-      protected val node: Compound[ S, A, Repr ] with Node[ S, A ], protected val selector: Int )
-   extends event.Trigger.Impl[ S, A, A1, Repr[ S ]] {
+   private final class Trigger[ S <: Sys[ S ], Repr[ ~ <: Sys[ ~ ]], D <: Decl[ Repr ], A1 <: D#Update ](
+      protected val node: Compound[ S, Repr, D ], protected val selector: Int )
+   extends event.Trigger.Impl[ S, D#Update, A1, Repr[ S ]] {
       protected def reader: Reader[ S, Repr[ S ], _ ] = node.decl.serializer[ S ]
    }
 }
-trait Compound[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]]] extends Node[ S, A ] {
+trait Compound[ S <: Sys[ S ], Repr[ ~ <: Sys[ ~ ]], D <: Decl[ Repr ]] extends Node[ S, D#Update ] {
    me: Repr[ S ] =>
 
    import de.sciss.lucre.{event => evt}
 
-   protected def decl: Decl[ Repr ]
+   protected def decl: D // Decl[ Repr ]
 
-   implicit protected def eventOps[ B ]( e: Event[ S, B, _ ]) : Compound.EventOps[ S, A, Repr, B ] =
+   implicit protected def eventOps[ B ]( e: Event[ S, B, _ ]) : Compound.EventOps[ S, Repr, D, B ] =
       new Compound.EventOps( this, e )
 
-   protected def event[ A1 <: A ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr[ S ]] =
+   protected def event[ A1 <: D#Update ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr[ S ]] =
       new Compound.Trigger( this, decl.eventID[ A1 ])
 
-   final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
-      decl.route( this, key ).pull( source, update ).asInstanceOf[ Option[ A ]]  // XXX ouch
+   final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ D#Update ] = {
+      decl.pull( this, key, source, update ) // .asInstanceOf[ Option[ D#Update ]]
    }
 }

@@ -23,7 +23,10 @@ trait Decl[ Impl[ S <: Sys[ S ]]] {
 
 //   def id[ U <: Update ]( clz: Class[ U ]): Int = keyMap( clz )
    private[event] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
-   private[event] def route[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int ) : Event[ S, _ <: Update, _ ] = idMap( id ).apply( impl )
+//   private[event] def route[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int ) : Event[ S, Update, _ ] = idMap( id ).apply( impl )
+   private[event] def pull[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int, source: Event[ S, _, _ ],
+                                            update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
+      idMap( id ).apply( impl ).pull( source, update )
 
 //   private sealed trait Key[ U ] {
 //      def id: Int
@@ -67,7 +70,7 @@ object Test extends Decl[ Test ] {
 //
 //   }
 }
-sealed trait Test[ S <: Sys[ S ]] extends Compound[ S, Test.Update, Test ] with Invariant[ S, Test.Update ]
+sealed trait Test[ S <: Sys[ S ]] extends Compound[ S, Test, Test.type ] with Invariant[ S, Test.Update ]
 with LateBinding[ S, Test.Update ] {
    import Test._
    def decl = Test
