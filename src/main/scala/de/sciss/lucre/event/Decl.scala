@@ -70,7 +70,7 @@ trait Decl[ S <: Sys[ S ], Impl ] {
       def apply[ S <: Sys[ S ]]( impl: Impl ) : Event[ S, U, _ ] = fun( impl ).asInstanceOf[ Event[ S, U, _ ]]
    }
 
-   sealed trait Update
+   /* sealed */ trait Update
 
    def serializer: Reader[ S, Impl, _ ]
 }

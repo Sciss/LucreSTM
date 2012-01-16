@@ -508,7 +508,10 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  * implementation of `pull` which merely checks if this event has fired or not.
  */
 trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
-   final /* override */ private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+   final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
+      pull( source, update )
+
+   final /* override */ private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
       if( source == this ) Some( update.asInstanceOf[ A ]) else None
    }
 }
@@ -574,19 +577,22 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
       res
    }
 
-   private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
-      // no way to make the node's pull be generic in the result type without big big fuss
-      // (http://stackoverflow.com/questions/8798035/possible-to-perform-pattern-match-on-a-generic-value-with-type-conforming-result/8803684#8803684)
-//      node.pull( selector, source, update ).collect {
-//         case value: A1 => value
-//      }
-      node.pull( selector, source, update ).asInstanceOf[ Option[ A1 ]]  // :-(
-   }
+//   private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
+//      // no way to make the node's pull be generic in the result type without big big fuss
+//      // (http://stackoverflow.com/questions/8798035/possible-to-perform-pattern-match-on-a-generic-value-with-type-conforming-result/8803684#8803684)
+////      node.pull( selector, source, update ).collect {
+////         case value: A1 => value
+////      }
+//      node.pull( selector, source, update ).asInstanceOf[ Option[ A1 ]]  // :-(
+//   }
 
 //      final def filter[ P <: (A) => Boolean ]( pred: P )( implicit tx: S#Tx ) : Event.Flat[ S, A1 ] =
 //         Filter[ S, A1, Event[ S, A1, Repr ], P ]( this )( pred )
 }
 
+/**
+ * Standalone events unite a node and one particular event.
+ */
 trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
 /* with EarlyBinding[ S, A ] */ /* with Singleton[ S ] with Root[ S, A ] */ {
    final protected def selector = 1
@@ -860,11 +866,15 @@ object Compound {
       protected val selector: Int )
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+
+      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
+         e.pull( source, update ).map( fun )
+      }
    }
 
    private final class Trigger[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ](
       protected val node: Compound[ S, Repr, D ], protected val selector: Int )
-   extends event.Trigger.Impl[ S, D#Update, A1, Repr ] {
+   extends event.Trigger.Impl[ S, D#Update, A1, Repr ] with Root[ S, A1 ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
    }
 }
