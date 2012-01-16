@@ -44,46 +44,57 @@ trait Decl[ Impl[ S <: Sys[ S ]]] {
    }
 
    sealed trait Update
+
+   def serializer[ S <: Sys[ S ]]: Reader[ S, Impl[ S ], _ ]
 }
 
 object Dispatch {
    final protected class EventOps[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B ]( d: Dispatch[ S, A, Repr ] with Node[ S, A ],
                                                                 e: Event[ S, B, _ ]) {
       def map[ A1 <: A ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr[ S ]] =
-         new Map[ S, A, Repr, B, A1 ]( d, e, fun )
+         new Map[ S, A, Repr, B, A1 ]( d, e, fun, d.decl.id( m.erasure ))
    }
 
    private final class Map[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B, A1 <: A ](
-      protected val node: Dispatch[ S, A, Repr ] with Node[ S, A ], e: Event[ S, B, _ ], fun: B => A1 )(
-         implicit m: ClassManifest[ A1 ]
-      )
+      protected val node: Dispatch[ S, A, Repr ] with Node[ S, A ], e: Event[ S, B, _ ], fun: B => A1,
+      protected val selector: Int )
    extends event.Impl[ S, A, A1, Repr[ S ]] {
-      protected def selector: Int = {
-//         println( "WARNING: Dispatcher.Map.selector -- not yet implemented" )
-//         1
-         node.decl.id( m.erasure )
-      }
-      protected def reader: Reader[ S, Repr[ S ], _ ] = sys.error( "TODO" ) // node.reader
+      protected def reader: Reader[ S, Repr[ S ], _ ] = node.decl.serializer[ S ]
+   }
+
+   private final class Trigger[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], A1 <: A ](
+      protected val node: Dispatch[ S, A, Repr ] with Node[ S, A ], protected val selector: Int )
+   extends event.Trigger.Impl[ S, A, A1, Repr[ S ]] {
+      protected def reader: Reader[ S, Repr[ S ], _ ] = node.decl.serializer[ S ]
    }
 }
 trait Dispatch[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]]] {
    me: Node[ S, A ] =>
+
+   import de.sciss.lucre.{event => evt}
 
    def decl: Decl[ Repr ]
 
    implicit protected def eventOps[ B ]( e: Event[ S, B, _ ]) : Dispatch.EventOps[ S, A, Repr, B ] =
       new Dispatch.EventOps( this, e )
 
-//   protected def event[ A1 <: A ]( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr[ S ]] =
-//      new Dispatch.Trigger
+   protected def event[ A1 <: A ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr[ S ]] =
+      new Dispatch.Trigger( this, decl.id( m.erasure ))
 }
 
 object Test extends Decl[ Test ] {
    case class Renamed( ch: Change[ String ]) extends Update
    case class Moved(   ch: Change[ Span   ]) extends Update
+   case class Removed() extends Update
 
    declare[ Renamed ]( _.renamed )
    declare[ Moved   ]( _.moved   )
+   declare[ Removed ]( _.removed )
+
+   implicit def serializer[ S <: Sys[ S ]] = new Invariant.Serializer[ S, Test[ S ]] {
+      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Test[ S ] =
+         sys.error( "TODO" )
+   }
 }
 trait Test[ S <: Sys[ S ]] extends Dispatch[ S, Test.Update, Test ] with Invariant[ S, Test.Update ] {
    import Test._
@@ -94,5 +105,6 @@ trait Test[ S <: Sys[ S ]] extends Dispatch[ S, Test.Update, Test ] with Invaria
 
    def renamed = name_#.changed.map( Renamed( _ ))
    def moved   = span_#.changed.map( Moved(   _ ))
-//   def removed = event[ Removed ]
+//   def changed = renamed | moved
+   def removed = event[ Removed ]
 }
