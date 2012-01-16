@@ -155,12 +155,12 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       def start: LongEx
       def stop: LongEx
 
-      final protected def connectSources()( implicit tx: S#Tx ) {
+      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
          changed += start.changed
          changed += stop.changed
       }
 
-      final protected def disconnectSources()( implicit tx: S#Tx ) {
+      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
          changed -= start.changed
          changed -= stop.changed
       }
@@ -262,11 +262,11 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       protected def op: UnaryLongOp
       protected def a: Ex
 
-      final protected def connectSources()( implicit tx: S#Tx ) {
+      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
          changed += a.changed
       }
 
-      final protected def disconnectSources()( implicit tx: S#Tx ) {
+      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
          changed -= a.changed
       }
 

@@ -125,11 +125,11 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
       protected def op: UnaryOp
       protected def a: Ex
 
-      final protected def connectSources()( implicit tx: S#Tx ) {
+      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
          changed += a.changed
       }
 
-      final protected def disconnectSources()( implicit tx: S#Tx ) {
+      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
          changed -= a.changed
       }
 
@@ -166,12 +166,12 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
       protected def a: Ex
       protected def b: Ex
 
-      final protected def connectSources()( implicit tx: S#Tx ) {
+      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
          changed += a.changed
          changed += b.changed
       }
 
-      final protected def disconnectSources()( implicit tx: S#Tx ) {
+      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
          changed -= a.changed
          changed -= b.changed
       }

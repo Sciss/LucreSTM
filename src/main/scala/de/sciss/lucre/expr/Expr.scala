@@ -73,8 +73,8 @@ object Expr {
          ref.dispose()
       }
 
-      final protected def connectSources()( implicit tx: S#Tx ) {}
-      final protected def disconnectSources()( implicit tx: S#Tx ) {}
+      final private[lucre] def connectSources()( implicit tx: S#Tx ) {}
+      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
 
       final def get( implicit tx: S#Tx ) : Ex = ref.get
       final def set( expr: Ex )( implicit tx: S#Tx ) {

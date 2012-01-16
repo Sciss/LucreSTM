@@ -362,27 +362,24 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
    protected def disposeData()( implicit tx: S#Tx ) : Unit
 
 
-   final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
+//   final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
+   protected def events : IIdxSeq[ Event[ S, _, _ ]]
 
 //   private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 //   private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
-   protected def connectSources()(    implicit tx: S#Tx ) : Unit
-   protected def disconnectSources()( implicit tx: S#Tx ) : Unit
+//   final protected def connectSources()(    implicit tx: S#Tx ) {}
+//   final protected def disconnectSources()( implicit tx: S#Tx ) {}
 
    final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
       if( targets.addReactor( outlet, sel )) {
-//            sources.foreach( _.addReactor( this ))
-//         sources.foreach( tup => tup._1 += this.select( tup._2 ))
-         connectSources()
+         events.foreach( _.connectSources() )
       }
    }
 
    final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
       if( targets.removeReactor( outlet, sel )) {
-//            sources.foreach( _.removeReactor( this ))
-//         sources.foreach( tup => tup._1 -= this.select( tup._2 ))
-         disconnectSources()
+         events.foreach( _.disconnectSources() )
       }
    }
 
@@ -569,8 +566,9 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  * implementation of `pull` which merely checks if this event has fired or not.
  */
 trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
-   final protected def connectSources()( implicit tx: S#Tx ) {}
-   final protected def disconnectSources()( implicit tx: S#Tx ) {}
+//   final private[lucre] def events: IIdxSeq[ Event[ S, _, _ ]] = IIdxSeq( this )
+   final private[lucre] def connectSources()( implicit tx: S#Tx ) {}
+   final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
 
    final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
       pull( source, update )
@@ -665,6 +663,8 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] wit
 //   final private[lucre] def select() : Selector[ S ] = Selector( outlet, this )
    final protected def outlet = 1
    final protected def node: Node[ S, A ] = this
+
+   final protected def events: IIdxSeq[ Event[ S, _, _ ]] = IIdxSeq( this )
 
 //   final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
 //      pull( source, update )
@@ -887,6 +887,9 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
       Observer.dummy[ S, A, Repr ]
 
    final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
+
+   final private[lucre] def connectSources()( implicit tx: S#Tx ) {}
+   final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
 }
 
 /**
@@ -906,10 +909,17 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
    private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
    private[lucre] def select() : Selector[ S ]
+
+   private[lucre] def connectSources()( implicit tx: S#Tx ) : Unit
+   private[lucre] def disconnectSources()( implicit tx: S#Tx ) : Unit
 }
 
 
 object Compound {
+//   trait Event[ S <: Sys[ S ], A, Repr ] extends event.Event[ S, A , Repr ] {
+//      private[Compound] def
+//   }
+
    final protected class EventOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B ]( d: Compound[ S, Repr, D ],
                                                                 e: Event[ S, B, _ ]) {
       def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
@@ -930,6 +940,9 @@ object Compound {
       protected val outlet: Int )
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+
+      private[lucre] def connectSources()( implicit tx: S#Tx ) {}
+      private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
 
       def +=( elem: Elem )( implicit tx: S#Tx ) {
 //         elemEvt( elem ) += this
@@ -961,6 +974,13 @@ object Compound {
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
+      private[lucre] def connectSources()( implicit tx: S#Tx ) {
+         e += this
+      }
+      private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
+         e -= this
+      }
+
       private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
          e.pull( source, update ).map( fun )
       }
@@ -971,6 +991,13 @@ object Compound {
       protected val outlet: Int )
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+
+      private[lucre] def connectSources()( implicit tx: S#Tx ) {
+         events.foreach( _ += this )
+      }
+      private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
+         events.foreach( _ -= this )
+      }
 
       private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
          events.view.flatMap( _.pull( source, update )).headOption.map( fun )
@@ -1003,18 +1030,13 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
       decl.pull( this, key, source, update ) // .asInstanceOf[ Option[ D#Update ]]
    }
 
-   final protected def connectSources()( implicit tx: S#Tx ) {
-      decl.events( this ).foreach { e =>
-//         val outlet  = tup._1
-//         val e       = tup._2
-//         e.sect
-      }
-//      decl.connectSources( this )
-      sys.error( "TODO" )
-   }
+   final protected def events = decl.events( this )
 
-   final protected def disconnectSources()( implicit tx: S#Tx ) {
-//      decl.disconnectSources( this )
-      sys.error( "TODO" )
-   }
+//   final protected def connectSources()( implicit tx: S#Tx ) {
+//      decl.events( this ).foreach( _.connectSources() )
+//   }
+//
+//   final protected def disconnectSources()( implicit tx: S#Tx ) {
+//      decl.events( this ).foreach( _.disconnectSources() )
+//   }
 }
