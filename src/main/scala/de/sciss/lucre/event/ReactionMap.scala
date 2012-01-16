@@ -54,11 +54,11 @@ object ReactionMap {
 
       def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
                            observers: IIdxSeq[ ObserverKey[ S ]])
-                         ( implicit tx: S#Tx ) : Reactor[ S ] = {
+                         ( implicit tx: S#Tx ) : NodeReactor[ S ] = {
          val itx = tx.peer
          val observations = observers.flatMap( k => eventMap.get( k.id )( itx ))
          observations.headOption match {
-            case Some( obs ) => obs.reader.asInstanceOf[ event.Reader[ S, Reactor[ S ], Targets[ S ]]]   // ugly XXX
+            case Some( obs ) => obs.reader.asInstanceOf[ event.Reader[ S, NodeReactor[ S ], Targets[ S ]]]   // ugly XXX
                .read( in, access, targets )
             case None => targets
          }
@@ -156,7 +156,7 @@ trait ReactionMap[ S <: Sys[ S ]] {
    def removeEventReaction( key: ObserverKey[ S ])( implicit tx: S#Tx ) : Unit
 
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], observer: IIdxSeq[ ObserverKey[ S ]])
-                      ( implicit tx: S#Tx ) : Reactor[ S ]
+                      ( implicit tx: S#Tx ) : NodeReactor[ S ]
 
 //   def propagateEvent( observer: ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Node[ S, _ ], reactions: Reactions )
 //                     ( implicit tx: S#Tx ) : Reactions

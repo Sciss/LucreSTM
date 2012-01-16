@@ -194,7 +194,7 @@ Usages:
             final lazy val moved    = span_#.changed.map( Moved( this, _ ))
             final lazy val changed  = (renamed | moved).map( ch => Changed( ch.r ))
 
-            final protected def sources( implicit tx: S#Tx ) = IIdxSeq( name_#, span_# )
+            final protected def sources( implicit tx: S#Tx ) = IIdxSeq( (name_#, 1 << 0), (span_#, 1 << 1) )   // OUCH XXX
             final protected def reader = serializer
             final protected def decl   = EventRegion
          }

@@ -34,8 +34,8 @@ import stm.{Writer, Sys, Disposable, TxnSerializer}
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
-   def apply[ S <: Sys[ S ]]( key: Int, observer: ObserverKey[ S ]) : Selector[ S ] =
-      new ObserverSelector[ S ]( key, observer )
+//   def apply[ S <: Sys[ S ]]( key: Int, observer: ObserverKey[ S ]) : Selector[ S ] =
+//      new ObserverSelector[ S ]( key, observer )
 
    def apply[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ]) : Selector[ S ] =
       new InvariantSelector[ S ]( key, targets )
@@ -49,45 +49,43 @@ object Selector {
    def apply[ S <: Sys[ S ]]( key: Int, node: Mutating[ S, _ ]) : Selector[ S ] =
       new MutatingSelector[ S ]( key, node )
 
-   private sealed trait Impl[ S <: Sys[ S ]] extends Selector[ S ] {
-      protected def reactor: Reactor[ S ]
-      protected def cookie: Int
-
-      final def write( out: DataOutput ) {
-         out.writeInt( inlet )
-         out.writeUnsignedByte( cookie )
-         reactor.write( out )
-      }
-
-      override def toString = reactor.toString + ".select(" + inlet + ")"
-   }
-
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
          v.write( out )
       }
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Selector[ S ] = {
-         val selector = in.readInt()
          // 0 = invariant, 1 = mutating, 2 = observer
-         val reactor = (in.readUnsignedByte(): @switch) match {
+         (in.readUnsignedByte(): @switch) match {
             case 0 =>
-               Invariant.Targets.readAndExpand[ S ]( in, access )
+               val inlet   = in.readInt()
+               val targets = Invariant.Targets.readAndExpand[ S ]( in, access )
+               targets.select( inlet )
             case 1 =>
-               Mutating.Targets.readAndExpand[ S ]( in, access )
+               val inlet   = in.readInt()
+               val targets = Mutating.Targets.readAndExpand[ S ]( in, access )
+               targets.select( inlet )
             case 2 =>
                val id = in.readInt()
                new ObserverKey[ S ]( id )
             case cookie => sys.error( "Unexpected cookie " + cookie )
          }
-         reactor.select( selector )
+//         reactor.select( selector )
       }
    }
 
-   private sealed trait NodeSelector[ S <: Sys[ S ]] extends Impl[ S ] {
+   private sealed trait NodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
       protected def reactor: NodeReactor[ S ]
+      protected def inlet: Int
 
-      final private[event] def observerKey : Option[ ObserverKey[ S ]] = None
+      final protected def writeData( out: DataOutput ) {
+         out.writeInt( inlet )
+         reactor.write( out )
+      }
+
+      final private[event] def toObserverKey : Option[ ObserverKey[ S ]] = None
+
+      override def toString = reactor.toString + ".select(" + inlet + ")"
 
       final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
                                        visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) = {
@@ -109,21 +107,17 @@ object Selector {
    extends NodeSelector[ S ] {
       protected def cookie: Int = 1
    }
-
-   private final case class ObserverSelector[ S <: Sys[ S ]]( inlet: Int, reactor: ObserverKey[ S ])
-   extends Impl[ S ] {
-      private[event] def observerKey : Option[ ObserverKey[ S ]] = Some( reactor )
-
-      private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                    visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) =
-         reactor.propagate( source, update, parent, outlet /* ! inlet */, visited, reactions ) // XXX TODO: do we need to deal with the visited map?
-
-      protected def cookie: Int = 2
-   }
 }
 
 sealed trait Selector[ S <: Sys[ S ]] extends Writer {
-   def inlet: Int
+   protected def cookie: Int
+
+   final def write( out: DataOutput ) {
+      out.writeUnsignedByte( cookie )
+      writeData( out )
+   }
+
+   protected def writeData( out: DataOutput ) : Unit
 
    /**
     * @param   outlet   the outlet id of the event that propagates to this selector
@@ -131,8 +125,43 @@ sealed trait Selector[ S <: Sys[ S ]] extends Writer {
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
                                  visited: Visited[ S ], reactions: Reactions )
                                ( implicit tx: S#Tx ) : Reactions
-   private[event] def observerKey : Option[ ObserverKey[ S ]] // Option[ Int ]
+   private[event] def toObserverKey : Option[ ObserverKey[ S ]] // Option[ Int ]
 }
+
+/**
+ * Instances of `ObserverKey` are provided by methods in `Txn`, when a live `Observer` is registered. Since
+ * the observing function is not persisted, the key will be used for lookup (again through the transaction)
+ * of the reacting function during the first reaction gathering phase of event propagation.
+ */
+final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends Reactor[ S ] with Selector[ S ] {
+   protected def cookie: Int = 2
+
+   private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
+
+   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
+                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
+      tx.propagateEvent( this, source, update, parent, outlet, /* visited, */ reactions )
+   }
+
+//   def select( key: Int ) : Selector[ S ] = Selector( key, this )
+
+   def dispose()( implicit tx: S#Tx ) {}  // XXX really?
+
+   protected def writeData( out: DataOutput ) {
+      out.writeInt( id )
+   }
+}
+
+//private final case class ObserverSelector[ S <: Sys[ S ]]( inlet: Int, reactor: ObserverKey[ S ])
+//extends Impl[ S ] {
+//   private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( reactor )
+//
+//   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
+//                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) =
+//      reactor.propagate( source, update, parent, outlet /* ! inlet */, visited, reactions ) // XXX TODO: do we need to deal with the visited map?
+//
+//   protected def cookie: Int = 2
+//}
 
 /**
  * An abstract trait uniting invariant and mutating readers.
@@ -178,13 +207,11 @@ object Observer {
       override def toString = "Event.Observer<" + key.id + ">"
 
       def add( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {
-//         event += key
-         sys.error( "TODO" )
+         event += key
       }
 
       def remove( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {
-//         event -= key
-         sys.error( "TODO" )
+         event -= key
       }
 
       def dispose()( implicit tx: S#Tx ) {
@@ -378,9 +405,9 @@ object Invariant {
          new Impl( id, children )
       }
 
-      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : NodeReactor[ S ] = {
          val targets    = read( in, access )
-         val observers  = targets.children.get.flatMap( _._2.observerKey )
+         val observers  = targets.children.get.flatMap( _._2.toObserverKey )
          tx.mapEventTargets( in, access, targets, observers )
       }
 
@@ -700,9 +727,9 @@ object Mutating {
          new Impl( id, children, invalid )
       }
 
-      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : NodeReactor[ S ] = {
          val targets    = read( in, access )
-         val observers  = targets.children.get.flatMap( _._2.observerKey )
+         val observers  = targets.children.get.flatMap( _._2.toObserverKey )
          tx.mapEventTargets( in, access, targets, observers )
       }
 
@@ -807,13 +834,14 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  * as pointing to a live view.
  */
 sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
-   def select( key: Int ) : Selector[ S ]
+//   def select( key: Int ) : Selector[ S ]
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
                                  visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions
 }
 
 sealed trait NodeReactor[ S <: Sys[ S ]] extends Reactor[ S ] {
    def id: S#ID
+   def select( inlet: Int ) : Selector[ S ]
 }
 
 object Dummy {
@@ -827,27 +855,6 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
       Observer.dummy[ S, A, Repr ]
 
    final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
-}
-
-/**
- * Instances of `ObserverKey` are provided by methods in `Txn`, when a live `Observer` is registered. Since
- * the observing function is not persisted, the key will be used for lookup (again through the transaction)
- * of the reacting function during the first reaction gathering phase of event propagation.
- */
-final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends Reactor[ S ] {
-   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
-      tx.propagateEvent( this, source, update, parent, outlet, /* visited, */ reactions )
-   }
-
-   def select( key: Int ) : Selector[ S ] = Selector( key, this )
-
-   def dispose()( implicit tx: S#Tx ) {}  // XXX really?
-
-   def write( out: DataOutput ) {
-//         out.writeUnsignedByte( 2 )
-      out.writeInt( id )
-   }
 }
 
 /**
