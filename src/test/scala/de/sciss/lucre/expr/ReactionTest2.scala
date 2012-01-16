@@ -529,7 +529,7 @@ Usages:
 
    def expressions[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
       val (system, cleanUp) = tup
-      val (infra, vs, r3) = system.atomic { implicit tx =>
+      val (infra, vs, r3v) = system.atomic { implicit tx =>
          val _infra = System[ S ]
          import _infra._
          import strings.stringOps
@@ -553,7 +553,7 @@ Usages:
             case (rv, i) => new RegionView[ EventRegion ]( rv, "Region #" + (i+1) )
          }
 
-         (_infra, _vs, _r3)
+         (_infra, _vs, _rvs.last)
       }
 
       val f    = frame( "Reaction Test", cleanUp )
@@ -563,7 +563,8 @@ Usages:
 
       system.atomic { implicit tx =>
          vs.foreach( _.connect() )
-         r3.renamed.react { case (_, infra.EventRegion.Renamed( _, event.Change( _, newName ))) =>
+         val _r3 = tx.access( r3v )
+         _r3.renamed.react { case (_, infra.EventRegion.Renamed( _, event.Change( _, newName ))) =>
             println( "Renamed to '" + newName + "'" )
          }
       }
