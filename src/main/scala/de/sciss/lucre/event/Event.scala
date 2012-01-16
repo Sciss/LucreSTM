@@ -54,12 +54,12 @@ object Selector {
       protected def cookie: Int
 
       final def write( out: DataOutput ) {
-         out.writeInt( key )
+         out.writeInt( inlet )
          out.writeUnsignedByte( cookie )
          reactor.write( out )
       }
 
-      override def toString = reactor.toString + ".select(" + key + ")"
+      override def toString = reactor.toString + ".select(" + inlet + ")"
    }
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
@@ -89,42 +89,42 @@ object Selector {
 
       final private[event] def observerKey : Option[ ObserverKey[ S ]] = None
 
-      final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
+      final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
                                        visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) = {
          val cid     = reactor.id
          val bitset  = visited.getOrElse( cid, 0 )
-         if( (bitset & key) == 0 ) {
-            visited.+=( (cid, bitset | key) )
-            reactor.propagate( source, update, parent, key, visited, reactions )
+         if( (bitset & inlet) == 0 ) {
+            visited.+=( (cid, bitset | inlet) )
+            reactor.propagate( source, update, parent, inlet, visited, reactions )
          } else reactions
       }
    }
 
-   private final case class InvariantSelector[ S <: Sys[ S ]]( key: Int, reactor: NodeReactor[ S ])
+   private final case class InvariantSelector[ S <: Sys[ S ]]( inlet: Int, reactor: NodeReactor[ S ])
    extends NodeSelector[ S ] {
       protected def cookie: Int = 0
    }
 
-   private final case class MutatingSelector[ S <: Sys[ S ]]( key: Int, reactor: NodeReactor[ S ])
+   private final case class MutatingSelector[ S <: Sys[ S ]]( inlet: Int, reactor: NodeReactor[ S ])
    extends NodeSelector[ S ] {
       protected def cookie: Int = 1
    }
 
-   private final case class ObserverSelector[ S <: Sys[ S ]]( key: Int, reactor: ObserverKey[ S ])
+   private final case class ObserverSelector[ S <: Sys[ S ]]( inlet: Int, reactor: ObserverKey[ S ])
    extends Impl[ S ] {
       private[event] def observerKey : Option[ ObserverKey[ S ]] = Some( reactor )
 
-      private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
-                                       visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) =
-         reactor.propagate( source, update, parent, key, visited, reactions ) // XXX TODO: do we need to deal with the visited map?
+      private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
+                                    visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) =
+         reactor.propagate( source, update, parent, outlet /* ! inlet */, visited, reactions ) // XXX TODO: do we need to deal with the visited map?
 
       protected def cookie: Int = 2
    }
 }
 
 sealed trait Selector[ S <: Sys[ S ]] extends Writer {
-   def key: Int
-   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], /* key: Int, */
+   def inlet: Int
+   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
                                  visited: Visited[ S ], reactions: Reactions )
                                ( implicit tx: S#Tx ) : Reactions
    private[event] def observerKey : Option[ ObserverKey[ S ]] // Option[ Int ]
@@ -218,14 +218,14 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
    override def toString = "Event.Targets" + id
 
    /**
-    * @param   key   the key of the event or selector that invoked this target's node's `propagate`
+    * @param   outlet   the key of the event or selector that invoked this target's node's `propagate`
     */
-   final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+   final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
                                           visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
       children.get.foldLeft( reactions ) { (rs, sel) =>
-         if( sel.key == key ) {  // XXX bitmask?
-            sel.propagate( source, update, parent, /* key, */ visited, rs )
-         } else reactions
+//         if( sel.key == outlet ) {  // XXX bitmask?
+            sel.propagate( source, update, parent, outlet, visited, rs )
+//         } else reactions
       }
    }
 
@@ -824,9 +824,9 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
  * of the reacting function during the first reaction gathering phase of event propagation.
  */
 final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends Reactor[ S ] {
-   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
-                                    visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
-      tx.propagateEvent( this, source, update, parent, key, /* visited, */ reactions )
+   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
+                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
+      tx.propagateEvent( this, source, update, parent, outlet, /* visited, */ reactions )
    }
 
    def select( key: Int ) : Selector[ S ] = Selector( key, this )
@@ -861,6 +861,34 @@ object Compound {
          new Map[ S, Repr, D, B, A1 ]( d, e, fun, d.decl.eventID[ A1 ])
       def |[ Up >: B, C <: Up ]( that: Event[ S, C, _ ]) : EventOr[ S, Repr, D, Up ] =
          new EventOr[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, _ ]]( e, that ))
+   }
+
+   final protected class CollectionOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem, B ](
+      d: Compound[ S, Repr, D ], elem: Elem => Event[ S, B, _ ]) {
+
+      def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : CollectionEvent[ S, Repr, D, Elem, B, A1 ] =
+         new CollectionEvent[ S, Repr, D, Elem, B, A1 ]( d, elem, fun, d.decl.eventID[ A1 ])
+   }
+
+   final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem, B, A1 <: D#Update ] private[Compound](
+      protected val node: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, _ ], fun: B => A1,
+      protected val selector: Int )
+   extends event.Impl[ S, D#Update, A1, Repr ] {
+      protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+
+      def +=( elem: Elem )( implicit tx: S#Tx ) {
+//         elemEvt( elem ) += this
+         sys.error( "TODO" )
+      }
+
+      def -=( elem: Elem )( implicit tx: S#Tx ) {
+//         elemEvt( elem ) -= this
+         sys.error( "TODO" )
+      }
+
+      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
+         sys.error( "TODO" )
+      }
    }
 
    final class EventOr[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B ] private[Compound](
@@ -912,6 +940,9 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
 
    protected def event[ A1 <: D#Update ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr ] =
       new Compound.Trigger( this, decl.eventID[ A1 ])
+
+   protected def collection[ Elem, B ]( fun: Elem => Event[ S, B, _ ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
+      new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
    final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ D#Update ] = {
       decl.pull( this, key, source, update ) // .asInstanceOf[ Option[ D#Update ]]
