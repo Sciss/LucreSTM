@@ -48,9 +48,9 @@ object ReactionTest2 extends App {
    }
 
    defer( args.toSeq.take( 2 ) match {
-//      case Seq( "--coll-memory" )      => collections( memorySys )
-//      case Seq( "--coll-confluent" )   => collections( confluentSys )
-//      case Seq( "--coll-database" )    => collections( databaseSys )
+      case Seq( "--coll-memory" )      => collections( memorySys )
+      case Seq( "--coll-confluent" )   => collections( confluentSys )
+      case Seq( "--coll-database" )    => collections( databaseSys )
       case Seq( "--expr-memory" )      => expressions( memorySys )
       case Seq( "--expr-confluent" )   => expressions( confluentSys )
       case Seq( "--expr-database" )    => expressions( databaseSys )
@@ -176,236 +176,254 @@ Usages:
          override def toString = "Region" + id
       }
 
-//      object EventRegion extends Decl[ EventRegion ] {
-//         final case class Renamed( /* r: EventRegion, */ change: event.Change[ String ]) extends Update
-//         final case class Moved( /* r: EventRegion, */ change: event.Change[ Span ]) extends Update
-//
-//         def apply( name: StringEx, span: SpanEx )
-//                  ( implicit tx: Tx ) : EventRegion = new New( name, span, tx )
-//
-//         private sealed trait Impl extends RegionLike.Impl with EventRegion {
-//            final lazy val renamed = name_#.changed.map( Renamed( this, _ ))
-//            final lazy val moved   = span_#.changed.map( Moved( this, _ ))
-//            final protected def sources( implicit tx: S#Tx ) = IIdxSeq( name_#, span_# )
-//            final protected def reader = serializer
-//         }
-//
-//         private final class New( name0: StringEx, span0: SpanEx, tx0: S#Tx ) extends Impl {
-//            region =>
-//
-//            protected val targets = Invariant.Targets[ S ]( tx0 )
-//            val name_#  = strings.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
-//            val span_#  = spans.NamedVar(   region.toString + ".span_#",  span0 )(  tx0 )
-//         }
-//
-//         private final class Read( in: DataInput, access: S#Acc,
-//                                   protected val targets: Invariant.Targets[ S ], tx0: S#Tx ) extends Impl {
-//            val name_#  = strings.readVar( in, access )( tx0 )
-//            val span_#  = spans.readVar(   in, access )( tx0 )
-//         }
-//
-//         implicit val serializer : Invariant.Serializer[ S, EventRegion ] = new Invariant.Serializer[ S, EventRegion ] {
-////            def write( v: EventRegion, out: DataOutput ) { v.write( out )}
-//            def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : EventRegion =
-//               new Read( in, access, targets, tx )
-//         }
-//      }
-//      trait EventRegion[ S <: Sys[ S ]] extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ]
-//      with Compound[ S, EventRegion, EventRegion.type ] {
-//         import EventRegion._
-//
-////         def renamed: Event[ S, Renamed, EventRegion ]
-////         def moved:   Event[ S, Moved,   EventRegion ]
-//         final def renamed = name_#.changed.map( Renamed( _ ))
-//         final def moved   = span_#.changed.map( Moved( _ ))
-//      }
+      object EventRegion extends Decl[ S, EventRegion ] {
+         sealed trait ChangedLike extends Update { def r: EventRegion }
+         final case class Changed( r: EventRegion ) extends ChangedLike
+         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends ChangedLike
+         final case class Moved(   r: EventRegion, change: event.Change[ Span ]) extends ChangedLike
 
-//      object RegionList {
-//         def empty( implicit tx: Tx ) : RegionList = new New( tx )
-//
-//         private sealed trait Impl extends RegionList {
-//            private type LO = Option[ LinkedList[ Region ]]
-//            protected def sizeRef: S#Var[ Int ]
-//            protected def headRef: S#Var[ LO ]
-////            protected def regionRenamed: RegionRenamed
-//
-//            final protected def writeData( out: DataOutput ) {
-//               sizeRef.write( out )
-//               headRef.write( out )
-//            }
-//
-//            final protected def disposeData()( implicit tx: S#Tx ) {
-//               sizeRef.dispose()
-//               headRef.dispose()
-//            }
-//
-//            final def size( implicit tx: S#Tx ) : Int = sizeRef.get
-//
-//            final def insert( idx: Int, r: Region )( implicit tx: S#Tx ) {
-//               if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
-//               @tailrec def step( i: Int, pred: S#Var[ LO ]) {
-//                  if( i == idx ) insert( pred, r, idx ) else pred.get match {
-//                     case None => throw new IndexOutOfBoundsException( idx.toString )
-//                     case Some( l ) => step( i + 1, l.next_# )
-//                  }
-//               }
-//               step( 0, headRef )
-//            }
-//
-//            private def insert( pred: S#Var[ LO ], r: Region, idx: Int )( implicit tx: S#Tx ) {
-//               val l = LinkedList[ Region ]( r, pred.get: Option[ LinkedList[ Region ]])
-//               pred.set( Some( l ))
-//               sizeRef.transform( _ + 1 )
-////               r.name_#.addReactor( regionRenamed )
-//               fire( RegionList.Added( idx, r ))
-//            }
-//
-//            final def removeAt( idx: Int )( implicit tx: S#Tx ) {
-//               if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
-//               @tailrec def step( i: Int, pred: S#Var[ LO ]) {
-//                  pred.get match {
-//                     case None => throw new IndexOutOfBoundsException( idx.toString )
-//                     case Some( l ) =>
-//                        if( i == idx ) remove( pred, l, idx )
-//                        else step( i + 1, l.next_# )
-//                  }
-//               }
-//               step( 0, headRef )
-//            }
-//
-//            final def apply( idx: Int )( implicit tx: S#Tx ) : Region = {
-//               if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
-//               @tailrec def step( i: Int, pred: S#Var[ LO ]) : Region = {
-//                  pred.get match {
-//                     case None => throw new IndexOutOfBoundsException( idx.toString )
-//                     case Some( l ) =>
-//                        if( i == idx ) l.value
-//                        else step( i + 1, l.next_# )
-//                  }
-//               }
-//               step( 0, headRef )
-//            }
-//
-//            final def remove( r: Region )( implicit tx: S#Tx ) : Boolean = {
-//               @tailrec def step( i: Int, pred: S#Var[ LO ]) : Boolean = {
-//                  pred.get match {
-//                     case None => false
-//                     case Some( l ) =>
-//                        if( l == r ) {
-//                           remove( pred, l, i )
-//                           true
-//                        }
-//                        else step( i + 1, l.next_# )
-//                  }
-//               }
-//               step( 0, headRef )
-//            }
-//
-//            private def remove( pred: S#Var[ LO ], r: LinkedList[ Region ], idx: Int )( implicit tx: S#Tx ) {
-//               pred.set( r.next )
-//               sizeRef.transform( _ - 1 )
-//               fire( RegionList.Removed( idx, r.value ))
-//            }
-//
-//            final def indexOf( r: Region )( implicit tx: S#Tx ) : Int = {
-//               @tailrec def step( i: Int, pred: S#Var[ LO ]) : Int = {
-//                  pred.get match {
-//                     case None => -1
-//                     case Some( l ) =>
-//                        if( l == r ) i else step( i + 1, l.next_# )
-//                  }
-//               }
-//               step( 0, headRef )
-//            }
-//         }
-//
-//         private final class New( tx0: Tx ) extends Impl {
-//            protected val targets         = Invariant.Targets[ S ]( tx0 )
-//            protected val sizeRef         = tx0.newIntVar( id, 0 )
-//            protected val headRef         = tx0.newVar[ Option[ LinkedList[ Region ]]]( id, None )
-////            protected val regionRenamed   = new RegionRenamed {
-////               protected val targets      = Event.Invariant.Targets[ S ]( tx0 )
-////            }
-//         }
-//
-//         private final class Read( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
-//         extends Impl {
-//            protected val sizeRef   = tx0.readIntVar( id, in )
-//            protected val headRef   = tx0.readVar[ Option[ LinkedList[ Region ]]]( id, in )
-//         }
-//
+         declare[ Renamed ]( _.renamed )
+         declare[ Moved   ]( _.moved   )
+         declare[ Changed ]( _.changed )
+
+         def apply( name: StringEx, span: SpanEx )
+                  ( implicit tx: Tx ) : EventRegion = new New( name, span, tx )
+
+         private sealed trait Impl extends RegionLike.Impl with EventRegion {
+            final lazy val renamed  = name_#.changed.map( Renamed( this, _ ))
+            final lazy val moved    = span_#.changed.map( Moved( this, _ ))
+            final lazy val changed  = (renamed | moved).map( ch => Changed( ch.r ))
+
+            final protected def sources( implicit tx: S#Tx ) = IIdxSeq( (name_#, 1 << 0), (span_#, 1 << 1) )   // OUCH XXX
+            final protected def reader = serializer
+            final protected def decl   = EventRegion
+         }
+
+         private final class New( name0: StringEx, span0: SpanEx, tx0: S#Tx ) extends Impl {
+            region =>
+
+            protected val targets = Invariant.Targets[ S ]( tx0 )
+            val name_#  = strings.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
+            val span_#  = spans.NamedVar(   region.toString + ".span_#",  span0 )(  tx0 )
+         }
+
+         private final class Read( in: DataInput, access: S#Acc,
+                                   protected val targets: Invariant.Targets[ S ], tx0: S#Tx ) extends Impl {
+            val name_#  = strings.readVar( in, access )( tx0 )
+            val span_#  = spans.readVar(   in, access )( tx0 )
+         }
+
+         implicit val serializer : Invariant.Serializer[ S, EventRegion ] = new Invariant.Serializer[ S, EventRegion ] {
+//            def write( v: EventRegion, out: DataOutput ) { v.write( out )}
+            def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : EventRegion =
+               new Read( in, access, targets, tx )
+         }
+      }
+      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ]
+      with Compound[ S, EventRegion, EventRegion.type ] {
+         import EventRegion._
+
+         def renamed: Event[ S, Renamed, EventRegion ]
+         def moved:   Event[ S, Moved,   EventRegion ]
+         def changed: Event[ S, Changed, EventRegion ]
+//         final def renamed = name_#.changed.map( Renamed( this, _ ))
+//         final def moved   = span_#.changed.map( Moved(   this, _ ))
+      }
+
+      object RegionList extends Decl[ S, RegionList ] {
 //         sealed trait Change
-//         final case class Added( idx: Int, region: Region ) extends Change
-//         final case class Removed( idx: Int, region: Region ) extends Change
-//         final case class Renamed( region: Region, change: event.Change[ String ]) extends Change
-//
-//         implicit val serializer : Invariant.Serializer[ S, RegionList ] = new Invariant.Serializer[ S, RegionList ] {
-//            def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : RegionList =
-//               new Read( in, access, targets, tx )
-//         }
-//      }
-//
-//      trait RegionList extends Source[ S, RegionList.Change ] with Root[ S, RegionList.Change ]
-//      with Invariant[ S, RegionList.Change ] /* with Observable[ S, RegionList.Change, RegionList ] */
-//      with EarlyBinding[ S, RegionList.Change ] {
-//         def size( implicit tx: S#Tx ) : Int
-//         def insert( idx: Int, r: Region )( implicit tx: S#Tx ) : Unit
-//         final def add( r: Region )( implicit tx: S#Tx ) { insert( size, r )}
-//         def removeAt( idx: Int )( implicit tx: S#Tx ) : Unit
-//         def indexOf( r: Region )( implicit tx: S#Tx ) : Int
-//         def remove( r: Region )( implicit tx: S#Tx ) : Boolean
-//         def apply( idx: Int )( implicit tx: S#Tx ) : Region
-//
+         final case class Added( l: RegionList, idx: Int, region: EventRegion ) extends Update
+         final case class Removed( l: RegionList, idx: Int, region: EventRegion ) extends Update
+//         final case class Renamed( region: Region, change: event.Change[ String ]) extends Update
+
+         declare[ Update ]( _.changed )
+
+         def empty( implicit tx: Tx ) : RegionList = new New( tx )
+
+         private sealed trait Impl extends RegionList {
+            private type LO = Option[ LinkedList[ EventRegion ]]
+
+            final lazy val changed = event[ RegionList.Update ]
+
+            final protected def decl = RegionList
+
+            protected def sizeRef: S#Var[ Int ]
+            protected def headRef: S#Var[ LO ]
+//            protected def regionRenamed: RegionRenamed
+
+            final protected def writeData( out: DataOutput ) {
+               sizeRef.write( out )
+               headRef.write( out )
+            }
+
+            final protected def disposeData()( implicit tx: S#Tx ) {
+               sizeRef.dispose()
+               headRef.dispose()
+            }
+
+            final def size( implicit tx: S#Tx ) : Int = sizeRef.get
+
+            final def insert( idx: Int, r: EventRegion )( implicit tx: S#Tx ) {
+               if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) {
+                  if( i == idx ) insert( pred, r, idx ) else pred.get match {
+                     case None => throw new IndexOutOfBoundsException( idx.toString )
+                     case Some( l ) => step( i + 1, l.next_# )
+                  }
+               }
+               step( 0, headRef )
+            }
+
+            private def insert( pred: S#Var[ LO ], r: EventRegion, idx: Int )( implicit tx: S#Tx ) {
+               val l = LinkedList[ EventRegion ]( r, pred.get: Option[ LinkedList[ EventRegion ]])
+               pred.set( Some( l ))
+               sizeRef.transform( _ + 1 )
+//               r.name_#.addReactor( regionRenamed )
+               changed( RegionList.Added( this, idx, r ))
+            }
+
+            final def removeAt( idx: Int )( implicit tx: S#Tx ) {
+               if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) {
+                  pred.get match {
+                     case None => throw new IndexOutOfBoundsException( idx.toString )
+                     case Some( l ) =>
+                        if( i == idx ) remove( pred, l, idx )
+                        else step( i + 1, l.next_# )
+                  }
+               }
+               step( 0, headRef )
+            }
+
+            final def apply( idx: Int )( implicit tx: S#Tx ) : EventRegion = {
+               if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) : EventRegion = {
+                  pred.get match {
+                     case None => throw new IndexOutOfBoundsException( idx.toString )
+                     case Some( l ) =>
+                        if( i == idx ) l.value
+                        else step( i + 1, l.next_# )
+                  }
+               }
+               step( 0, headRef )
+            }
+
+            final def remove( r: EventRegion )( implicit tx: S#Tx ) : Boolean = {
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) : Boolean = {
+                  pred.get match {
+                     case None => false
+                     case Some( l ) =>
+                        if( l == r ) {
+                           remove( pred, l, i )
+                           true
+                        }
+                        else step( i + 1, l.next_# )
+                  }
+               }
+               step( 0, headRef )
+            }
+
+            private def remove( pred: S#Var[ LO ], r: LinkedList[ EventRegion ], idx: Int )( implicit tx: S#Tx ) {
+               pred.set( r.next )
+               sizeRef.transform( _ - 1 )
+               changed( RegionList.Removed( this, idx, r.value ))
+            }
+
+            final def indexOf( r: EventRegion )( implicit tx: S#Tx ) : Int = {
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) : Int = {
+                  pred.get match {
+                     case None => -1
+                     case Some( l ) =>
+                        if( l == r ) i else step( i + 1, l.next_# )
+                  }
+               }
+               step( 0, headRef )
+            }
+         }
+
+         private final class New( tx0: Tx ) extends Impl {
+            protected val targets         = Invariant.Targets[ S ]( tx0 )
+            protected val sizeRef         = tx0.newIntVar( id, 0 )
+            protected val headRef         = tx0.newVar[ Option[ LinkedList[ EventRegion ]]]( id, None )
+//            protected val regionRenamed   = new RegionRenamed {
+//               protected val targets      = Event.Invariant.Targets[ S ]( tx0 )
+//            }
+         }
+
+         private final class Read( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+         extends Impl {
+            protected val sizeRef   = tx0.readIntVar( id, in )
+            protected val headRef   = tx0.readVar[ Option[ LinkedList[ EventRegion ]]]( id, in )
+         }
+
+         implicit val serializer : Invariant.Serializer[ S, RegionList ] = new Invariant.Serializer[ S, RegionList ] {
+            def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : RegionList =
+               new Read( in, access, targets, tx )
+         }
+      }
+
+      trait RegionList extends Invariant[ S, RegionList.Update ] with EarlyBinding[ S, RegionList.Update ]
+      with Compound[ S, RegionList, RegionList.type ] {
+         def size( implicit tx: S#Tx ) : Int
+         def insert( idx: Int, r: EventRegion )( implicit tx: S#Tx ) : Unit
+         final def add( r: EventRegion )( implicit tx: S#Tx ) { insert( size, r )}
+         def removeAt( idx: Int )( implicit tx: S#Tx ) : Unit
+         def indexOf( r: EventRegion )( implicit tx: S#Tx ) : Int
+         def remove( r: EventRegion )( implicit tx: S#Tx ) : Boolean
+         def apply( idx: Int )( implicit tx: S#Tx ) : EventRegion
+
+         def changed: Event[ S, RegionList.Update, RegionList ]
+
 //         final def observe( fun: (S#Tx, RegionList.Change) => Unit )( implicit tx: S#Tx ) : Observer[ S, RegionList.Change, RegionList ] = {
 //            val o = Observer[ S, RegionList.Change, RegionList ]( RegionList.serializer, fun )
 //            o.add( this )
 //            o
 //         }
-//      }
-//
-//      object LinkedList {
-//         def apply[ A ]( value: A, next: Option[ LinkedList[ A ]])( implicit tx: S#Tx, peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : LinkedList[ A ] =
-//            new New[ A ]( value, next, tx, peerSer )
-//
-//         private sealed trait Impl[ A ] extends LinkedList[ A ] {
-//            protected def peerSer: TxnSerializer[ S#Tx, S#Acc, A ]
-//            final protected def writeData( out: DataOutput ) {
-//               peerSer.write( value, out )
-//               next_#.write( out )
-//            }
-//
-//            final protected def disposeData()( implicit tx: S#Tx ) {
-//               next_#.dispose()
-//            }
-//         }
-//
-//         private final class New[ A ]( val value: A, next0: Option[ LinkedList[ A ]], tx0: S#Tx,
-//                                       protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) extends Impl[ A ] {
-//            val id      = tx0.newID()
-//            val next_#  = tx0.newVar[ Option[ LinkedList[ A ]]]( id, next0 )
-//         }
-//
-//         private final class Read[ A ]( in: DataInput, acc: S#Acc, tx0: S#Tx,
-//                                        protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ] ) extends Impl[ A ] {
-//            val id      = tx0.readID( in, acc )
-//            val value   = peerSer.read( in, acc )( tx0 )
-//            val next_#  = tx0.readVar[ Option[ LinkedList[ A ]]]( id, in )
-//         }
-//
-//         implicit def serializer[ A ]( implicit peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] =
-//            new TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] {
-//               def write( v: LinkedList[ A ], out: DataOutput ) { v.write( out )}
-//               def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : LinkedList[ A ] =
-//                  new Read[ A ]( in, access, tx, peerSer )
-//            }
-//      }
-//
-//      trait LinkedList[ A ] extends Mutable[ S ] {
-//         def value: A
-//         def next_# : S#Var[ Option[ LinkedList[ A ]]]
-//         final def next( implicit tx: Tx ) : Option[ LinkedList[ A ]] = next_#.get
-//         final def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) { next_#.set( elem )}
-//      }
+      }
+
+      object LinkedList {
+         def apply[ A ]( value: A, next: Option[ LinkedList[ A ]])( implicit tx: S#Tx, peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : LinkedList[ A ] =
+            new New[ A ]( value, next, tx, peerSer )
+
+         private sealed trait Impl[ A ] extends LinkedList[ A ] {
+            protected def peerSer: TxnSerializer[ S#Tx, S#Acc, A ]
+            final protected def writeData( out: DataOutput ) {
+               peerSer.write( value, out )
+               next_#.write( out )
+            }
+
+            final protected def disposeData()( implicit tx: S#Tx ) {
+               next_#.dispose()
+            }
+         }
+
+         private final class New[ A ]( val value: A, next0: Option[ LinkedList[ A ]], tx0: S#Tx,
+                                       protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) extends Impl[ A ] {
+            val id      = tx0.newID()
+            val next_#  = tx0.newVar[ Option[ LinkedList[ A ]]]( id, next0 )
+         }
+
+         private final class Read[ A ]( in: DataInput, acc: S#Acc, tx0: S#Tx,
+                                        protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ] ) extends Impl[ A ] {
+            val id      = tx0.readID( in, acc )
+            val value   = peerSer.read( in, acc )( tx0 )
+            val next_#  = tx0.readVar[ Option[ LinkedList[ A ]]]( id, in )
+         }
+
+         implicit def serializer[ A ]( implicit peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] =
+            new TxnSerializer[ S#Tx, S#Acc, LinkedList[ A ]] {
+               def write( v: LinkedList[ A ], out: DataOutput ) { v.write( out )}
+               def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : LinkedList[ A ] =
+                  new Read[ A ]( in, access, tx, peerSer )
+            }
+      }
+
+      trait LinkedList[ A ] extends Mutable[ S ] {
+         def value: A
+         def next_# : S#Var[ Option[ LinkedList[ A ]]]
+         final def next( implicit tx: Tx ) : Option[ LinkedList[ A ]] = next_#.get
+         final def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) { next_#.set( elem )}
+      }
 
       final class RegionView[ R <: RegionLike ]( rv: S#Var[ R ], id: String ) extends JPanel {
          private val lay = new GroupLayout( this )
@@ -524,55 +542,62 @@ Usages:
    def defer( thunk: => Unit ) { EventQueue.invokeLater( new Runnable { def run() { thunk }})}
 
    def expressions[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
-//      val (system, cleanUp) = tup
-//      val (infra, vs, r3) = system.atomic { implicit tx =>
-//         val _infra = System[ S ]
-//         import _infra._
-//         import strings.stringOps
-//         import longs.longOps
-//         import spans.spanOps
-//
-//         val _r1   = EventRegion( "eins", Span( 0L, 10000L ))
-//         val _r2   = EventRegion( "zwei", Span( 5000L, 12000L ))
-//         val _r3   = EventRegion( _r1.name_#.append( "+" ).append( _r2.name_# ),
-////            longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),
-////            longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
-//            spans.Span(
-//               longOps( _r1.span_#.start.min( _r2.span_#.start)).+( -100L ),
-//               longOps( _r1.span_#.stop.max(  _r2.span_#.stop)).+(   100L ))
-//            )
-//         val rootID  = tx.newID()
-//         val _rvs    = Seq( _r1, _r2, _r3 ).map( tx.newVar( rootID, _ ))
-//
-//         val _vs = _rvs.zipWithIndex.map {
-//   //         case (r, i) => new RegionView( r, "Region #" + (i+1) )
-//            case (rv, i) => new RegionView[ EventRegion ]( rv, "Region #" + (i+1) )
+      val (system, cleanUp) = tup
+      val (infra, vs, r3v) = system.atomic { implicit tx =>
+         val _infra = System[ S ]
+         import _infra._
+         import strings.stringOps
+         import longs.longOps
+         import spans.spanOps
+
+         val _r1   = EventRegion( "eins", Span( 0L, 10000L ))
+         val _r2   = EventRegion( "zwei", Span( 5000L, 12000L ))
+         val _r3   = EventRegion( _r1.name_#.append( "+" ).append( _r2.name_# ),
+//            longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),
+//            longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
+            spans.Span(
+               longOps( _r1.span_#.start.min( _r2.span_#.start)).+( -100L ),
+               longOps( _r1.span_#.stop.max(  _r2.span_#.stop)).+(   100L ))
+            )
+         val rootID  = tx.newID()
+         val _rvs    = Seq( _r1, _r2, _r3 ).map( tx.newVar( rootID, _ ))
+
+         val _vs = _rvs.zipWithIndex.map {
+   //         case (r, i) => new RegionView( r, "Region #" + (i+1) )
+            case (rv, i) => new RegionView[ EventRegion ]( rv, "Region #" + (i+1) )
+         }
+
+         (_infra, _vs, _rvs.last)
+      }
+
+      import infra._
+      import event.Change
+
+      val f    = frame( "Reaction Test", cleanUp )
+      val cp   = f.getContentPane
+
+      cp.setLayout( new GridLayout( 3, 1 ))
+
+      system.atomic { implicit tx =>
+         vs.foreach( _.connect() )
+         val _r3 = tx.access( r3v )
+         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
+            println( "Renamed to '" + newName + "'" )
+         }
+//         _r3.changed.react { (_, _) =>
+////            println( "Renamed to '" + newName + "'" )
+//            println( "Changed" )
 //         }
-//
-//         (_infra, _vs, _r3)
-//      }
-//
-//      val f    = frame( "Reaction Test", cleanUp )
-//      val cp   = f.getContentPane
-//
-//      cp.setLayout( new GridLayout( 3, 1 ))
-//
-//      system.atomic { implicit tx =>
-//         vs.foreach( _.connect() )
-//         r3.renamed.react { case (_, infra.EventRegion.Renamed( _, event.Change( _, newName ))) =>
-//            println( "Renamed to '" + newName + "'" )
-//         }
-//      }
-//
-//      vs.foreach( cp.add )
-//
-//      showFrame( f )
+      }
+
+      vs.foreach( cp.add )
+
+      showFrame( f )
    }
 
-   class TrackItem( name0: String, start0: Long, stop0: Long ) {
+   class TrackItem( name0: String, span0: Span ) {
       var name: String  = name0
-      var start: Long   = start0
-      var stop: Long    = stop0
+      var span: Span    = span0
    }
 
    class TrackView extends JComponent {
@@ -590,7 +615,7 @@ Usages:
       def insert( idx: Int, r: TrackItem ) {
          items.insert( idx, r )
          if( idx == items.size - 1 ) {
-            repaintTracks( r.start, r.stop, idx, idx + 1 )
+            repaintTracks( r.span.start, r.span.stop, idx, idx + 1 )
          } else {
             repaintTracks( start, stop, idx, items.size )
          }
@@ -599,7 +624,7 @@ Usages:
       def removeAt( idx: Int ) {
          val it = items.remove( idx )
          if( idx == items.size ) {
-            repaintTracks( it.start, it.stop, idx, idx + 1 )
+            repaintTracks( it.span.start, it.span.stop, idx, idx + 1 )
          } else {
             repaintTracks( start, stop, idx, items.size + 1 )
          }
@@ -632,8 +657,8 @@ Usages:
 
          items.foldLeft( 0 ) { (y, it) =>
             if( y < (cr.y + cr.height) && (y + regionHeight) > cr.y ) {
-               val x1 = (it.start * scale).toInt
-               val x2 = (it.stop  * scale).toInt
+               val x1 = (it.span.start * scale).toInt
+               val x2 = (it.span.stop  * scale).toInt
                if( x1 < (cr.x + cr.width) && x2 > cr.x ) {
 //                  g2.setColor( Color.black )
                   g2.setColor( colrRegion )
@@ -681,81 +706,81 @@ Usages:
       f.setVisible( true )
    }
 
-//   def collections[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
-//      val (system, cleanUp) = tup
-//      val infra = new System[ S ]
-//      import infra._
-//
-//      val id = system.atomic { implicit tx => tx.newID() }
-//
-//      val cnt = system.atomic { implicit tx =>
-//         tx.newIntVar( id, 0 )
-//      }
-//
-//      val rnd = new scala.util.Random( 1L )
-//
-//      def scramble( s: String ) : String = {
-//         val sb = s.toBuffer
-//         Seq.fill[ Char ]( s.length )( sb.remove( rnd.nextInt( sb.size ))).mkString
-//      }
-//
-//      def newRegion()( implicit tx: S#Tx ) : Region = {
-//         val c = cnt.get + 1
-//         cnt.set( c )
-//         val name    = "Region #" + c
-//         val len     = rnd.nextInt( 10 ) + 1
-//         val start   = rnd.nextInt( 21 - len )
-//         val r       = Region( name, start * 44100L, (start + len) * 44100L )
-////         println( "Region(" + r.name.value + ", " + r.start.value + ", " + r.stop.value + ")" )
-//         r
-//      }
-//
-//      val tr   = new TrackView
-//
-//      val coll = system.atomic { implicit tx =>
-//         val res = RegionList.empty
-//         res.observe { (tx, update) => update match {
-//            case RegionList.Added( idx, r ) =>
-//               implicit val _tx = tx
-//               val name  = r.name.value
-//               val start = r.start.value
-//               val stop  = r.stop.value
-//               defer {
-//                  tr.insert( idx, new TrackItem( name, start, stop ))
-//               }
-//            case RegionList.Removed( idx, r ) =>
-//               defer { tr.removeAt( idx )}
-//         }}
-//         res
-//      }
-//
-//      val f    = frame( "Reaction Test 2", cleanUp )
-//      val cp   = f.getContentPane
-//      val actionPane = Box.createHorizontalBox()
-//      actionPane.add( button( "Add last" ) {
-//         system.atomic { implicit tx =>
-//            coll.add( newRegion() )
-//         }
-//      })
-//      actionPane.add( button( "Remove first" ) {
-//         system.atomic { implicit tx =>
-//            if( coll.size > 0 ) coll.removeAt( 0 )
-//         }
-//      })
-//      actionPane.add( button( "Random rename" ) {
-//         system.atomic { implicit tx =>
-//            if( coll.size > 0 ) {
-//               val r    = coll.apply( rnd.nextInt( coll.size ))
-//               r.name   = scramble( r.name.value )
-//            }
-//         }
-//      })
-//
-//      cp.add( tr, BorderLayout.CENTER )
-//      cp.add( actionPane, BorderLayout.SOUTH )
-//
-//      showFrame( f )
-//   }
+   def collections[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
+      val (system, cleanUp) = tup
+
+      val infra = system.atomic { implicit tx => System[ S ]}
+      import infra._
+
+      val id = system.atomic { implicit tx => tx.newID() }
+
+      val cnt = system.atomic { implicit tx =>
+         tx.newIntVar( id, 0 )
+      }
+
+      val rnd = new scala.util.Random( 1L )
+
+      def scramble( s: String ) : String = {
+         val sb = s.toBuffer
+         Seq.fill[ Char ]( s.length )( sb.remove( rnd.nextInt( sb.size ))).mkString
+      }
+
+      def newRegion()( implicit tx: S#Tx ) : EventRegion = {
+         val c = cnt.get + 1
+         cnt.set( c )
+         val name    = "Region #" + c
+         val len     = rnd.nextInt( 10 ) + 1
+         val start   = rnd.nextInt( 21 - len )
+         val r       = EventRegion( name, Span( start * 44100L, (start + len) * 44100L ))
+//         println( "Region(" + r.name.value + ", " + r.start.value + ", " + r.stop.value + ")" )
+         r
+      }
+
+      val tr   = new TrackView
+
+      val coll = system.atomic { implicit tx =>
+         val res = RegionList.empty
+         res.changed.react { (tx, update) => update match {
+            case RegionList.Added( _, idx, r ) =>
+               implicit val _tx = tx
+               val name    = r.name.value
+               val span    = r.span.value
+               defer {
+                  tr.insert( idx, new TrackItem( name, span ))
+               }
+            case RegionList.Removed( _, idx, r ) =>
+               defer { tr.removeAt( idx )}
+         }}
+         res
+      }
+
+      val f    = frame( "Reaction Test 2", cleanUp )
+      val cp   = f.getContentPane
+      val actionPane = Box.createHorizontalBox()
+      actionPane.add( button( "Add last" ) {
+         system.atomic { implicit tx =>
+            coll.add( newRegion() )
+         }
+      })
+      actionPane.add( button( "Remove first" ) {
+         system.atomic { implicit tx =>
+            if( coll.size > 0 ) coll.removeAt( 0 )
+         }
+      })
+      actionPane.add( button( "Random rename" ) {
+         system.atomic { implicit tx =>
+            if( coll.size > 0 ) {
+               val r    = coll.apply( rnd.nextInt( coll.size ))
+               r.name   = scramble( r.name.value )
+            }
+         }
+      })
+
+      cp.add( tr, BorderLayout.CENTER )
+      cp.add( actionPane, BorderLayout.SOUTH )
+
+      showFrame( f )
+   }
 
    def warn( message: String ) {
       new Throwable( message ).printStackTrace()

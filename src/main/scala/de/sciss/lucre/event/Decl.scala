@@ -27,8 +27,6 @@ package de.sciss.lucre
 package event
 
 import stm.Sys
-import expr.{Span, Expr}
-import stm.impl.InMemory
 
 /**
  * A trait to be mixed in by event dispatching companion
@@ -42,81 +40,72 @@ import stm.impl.InMemory
  * the order of their calls is not changed, as these calls
  * associate incremental identifiers with the declared events.
  */
-trait Decl[ Impl[ S <: Sys[ S ]]] {
+trait Decl[ S <: Sys[ S ], Impl ] {
    private var cnt      = 0
    private var keyMap   = Map.empty[ Class[ _ ], Int ]
-//   private var idMap    = Map.empty[ Int, Declaration[ _ <: Update[ _ ]]]
-   private var idMap    = Map.empty[ Int, Declaration[ _ ]]
+   private var idMap    = Map.empty[ Int, Declaration[ _ <: Update ]]
 
 //   def id[ U <: Update ]( clz: Class[ U ]): Int = keyMap( clz )
    private[event] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
 //   private[event] def route[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int ) : Event[ S, Update, _ ] = idMap( id ).apply( impl )
-   private[event] def pull[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int, source: Event[ S, _, _ ],
-                                            update: Any )( implicit tx: S#Tx ) : Option[ Update[ S ]]=
-      idMap( id ).apply( impl ).pull( source, update ).asInstanceOf[ Option[ Update[ S ]]]   // PPP
+   private[event] def pull( impl: Impl, id: Int, source: Event[ S, _, _ ],
+                            update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
+      idMap( id ).apply( impl ).pull( source, update )
 
 //   private sealed trait Key[ U ] {
 //      def id: Int
 //      def apply[ S <: Sys[ S ]]( disp: Impl[ S ]) : Event[ S, U, _ ]
 //   }
 
-//   protected def declare[ U[ _ ] <: Update[ _ ]]( fun: Impl[ _ ] => Event[ _, U[ _ ], _ ])( implicit mf: ClassManifest[ U[ _ ]]) : Unit =
-//      new Declaration[ U ]( fun )
-
-   protected def declare[ U[ S <: Sys[ S ]] <: Update[ InMemory ]]( fun: Impl[ InMemory ] => Event[ InMemory, U[ InMemory ], _ ])( implicit mf: ClassManifest[ U ]) : Unit =
+   protected def declare[ U <: Update ]( fun: Impl => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) : Unit =
       new Declaration[ U ]( fun )
 
-   private final class Declaration[ U[ _ ] <: Update[ _ ]]( fun: Impl[ _ ] => Event[ _, U[ _ ], _ ])( implicit mf: ClassManifest[ U[ _ ]]) {
+   private final class Declaration[ U <: Update ]( fun: Impl => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) {
       val id = 1 << cnt
       cnt += 1
       keyMap += ((mf.erasure, cnt))
-      idMap += ((id, this.asInstanceOf[ Declaration[ _ ]]))
+      idMap += ((id, this))
 
-      def apply[ S <: Sys[ S ]]( impl: Impl[ S ]) : Event[ S, U[ S ], _ ] = fun( impl ).asInstanceOf[ Event[ S, U[ S ], _ ]]
+      def apply[ S <: Sys[ S ]]( impl: Impl ) : Event[ S, U, _ ] = fun( impl ).asInstanceOf[ Event[ S, U, _ ]]
    }
 
-   sealed trait Update[ S <: Sys[ S ]]
+   /* sealed */ trait Update
 
-   def serializer[ S <: Sys[ S ]]: Reader[ S, Impl[ S ], _ ]
+   def serializer: Reader[ S, Impl, _ ]
 }
 
-object Test extends Decl[ Test ] {
-   case class Renamed[ S <: Sys[ S ]]( r: Test[ S ], ch: Change[ String ]) extends Update[ S ]
-   case class Moved[ S <: Sys[ S ]](   r: Test[ S ], ch: Change[ Span   ]) extends Update[ S ]
-   case class Removed[ S <: Sys[ S ]]( r: Test[ S ]) extends Update[ S ]
-
-   declare[ Renamed ]( _.renamed )
-   declare[ Moved   ]( _.moved   )
-   declare[ Removed ]( _.removed )
-
-   implicit def serializer[ S <: Sys[ S ]] = new Invariant.Serializer[ S, Test[ S ]] {
-      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Test[ S ] =
-         sys.error( "TODO" ) // new TestRead[ S ]( in, access, targets, tx )
-   }
-
-//   private final class TestRead[ S <: Sys[ S ]]( in: DataInput, access: S#Acc,
-//                                                 protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
-//   extends Test[ S ] {
+//class Setup[ S <: Sys[ S ]] {
+//   object Test extends Decl[ S, Test ] {
+//      case class Renamed( r: Test, ch: Change[ String ]) extends Update
+//      case class Moved(   r: Test, ch: Change[ Span   ]) extends Update
+//      case class Removed( r: Test ) extends Update
 //
-//   }
-}
-sealed trait Test[ S <: Sys[ S ]] extends Compound[ S, Test, Test.type ] with Invariant[ S, Test.Update[ S ]]
-with LateBinding[ S, Test.Update[ S ]] {
-   import Test._
-   def decl = Test
-
-   def name_# : Expr[ S, String ]
-   def span_# : Expr[ S, Span   ]
-
-   def renamed = name_#.changed.map( Renamed( this, _ ))
-   def moved   = span_#.changed.map( Moved(   this, _ ))
-//   def changed = renamed | moved
-   def removed = event[ Removed[ S ]]
-
-//   import de.sciss.lucre.{event => evt}
+//      declare[ Renamed ]( _.renamed )
+//      declare[ Moved   ]( _.moved   )
+//      declare[ Removed ]( _.removed )
 //
-//   implicit val tx: S#Tx = sys.error( "test" )
-//   renamed.react {
-//      case (tx, Test.Renamed( evt.Change( before, now ))) =>
+//      implicit def serializer = new Invariant.Serializer[ S, Test ] {
+//         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Test =
+//            sys.error( "TODO" ) // new TestRead[ S ]( in, access, targets, tx )
+//      }
+//
+//   //   private final class TestRead[ S <: Sys[ S ]]( in: DataInput, access: S#Acc,
+//   //                                                 protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+//   //   extends Test[ S ] {
+//   //
+//   //   }
 //   }
-}
+//   sealed trait Test extends Compound[ S, Test, Test.type ] with Invariant[ S, Test.Update ]
+//   with LateBinding[ S, Test.Update ] {
+//      import Test._
+//      def decl = Test
+//
+//      def name_# : Expr[ S, String ]
+//      def span_# : Expr[ S, Span   ]
+//
+//      def renamed = name_#.changed.map( Renamed( this, _ ))
+//      def moved   = span_#.changed.map( Moved(   this, _ ))
+//   //   def changed = renamed | moved
+//      def removed = event[ Removed ]
+//   }
+//}

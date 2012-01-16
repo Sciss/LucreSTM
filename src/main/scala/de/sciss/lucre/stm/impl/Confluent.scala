@@ -28,10 +28,10 @@ package stm
 package impl
 
 import stm.{ Txn => _Txn, Var => _Var }
-import event.{Event, Node, ObserverKey, ReactionMap, Reactions, Reactor, Targets}
 import concurrent.stm.{InTxn, TxnExecutor}
 import collection.immutable.{IntMap, IndexedSeq => IIdxSeq}
 import scala.util.MurmurHash
+import event.{NodeReactor, Event, Node, ObserverKey, ReactionMap, Reactions, Reactor, Targets}
 
 object Confluent {
    private type Acc = IIdxSeq[ Int ]
@@ -201,7 +201,7 @@ object Confluent {
          system.reactionMap.addEventReaction( reader, fun )( this )
 
       def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
+                           observers: IIdxSeq[ ObserverKey[ S ]]) : NodeReactor[ S ] =
          system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
 
       def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,

@@ -33,18 +33,10 @@ import stm.{Disposable, Var => _Var, Sys, Writer}
 object Expr {
    trait Node[ S <: Sys[ S ], A ] extends Expr[ S, A ] // with Invariant[ S, Change[ A ]]
    with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] {
-      final val changed: Event[ S, Change[ A ], Expr[ S, A ]] = this
-//      expr =>
-//
-//      import de.sciss.lucre.{event => evt}
-//
-//      final val changed: Event[ S, Change[ A ], Expr[ S, A ]] = new evt.Impl[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
-//         def node: evt.Node[ S, Change[ A ]] = expr
-//         def selector: Int = 1
-//         protected def reader: evt.Reader[ S, Expr[ S, A ], _ ] = expr.reader
-//      }
-//
-//      protected def reader: evt.Reader[ S, Expr[ S, A ], _ ]
+      final def changed: Event[ S, Change[ A ], Expr[ S, A ]] = this
+
+      final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] =
+         pull( source, update )
    }
 
    trait Var[ S <: Sys[ S ], A ] extends Expr[ S, A ] with _Var[ S#Tx, Expr[ S, A ]]
@@ -70,7 +62,7 @@ object Expr {
       protected def ref: S#Var[ Ex ]
       protected def reader: evt.Reader[ S, Expr[ S, A ], _ ]
 
-      final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get.changed )
+      final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( (ref.get.changed, 1) )  // ZZZ
 
       final protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 0 )
@@ -87,11 +79,11 @@ object Expr {
          if( before != expr ) {
             val con = targets.isConnected
 //            if( con ) before -= this
-            if( con ) before.changed -= this
+            if( con ) before.changed -= this.select( 1 )
             ref.set( expr )
             if( con ) {
 //               expr += this
-               expr.changed += this
+               expr.changed += this.select( 1 )
                val beforeV = before.value
                val exprV   = expr.value
                fire( Change( beforeV, exprV))
@@ -103,13 +95,16 @@ object Expr {
 
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 
-      final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
+      final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
          if( source == changed ) {
             Some( update.asInstanceOf[ Change[ A ]])
          } else {
             get.changed.pull( source, update )
          }
       }
+
+      final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] =
+         pull( source, update )
    }
    trait Const[ S <: Sys[ S ], A ] extends Expr[ S, A ] with event.Constant[ S ] {
       final def changed = Dummy[ S, Change[ A ], Expr[ S, A ]]

@@ -335,4 +335,73 @@ need to ensure this works with the observer
 
 ::::::::::::::::::::::::::::
 
-Fucking higher-kinded types not working with declare and extractors
+howto define events on elements from a collection?
+
+collection[ EventRegion ]( _.changed ).map( ch => RegionList.ElementChanged( this, ch ))
+
+elements[ EventRegion ]( _.changed ).map( ch => RegionList.ElementChanged( this, ch ))
+
+forall[ EventRegion ]( _.changed ).map( ch => RegionList.ElementChanged( this, ch ))
+// disadvantage: pollutes namespace
+
+   private def collEvt = collection[ EventRegion ]( _.changed ).map( ch => RegionList.ElementChanged( this, ch ))
+
+   def add( r: Region ) {
+       ...
+       collEvt.add( r )    // or +=
+   }
+
+   def remove( r: Region ) {
+      collEvt.remove( r )  // or -=
+   }
+
+the alternative is to leave this tracking open to clients?
+
+   list.any( _.changed ).react { ... }
+
+or multiple
+
+   lazy val any = collection[ EventRegion ]( _.changed )
+   private lazy val elementChanged    = any.map( ch => RegionList.ElementChanged( this, ch ))
+   private lazy val collectionChanged = event[ AddedOrRemoved ]
+   lazy val changed = elemEvt | collEvt
+
+there is no urge to support `any` in this case, so it should be sufficient to do
+
+   lazy val elementChanged    = collection[ EventRegion ]( _.changed ).map( ch => RegionList.ElementChanged( this, ch ))
+   lazy val collectionChanged = event[ AddedOrRemoved ]
+   lazy val changed           = elemEvt | collEvt
+
+how about `collected`?
+
+   lazy val elementChanged    = collected[ EventRegion ]( _.changed ).map( ch => RegionList.ElementChanged( this, ch ))
+   lazy val collectionChanged = event[ AddedOrRemoved ]
+   lazy val changed           = elemEvt | collEvt
+
+?
+
+And how to deal with multiple additions?
+
+(the current implementation would allow multiple registrations; but the dispatch might actually filter them through visited?)
+
+::::::::::::::::::::::::::::
+
+there is a confusion currently:
+
+- Compound:pull assumes that 'key' is its event key
+- but currently Event += takes a reactor, and then calls select with _its_ key,
+  thus the Selector's id corresponds to 'outlet' not 'inlet'
+
+NodeSelector : propagate
+ --> adds it's own key in targets.propagate
+
+what targets.propagate needs to do:
+   children need to be either Map[ Int, IIdxSeq[ Selector ]]
+   or (probably better in most cases) IIdxSeq[ (Int, Selector) ]
+
+thus:
+   Event {
+      def +=( Selector )
+      def -=( Selector )
+   }
+
