@@ -27,7 +27,7 @@ package de.sciss.lucre
 package expr
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{Dummy, Change, Event, LateBinding, Reactor, Source, Sources, StandaloneLike}
+import event.{Dummy, Change, Event, Reactor, Source, Sources, StandaloneLike}
 import stm.{Disposable, Var => _Var, Sys, Writer}
 
 object Expr {
@@ -37,11 +37,13 @@ object Expr {
 
       final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] =
          pull( source, update )
+
+      final def disposeData()( implicit tx: S#Tx ) {}
    }
 
    trait Var[ S <: Sys[ S ], A ] extends Expr[ S, A ] with _Var[ S#Tx, Expr[ S, A ]]
    // with Invariant[ S, Change[ A ]]
-   with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] with LateBinding[ S, Change[ A ]]
+   with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] /* with LateBinding[ S, Change[ A ]] */
    with Source[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
       expr =>
 
@@ -62,8 +64,6 @@ object Expr {
       protected def ref: S#Var[ Ex ]
       protected def reader: evt.Reader[ S, Expr[ S, A ], _ ]
 
-      final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( (ref.get.changed, 1) )  // ZZZ
-
       final protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 0 )
          ref.write( out )
@@ -73,17 +73,20 @@ object Expr {
          ref.dispose()
       }
 
+      final protected def connectSources()( implicit tx: S#Tx ) {}
+      final protected def disconnectSources()( implicit tx: S#Tx ) {}
+
       final def get( implicit tx: S#Tx ) : Ex = ref.get
       final def set( expr: Ex )( implicit tx: S#Tx ) {
          val before = ref.get
          if( before != expr ) {
             val con = targets.isConnected
 //            if( con ) before -= this
-            if( con ) before.changed -= this.select( 1 )
+            if( con ) before.changed -= this.changed
             ref.set( expr )
             if( con ) {
 //               expr += this
-               expr.changed += this.select( 1 )
+               expr.changed += this.changed
                val beforeV = before.value
                val exprV   = expr.value
                fire( Change( beforeV, exprV))

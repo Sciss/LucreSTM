@@ -28,7 +28,7 @@ package expr
 
 import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{Event, Invariant, LateBinding}
+import event.{Event, Invariant}
 import annotation.switch
 
 //final case class Span[ S <: Sys[ S ]]( start: Expr[ S, Long ], stop: Expr[ S, Long ])
@@ -151,11 +151,19 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
    }
 
    private sealed trait Literal extends Basic with Expr.Node[ S, expr.Span ]
-   with LateBinding[ S, Change ] {
+   /* with LateBinding[ S, Change ] */ {
       def start: LongEx
       def stop: LongEx
 
-      final protected def sources( implicit tx: S#Tx ) : event.Sources[ S ] = IIdxSeq( (start.changed, 1), (stop.changed, 1) )
+      final protected def connectSources()( implicit tx: S#Tx ) {
+         changed += start.changed
+         changed += stop.changed
+      }
+
+      final protected def disconnectSources()( implicit tx: S#Tx ) {
+         changed -= start.changed
+         changed -= stop.changed
+      }
 
       final protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 3 )
@@ -163,7 +171,7 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
          stop.write( out )
       }
 
-      final protected def disposeData()( implicit tx: S#Tx ) {}
+//      final protected def disposeData()( implicit tx: S#Tx ) {}
 
       final def value( implicit tx: S#Tx ) : expr.Span = new expr.Span( start.value, stop.value )
 
@@ -250,9 +258,17 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
 
    private sealed trait UnaryLongImpl
    extends longs.Basic with Expr.Node[ S, Long ]
-   with LateBinding[ S, longs.Change ] {
+   /* with LateBinding[ S, longs.Change ] */ {
       protected def op: UnaryLongOp
       protected def a: Ex
+
+      final protected def connectSources()( implicit tx: S#Tx ) {
+         changed += a.changed
+      }
+
+      final protected def disconnectSources()( implicit tx: S#Tx ) {
+         changed -= a.changed
+      }
 
       final def value( implicit tx: S#Tx ) = op.value( a.value )
       final def writeData( out: DataOutput ) {
@@ -261,8 +277,7 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
          out.writeShort( op.id )
          a.write( out )
       }
-      final def disposeData()( implicit tx: S#Tx ) {}
-      final def sources( implicit tx: S#Tx ) : event.Sources[ S ] = IIdxSeq( (a.changed, 1) )
+//      final def disposeData()( implicit tx: S#Tx ) {}
 
       final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ longs.Change ] = {
          a.changed.pull( source, update ).flatMap { ach =>
@@ -276,7 +291,6 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
    extends UnaryLongImpl {
       protected val a = readExpr( in, access )( tx0 )
    }
-
 
    private final class UnaryLongNew( protected val op: UnaryLongOp, protected val a: Ex, tx0: S#Tx )
    extends UnaryLongImpl {

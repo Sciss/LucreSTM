@@ -34,6 +34,8 @@ import stm.{Writer, Sys, Disposable, TxnSerializer}
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
+   implicit def event[ S <: Sys[ S ]]( ev: Event[ S, _, _ ]) : Selector[ S ] = ev.select()
+
 //   def apply[ S <: Sys[ S ]]( key: Int, observer: ObserverKey[ S ]) : Selector[ S ] =
 //      new ObserverSelector[ S ]( key, observer )
 
@@ -359,8 +361,30 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
    protected def writeData( out: DataOutput ) : Unit
    protected def disposeData()( implicit tx: S#Tx ) : Unit
 
-   private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
-   private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+
+   final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
+
+//   private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+//   private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+
+   protected def connectSources()(    implicit tx: S#Tx ) : Unit
+   protected def disconnectSources()( implicit tx: S#Tx ) : Unit
+
+   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      if( targets.addReactor( outlet, sel )) {
+//            sources.foreach( _.addReactor( this ))
+//         sources.foreach( tup => tup._1 += this.select( tup._2 ))
+         connectSources()
+      }
+   }
+
+   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      if( targets.removeReactor( outlet, sel )) {
+//            sources.foreach( _.removeReactor( this ))
+//         sources.foreach( tup => tup._1 -= this.select( tup._2 ))
+         disconnectSources()
+      }
+   }
 
    private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
@@ -475,50 +499,50 @@ object Invariant {
    }
 }
 
-/**
- * A late binding event node is one which only registers with its sources after the first
- * target (dependent) is registered. Vice versa, it automatically unregisters from its sources
- * after the last dependent is removed. Implementing classes must provide the `sources` method
- * which defines a fixed number of sources for the event.
- */
-trait LateBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-   protected def sources( implicit tx: S#Tx ) : Sources[ S ]
-
-   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-      if( targets.addReactor( outlet, sel )) {
-//            sources.foreach( _.addReactor( this ))
-         sources.foreach( tup => tup._1 += this.select( tup._2 ))
-      }
-   }
-
-   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-      if( targets.removeReactor( outlet, sel )) {
-//            sources.foreach( _.removeReactor( this ))
-         sources.foreach( tup => tup._1 -= this.select( tup._2 ))
-      }
-   }
-}
-
-/**
- * An early binding event node simply
- */
-trait EarlyBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-      targets.addReactor( outlet, sel )
-   }
-
-   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-      targets.removeReactor( outlet, sel )
-   }
-
-   protected def addSource( r: Event[ S, _, _ ], inlet: Int )( implicit tx: S#Tx ) {
-      r += this.select( inlet )
-   }
-
-   protected def removeSource( r: Event[ S, _, _ ], inlet: Int )( implicit tx: S#Tx ) {
-      r += this.select( inlet )
-   }
-}
+///**
+// * A late binding event node is one which only registers with its sources after the first
+// * target (dependent) is registered. Vice versa, it automatically unregisters from its sources
+// * after the last dependent is removed. Implementing classes must provide the `sources` method
+// * which defines a fixed number of sources for the event.
+// */
+//trait LateBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
+//   protected final def sources( implicit tx: S#Tx ) : Sources[ S ]
+//
+//   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+//      if( targets.addReactor( outlet, sel )) {
+////            sources.foreach( _.addReactor( this ))
+//         sources.foreach( tup => tup._1 += this.select( tup._2 ))
+//      }
+//   }
+//
+//   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+//      if( targets.removeReactor( outlet, sel )) {
+////            sources.foreach( _.removeReactor( this ))
+//         sources.foreach( tup => tup._1 -= this.select( tup._2 ))
+//      }
+//   }
+//}
+//
+///**
+// * An early binding event node simply
+// */
+//trait EarlyBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
+//   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+//      targets.addReactor( outlet, sel )
+//   }
+//
+//   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+//      targets.removeReactor( outlet, sel )
+//   }
+//
+//   protected def addSource( r: Event[ S, _, _ ], inlet: Int )( implicit tx: S#Tx ) {
+//      r += this.select( inlet )
+//   }
+//
+//   protected def removeSource( r: Event[ S, _, _ ], inlet: Int )( implicit tx: S#Tx ) {
+//      r += this.select( inlet )
+//   }
+//}
 
 /**
  * An event which is `Invariant` designates a `Node` which does not mutate any internal state
@@ -545,6 +569,9 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  * implementation of `pull` which merely checks if this event has fired or not.
  */
 trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
+   final protected def connectSources()( implicit tx: S#Tx ) {}
+   final protected def disconnectSources()( implicit tx: S#Tx ) {}
+
    final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
       pull( source, update )
 
@@ -597,6 +624,8 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
    protected def outlet: Int
    protected def node: Node[ S, A ]
 
+   final private[lucre] def select() : Selector[ S ] = node.select( outlet )
+
    protected def reader: Reader[ S, Repr, _ ]
 //      implicit protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A1, Repr ]]
 
@@ -633,6 +662,7 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
  */
 trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
 /* with EarlyBinding[ S, A ] */ /* with Singleton[ S ] with Root[ S, A ] */ {
+//   final private[lucre] def select() : Selector[ S ] = Selector( outlet, this )
    final protected def outlet = 1
    final protected def node: Node[ S, A ] = this
 
@@ -672,7 +702,7 @@ object Trigger {
          }
    }
    trait Standalone[ S <: Sys[ S ], A ] extends Impl[ S, A, A, Standalone[ S, A ]]
-   with StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] with EarlyBinding[ S, A ]
+   with StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] /* with EarlyBinding[ S, A ] */
    with Root[ S, A /*, Standalone[ S, A ] */ ] {
       final protected def reader: Reader[ S, Standalone[ S, A ], _ ] = Standalone.serializer[ S, A ]
    }
@@ -709,7 +739,7 @@ object Bang {
  * implements the `Observable` trait, so that the bang can be connected to a live view (e.g. a GUI).
  */
 trait Bang[ S <: Sys[ S ]] extends Trigger.Impl[ S, Unit, Unit, Bang[ S ]] with StandaloneLike[ S, Unit, Bang[ S ]]
-with EarlyBinding[ S, Unit ] {
+/* with EarlyBinding[ S, Unit ] */ {
    /**
     * A parameterless convenience version of the `Trigger`'s `apply` method.
     */
@@ -851,6 +881,8 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
    final def +=( r: Selector[ S ])( implicit tx: S#Tx ) {}
    final def -=( r: Selector[ S ])( implicit tx: S#Tx ) {}
 
+   final private[lucre] def select() : Selector[ S ] = sys.error( "Operation not supported" )
+
    final def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
       Observer.dummy[ S, A, Repr ]
 
@@ -865,12 +897,15 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
 trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
 //   def +=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
 //   def -=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
+
    def +=( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
    def -=( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
    def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
 
    private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
+
+   private[lucre] def select() : Selector[ S ]
 }
 
 
@@ -966,5 +1001,13 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
 
    final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ D#Update ] = {
       decl.pull( this, key, source, update ) // .asInstanceOf[ Option[ D#Update ]]
+   }
+
+   final protected def connectSources()( implicit tx: S#Tx ) {
+      decl.connectSources( this )
+   }
+
+   final protected def disconnectSources()( implicit tx: S#Tx ) {
+      decl.disconnectSources( this )
    }
 }

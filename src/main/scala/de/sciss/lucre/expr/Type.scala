@@ -28,7 +28,7 @@ package expr
 
 import stm.Sys
 import annotation.switch
-import event.{StandaloneLike, LateBinding, Event, Observer, Invariant, Sources}
+import event.{Event, Observer, Invariant, Sources}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
@@ -121,9 +121,17 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
 
    private sealed trait UnaryOpImpl
    extends Basic with Expr.Node[ S, A ] // with StandaloneLike[ S, Change, Ex ]
-   with LateBinding[ S, Change ] {
+   /* with LateBinding[ S, Change ] */ {
       protected def op: UnaryOp
       protected def a: Ex
+
+      final protected def connectSources()( implicit tx: S#Tx ) {
+         changed += a.changed
+      }
+
+      final protected def disconnectSources()( implicit tx: S#Tx ) {
+         changed -= a.changed
+      }
 
       final def value( implicit tx: S#Tx ) = op.value( a.value )
       final def writeData( out: DataOutput ) {
@@ -131,8 +139,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
          out.writeShort( op.id )
          a.write( out )
       }
-      final def disposeData()( implicit tx: S#Tx ) {}
-      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( (a.changed, 1) )
+//      final def disposeData()( implicit tx: S#Tx ) {}
 
       final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
          a.changed.pull( source, update ).flatMap { ach =>
@@ -154,10 +161,20 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
 
    private sealed trait BinaryOpImpl
    extends Basic with Expr.Node[ S, A ] // with StandaloneLike[ S, Change, Ex ]
-   with LateBinding[ S, Change ] {
+   /* with LateBinding[ S, Change ] */ {
       protected def op: BinaryOp
       protected def a: Ex
       protected def b: Ex
+
+      final protected def connectSources()( implicit tx: S#Tx ) {
+         changed += a.changed
+         changed += b.changed
+      }
+
+      final protected def disconnectSources()( implicit tx: S#Tx ) {
+         changed -= a.changed
+         changed -= b.changed
+      }
 
       final def value( implicit tx: S#Tx ) = op.value( a.value, b.value )
       final def writeData( out: DataOutput ) {
@@ -166,8 +183,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
          a.write( out )
          b.write( out )
       }
-      final def disposeData()( implicit tx: S#Tx ) {}
-      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( (a.changed, 1), (b.changed, 1) )
+//      final def disposeData()( implicit tx: S#Tx ) {}
 
       final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
          (a.changed.pull( source, update ), b.changed.pull( source, update )) match {

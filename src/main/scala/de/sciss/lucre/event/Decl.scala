@@ -52,6 +52,14 @@ trait Decl[ S <: Sys[ S ], Impl ] {
                             update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
       idMap( id ).apply( impl ).pull( source, update )
 
+   private[event] def connectSources( impl: Impl )( implicit tx: S#Tx ) {
+      sys.error( "TODO" )
+   }
+
+   private[event] def disconnectSources( impl: Impl )( implicit tx: S#Tx ) {
+      sys.error( "TODO" )
+   }
+
 //   private sealed trait Key[ U ] {
 //      def id: Int
 //      def apply[ S <: Sys[ S ]]( disp: Impl[ S ]) : Event[ S, U, _ ]

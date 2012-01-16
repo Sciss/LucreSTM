@@ -31,12 +31,12 @@ import java.io.File
 import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
-import annotation.{tailrec, switch}
+import annotation.tailrec
 import collection.mutable.Buffer
 import stm.{TxnSerializer, Sys}
 import stm.impl.{InMemory, Confluent, BerkeleyDB}
 import stm.Mutable
-import event.{Compound, Decl, Event, LateBinding, Root, Source, Observer, EarlyBinding, Invariant}
+import event.{Compound, Decl, Event, Invariant}
 
 object ReactionTest2 extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
@@ -194,7 +194,7 @@ Usages:
             final lazy val moved    = span_#.changed.map( Moved( this, _ ))
             final lazy val changed  = (renamed | moved).map( ch => Changed( ch.r ))
 
-            final protected def sources( implicit tx: S#Tx ) = IIdxSeq( (name_#, 1 << 0), (span_#, 1 << 1) )   // OUCH XXX
+//            final protected def sources( implicit tx: S#Tx ) = IIdxSeq( (name_#, 1 << 0), (span_#, 1 << 1) )   // OUCH XXX
             final protected def reader = serializer
             final protected def decl   = EventRegion
          }
@@ -219,7 +219,7 @@ Usages:
                new Read( in, access, targets, tx )
          }
       }
-      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ] with LateBinding[ S, EventRegion.Update ]
+      trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ]
       with Compound[ S, EventRegion, EventRegion.type ] {
          import EventRegion._
 
@@ -362,7 +362,7 @@ Usages:
          }
       }
 
-      trait RegionList extends Invariant[ S, RegionList.Update ] with EarlyBinding[ S, RegionList.Update ]
+      trait RegionList extends Invariant[ S, RegionList.Update ]
       with Compound[ S, RegionList, RegionList.type ] {
          def size( implicit tx: S#Tx ) : Int
          def insert( idx: Int, r: EventRegion )( implicit tx: S#Tx ) : Unit
@@ -581,13 +581,13 @@ Usages:
       system.atomic { implicit tx =>
          vs.foreach( _.connect() )
          val _r3 = tx.access( r3v )
-         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
-            println( "Renamed to '" + newName + "'" )
-         }
-//         _r3.changed.react { (_, _) =>
-////            println( "Renamed to '" + newName + "'" )
-//            println( "Changed" )
+//         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
+//            println( "Renamed to '" + newName + "'" )
 //         }
+         _r3.changed.react { (_, _) =>
+//            println( "Renamed to '" + newName + "'" )
+            println( "Changed" )
+         }
       }
 
       vs.foreach( cp.add )
