@@ -1004,10 +1004,17 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
    }
 
    final protected def connectSources()( implicit tx: S#Tx ) {
-      decl.connectSources( this )
+      decl.events( this ).foreach { e =>
+//         val outlet  = tup._1
+//         val e       = tup._2
+//         e.sect
+      }
+//      decl.connectSources( this )
+      sys.error( "TODO" )
    }
 
    final protected def disconnectSources()( implicit tx: S#Tx ) {
-      decl.disconnectSources( this )
+//      decl.disconnectSources( this )
+      sys.error( "TODO" )
    }
 }

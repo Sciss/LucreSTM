@@ -27,6 +27,8 @@ package de.sciss.lucre
 package event
 
 import stm.Sys
+import collection.breakOut
+import collection.immutable.{IndexedSeq => IIdxSeq}
 
 /**
  * A trait to be mixed in by event dispatching companion
@@ -52,12 +54,26 @@ trait Decl[ S <: Sys[ S ], Impl ] {
                             update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
       idMap( id ).apply( impl ).pull( source, update )
 
-   private[event] def connectSources( impl: Impl )( implicit tx: S#Tx ) {
-      sys.error( "TODO" )
-   }
+//   private[event] def connectSources( impl: Impl )( implicit tx: S#Tx ) {
+//      sys.error( "TODO" )
+//   }
 
-   private[event] def disconnectSources( impl: Impl )( implicit tx: S#Tx ) {
-      sys.error( "TODO" )
+//   private[event] def events( impl: Impl ) : IIdxSeq[ (Int, Event[ S, _ <: Update, _ ])] = {
+//      type Elem = (Int, Event[ S, _ <: Update, _ ])
+//      idMap.map[ Elem, IIdxSeq[ Elem ]]( tup => {
+//         val id   = tup._1
+//         val dec  = tup._2
+//         (id, dec( impl ))
+//      })( breakOut )
+//   }
+
+   private[event] def events( impl: Impl ) : IIdxSeq[ Event[ S, _ <: Update, _ ]] = {
+      type Elem = Event[ S, _ <: Update, _ ]
+      idMap.map[ Elem, IIdxSeq[ Elem ]]( tup => {
+//         val id   = tup._1
+         val dec  = tup._2
+         dec( impl )
+      })( breakOut )
    }
 
 //   private sealed trait Key[ U ] {
