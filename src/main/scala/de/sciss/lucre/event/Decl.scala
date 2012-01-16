@@ -27,7 +27,6 @@ package de.sciss.lucre
 package event
 
 import stm.Sys
-import expr.{Span, Expr}
 
 /**
  * A trait to be mixed in by event dispatching companion
@@ -75,38 +74,38 @@ trait Decl[ S <: Sys[ S ], Impl ] {
    def serializer: Reader[ S, Impl, _ ]
 }
 
-class Setup[ S <: Sys[ S ]] {
-   object Test extends Decl[ S, Test ] {
-      case class Renamed( r: Test, ch: Change[ String ]) extends Update
-      case class Moved(   r: Test, ch: Change[ Span   ]) extends Update
-      case class Removed( r: Test ) extends Update
-
-      declare[ Renamed ]( _.renamed )
-      declare[ Moved   ]( _.moved   )
-      declare[ Removed ]( _.removed )
-
-      implicit def serializer = new Invariant.Serializer[ S, Test ] {
-         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Test =
-            sys.error( "TODO" ) // new TestRead[ S ]( in, access, targets, tx )
-      }
-
-   //   private final class TestRead[ S <: Sys[ S ]]( in: DataInput, access: S#Acc,
-   //                                                 protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
-   //   extends Test[ S ] {
-   //
-   //   }
-   }
-   sealed trait Test extends Compound[ S, Test, Test.type ] with Invariant[ S, Test.Update ]
-   with LateBinding[ S, Test.Update ] {
-      import Test._
-      def decl = Test
-
-      def name_# : Expr[ S, String ]
-      def span_# : Expr[ S, Span   ]
-
-      def renamed = name_#.changed.map( Renamed( this, _ ))
-      def moved   = span_#.changed.map( Moved(   this, _ ))
-   //   def changed = renamed | moved
-      def removed = event[ Removed ]
-   }
-}
+//class Setup[ S <: Sys[ S ]] {
+//   object Test extends Decl[ S, Test ] {
+//      case class Renamed( r: Test, ch: Change[ String ]) extends Update
+//      case class Moved(   r: Test, ch: Change[ Span   ]) extends Update
+//      case class Removed( r: Test ) extends Update
+//
+//      declare[ Renamed ]( _.renamed )
+//      declare[ Moved   ]( _.moved   )
+//      declare[ Removed ]( _.removed )
+//
+//      implicit def serializer = new Invariant.Serializer[ S, Test ] {
+//         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Test =
+//            sys.error( "TODO" ) // new TestRead[ S ]( in, access, targets, tx )
+//      }
+//
+//   //   private final class TestRead[ S <: Sys[ S ]]( in: DataInput, access: S#Acc,
+//   //                                                 protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+//   //   extends Test[ S ] {
+//   //
+//   //   }
+//   }
+//   sealed trait Test extends Compound[ S, Test, Test.type ] with Invariant[ S, Test.Update ]
+//   with LateBinding[ S, Test.Update ] {
+//      import Test._
+//      def decl = Test
+//
+//      def name_# : Expr[ S, String ]
+//      def span_# : Expr[ S, Span   ]
+//
+//      def renamed = name_#.changed.map( Renamed( this, _ ))
+//      def moved   = span_#.changed.map( Moved(   this, _ ))
+//   //   def changed = renamed | moved
+//      def removed = event[ Removed ]
+//   }
+//}

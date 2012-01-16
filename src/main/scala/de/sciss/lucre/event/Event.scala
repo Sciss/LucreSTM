@@ -859,6 +859,17 @@ object Compound {
                                                                 e: Event[ S, B, _ ]) {
       def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
          new Map[ S, Repr, D, B, A1 ]( d, e, fun, d.decl.eventID[ A1 ])
+      def |[ Up >: B, C <: Up ]( that: Event[ S, C, _ ]) : EventOr[ S, Repr, D, Up ] =
+         new EventOr[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, _ ]]( e, that ))
+   }
+
+   final class EventOr[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B ] private[Compound](
+      d: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, _ <: B, _ ]]) {
+      def |[ Up >: B, C <: Up ]( that: Event[ S, C, _ ]) : EventOr[ S, Repr, D, Up ] =
+         new EventOr[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, _ ]]( elems: _* ) :+ that )
+
+      def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
+         new OrMap[ S, Repr, D, B, A1 ]( d, elems, fun, d.decl.eventID[ A1 ])
    }
 
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
@@ -869,6 +880,17 @@ object Compound {
 
       private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
          e.pull( source, update ).map( fun )
+      }
+   }
+
+   private final class OrMap[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
+      protected val node: Compound[ S, Repr, D ], events: IIdxSeq[ Event[ S, _ <: B, _ ]], fun: B => A1,
+      protected val selector: Int )
+   extends event.Impl[ S, D#Update, A1, Repr ] {
+      protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+
+      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
+         events.view.flatMap( _.pull( source, update )).headOption.map( fun )
       }
    }
 

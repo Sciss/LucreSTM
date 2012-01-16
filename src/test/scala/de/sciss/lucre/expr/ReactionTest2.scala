@@ -177,18 +177,23 @@ Usages:
       }
 
       object EventRegion extends Decl[ S, EventRegion ] {
-         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
-         final case class Moved(   r: EventRegion, change: event.Change[ Span ]) extends Update
+         sealed trait ChangedLike extends Update { def r: EventRegion }
+         final case class Changed( r: EventRegion ) extends ChangedLike
+         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends ChangedLike
+         final case class Moved(   r: EventRegion, change: event.Change[ Span ]) extends ChangedLike
 
          declare[ Renamed ]( _.renamed )
          declare[ Moved   ]( _.moved   )
+         declare[ Changed ]( _.changed )
 
          def apply( name: StringEx, span: SpanEx )
                   ( implicit tx: Tx ) : EventRegion = new New( name, span, tx )
 
          private sealed trait Impl extends RegionLike.Impl with EventRegion {
-            final lazy val renamed = name_#.changed.map( Renamed( this, _ ))
-            final lazy val moved   = span_#.changed.map( Moved( this, _ ))
+            final lazy val renamed  = name_#.changed.map( Renamed( this, _ ))
+            final lazy val moved    = span_#.changed.map( Moved( this, _ ))
+            final lazy val changed  = (renamed | moved).map( ch => Changed( ch.r ))
+
             final protected def sources( implicit tx: S#Tx ) = IIdxSeq( name_#, span_# )
             final protected def reader = serializer
             final protected def decl   = EventRegion
@@ -220,6 +225,7 @@ Usages:
 
          def renamed: Event[ S, Renamed, EventRegion ]
          def moved:   Event[ S, Moved,   EventRegion ]
+         def changed: Event[ S, Changed, EventRegion ]
 //         final def renamed = name_#.changed.map( Renamed( this, _ ))
 //         final def moved   = span_#.changed.map( Moved(   this, _ ))
       }
@@ -556,6 +562,9 @@ Usages:
          (_infra, _vs, _rvs.last)
       }
 
+      import infra._
+      import event.Change
+
       val f    = frame( "Reaction Test", cleanUp )
       val cp   = f.getContentPane
 
@@ -564,8 +573,12 @@ Usages:
       system.atomic { implicit tx =>
          vs.foreach( _.connect() )
          val _r3 = tx.access( r3v )
-         _r3.renamed.react { case (_, infra.EventRegion.Renamed( _, event.Change( _, newName ))) =>
-            println( "Renamed to '" + newName + "'" )
+//         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
+//            println( "Renamed to '" + newName + "'" )
+//         }
+         _r3.changed.react { (_, _) =>
+//            println( "Renamed to '" + newName + "'" )
+            println( "Changed" )
          }
       }
 
