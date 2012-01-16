@@ -44,41 +44,45 @@ import expr.{Span, Expr}
 trait Decl[ Impl[ S <: Sys[ S ]]] {
    private var cnt      = 0
    private var keyMap   = Map.empty[ Class[ _ ], Int ]
-   private var idMap    = Map.empty[ Int, Declaration[ _ <: Update ]]
+//   private var idMap    = Map.empty[ Int, Declaration[ _ <: Update[ _ ]]]
+   private var idMap    = Map.empty[ Int, Declaration[ _ ]]
 
 //   def id[ U <: Update ]( clz: Class[ U ]): Int = keyMap( clz )
    private[event] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
 //   private[event] def route[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int ) : Event[ S, Update, _ ] = idMap( id ).apply( impl )
    private[event] def pull[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int, source: Event[ S, _, _ ],
-                                            update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
-      idMap( id ).apply( impl ).pull( source, update )
+                                            update: Any )( implicit tx: S#Tx ) : Option[ Update[ S ]]=
+      idMap( id ).apply( impl ).pull( source, update ).asInstanceOf[ Option[ Update[ S ]]]   // PPP
 
 //   private sealed trait Key[ U ] {
 //      def id: Int
 //      def apply[ S <: Sys[ S ]]( disp: Impl[ S ]) : Event[ S, U, _ ]
 //   }
 
-   protected def declare[ U <: Update ]( fun: Impl[ _ ] => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) : Unit =
+//   protected def declare[ U[ _ ] <: Update[ _ ]]( fun: Impl[ _ ] => Event[ _, U[ _ ], _ ])( implicit mf: ClassManifest[ U[ _ ]]) : Unit =
+//      new Declaration[ U ]( fun )
+
+   protected def declare[ U[ S <: Sys[ S ]]]( fun: Impl[ _ ] => Event[ _, U[ _ ], _ ])( implicit mf: ClassManifest[ U[ _ ]]) : Unit =
       new Declaration[ U ]( fun )
 
-   private final class Declaration[ U <: Update ]( fun: Impl[ _ ] => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) {
+   private final class Declaration[ U[ _ ] <: Update[ _ ]]( fun: Impl[ _ ] => Event[ _, U[ _ ], _ ])( implicit mf: ClassManifest[ U[ _ ]]) {
       val id = 1 << cnt
       cnt += 1
       keyMap += ((mf.erasure, cnt))
-      idMap += ((id, this))
+      idMap += ((id, this.asInstanceOf[ Declaration[ _ ]]))
 
-      def apply[ S <: Sys[ S ]]( impl: Impl[ S ]) : Event[ S, U, _ ] = fun( impl ).asInstanceOf[ Event[ S, U, _ ]]
+      def apply[ S <: Sys[ S ]]( impl: Impl[ S ]) : Event[ S, U[ S ], _ ] = fun( impl ).asInstanceOf[ Event[ S, U[ S ], _ ]]
    }
 
-   sealed trait Update
+   sealed trait Update[ S <: Sys[ S ]]
 
    def serializer[ S <: Sys[ S ]]: Reader[ S, Impl[ S ], _ ]
 }
 
 object Test extends Decl[ Test ] {
-   case class Renamed( ch: Change[ String ]) extends Update
-   case class Moved(   ch: Change[ Span   ]) extends Update
-   case class Removed() extends Update
+   case class Renamed[ S <: Sys[ S ]]( r: Test[ S ], ch: Change[ String ]) extends Update[ S ]
+   case class Moved[ S <: Sys[ S ]](   r: Test[ S ], ch: Change[ Span   ]) extends Update[ S ]
+   case class Removed[ S <: Sys[ S ]]( r: Test[ S ]) extends Update[ S ]
 
    declare[ Renamed ]( _.renamed )
    declare[ Moved   ]( _.moved   )
@@ -95,16 +99,23 @@ object Test extends Decl[ Test ] {
 //
 //   }
 }
-sealed trait Test[ S <: Sys[ S ]] extends Compound[ S, Test, Test.type ] with Invariant[ S, Test.Update ]
-with LateBinding[ S, Test.Update ] {
+sealed trait Test[ S <: Sys[ S ]] extends Compound[ S, Test, Test.type ] with Invariant[ S, Test.Update[ S ]]
+with LateBinding[ S, Test.Update[ S ]] {
    import Test._
    def decl = Test
 
    def name_# : Expr[ S, String ]
    def span_# : Expr[ S, Span   ]
 
-   def renamed = name_#.changed.map( Renamed( _ ))
-   def moved   = span_#.changed.map( Moved(   _ ))
+   def renamed = name_#.changed.map( Renamed( this, _ ))
+   def moved   = span_#.changed.map( Moved(   this, _ ))
 //   def changed = renamed | moved
-   def removed = event[ Removed ]
+   def removed = event[ Removed[ S ]]
+
+//   import de.sciss.lucre.{event => evt}
+//
+//   implicit val tx: S#Tx = sys.error( "test" )
+//   renamed.react {
+//      case (tx, Test.Renamed( evt.Change( before, now ))) =>
+//   }
 }
