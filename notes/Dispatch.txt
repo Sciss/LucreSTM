@@ -333,3 +333,6 @@ r.moved.pull( r.renamed, Region.Moved( 33 ))
 
 need to ensure this works with the observer
 
+::::::::::::::::::::::::::::
+
+Fucking higher-kinded types not working with declare and extractors

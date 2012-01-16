@@ -28,6 +28,7 @@ package event
 
 import stm.Sys
 import expr.{Span, Expr}
+import stm.impl.InMemory
 
 /**
  * A trait to be mixed in by event dispatching companion
@@ -62,7 +63,7 @@ trait Decl[ Impl[ S <: Sys[ S ]]] {
 //   protected def declare[ U[ _ ] <: Update[ _ ]]( fun: Impl[ _ ] => Event[ _, U[ _ ], _ ])( implicit mf: ClassManifest[ U[ _ ]]) : Unit =
 //      new Declaration[ U ]( fun )
 
-   protected def declare[ U[ S <: Sys[ S ]]]( fun: Impl[ _ ] => Event[ _, U[ _ ], _ ])( implicit mf: ClassManifest[ U[ _ ]]) : Unit =
+   protected def declare[ U[ S <: Sys[ S ]] <: Update[ InMemory ]]( fun: Impl[ InMemory ] => Event[ InMemory, U[ InMemory ], _ ])( implicit mf: ClassManifest[ U ]) : Unit =
       new Declaration[ U ]( fun )
 
    private final class Declaration[ U[ _ ] <: Update[ _ ]]( fun: Impl[ _ ] => Event[ _, U[ _ ], _ ])( implicit mf: ClassManifest[ U[ _ ]]) {
