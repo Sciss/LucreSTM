@@ -93,10 +93,17 @@ object Test extends Decl[ Test ] {
 
    implicit def serializer[ S <: Sys[ S ]] = new Invariant.Serializer[ S, Test[ S ]] {
       def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Test[ S ] =
-         sys.error( "TODO" )
+         sys.error( "TODO" ) // new TestRead[ S ]( in, access, targets, tx )
    }
+
+//   private final class TestRead[ S <: Sys[ S ]]( in: DataInput, access: S#Acc,
+//                                                 protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+//   extends Test[ S ] {
+//
+//   }
 }
-trait Test[ S <: Sys[ S ]] extends Dispatch[ S, Test.Update, Test ] with Invariant[ S, Test.Update ] {
+sealed trait Test[ S <: Sys[ S ]] extends Dispatch[ S, Test.Update, Test ] with Invariant[ S, Test.Update ]
+with LateBinding[ S, Test.Update ] {
    import Test._
    def decl = Test
 
