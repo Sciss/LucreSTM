@@ -325,7 +325,7 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
    private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
    private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
-   def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
+   private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
    final def id: S#ID = targets.id
 
@@ -508,7 +508,7 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  * implementation of `pull` which merely checks if this event has fired or not.
  */
 trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
-   final /* override */ def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+   final /* override */ private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
       if( source == this ) Some( update.asInstanceOf[ A ]) else None
    }
 }
@@ -574,7 +574,7 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
       res
    }
 
-   def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
+   private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
       // no way to make the node's pull be generic in the result type without big big fuss
       // (http://stackoverflow.com/questions/8798035/possible-to-perform-pattern-match-on-a-generic-value-with-type-conforming-result/8803684#8803684)
 //      node.pull( selector, source, update ).collect {
@@ -809,7 +809,7 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
    final def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
       Observer.dummy[ S, A, Repr ]
 
-   final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
+   final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
 }
 
 /**
@@ -844,5 +844,44 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
 
    def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
 
-   def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
+   private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
+}
+
+
+object Compound {
+   final protected class EventOps[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B ]( d: Compound[ S, A, Repr ] with Node[ S, A ],
+                                                                e: Event[ S, B, _ ]) {
+      def map[ A1 <: A ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr[ S ]] =
+         new Map[ S, A, Repr, B, A1 ]( d, e, fun, d.decl.eventID[ A1 ])
+   }
+
+   private final class Map[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B, A1 <: A ](
+      protected val node: Compound[ S, A, Repr ] with Node[ S, A ], e: Event[ S, B, _ ], fun: B => A1,
+      protected val selector: Int )
+   extends event.Impl[ S, A, A1, Repr[ S ]] {
+      protected def reader: Reader[ S, Repr[ S ], _ ] = node.decl.serializer[ S ]
+   }
+
+   private final class Trigger[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], A1 <: A ](
+      protected val node: Compound[ S, A, Repr ] with Node[ S, A ], protected val selector: Int )
+   extends event.Trigger.Impl[ S, A, A1, Repr[ S ]] {
+      protected def reader: Reader[ S, Repr[ S ], _ ] = node.decl.serializer[ S ]
+   }
+}
+trait Compound[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]]] extends Node[ S, A ] {
+   me: Repr[ S ] =>
+
+   import de.sciss.lucre.{event => evt}
+
+   protected def decl: Decl[ Repr ]
+
+   implicit protected def eventOps[ B ]( e: Event[ S, B, _ ]) : Compound.EventOps[ S, A, Repr, B ] =
+      new Compound.EventOps( this, e )
+
+   protected def event[ A1 <: A ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr[ S ]] =
+      new Compound.Trigger( this, decl.eventID[ A1 ])
+
+   final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+      decl.route( this, key ).pull( source, update ).asInstanceOf[ Option[ A ]]  // XXX ouch
+   }
 }

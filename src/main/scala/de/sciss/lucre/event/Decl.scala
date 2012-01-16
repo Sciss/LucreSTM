@@ -19,22 +19,21 @@ import expr.{Span, Expr}
 trait Decl[ Impl[ S <: Sys[ S ]]] {
    private var cnt      = 0
    private var keyMap   = Map.empty[ Class[ _ ], Int ]
-   private var idMap    = Map.empty[ Int, Key[ _ ]]
+   private var idMap    = Map.empty[ Int, Declaration[ _ <: Update ]]
 
 //   def id[ U <: Update ]( clz: Class[ U ]): Int = keyMap( clz )
-   private[lucre] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
-   protected def select[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int ) : Event[ S, _, _ ] = idMap( id ).apply( impl )
+   private[event] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
+   private[event] def route[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int ) : Event[ S, _ <: Update, _ ] = idMap( id ).apply( impl )
 
-   private sealed trait Key[ U ] {
-      def id: Int
-      def apply[ S <: Sys[ S ]]( disp: Impl[ S ]) : Event[ S, U, _ ]
-   }
+//   private sealed trait Key[ U ] {
+//      def id: Int
+//      def apply[ S <: Sys[ S ]]( disp: Impl[ S ]) : Event[ S, U, _ ]
+//   }
 
    protected def declare[ U <: Update ]( fun: Impl[ _ ] => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) : Unit =
       new Declaration[ U ]( fun )
 
-   private final class Declaration[ U <: Update ]( fun: Impl[ _ ] => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ])
-   extends Key[ U ] {
+   private final class Declaration[ U <: Update ]( fun: Impl[ _ ] => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) {
       val id = cnt
       cnt += 1
       keyMap += ((mf.erasure, cnt))
@@ -46,40 +45,6 @@ trait Decl[ Impl[ S <: Sys[ S ]]] {
    sealed trait Update
 
    def serializer[ S <: Sys[ S ]]: Reader[ S, Impl[ S ], _ ]
-}
-
-object Compound {
-   final protected class EventOps[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B ]( d: Compound[ S, A, Repr ] with Node[ S, A ],
-                                                                e: Event[ S, B, _ ]) {
-      def map[ A1 <: A ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr[ S ]] =
-         new Map[ S, A, Repr, B, A1 ]( d, e, fun, d.decl.eventID[ A1 ])
-   }
-
-   private final class Map[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], B, A1 <: A ](
-      protected val node: Compound[ S, A, Repr ] with Node[ S, A ], e: Event[ S, B, _ ], fun: B => A1,
-      protected val selector: Int )
-   extends event.Impl[ S, A, A1, Repr[ S ]] {
-      protected def reader: Reader[ S, Repr[ S ], _ ] = node.decl.serializer[ S ]
-   }
-
-   private final class Trigger[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]], A1 <: A ](
-      protected val node: Compound[ S, A, Repr ] with Node[ S, A ], protected val selector: Int )
-   extends event.Trigger.Impl[ S, A, A1, Repr[ S ]] {
-      protected def reader: Reader[ S, Repr[ S ], _ ] = node.decl.serializer[ S ]
-   }
-}
-trait Compound[ S <: Sys[ S ], A, Repr[ ~ <: Sys[ ~ ]]] {
-   me: Node[ S, A ] =>
-
-   import de.sciss.lucre.{event => evt}
-
-   protected def decl: Decl[ Repr ]
-
-   implicit protected def eventOps[ B ]( e: Event[ S, B, _ ]) : Compound.EventOps[ S, A, Repr, B ] =
-      new Compound.EventOps( this, e )
-
-   protected def event[ A1 <: A ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr[ S ]] =
-      new Compound.Trigger( this, decl.eventID[ A1 ])
 }
 
 object Test extends Decl[ Test ] {
