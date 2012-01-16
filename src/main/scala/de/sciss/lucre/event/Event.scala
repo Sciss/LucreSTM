@@ -124,6 +124,10 @@ object Selector {
 
 sealed trait Selector[ S <: Sys[ S ]] extends Writer {
    def inlet: Int
+
+   /**
+    * @param   outlet   the outlet id of the event that propagates to this selector
+    */
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
                                  visited: Visited[ S ], reactions: Reactions )
                                ( implicit tx: S#Tx ) : Reactions
@@ -174,11 +178,13 @@ object Observer {
       override def toString = "Event.Observer<" + key.id + ">"
 
       def add( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {
-         event += key
+//         event += key
+         sys.error( "TODO" )
       }
 
       def remove( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {
-         event -= key
+//         event -= key
+         sys.error( "TODO" )
       }
 
       def dispose()( implicit tx: S#Tx ) {
@@ -221,23 +227,27 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
     * @param   outlet   the key of the event or selector that invoked this target's node's `propagate`
     */
    final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                          visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
-      children.get.foldLeft( reactions ) { (rs, sel) =>
-//         if( sel.key == outlet ) {  // XXX bitmask?
+                                       visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
+      children.get.foldLeft( reactions ) { (rs, tup) =>
+         val outlet2 = tup._1
+         if( outlet2 == outlet ) {
+            val sel = tup._2
             sel.propagate( source, update, parent, outlet, visited, rs )
-//         } else reactions
+         } else reactions
       }
    }
 
-   final private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+      val tup  = (outlet, sel)
       val old  = children.get
-      children.set( old :+ sel )
+      children.set( old :+ tup )
       old.isEmpty
    }
 
-   final private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+      val tup  = (outlet, sel)
       val xs   = children.get
-      val i    = xs.indexOf( sel )
+      val i    = xs.indexOf( tup )
       if( i >= 0 ) {
          val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
          children.set( xs1 )
@@ -322,8 +332,8 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
    protected def writeData( out: DataOutput ) : Unit
    protected def disposeData()( implicit tx: S#Tx ) : Unit
 
-   private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
-   private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+   private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+   private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
    private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
@@ -370,7 +380,7 @@ object Invariant {
 
       private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
          val targets    = read( in, access )
-         val observers  = targets.children.get.flatMap( _.observerKey )
+         val observers  = targets.children.get.flatMap( _._2.observerKey )
          tx.mapEventTargets( in, access, targets, observers )
       }
 
@@ -447,17 +457,17 @@ object Invariant {
 trait LateBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
    protected def sources( implicit tx: S#Tx ) : Sources[ S ]
 
-   final private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
-      if( targets.addReactor( sel )) {
+   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      if( targets.addReactor( outlet, sel )) {
 //            sources.foreach( _.addReactor( this ))
-         sources.foreach( _ += this )
+         sources.foreach( tup => tup._1 += this.select( tup._2 ))
       }
    }
 
-   final private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
-      if( targets.removeReactor( sel )) {
+   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      if( targets.removeReactor( outlet, sel )) {
 //            sources.foreach( _.removeReactor( this ))
-         sources.foreach( _ -= this )
+         sources.foreach( tup => tup._1 -= this.select( tup._2 ))
       }
    }
 }
@@ -466,20 +476,20 @@ trait LateBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  * An early binding event node simply
  */
 trait EarlyBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-   final private[event] def addReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
-      targets.addReactor( sel )
+   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      targets.addReactor( outlet, sel )
    }
 
-   final private[event] def removeReactor( sel: Selector[ S ])( implicit tx: S#Tx ) {
-      targets.removeReactor( sel )
+   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      targets.removeReactor( outlet, sel )
    }
 
-   protected def addSource( r: Event[ S, _, _ ])( implicit tx: S#Tx ) {
-      r += this
+   protected def addSource( r: Event[ S, _, _ ], inlet: Int )( implicit tx: S#Tx ) {
+      r += this.select( inlet )
    }
 
-   protected def removeSource( r: Event[ S, _, _ ])( implicit tx: S#Tx ) {
-      r += this
+   protected def removeSource( r: Event[ S, _, _ ], inlet: Int )( implicit tx: S#Tx ) {
+      r += this.select( inlet )
    }
 }
 
@@ -557,18 +567,19 @@ trait Singleton[ S <: Sys[ S ]] {
 }
 
 trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
-   protected def selector: Int
+   protected def outlet: Int
    protected def node: Node[ S, A ]
 
    protected def reader: Reader[ S, Repr, _ ]
 //      implicit protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A1, Repr ]]
 
-   final def +=( r: Reactor[ S ])( implicit tx: S#Tx ) {
-      node.addReactor( r.select( selector ))
+   final def +=( r: Selector[ S ])( implicit tx: S#Tx ) {
+//      node.addReactor( r.select( selector ))
+      node.addReactor( outlet, r )
    }
 
-   final def -=( r: Reactor[ S ])( implicit tx: S#Tx ) {
-      node.removeReactor( r.select( selector ))
+   final def -=( r: Selector[ S ])( implicit tx: S#Tx ) {
+      node.removeReactor( outlet, r )
    }
 
    final def react( fun: (S#Tx, A1) => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] = {
@@ -595,7 +606,7 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
  */
 trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
 /* with EarlyBinding[ S, A ] */ /* with Singleton[ S ] with Root[ S, A ] */ {
-   final protected def selector = 1
+   final protected def outlet = 1
    final protected def node: Node[ S, A ] = this
 
 //   final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
@@ -603,13 +614,13 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] wit
 }
 
 trait Source[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
-   protected def selector: Int
+   protected def outlet: Int
    protected def node: Node[ S, A ]
 
    final protected def fire( update: A1 )( implicit tx: S#Tx ) {
       val visited: Visited[ S ] = MMap.empty
       val n          = node
-      val reactions  = n.propagate( this, update, n, selector, visited, IIdxSeq.empty )
+      val reactions  = n.propagate( this, update, n, outlet, visited, IIdxSeq.empty )
       reactions.map( _.apply() ).foreach( _.apply() )
    }
 }
@@ -691,7 +702,7 @@ object Mutating {
 
       private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
          val targets    = read( in, access )
-         val observers  = targets.children.get.flatMap( _.observerKey )
+         val observers  = targets.children.get.flatMap( _._2.observerKey )
          tx.mapEventTargets( in, access, targets, observers )
       }
 
@@ -809,8 +820,8 @@ object Dummy {
    def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = new Dummy[ S, A, Repr ] {}
 }
 trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
-   final def +=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
-   final def -=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
+   final def +=( r: Selector[ S ])( implicit tx: S#Tx ) {}
+   final def -=( r: Selector[ S ])( implicit tx: S#Tx ) {}
 
    final def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
       Observer.dummy[ S, A, Repr ]
@@ -845,8 +856,10 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
  * split into `Event.Invariant` and `Event.Mutating`.
  */
 trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
-   def +=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
-   def -=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
+//   def +=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
+//   def -=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
+   def +=( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
+   def -=( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
    def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
 
@@ -872,7 +885,7 @@ object Compound {
 
    final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem, B, A1 <: D#Update ] private[Compound](
       protected val node: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, _ ], fun: B => A1,
-      protected val selector: Int )
+      protected val outlet: Int )
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
@@ -902,7 +915,7 @@ object Compound {
 
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
       protected val node: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: B => A1,
-      protected val selector: Int )
+      protected val outlet: Int )
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
@@ -913,7 +926,7 @@ object Compound {
 
    private final class OrMap[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
       protected val node: Compound[ S, Repr, D ], events: IIdxSeq[ Event[ S, _ <: B, _ ]], fun: B => A1,
-      protected val selector: Int )
+      protected val outlet: Int )
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
@@ -923,7 +936,7 @@ object Compound {
    }
 
    private final class Trigger[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ](
-      protected val node: Compound[ S, Repr, D ], protected val selector: Int )
+      protected val node: Compound[ S, Repr, D ], protected val outlet: Int )
    extends event.Trigger.Impl[ S, D#Update, A1, Repr ] with Root[ S, A1 ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
    }

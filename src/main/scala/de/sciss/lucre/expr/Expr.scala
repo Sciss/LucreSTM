@@ -62,7 +62,7 @@ object Expr {
       protected def ref: S#Var[ Ex ]
       protected def reader: evt.Reader[ S, Expr[ S, A ], _ ]
 
-      final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get.changed )
+      final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( (ref.get.changed, 1) )  // ZZZ
 
       final protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 0 )
@@ -79,11 +79,11 @@ object Expr {
          if( before != expr ) {
             val con = targets.isConnected
 //            if( con ) before -= this
-            if( con ) before.changed -= this
+            if( con ) before.changed -= this.select( 1 )
             ref.set( expr )
             if( con ) {
 //               expr += this
-               expr.changed += this
+               expr.changed += this.select( 1 )
                val beforeV = before.value
                val exprV   = expr.value
                fire( Change( beforeV, exprV))

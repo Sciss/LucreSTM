@@ -132,7 +132,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
          a.write( out )
       }
       final def disposeData()( implicit tx: S#Tx ) {}
-      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
+      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( (a.changed, 1) )
 
       final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
          a.changed.pull( source, update ).flatMap { ach =>
@@ -167,7 +167,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
          b.write( out )
       }
       final def disposeData()( implicit tx: S#Tx ) {}
-      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed, b.changed )
+      final def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( (a.changed, 1), (b.changed, 1) )
 
       final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
          (a.changed.pull( source, update ), b.changed.pull( source, update )) match {

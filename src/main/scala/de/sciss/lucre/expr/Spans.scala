@@ -155,7 +155,7 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       def start: LongEx
       def stop: LongEx
 
-      final protected def sources( implicit tx: S#Tx ) : event.Sources[ S ] = IIdxSeq( start.changed, stop.changed )
+      final protected def sources( implicit tx: S#Tx ) : event.Sources[ S ] = IIdxSeq( (start.changed, 1), (stop.changed, 1) )
 
       final protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 3 )
@@ -262,7 +262,7 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
          a.write( out )
       }
       final def disposeData()( implicit tx: S#Tx ) {}
-      final def sources( implicit tx: S#Tx ) : event.Sources[ S ] = IIdxSeq( a.changed )
+      final def sources( implicit tx: S#Tx ) : event.Sources[ S ] = IIdxSeq( (a.changed, 1) )
 
       final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ longs.Change ] = {
          a.changed.pull( source, update ).flatMap { ach =>
