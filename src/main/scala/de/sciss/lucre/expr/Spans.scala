@@ -107,8 +107,8 @@ object Spans {
    def apply[ S <: Sys[ S ]]( longs: Longs[ S ])( implicit tx: S#Tx ) : Spans[ S ] = {
       implicit val itx = tx.peer
       val spans = new Spans[ S ]( longs )
-      // 'Span'
-      longs.addExtension( 0x5370616E, spans.LongExtensions )
+//      // 'Span'
+//      longs.addExtension( 0x5370616E, spans.LongExtensions )
       spans
    }
 }
@@ -116,18 +116,20 @@ object Spans {
 final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, Span ] {
 //   type Span = expr.Span[ S ]
 
+   protected val id = 100.toShort
+
    private type LongEx = Expr[ S, Long ]
 
-   private object LongExtensions extends Invariant.Reader[ S, LongEx ] {
-      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
-         (in.readShort(): @switch) match {
-            case 0 => new UnaryLongRead( UnaryLongOp.Start,  in, access, targets, tx )
-            case 1 => new UnaryLongRead( UnaryLongOp.Stop,   in, access, targets, tx )
-            case 2 => new UnaryLongRead( UnaryLongOp.Length, in, access, targets, tx )
-            case opID => sys.error( "Unknown operator " + opID )
-         }
-      }
-   }
+//   private object LongExtensions extends Invariant.Reader[ S, LongEx ] {
+//      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
+//         (in.readShort(): @switch) match {
+//            case 0 => new UnaryLongRead( UnaryLongOp.Start,  in, access, targets, tx )
+//            case 1 => new UnaryLongRead( UnaryLongOp.Stop,   in, access, targets, tx )
+//            case 2 => new UnaryLongRead( UnaryLongOp.Length, in, access, targets, tx )
+//            case opID => sys.error( "Unknown operator " + opID )
+//         }
+//      }
+//   }
 
    implicit def spanOps[ A <% Expr[ S, Span ]]( ex: A ) : SpanOps = new SpanOps( ex )
 
@@ -138,82 +140,118 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       def unite( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Union( ex, that )
       def intersect( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Intersection( ex, that )
 
-      // decomposition
-      def start( implicit tx: S#Tx ) : LongEx = ex match {
-         case i: Literal   => i.start
-         case _            => new UnaryLongNew( UnaryLongOp.Start, ex, tx )
-      }
+//      // decomposition
+//      def start( implicit tx: S#Tx ) : LongEx = ex match {
+//// PPP
+////         case i: Literal   => i.start
+//         case _            => new UnaryLongNew( UnaryLongOp.Start, ex, tx )
+//      }
+//
+//      def stop( implicit tx: S#Tx ) : LongEx = ex match {
+//// PPP
+////         case i: Literal   => i.stop
+//         case _            => new UnaryLongNew( UnaryLongOp.Stop, ex, tx )
+//      }
+   }
 
-      def stop( implicit tx: S#Tx ) : LongEx = ex match {
-         case i: Literal   => i.stop
-         case _            => new UnaryLongNew( UnaryLongOp.Stop, ex, tx )
+   private object Literal extends Tuple2Op[ Long, Long ] {
+      def value( start: Long, stop: Long ) = new expr.Span( start, stop )
+      val id = 0
+      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+         val start   = longs.readExpr( in, access )
+         val stop    = longs.readExpr( in, access )
+         new Tuple2( this, targets, start, stop )
       }
    }
 
-   private sealed trait Literal extends Basic with Expr.Node[ S, expr.Span ]
-   /* with LateBinding[ S, Change ] */ {
-      def start: LongEx
-      def stop: LongEx
+//   private sealed trait Literal extends Basic with Expr.Node[ S, expr.Span ]
+//   /* with LateBinding[ S, Change ] */ {
+//      def start: LongEx
+//      def stop: LongEx
+//
+//      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( start.changed, stop.changed )
+//
+//      final protected def writeData( out: DataOutput ) {
+//         out.writeUnsignedByte( 30 )
+//         start.write( out )
+//         stop.write( out )
+//      }
+//
+////      final protected def disposeData()( implicit tx: S#Tx ) {}
+//
+//      final def value( implicit tx: S#Tx ) : expr.Span = new expr.Span( start.value, stop.value )
+//
+//      final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+//         val (startBefore, startNow) = start.changed.pull( source, update ) match {
+//            case Some( event.Change( before, now )) => (before, now)
+//            case None                               => val v = start.value; (v, v)
+//         }
+//
+//         val (stopBefore, stopNow) = stop.changed.pull( source, update ) match {
+//            case Some( event.Change( before, now )) => (before, now)
+//            case None                               => val v = stop.value; (v, v)
+//         }
+//
+//         change( new Span( startBefore, stopBefore ), new Span( startNow, stopNow ))
+//      }
+//   }
+//
+//   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
+//      new SpanRead( in, access, targets, tx )
 
-      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( start.changed, stop.changed )
+   def Span[ T1, T2 ]( start: T1, stop: T2 )( implicit tx: S#Tx, startView: T1 => LongEx, stopView: T2 => LongEx ) : Ex = {
+      val targets = Invariant.Targets[ S ]
+      new Tuple2[ Long, Long ]( Literal, targets, start, stop )
+   }
 
-      final protected def writeData( out: DataOutput ) {
-         out.writeUnsignedByte( 3 )
-         start.write( out )
-         stop.write( out )
-      }
+//   private final class SpanNew( val start: LongEx, val stop: LongEx, tx0: S#Tx ) extends Literal {
+//      protected val targets = Invariant.Targets[ S ]( tx0 )
+//   }
+//
+//   private final class SpanRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ],
+//                                 tx0: S#Tx ) extends Literal {
+//      val start = longs.readExpr( in, access )( tx0 )
+//      val stop  = longs.readExpr( in, access )( tx0 )
+//   }
 
-//      final protected def disposeData()( implicit tx: S#Tx ) {}
+//   protected def unaryOp( id: Int ) : UnaryOp = sys.error( "No unary operations defined" )
+//   protected def binaryOp( id: Int ) : BinaryOp = BinaryOp( id )
 
-      final def value( implicit tx: S#Tx ) : expr.Span = new expr.Span( start.value, stop.value )
-
-      final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         val (startBefore, startNow) = start.changed.pull( source, update ) match {
-            case Some( event.Change( before, now )) => (before, now)
-            case None                               => val v = start.value; (v, v)
+   protected def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
+                            targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+      (arity /*: @switch */) match {
+//         case 1 => UnaryOp( opID ).read( in, access, targets )
+         case 2 => {
+            if( opID == 0 ) { // Literal
+               Literal.read( in, access, targets )
+            } else {
+               BinaryOp( opID ).read( in, access, targets )
+            }
          }
-
-         val (stopBefore, stopNow) = stop.changed.pull( source, update ) match {
-            case Some( event.Change( before, now )) => (before, now)
-            case None                               => val v = stop.value; (v, v)
-         }
-
-         change( new Span( startBefore, stopBefore ), new Span( startNow, stopNow ))
       }
    }
-
-   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
-      new SpanRead( in, access, targets, tx )
-
-   def Span[ A, B ]( start: A, stop: B )( implicit tx: S#Tx, aView: A => LongEx, bView: B => LongEx ) : Ex =
-      new SpanNew( start, stop, tx )
-
-   private final class SpanNew( val start: LongEx, val stop: LongEx, tx0: S#Tx ) extends Literal {
-      protected val targets = Invariant.Targets[ S ]( tx0 )
-   }
-
-   private final class SpanRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ],
-                                 tx0: S#Tx ) extends Literal {
-      val start = longs.readExpr( in, access )( tx0 )
-      val stop  = longs.readExpr( in, access )( tx0 )
-   }
-
-   protected def unaryOp( id: Int ) : UnaryOp = sys.error( "No unary operations defined" )
-   protected def binaryOp( id: Int ) : BinaryOp = BinaryOp( id )
 
    private object BinaryOp {
       def apply( id: Int ) : BinaryOp = (id: @switch) match {
-         case 0 => Union
-         case 1 => Intersection
+         case 1 => Union
+         case 2 => Intersection
       }
 
-      object Union extends BinaryOp {
-         val id = 0
+      sealed trait Basic extends BinaryOp {
+         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+            val _1 = readExpr( in, access )
+            val _2 = readExpr( in, access )
+            new Tuple2( this, targets, _1, _2 )
+         }
+      }
+
+      object Union extends Basic {
+         val id = 1
          def value( a: Span, b: Span ) = a.unite( b )
       }
 
-      object Intersection extends BinaryOp {
-         val id = 1
+      object Intersection extends Basic {
+         val id = 2
          def value( a: Span, b: Span ) = a.intersect( b )
       }
    }
@@ -229,57 +267,70 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       out.writeLong( v.stop )
    }
 
-   private object UnaryLongOp {
-      object Start extends UnaryLongOp {
-         val id = 0
-         def value( a: Span )( implicit tx: S#Tx ) : Long = a.start
+   private object UnaryOp {
+      def apply( id: Int ) : longs.Tuple1Op[ expr.Span ] = (id: @switch) match {
+         case 1000 => Start
+         case 1001 => Stop
+         case 1002 => Length
       }
-      object Stop extends UnaryLongOp {
-         val id = 1
-         def value( a: Span )( implicit tx: S#Tx ) : Long = a.stop
-      }
-      object Length extends UnaryLongOp {
-         val id = 2
-         def value( a: Span )( implicit tx: S#Tx ) : Long = a.length
-      }
-   }
-   private sealed trait UnaryLongOp {
-      def value( a: Span )( implicit tx: S#Tx ) : Long
-      def id: Int
-   }
 
-   private sealed trait UnaryLongImpl
-   extends longs.Basic with Expr.Node[ S, Long ]
-   /* with LateBinding[ S, longs.Change ] */ {
-      protected def op: UnaryLongOp
-      protected def a: Ex
-
-      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
-
-      final def value( implicit tx: S#Tx ) = op.value( a.value )
-      final def writeData( out: DataOutput ) {
-         out.writeUnsignedByte( 4 ) // extension
-         out.writeInt( 0x5370616E ) // extension cookie
-         out.writeShort( op.id )
-         a.write( out )
-      }
-//      final def disposeData()( implicit tx: S#Tx ) {}
-
-      final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ longs.Change ] = {
-         a.changed.pull( source, update ).flatMap { ach =>
-            longs.change( op.value( ach.before ), op.value( ach.now ))
+      sealed trait Basic extends longs.Tuple1Op[ expr.Span ] {
+         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
+            val _1 = readExpr( in, access )
+            new longs.Tuple1( this, targets, _1 )
          }
       }
-   }
 
-   private final class UnaryLongRead( protected val op: UnaryLongOp, in: DataInput, access: S#Acc,
-                                      protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
-   extends UnaryLongImpl {
-      protected val a = readExpr( in, access )( tx0 )
+      object Start extends Basic {
+         val id = 1000
+         def value( a: expr.Span ) : Long = a.start
+      }
+      object Stop extends Basic {
+         val id = 1001
+         def value( a: expr.Span ) : Long = a.stop
+      }
+      object Length extends Basic {
+         val id = 1002
+         def value( a: expr.Span ) : Long = a.length
+      }
    }
+//   private sealed trait UnaryLongOp {
+//      def value( a: Span )( implicit tx: S#Tx ) : Long
+//      def id: Int
+//   }
 
-   private final class UnaryLongNew( protected val op: UnaryLongOp, protected val a: Ex, tx0: S#Tx )
-   extends UnaryLongImpl {
-      protected val targets = Invariant.Targets[ S ]( tx0 )
-   }
+//   private sealed trait UnaryLongImpl
+//   extends longs.Basic with Expr.Node[ S, Long ]
+//   /* with LateBinding[ S, longs.Change ] */ {
+//      protected def op: UnaryLongOp
+//      protected def a: Ex
+//
+//      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
+//
+//      final def value( implicit tx: S#Tx ) = op.value( a.value )
+//      final def writeData( out: DataOutput ) {
+//         out.writeUnsignedByte( 31 )   // extension
+//         out.writeInt( 0x5370616E )    // extension cookie
+//         out.writeShort( op.id )
+//         a.write( out )
+//      }
+////      final def disposeData()( implicit tx: S#Tx ) {}
+//
+//      final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ longs.Change ] = {
+//         a.changed.pull( source, update ).flatMap { ach =>
+//            longs.change( op.value( ach.before ), op.value( ach.now ))
+//         }
+//      }
+//   }
+//
+//   private final class UnaryLongRead( protected val op: UnaryLongOp, in: DataInput, access: S#Acc,
+//                                      protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+//   extends UnaryLongImpl {
+//      protected val a = readExpr( in, access )( tx0 )
+//   }
+//
+//   private final class UnaryLongNew( protected val op: UnaryLongOp, protected val a: Ex, tx0: S#Tx )
+//   extends UnaryLongImpl {
+//      protected val targets = Invariant.Targets[ S ]( tx0 )
+//   }
 }

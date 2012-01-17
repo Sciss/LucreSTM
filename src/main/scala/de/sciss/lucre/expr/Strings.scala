@@ -36,6 +36,8 @@ object Strings {
 }
 
 final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
+   protected val id = 8.toShort
+
    protected def writeValue( v: String, out: DataOutput ) { out.writeString( v )}
    protected def readValue( in: DataInput ) : String = in.readString()
 //   type Ops = StringOps
@@ -52,10 +54,18 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
       def toUpperCase( implicit tx: S#Tx ) : Ex = UnaryOp.Upper( ex )
    }
 
-   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
-      sys.error( "Strings doesn't define a literal type" )
+   protected def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
+                            targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+      (arity: @switch) match {
+         case 1 => UnaryOp(  opID ).read( in, access, targets )
+         case 2 => BinaryOp( opID ).read( in, access, targets )
+      }
+   }
 
-   protected def unaryOp( id: Int ) = UnaryOp( id )
+//   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
+//      sys.error( "Strings doesn't define a literal type" )
+//
+//   protected def unaryOp( id: Int ) = UnaryOp( id )
 
    private object UnaryOp {
       def apply( id: Int ) : UnaryOp = (id: @switch) match {
@@ -63,18 +73,25 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
          case 1 => Upper
       }
 
-      object Reverse extends UnaryOp {
+      sealed trait Basic extends UnaryOp {
+         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+            val _1 = readExpr( in, access )
+            new Tuple1( this, targets, _1 )
+         }
+      }
+
+      object Reverse extends Basic {
          val id = 0
          def value( in: String ) = in.reverse
       }
 
-      object Upper extends UnaryOp {
+      object Upper extends Basic {
          val id = 1
          def value( in: String ) = in.toUpperCase
       }
    }
 
-   protected def binaryOp( id: Int ) = BinaryOp( id )
+//   protected def binaryOp( id: Int ) = BinaryOp( id )
 
    private object BinaryOp {
       def apply( id: Int ) : BinaryOp = (id: @switch) match {
@@ -82,12 +99,20 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
          case 1 => Prepend
       }
 
-      object Append extends BinaryOp {
+      sealed trait Basic extends BinaryOp {
+         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+            val _1 = readExpr( in, access )
+            val _2 = readExpr( in, access )
+            new Tuple2( this, targets, _1, _2 )
+         }
+      }
+
+      object Append extends Basic {
          val id = 0
          def value( a: String, b: String ) = a + b
       }
 
-      object Prepend extends BinaryOp {
+      object Prepend extends Basic {
          val id = 1
          def value( a: String, b: String ) = b + a
       }

@@ -36,6 +36,8 @@ object Longs {
 }
 
 final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
+   protected val id = 3.toShort
+
    protected def writeValue( v: Long, out: DataOutput ) { out.writeLong( v )}
    protected def readValue( in: DataInput ) : Long = in.readLong()
 //   type Ops = LongOps
@@ -53,48 +55,71 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
 
 //   protected def extensions: Extensions[ Long ] = Longs
 
-   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
-      sys.error( "Longs doesn't define a literal type" )
+//   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
+//      sys.error( "Longs doesn't define a literal type" )
+//
+//   protected def unaryOp( id: Int ) = UnaryOp( id )
 
-   protected def unaryOp( id: Int ) = UnaryOp( id )
+   protected def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
+                            targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+      (arity: @switch) match {
+         case 1 => UnaryOp(  opID ).read( in, access, targets )
+         case 2 => BinaryOp( opID ).read( in, access, targets )
+      }
+   }
 
    private object UnaryOp {
       def apply( id: Int ) : UnaryOp = (id /*: @switch */) match {
          case 0 => Abs
       }
 
-      object Abs extends UnaryOp {
+      sealed trait Basic extends UnaryOp {
+         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+            val _1 = readExpr( in, access )
+            new Tuple1( this, targets, _1 )
+         }
+      }
+
+      object Abs extends Basic {
          val id = 0
          def value( in: Long ) = math.abs( in )
       }
    }
 
-   protected def binaryOp( id: Int ) = BinaryOp( id )
+//   protected def binaryOp( id: Int ) = BinaryOp( id )
 
    private object BinaryOp {
-      def apply( id: Int ) : BinaryOp = (id: @switch) match {
+      def apply( id: Int ) : Tuple2Op[ Long, Long ] = (id: @switch) match {
          case 0 => Plus
          case 1 => Minus
          case 2 => Min
          case 3 => Max
       }
 
-      object Plus extends BinaryOp {
+      sealed trait Basic extends BinaryOp {
+         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+            val _1 = readExpr( in, access )
+            val _2 = readExpr( in, access )
+            new Tuple2( this, targets, _1, _2 )
+         }
+      }
+
+      object Plus extends Basic  {
          val id = 0
          def value( a: Long, b: Long ) = a + b
       }
 
-      object Minus extends BinaryOp {
+      object Minus extends Basic {
          val id = 1
          def value( a: Long, b: Long ) = a - b
       }
 
-      object Min extends BinaryOp {
+      object Min extends Basic {
          val id = 2
          def value( a: Long, b: Long ) = math.min( a, b )
       }
 
-      object Max extends BinaryOp {
+      object Max extends Basic {
          val id = 3
          def value( a: Long, b: Long ) = math.max( a, b )
       }

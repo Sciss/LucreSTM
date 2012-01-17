@@ -73,14 +73,14 @@ object Expr {
          ref.dispose()
       }
 
-//      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
-//         ref.get.changed ---> this
-//      }
-//      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
-//         ref.get.changed -/-> this
-//      }
+      final private[lucre] def connect()( implicit tx: S#Tx ) {
+         ref.get.changed ---> this
+      }
+      final private[lucre] def disconnect()( implicit tx: S#Tx ) {
+         ref.get.changed -/-> this
+      }
 
-      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get.changed )
+//      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get.changed )
 
       final def get( implicit tx: S#Tx ) : Ex = ref.get
       final def set( expr: Ex )( implicit tx: S#Tx ) {
@@ -126,6 +126,8 @@ object Expr {
 //      }
       final def +=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
       final def -=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
+
+      override def toString = constValue.toString
    }
 }
 
