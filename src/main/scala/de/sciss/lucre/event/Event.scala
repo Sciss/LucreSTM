@@ -266,14 +266,14 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
       }
    }
 
-   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+   final private[event] def add( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
       val tup  = (outlet, sel)
       val old  = children.get
       children.set( old :+ tup )
       old.isEmpty
    }
 
-   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+   final private[event] def remove( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
       val tup  = (outlet, sel)
       val xs   = children.get
       val i    = xs.indexOf( tup )
@@ -364,25 +364,25 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
 
 //   final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
 //   protected def events : IIdxSeq[ Event[ S, _, _ ]]
-   protected final def events : IIdxSeq[ Event[ S, _, _ ]] = IIdxSeq.empty
+//   protected final def events : IIdxSeq[ Event[ S, _, _ ]] = IIdxSeq.empty
 
 //   private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 //   private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
-   protected def connectSources()(    implicit tx: S#Tx ) : Unit
-   protected def disconnectSources()( implicit tx: S#Tx ) : Unit
+   protected def connectNode()(    implicit tx: S#Tx ) : Unit
+   protected def disconnectNode()( implicit tx: S#Tx ) : Unit
 
-   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-      if( targets.addReactor( outlet, sel )) {
+   final private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      if( targets.add( outlet, sel )) {
 //         events.foreach( _.connectSources() )
-         connectSources()
+         connectNode()
       }
    }
 
-   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-      if( targets.removeReactor( outlet, sel )) {
+   final private[event] def removeTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      if( targets.remove( outlet, sel )) {
 //         events.foreach( _.disconnectSources() )
-         disconnectSources()
+         disconnectNode()
       }
    }
 
@@ -398,8 +398,8 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
     * @param   key   the key of the event or selector that invoked this method
     */
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
-                                    visited: Visited[ S ], reactions: Reactions )
-                                  ( implicit tx: S#Tx ) : Reactions =
+                                 visited: Visited[ S ], reactions: Reactions )
+                               ( implicit tx: S#Tx ) : Reactions =
       targets.propagate( source, update, this, key, visited, reactions ) // replace parent event node
 
    final def write( out: DataOutput ) {
@@ -634,11 +634,11 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
 
    final def --->( r: Selector[ S ])( implicit tx: S#Tx ) {
 //      node.addReactor( r.select( selector ))
-      node.addReactor( outlet, r )
+      node.addTarget( outlet, r )
    }
 
    final def -/->( r: Selector[ S ])( implicit tx: S#Tx ) {
-      node.removeReactor( outlet, r )
+      node.removeTarget( outlet, r )
    }
 
    final def react( fun: (S#Tx, A1) => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] = {
@@ -669,11 +669,11 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] wit
    final protected def outlet = 1
    final protected def node: Node[ S, A ] = this
 
-   final protected def connectSources()( implicit tx: S#Tx ) {
+   final protected def connectNode()( implicit tx: S#Tx ) {
       lazySources.foreach( _ ---> this )
    }
 
-   final protected def disconnectSources()( implicit tx: S#Tx ) {
+   final protected def disconnectNode()( implicit tx: S#Tx ) {
       lazySources.foreach( _ -/-> this )
    }
 
@@ -1060,14 +1060,14 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
       decl.pull( this, key, source, update ) // .asInstanceOf[ Option[ D#Update ]]
    }
 
-   final protected def connectSources()( implicit tx: S#Tx ) {
+   final protected def connectNode()( implicit tx: S#Tx ) {
       decl.events( this ).foreach { evt =>
          evt.lazySources.foreach( _ ---> evt )
       }
    }
 
 
-   final protected def disconnectSources()( implicit tx: S#Tx ) {
+   final protected def disconnectNode()( implicit tx: S#Tx ) {
       decl.events( this ).foreach { evt =>
          evt.lazySources.foreach( _ -/-> evt )
       }

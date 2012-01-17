@@ -184,7 +184,7 @@ Usages:
 
          declare[ Renamed ]( _.renamed )
          declare[ Moved   ]( _.moved   )
-         declare[ Changed ]( _.changed )
+//         declare[ Changed ]( _.changed )
 
          def apply( name: StringEx, span: SpanEx )
                   ( implicit tx: Tx ) : EventRegion = new New( name, span, tx )
@@ -192,7 +192,7 @@ Usages:
          private sealed trait Impl extends RegionLike.Impl with EventRegion {
             final lazy val renamed  = name_#.changed.map( Renamed( this, _ ))
             final lazy val moved    = span_#.changed.map( Moved( this, _ ))
-            final lazy val changed  = (renamed | moved).map( ch => Changed( ch.r ))
+//            final lazy val changed  = (renamed | moved).map( ch => Changed( ch.r ))
 
 //            final protected def sources( implicit tx: S#Tx ) = IIdxSeq( (name_#, 1 << 0), (span_#, 1 << 1) )   // OUCH XXX
             final protected def reader = serializer
@@ -225,7 +225,7 @@ Usages:
 
          def renamed: Event[ S, Renamed, EventRegion ]
          def moved:   Event[ S, Moved,   EventRegion ]
-         def changed: Event[ S, Changed, EventRegion ]
+//         def changed: Event[ S, Changed, EventRegion ]
 //         final def renamed = name_#.changed.map( Renamed( this, _ ))
 //         final def moved   = span_#.changed.map( Moved(   this, _ ))
       }
