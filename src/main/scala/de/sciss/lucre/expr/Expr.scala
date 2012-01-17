@@ -73,8 +73,14 @@ object Expr {
          ref.dispose()
       }
 
-      final private[lucre] def connectSources()( implicit tx: S#Tx ) {}
-      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
+//      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
+//         ref.get.changed ---> this
+//      }
+//      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
+//         ref.get.changed -/-> this
+//      }
+
+      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get.changed )
 
       final def get( implicit tx: S#Tx ) : Ex = ref.get
       final def set( expr: Ex )( implicit tx: S#Tx ) {
@@ -82,11 +88,11 @@ object Expr {
          if( before != expr ) {
             val con = targets.isConnected
 //            if( con ) before -= this
-            if( con ) before.changed -= this.changed
+            if( con ) before.changed -/-> this
             ref.set( expr )
             if( con ) {
 //               expr += this
-               expr.changed += this.changed
+               expr.changed ---> this
                val beforeV = before.value
                val exprV   = expr.value
                fire( Change( beforeV, exprV))

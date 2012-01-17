@@ -125,13 +125,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
       protected def op: UnaryOp
       protected def a: Ex
 
-      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
-         changed += a.changed
-      }
-
-      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
-         changed -= a.changed
-      }
+      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
 
       final def value( implicit tx: S#Tx ) = op.value( a.value )
       final def writeData( out: DataOutput ) {
@@ -166,15 +160,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
       protected def a: Ex
       protected def b: Ex
 
-      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
-         changed += a.changed
-         changed += b.changed
-      }
-
-      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
-         changed -= a.changed
-         changed -= b.changed
-      }
+      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed, b.changed )
 
       final def value( implicit tx: S#Tx ) = op.value( a.value, b.value )
       final def writeData( out: DataOutput ) {

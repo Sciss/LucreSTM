@@ -17,7 +17,12 @@ package object event {
    * sources, being essentially a collection of events.
    */
 //   type Sources[ S <: Sys[ S ]] = IIdxSeq[ Event[ S, _, _ ]]
-  type Sources[ S <: Sys[ S ]] = IIdxSeq[ (Event[ S, _, _ ], Int) ]
+//   type Sources[ S <: Sys[ S ]] = IIdxSeq[ (Event[ S, _, _ ], Int) ]
 
-//  def NoSources[ S <: Sys[ S ]] : Sources[ S ] = IIdxSeq.empty
+   private[lucre] type Sources[ S <: Sys[ S ]] = IIdxSeq[ Event[ S, _, _ ]]
+
+   private val emptySeq = IIdxSeq.empty[ Nothing ]
+
+   private[lucre] def NoSources[ S <: Sys[ S ]]  : Sources[ S ]   = emptySeq
+   private[lucre] def NoChildren[ S <: Sys[ S ]] : Children[ S ]  = emptySeq
 }

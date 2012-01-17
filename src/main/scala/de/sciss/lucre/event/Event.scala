@@ -209,11 +209,11 @@ object Observer {
       override def toString = "Event.Observer<" + key.id + ">"
 
       def add( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {
-         event += key
+         event ---> key
       }
 
       def remove( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {
-         event -= key
+         event -/-> key
       }
 
       def dispose()( implicit tx: S#Tx ) {
@@ -363,23 +363,26 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
 
 
 //   final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
-   protected def events : IIdxSeq[ Event[ S, _, _ ]]
+//   protected def events : IIdxSeq[ Event[ S, _, _ ]]
+   protected final def events : IIdxSeq[ Event[ S, _, _ ]] = IIdxSeq.empty
 
 //   private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 //   private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
-//   final protected def connectSources()(    implicit tx: S#Tx ) {}
-//   final protected def disconnectSources()( implicit tx: S#Tx ) {}
+   protected def connectSources()(    implicit tx: S#Tx ) : Unit
+   protected def disconnectSources()( implicit tx: S#Tx ) : Unit
 
    final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
       if( targets.addReactor( outlet, sel )) {
-         events.foreach( _.connectSources() )
+//         events.foreach( _.connectSources() )
+         connectSources()
       }
    }
 
    final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
       if( targets.removeReactor( outlet, sel )) {
-         events.foreach( _.disconnectSources() )
+//         events.foreach( _.disconnectSources() )
+         disconnectSources()
       }
    }
 
@@ -422,7 +425,7 @@ object Invariant {
    object Targets {
       def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
          val id         = tx.newID()
-         val children   = tx.newVar[ Children[ S ]]( id, IIdxSeq.empty )
+         val children   = tx.newVar[ Children[ S ]]( id, NoChildren )
          new Impl( id, children )
       }
 
@@ -567,8 +570,10 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  */
 trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
 //   final private[lucre] def events: IIdxSeq[ Event[ S, _, _ ]] = IIdxSeq( this )
-   final private[lucre] def connectSources()( implicit tx: S#Tx ) {}
-   final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
+//   final private[lucre] def connectSources()( implicit tx: S#Tx ) {}
+//   final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
+
+   final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
 
    final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
       pull( source, update )
@@ -627,12 +632,12 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
    protected def reader: Reader[ S, Repr, _ ]
 //      implicit protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A1, Repr ]]
 
-   final def +=( r: Selector[ S ])( implicit tx: S#Tx ) {
+   final def --->( r: Selector[ S ])( implicit tx: S#Tx ) {
 //      node.addReactor( r.select( selector ))
       node.addReactor( outlet, r )
    }
 
-   final def -=( r: Selector[ S ])( implicit tx: S#Tx ) {
+   final def -/->( r: Selector[ S ])( implicit tx: S#Tx ) {
       node.removeReactor( outlet, r )
    }
 
@@ -664,7 +669,15 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] wit
    final protected def outlet = 1
    final protected def node: Node[ S, A ] = this
 
-   final protected def events: IIdxSeq[ Event[ S, _, _ ]] = IIdxSeq( this )
+   final protected def connectSources()( implicit tx: S#Tx ) {
+      lazySources.foreach( _ ---> this )
+   }
+
+   final protected def disconnectSources()( implicit tx: S#Tx ) {
+      lazySources.foreach( _ -/-> this )
+   }
+
+//   final protected def events: IIdxSeq[ Event[ S, _, _ ]] = IIdxSeq( this )
 
 //   final def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] =
 //      pull( source, update )
@@ -878,8 +891,8 @@ object Dummy {
    def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = new Dummy[ S, A, Repr ] {}
 }
 trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
-   final def +=( r: Selector[ S ])( implicit tx: S#Tx ) {}
-   final def -=( r: Selector[ S ])( implicit tx: S#Tx ) {}
+   final def --->( r: Selector[ S ])( implicit tx: S#Tx ) {}
+   final def -/->( r: Selector[ S ])( implicit tx: S#Tx ) {}
 
    final private[lucre] def select() : Selector[ S ] = sys.error( "Operation not supported" )
 
@@ -888,8 +901,10 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
 
    final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
 
-   final private[lucre] def connectSources()( implicit tx: S#Tx ) {}
-   final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
+//   final private[lucre] def connectSources()( implicit tx: S#Tx ) {}
+//   final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
+
+   final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = NoSources
 }
 
 /**
@@ -901,8 +916,16 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
 //   def +=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
 //   def -=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
 
-   def +=( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
-   def -=( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
+   /**
+    * Connects the given selector to this event. That is, this event will
+    * adds the selector to its propagation targets.
+    */
+   def --->( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
+   /**
+    * Disconnects the given selector from this event. That is, this event will
+    * remove the selector from its propagation targets.
+    */
+   def -/->( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
    def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
 
@@ -910,8 +933,10 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
 
    private[lucre] def select() : Selector[ S ]
 
-   private[lucre] def connectSources()( implicit tx: S#Tx ) : Unit
-   private[lucre] def disconnectSources()( implicit tx: S#Tx ) : Unit
+//   final private[lucre] def connectSources()( implicit tx: S#Tx ) {}
+//   final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
+
+   private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ]
 }
 
 
@@ -941,8 +966,9 @@ object Compound {
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
-      private[lucre] def connectSources()( implicit tx: S#Tx ) {}
-      private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
+//      private[lucre] def connectSources()( implicit tx: S#Tx ) {}
+//      private[lucre] def disconnectSources()( implicit tx: S#Tx ) {}
+      private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = NoSources
 
       def +=( elem: Elem )( implicit tx: S#Tx ) {
 //         elemEvt( elem ) += this
@@ -974,12 +1000,14 @@ object Compound {
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
-      private[lucre] def connectSources()( implicit tx: S#Tx ) {
-         e += this
-      }
-      private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
-         e -= this
-      }
+//      private[lucre] def connectSources()( implicit tx: S#Tx ) {
+//         e ---> this
+//      }
+//      private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
+//         e -/-> this
+//      }
+
+      private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( e )
 
       private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
          e.pull( source, update ).map( fun )
@@ -992,12 +1020,14 @@ object Compound {
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
-      private[lucre] def connectSources()( implicit tx: S#Tx ) {
-         events.foreach( _ += this )
-      }
-      private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
-         events.foreach( _ -= this )
-      }
+//      private[lucre] def connectSources()( implicit tx: S#Tx ) {
+//         events.foreach( _ ---> this )
+//      }
+//      private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
+//         events.foreach( _ -/-> this )
+//      }
+
+      private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = events
 
       private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
          events.view.flatMap( _.pull( source, update )).headOption.map( fun )
@@ -1030,7 +1060,20 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
       decl.pull( this, key, source, update ) // .asInstanceOf[ Option[ D#Update ]]
    }
 
-   final protected def events = decl.events( this )
+   final protected def connectSources()( implicit tx: S#Tx ) {
+      decl.events( this ).foreach { evt =>
+         evt.lazySources.foreach( _ ---> evt )
+      }
+   }
+
+
+   final protected def disconnectSources()( implicit tx: S#Tx ) {
+      decl.events( this ).foreach { evt =>
+         evt.lazySources.foreach( _ -/-> evt )
+      }
+   }
+
+//   final protected def events = decl.events( this )
 
 //   final protected def connectSources()( implicit tx: S#Tx ) {
 //      decl.events( this ).foreach( _.connectSources() )

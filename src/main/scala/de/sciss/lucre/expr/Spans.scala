@@ -28,7 +28,7 @@ package expr
 
 import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{Event, Invariant}
+import event.{Event, Invariant, Sources}
 import annotation.switch
 
 //final case class Span[ S <: Sys[ S ]]( start: Expr[ S, Long ], stop: Expr[ S, Long ])
@@ -155,15 +155,7 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       def start: LongEx
       def stop: LongEx
 
-      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
-         changed += start.changed
-         changed += stop.changed
-      }
-
-      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
-         changed -= start.changed
-         changed -= stop.changed
-      }
+      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( start.changed, stop.changed )
 
       final protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 3 )
@@ -262,13 +254,7 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       protected def op: UnaryLongOp
       protected def a: Ex
 
-      final private[lucre] def connectSources()( implicit tx: S#Tx ) {
-         changed += a.changed
-      }
-
-      final private[lucre] def disconnectSources()( implicit tx: S#Tx ) {
-         changed -= a.changed
-      }
+      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
 
       final def value( implicit tx: S#Tx ) = op.value( a.value )
       final def writeData( out: DataOutput ) {
