@@ -66,9 +66,9 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
          (in.readUnsignedByte() /*: @switch */) match {
             case 0      => new VarRead( in, access, targets, tx )
             case arity  =>
-               val magic = in.readInt()
-               require( ((magic >> 16) & 0xFFFF) == tpe.id, "Unexpected tuple header " + magic )
-               val opID = magic & 0xFFFF
+               val clazz = in.readShort()
+               require( clazz == tpe.id, "Unexpected expression class " + clazz )
+               val opID = in.readInt()
                readTuple( arity, opID, in, access, targets )
 //            case 1      => readUnaryOp( in, access, targets )
 //            case 2      => readBinaryOp( in, access, targets )
@@ -224,7 +224,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
       def value( implicit tx: S#Tx ) = op.value( _1.value, _2.value )
 
       protected def writeData( out: DataOutput ) {
-         out.writeUnsignedByte( 1 )
+         out.writeUnsignedByte( 2 )
          out.writeShort( tpe.id )
          out.writeInt( op.id )
          _1.write( out )
