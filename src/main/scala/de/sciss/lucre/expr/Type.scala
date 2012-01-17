@@ -27,22 +27,19 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import annotation.switch
-import event.{Event, Observer, Invariant, Sources}
-import collection.immutable.{IndexedSeq => IIdxSeq}
+import event.{Event, Observer, Invariant}
 
 /**
  * IDs:
  * 0 = Byte, 1 = Short, 2 = Int, 3 = Long, 4 = Float, 5 = Double, 6 = Boolean, 7 = Char
  * 8 = String
  */
-trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
+trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A ] {
    tpe =>
 
    type Ex     = Expr[ S, A ]
    type Var    = Expr.Var[ S, A ]
    type Change = event.Change[ A ]
-//   type Ops
 
    def id: Int
 
@@ -51,10 +48,6 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
 
    protected def readValue( in: DataInput ) : A
    protected def writeValue( v: A, out: DataOutput ) : Unit
-//   protected def unaryOp( id: Int ) : UnaryOp
-//   protected def binaryOp( id: Int ) : BinaryOp
-
-//   implicit def ops[ A <% Ex ]( ex: A ) : Ops // = new Ops( ex )
 
    /* protected */ /* sealed */ trait Basic extends Expr[ S, A ] {
       final protected def reader = serializer
@@ -66,38 +59,18 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
          (in.readUnsignedByte() /*: @switch */) match {
             case 0      => new VarRead( in, access, targets, tx )
             case arity  =>
-               val clazz = in.readInt()
-               require( clazz == tpe.id, "Unexpected expression class " + clazz )
-               val opID = in.readInt()
-               readTuple( arity, opID, in, access, targets )
-//            case 1      => readUnaryOp( in, access, targets )
-//            case 2      => readBinaryOp( in, access, targets )
-//            case 30     => readLiteral( in, access, targets )
-//            case 31     => readExtension( in.readInt(), in, access, targets )
-//            case cookie => sys.error( "Unexpected cookie " + cookie )
+               val clazz   = in.readInt()
+               val opID    = in.readInt()
+               if( clazz == tpe.id ) {
+                  readTuple( arity, opID, in, access, targets )
+               } else {
+                  getExtension( clazz )( tx.peer ).readTuple( arity, opID, in, access, targets )
+               }
          }
       }
 
       def readConstant( in: DataInput )( implicit tx: S#Tx ) : Ex = new ConstRead( in )
    }
-
-   protected def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
-                            targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex
-
-//   private def readUnaryOp( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
-//      val op   = unaryOp( in.readShort() )
-//      val _1   = readExpr( in, access )
-//      new Tuple1[ A ]( op, targets, _1 )
-//   }
-//
-//   private def readBinaryOp( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
-//      val op   = binaryOp( in.readShort() )
-//      val _1   = readExpr( in, access )
-//      val _2   = readExpr( in, access )
-//      new Tuple2[ A, A ]( op, targets, _1, _2 )
-//   }
-//
-//   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex
 
    private final class ConstRead( in: DataInput ) extends ConstLike {
       protected val constValue = readValue( in )
@@ -153,17 +126,17 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
    }
 
    /* protected */ trait Tuple1Op[ T1 ] extends TupleOp {
-      final def apply( _1: Expr[ S, T1 ])( implicit tx: S#Tx ) : Ex =
-         new Tuple1[ T1 ]( this, Invariant.Targets[ S ], _1 )
+//      final def apply( _1: Expr[ S, T1 ])( implicit tx: S#Tx ) : Ex =
+//         new Tuple1[ T1 ]( this, Invariant.Targets[ S ], _1 )
 
       def value( a: T1 ) : A
 
-      final protected def writeTypes( out: DataOutput ) {}
+      def toString( _1: Expr[ S, T1 ]) : String
    }
 
-   final /* protected */ class Tuple1[ T1 ]( protected val op: Tuple1Op[ T1 ],
+   final /* protected */ class Tuple1[ T1 ]( typeID: Int, op: Tuple1Op[ T1 ],
                                        protected val targets: Invariant.Targets[ S ],
-                                       protected val _1: Expr[ S, T1 ])
+                                       _1: Expr[ S, T1 ])
    extends Basic with Expr.Node[ S, A ] {
 //      protected def op: Tuple1Op[ T1 ]
 //      protected def _1: Expr[ S, T1 ]
@@ -181,7 +154,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
       protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 1 )
 //         out.writeShort( op.id )
-         out.writeInt( tpe.id )
+         out.writeInt( typeID /* tpe.id */)
          out.writeInt( op.id )
          _1.write( out )
       }
@@ -192,21 +165,23 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
          }
       }
 
-      override def toString = _1.toString + "." + op.toString
+      override def toString = op.toString( _1 )
    }
 
    /* protected */  trait Tuple2Op[ T1, T2 ] extends TupleOp {
-      final def apply( _1: Expr[ S, T1 ], _2: Expr[ S, T2 ])( implicit tx: S#Tx ) : Ex =
-         new Tuple2[ T1, T2 ]( this, Invariant.Targets[ S ], _1, _2 )
+//      final def apply( _1: Expr[ S, T1 ], _2: Expr[ S, T2 ])( implicit tx: S#Tx ) : Ex =
+//         new Tuple2[ T1, T2 ]( this, Invariant.Targets[ S ], _1, _2 )
 
       def value( a: T1, b: T2 ) : A
 
       final protected def writeTypes( out: DataOutput ) {}
+
+      def toString( _1: Expr[ S, T1 ], _2: Expr[ S, T2 ]) : String
    }
 
-   final /* protected */  class Tuple2[ T1, T2 ]( protected val op: Tuple2Op[ T1, T2 ],
+   final /* protected */  class Tuple2[ T1, T2 ]( typeID: Int, op: Tuple2Op[ T1, T2 ],
                                            protected val targets: Invariant.Targets[ S ],
-                                           protected val _1: Expr[ S, T1 ], protected val _2: Expr[ S, T2 ])
+                                           _1: Expr[ S, T1 ], _2: Expr[ S, T2 ])
    extends Basic with Expr.Node[ S, A ] {
 //      protected def op: Tuple1Op[ T1 ]
 //      protected def _1: Expr[ S, T1 ]
@@ -225,7 +200,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
 
       protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 2 )
-         out.writeInt( tpe.id )
+         out.writeInt( typeID /* tpe.id */)
          out.writeInt( op.id )
          _1.write( out )
          _2.write( out )
@@ -245,97 +220,6 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
          }
       }
 
-      override def toString = _1.toString + "." + op.toString + "(" + _2.toString + ")"
+      override def toString = op.toString( _1, _2 )
    }
-
-//   private sealed trait UnaryOpImpl
-//   extends Basic with Expr.Node[ S, A ] // with StandaloneLike[ S, Change, Ex ]
-//   /* with LateBinding[ S, Change ] */ {
-//      protected def op: UnaryOp
-//      protected def a: Ex
-//
-//      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
-//
-//      final def value( implicit tx: S#Tx ) = op.value( a.value )
-//      final def writeData( out: DataOutput ) {
-//         out.writeUnsignedByte( 1 )
-//         out.writeShort( op.id )
-//         a.write( out )
-//      }
-////      final def disposeData()( implicit tx: S#Tx ) {}
-//
-//      final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-//         a.changed.pull( source, update ).flatMap { ach =>
-//            change( op.value( ach.before ), op.value( ach.now ))
-//         }
-//      }
-//   }
-//
-//   private final class UnaryOpNew( protected val op: UnaryOp, protected val a: Ex, tx0: S#Tx )
-//   extends UnaryOpImpl {
-//      protected val targets   = Invariant.Targets[ S ]( tx0 )
-//   }
-//
-//   private final class UnaryOpRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
-//   extends UnaryOpImpl {
-//      protected val op  = unaryOp( in.readShort() )
-//      protected val a   = readExpr( in, access )( tx0 )
-//   }
-//
-//   private sealed trait BinaryOpImpl
-//   extends Basic with Expr.Node[ S, A ] // with StandaloneLike[ S, Change, Ex ]
-//   /* with LateBinding[ S, Change ] */ {
-//      protected def op: BinaryOp
-//      protected def a: Ex
-//      protected def b: Ex
-//
-//      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed, b.changed )
-//
-//      final def value( implicit tx: S#Tx ) = op.value( a.value, b.value )
-//      final def writeData( out: DataOutput ) {
-//         out.writeUnsignedByte( 2 )
-//         out.writeShort( op.id )
-//         a.write( out )
-//         b.write( out )
-//      }
-////      final def disposeData()( implicit tx: S#Tx ) {}
-//
-//      final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-//         (a.changed.pull( source, update ), b.changed.pull( source, update )) match {
-//            case (None, None)                => None
-//            case (Some( ach ), None )        =>
-//               val bv = b.value
-//               change( op.value( ach.before, bv ), op.value( ach.now, bv ))
-//            case (None, Some( bch ))         =>
-//               val av = a.value
-//               change( op.value( av, bch.before ), op.value( av, bch.now ))
-//            case (Some( ach ), Some( bch ))  =>
-//               change( op.value( ach.before, bch.before ), op.value( ach.now, bch.now ))
-//         }
-//      }
-//   }
-//
-//   private final class BinaryOpNew( protected val op: BinaryOp, protected val a: Ex, protected val b: Ex, tx0: S#Tx )
-//   extends BinaryOpImpl {
-//      protected val targets   = Invariant.Targets[ S ]( tx0 )
-//   }
-//
-//   private final class BinaryOpRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
-//   extends BinaryOpImpl {
-//      protected val op  = binaryOp( in.readShort() )
-//      protected val a   = readExpr( in, access )( tx0 )
-//      protected val b   = readExpr( in, access )( tx0 )
-//   }
-//
-//   protected trait BinaryOp {
-//      def apply( a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( this, a, b, tx )
-//      def value( a: A, b: A ) : A
-//      def id: Int
-//   }
-//
-//   protected trait UnaryOp {
-//      def apply( in: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( this, in, tx )
-//      def value( in: A ) : A
-//      def id: Int
-//   }
 }

@@ -12,20 +12,17 @@ import concurrent.stm.{InTxn, TMap}
 //}
 
 trait Extensions[ S <: Sys[ S ], A ] {
-   private val map = TMap.empty[ Int, Invariant.Reader[ S, Expr[ S, A ]]]
+   private val map = TMap.empty[ Int, TupleReader[ S, A ]]
 
-   final def readExtension( tpe: Int, in: DataInput, access: S#Acc,
-                            targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Expr[ S, A ] = {
-      implicit val itx = tx.peer
-      val rf = map.get( tpe ).getOrElse( sys.error( "No registered extensions from type " + tpe ))
-      rf.read( in, access, targets )
+   final def getExtension( tpe: Int )( implicit tx: InTxn ) : TupleReader[ S, A ] = {
+      map.get( tpe ).getOrElse( sys.error( "No registered extensions from type " + tpe ))
    }
 
-   final def addExtension( tpe: Type[ _ ], reader: Invariant.Reader[ S, Expr[ S, A ]])( implicit tx: InTxn ) {
+   final def addExtension( tpe: Type[ S, _ ], reader: TupleReader[ S, A ])( implicit tx: InTxn ) {
       map += ((tpe.id, reader))
    }
 
-   final def removeExtension( tpe: Type[ _ ])( implicit tx: InTxn ) {
+   final def removeExtension( tpe: Type[ S, _ ])( implicit tx: InTxn ) {
       map -= tpe.id
    }
 }

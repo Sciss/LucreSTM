@@ -27,8 +27,7 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{Event, Invariant, Sources}
+import event.Invariant
 import annotation.switch
 
 //final case class Span[ S <: Sys[ S ]]( start: Expr[ S, Long ], stop: Expr[ S, Long ])
@@ -114,21 +113,20 @@ object Spans {
 }
 
 final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, Span ] {
-//   type Span = expr.Span[ S ]
+   tpe =>
 
    val id = 100
 
    private type LongEx = Expr[ S, Long ]
 
-   private object LongExtensions extends Invariant.Reader[ S, LongEx ] {
-      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
-         sys.error( "TODO" )
-//         (in.readShort(): @switch) match {
-//            case 0 => new UnaryLongRead( UnaryLongOp.Start,  in, access, targets, tx )
-//            case 1 => new UnaryLongRead( UnaryLongOp.Stop,   in, access, targets, tx )
-//            case 2 => new UnaryLongRead( UnaryLongOp.Length, in, access, targets, tx )
-//            case opID => sys.error( "Unknown operator " + opID )
-//         }
+   private object LongExtensions extends TupleReader[ S, Long ] {
+      def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])
+                   ( implicit tx: S#Tx ) : Expr[ S, Long ] = {
+         if( arity == 1 ) {
+            UnaryLongOp( opID ).read( in, access, targets )
+         } else {
+            sys.error( "Unknown tuple of arity " + arity + " and op-id " + opID )
+         }
       }
    }
 
@@ -141,9 +139,9 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       def unite( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Union( ex, that )
       def intersect( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Intersection( ex, that )
 
-      def start_#(  implicit tx: S#Tx ) : LongEx = UnaryOp.Start( ex )
-      def stop_#(   implicit tx: S#Tx ) : LongEx = UnaryOp.Stop( ex )
-      def length_#( implicit tx: S#Tx ) : LongEx = UnaryOp.Length( ex )
+      def start_#(  implicit tx: S#Tx ) : LongEx = UnaryLongOp.Start( ex )
+      def stop_#(   implicit tx: S#Tx ) : LongEx = UnaryLongOp.Stop( ex )
+      def length_#( implicit tx: S#Tx ) : LongEx = UnaryLongOp.Length( ex )
 
 //      // decomposition
 //      def start( implicit tx: S#Tx ) : LongEx = ex match {
@@ -165,65 +163,19 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
          val start   = longs.readExpr( in, access )
          val stop    = longs.readExpr( in, access )
-         new Tuple2( this, targets, start, stop )
+         new Tuple2( tpe.id, this, targets, start, stop )
       }
-   }
 
-//   private sealed trait Literal extends Basic with Expr.Node[ S, expr.Span ]
-//   /* with LateBinding[ S, Change ] */ {
-//      def start: LongEx
-//      def stop: LongEx
-//
-//      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( start.changed, stop.changed )
-//
-//      final protected def writeData( out: DataOutput ) {
-//         out.writeUnsignedByte( 30 )
-//         start.write( out )
-//         stop.write( out )
-//      }
-//
-////      final protected def disposeData()( implicit tx: S#Tx ) {}
-//
-//      final def value( implicit tx: S#Tx ) : expr.Span = new expr.Span( start.value, stop.value )
-//
-//      final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-//         val (startBefore, startNow) = start.changed.pull( source, update ) match {
-//            case Some( event.Change( before, now )) => (before, now)
-//            case None                               => val v = start.value; (v, v)
-//         }
-//
-//         val (stopBefore, stopNow) = stop.changed.pull( source, update ) match {
-//            case Some( event.Change( before, now )) => (before, now)
-//            case None                               => val v = stop.value; (v, v)
-//         }
-//
-//         change( new Span( startBefore, stopBefore ), new Span( startNow, stopNow ))
-//      }
-//   }
-//
-//   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
-//      new SpanRead( in, access, targets, tx )
+      def toString( start: LongEx, stop: LongEx ) = "Span(" + start + ", " + stop + ")"
+   }
 
    def Span[ T1, T2 ]( start: T1, stop: T2 )( implicit tx: S#Tx, startView: T1 => LongEx, stopView: T2 => LongEx ) : Ex = {
       val targets = Invariant.Targets[ S ]
-      new Tuple2[ Long, Long ]( Literal, targets, start, stop )
+      new Tuple2( tpe.id, Literal, targets, start, stop )
    }
 
-//   private final class SpanNew( val start: LongEx, val stop: LongEx, tx0: S#Tx ) extends Literal {
-//      protected val targets = Invariant.Targets[ S ]( tx0 )
-//   }
-//
-//   private final class SpanRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ],
-//                                 tx0: S#Tx ) extends Literal {
-//      val start = longs.readExpr( in, access )( tx0 )
-//      val stop  = longs.readExpr( in, access )( tx0 )
-//   }
-
-//   protected def unaryOp( id: Int ) : UnaryOp = sys.error( "No unary operations defined" )
-//   protected def binaryOp( id: Int ) : BinaryOp = BinaryOp( id )
-
-   protected def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
-                            targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+   def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
+                  targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
       (arity /*: @switch */) match {
 //         case 1 => UnaryOp( opID ).read( in, access, targets )
          case 2 => {
@@ -243,21 +195,26 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       }
 
       sealed trait Basic extends BinaryOp {
+         final def apply( _1: Ex, _2: Ex )( implicit tx: S#Tx ) : Ex =
+            new Tuple2( tpe.id, this, Invariant.Targets[ S ], _1, _2 )
+
          def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
             val _1 = readExpr( in, access )
             val _2 = readExpr( in, access )
-            new Tuple2( this, targets, _1, _2 )
+            new Tuple2( tpe.id, this, targets, _1, _2 )
          }
       }
 
       object Union extends Basic {
          val id = 1
          def value( a: Span, b: Span ) = a.unite( b )
+         def toString( _1: Ex, _2: Ex ) = "union(" + _1 + ", " + _2 + ")"
       }
 
       object Intersection extends Basic {
          val id = 2
          def value( a: Span, b: Span ) = a.intersect( b )
+         def toString( _1: Ex, _2: Ex ) = "intersection(" + _1 + ", " + _2 + ")"
       }
    }
 
@@ -272,7 +229,7 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       out.writeLong( v.stop )
    }
 
-   private object UnaryOp {
+   private object UnaryLongOp {
       def apply( id: Int ) : longs.Tuple1Op[ expr.Span ] = (id: @switch) match {
          case 1000 => Start
          case 1001 => Stop
@@ -280,62 +237,29 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       }
 
       sealed trait Basic extends longs.Tuple1Op[ expr.Span ] {
+         final def apply( _1: Ex )( implicit tx: S#Tx ) : LongEx =
+            new longs.Tuple1( tpe.id, this, Invariant.Targets[ S ], _1 )
+
          def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
             val _1 = readExpr( in, access )
-            new longs.Tuple1( this, targets, _1 )
+            new longs.Tuple1( tpe.id, this, targets, _1 )
          }
       }
 
       object Start extends Basic {
          val id = 1000
          def value( a: expr.Span ) : Long = a.start
+         def toString( _1: Ex ) = _1.toString + ".start"
       }
       object Stop extends Basic {
          val id = 1001
          def value( a: expr.Span ) : Long = a.stop
+         def toString( _1: Ex ) = _1.toString + ".stop"
       }
       object Length extends Basic {
          val id = 1002
          def value( a: expr.Span ) : Long = a.length
+         def toString( _1: Ex ) = _1.toString + ".length"
       }
    }
-//   private sealed trait UnaryLongOp {
-//      def value( a: Span )( implicit tx: S#Tx ) : Long
-//      def id: Int
-//   }
-
-//   private sealed trait UnaryLongImpl
-//   extends longs.Basic with Expr.Node[ S, Long ]
-//   /* with LateBinding[ S, longs.Change ] */ {
-//      protected def op: UnaryLongOp
-//      protected def a: Ex
-//
-//      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( a.changed )
-//
-//      final def value( implicit tx: S#Tx ) = op.value( a.value )
-//      final def writeData( out: DataOutput ) {
-//         out.writeUnsignedByte( 31 )   // extension
-//         out.writeInt( 0x5370616E )    // extension cookie
-//         out.writeShort( op.id )
-//         a.write( out )
-//      }
-////      final def disposeData()( implicit tx: S#Tx ) {}
-//
-//      final private[lucre] def pull( /* key: Int, */ source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ longs.Change ] = {
-//         a.changed.pull( source, update ).flatMap { ach =>
-//            longs.change( op.value( ach.before ), op.value( ach.now ))
-//         }
-//      }
-//   }
-//
-//   private final class UnaryLongRead( protected val op: UnaryLongOp, in: DataInput, access: S#Acc,
-//                                      protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
-//   extends UnaryLongImpl {
-//      protected val a = readExpr( in, access )( tx0 )
-//   }
-//
-//   private final class UnaryLongNew( protected val op: UnaryLongOp, protected val a: Ex, tx0: S#Tx )
-//   extends UnaryLongImpl {
-//      protected val targets = Invariant.Targets[ S ]( tx0 )
-//   }
 }

@@ -36,6 +36,8 @@ object Longs {
 }
 
 final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
+   tpe =>
+
    val id = 3
 
    protected def writeValue( v: Long, out: DataOutput ) { out.writeLong( v )}
@@ -53,15 +55,8 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
       def abs( implicit tx: S#Tx ) : Ex = UnaryOp.Abs( ex )
    }
 
-//   protected def extensions: Extensions[ Long ] = Longs
-
-//   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
-//      sys.error( "Longs doesn't define a literal type" )
-//
-//   protected def unaryOp( id: Int ) = UnaryOp( id )
-
-   protected def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
-                            targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+   def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
+                  targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
       (arity: @switch) match {
          case 1 => UnaryOp(  opID ).read( in, access, targets )
          case 2 => BinaryOp( opID ).read( in, access, targets )
@@ -74,15 +69,20 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
       }
 
       sealed trait Basic extends UnaryOp {
-         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+         final def apply( _1: Ex )( implicit tx: S#Tx ) : Ex =
+            new Tuple1( tpe.id, this, Invariant.Targets[ S ], _1 )
+
+         final def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
             val _1 = readExpr( in, access )
-            new Tuple1( this, targets, _1 )
+            new Tuple1( tpe.id, this, targets, _1 )
          }
       }
 
       object Abs extends Basic {
          val id = 0
          def value( in: Long ) = math.abs( in )
+
+         def toString( _1: Ex ) = "abs(" + _1 + ")"
       }
    }
 
@@ -97,31 +97,42 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
       }
 
       sealed trait Basic extends BinaryOp {
-         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+         final def apply( _1: Ex, _2: Ex )( implicit tx: S#Tx ) : Ex =
+            new Tuple2( tpe.id, this, Invariant.Targets[ S ], _1, _2 )
+
+         final def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
             val _1 = readExpr( in, access )
             val _2 = readExpr( in, access )
-            new Tuple2( this, targets, _1, _2 )
+            new Tuple2( tpe.id, this, targets, _1, _2 )
          }
       }
 
       object Plus extends Basic  {
          val id = 0
          def value( a: Long, b: Long ) = a + b
+
+         def toString( _1: Ex, _2: Ex ) = "(" + _1 + " + " + _2 + ")"
       }
 
       object Minus extends Basic {
          val id = 1
          def value( a: Long, b: Long ) = a - b
+
+         def toString( _1: Ex, _2: Ex ) = "(" + _1 + " - " + _2 + ")"
       }
 
       object Min extends Basic {
          val id = 2
          def value( a: Long, b: Long ) = math.min( a, b )
+
+         def toString( _1: Ex, _2: Ex ) = "min(" + _1 + ", " + _2 + ")"
       }
 
       object Max extends Basic {
          val id = 3
          def value( a: Long, b: Long ) = math.max( a, b )
+
+         def toString( _1: Ex, _2: Ex ) = "max(" + _1 + ", " + _2 + ")"
       }
    }
 }

@@ -36,6 +36,8 @@ object Strings {
 }
 
 final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
+   tpe =>
+
    val id = 8
 
    protected def writeValue( v: String, out: DataOutput ) { out.writeString( v )}
@@ -54,8 +56,8 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
       def toUpperCase( implicit tx: S#Tx ) : Ex = UnaryOp.Upper( ex )
    }
 
-   protected def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
-                            targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+   def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
+                  targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
       (arity: @switch) match {
          case 1 => UnaryOp(  opID ).read( in, access, targets )
          case 2 => BinaryOp( opID ).read( in, access, targets )
@@ -74,20 +76,25 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
       }
 
       sealed trait Basic extends UnaryOp {
-         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+         final def apply( _1: Ex )( implicit tx: S#Tx ) : Ex =
+            new Tuple1( tpe.id, this, Invariant.Targets[ S ], _1 )
+
+         final def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
             val _1 = readExpr( in, access )
-            new Tuple1( this, targets, _1 )
+            new Tuple1( tpe.id, this, targets, _1 )
          }
       }
 
       object Reverse extends Basic {
          val id = 0
          def value( in: String ) = in.reverse
+         def toString( _1: Ex ) = _1.toString + ".reverse"
       }
 
       object Upper extends Basic {
          val id = 1
          def value( in: String ) = in.toUpperCase
+         def toString( _1: Ex ) = _1.toString + ".toUpperCase"
       }
    }
 
@@ -100,21 +107,26 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
       }
 
       sealed trait Basic extends BinaryOp {
-         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+         final def apply( _1: Ex, _2: Ex )( implicit tx: S#Tx ) : Ex =
+            new Tuple2( tpe.id, this, Invariant.Targets[ S ], _1, _2 )
+
+         final def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
             val _1 = readExpr( in, access )
             val _2 = readExpr( in, access )
-            new Tuple2( this, targets, _1, _2 )
+            new Tuple2( tpe.id, this, targets, _1, _2 )
          }
       }
 
       object Append extends Basic {
          val id = 0
          def value( a: String, b: String ) = a + b
+         def toString( _1: Ex, _2: Ex ) = _1.toString + ".append(" + _2 + ")"
       }
 
       object Prepend extends Basic {
          val id = 1
          def value( a: String, b: String ) = b + a
+         def toString( _1: Ex, _2: Ex ) = _1.toString + ".prepend(" + _2 + ")"
       }
    }
 }
