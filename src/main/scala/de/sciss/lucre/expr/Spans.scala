@@ -140,6 +140,10 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
       def unite( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Union( ex, that )
       def intersect( that: Ex )( implicit tx: S#Tx ) : Ex = BinaryOp.Intersection( ex, that )
 
+      def start_#(  implicit tx: S#Tx ) : LongEx = UnaryOp.Start( ex )
+      def stop_#(   implicit tx: S#Tx ) : LongEx = UnaryOp.Stop( ex )
+      def length_#( implicit tx: S#Tx ) : LongEx = UnaryOp.Length( ex )
+
 //      // decomposition
 //      def start( implicit tx: S#Tx ) : LongEx = ex match {
 //// PPP

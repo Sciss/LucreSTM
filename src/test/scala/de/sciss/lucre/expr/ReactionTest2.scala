@@ -522,7 +522,7 @@ Usages:
                def actionPerformed( e: ActionEvent ) {
                   longToModel( ggStart.getText.toLong, (tx, n) => { implicit val _tx = tx
 //                     r.start = n
-                     r.span = spans.Span( n, r.span.stop )
+                     r.span = spans.Span( n, r.span.stop_# )
                   })
                }
             })
@@ -531,7 +531,7 @@ Usages:
                def actionPerformed( e: ActionEvent ) {
                   longToModel( ggStop.getText.toLong, (tx, n) => { implicit val _tx = tx
 //                     r.stop = n
-                     r.span = spans.Span( r.span.start, n )
+                     r.span = spans.Span( r.span.start_#, n )
                   })
                }
             })
