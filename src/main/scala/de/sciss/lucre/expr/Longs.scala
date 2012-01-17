@@ -36,7 +36,7 @@ object Longs {
 }
 
 final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
-   protected val id = 3.toShort
+   val id = 3
 
    protected def writeValue( v: Long, out: DataOutput ) { out.writeLong( v )}
    protected def readValue( in: DataInput ) : Long = in.readLong()

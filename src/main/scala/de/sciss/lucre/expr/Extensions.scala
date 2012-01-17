@@ -14,18 +14,18 @@ import concurrent.stm.{InTxn, TMap}
 trait Extensions[ S <: Sys[ S ], A ] {
    private val map = TMap.empty[ Int, Invariant.Reader[ S, Expr[ S, A ]]]
 
-   final def readExtension( cookie: Int, in: DataInput, access: S#Acc,
+   final def readExtension( tpe: Int, in: DataInput, access: S#Acc,
                             targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Expr[ S, A ] = {
       implicit val itx = tx.peer
-      val rf = map.get( cookie ).getOrElse( sys.error( "Unregistered extension " + cookie ))
+      val rf = map.get( tpe ).getOrElse( sys.error( "No registered extensions from type " + tpe ))
       rf.read( in, access, targets )
    }
 
-   final def addExtension( cookie: Int, reader: Invariant.Reader[ S, Expr[ S, A ]])( implicit tx: InTxn ) {
-      map += ((cookie, reader))
+   final def addExtension( tpe: Type[ _ ], reader: Invariant.Reader[ S, Expr[ S, A ]])( implicit tx: InTxn ) {
+      map += ((tpe.id, reader))
    }
 
-   final def removeExtension( cookie: Int )( implicit tx: InTxn ) {
-      map -= cookie
+   final def removeExtension( tpe: Type[ _ ])( implicit tx: InTxn ) {
+      map -= tpe.id
    }
 }

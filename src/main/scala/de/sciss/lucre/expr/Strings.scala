@@ -36,7 +36,7 @@ object Strings {
 }
 
 final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
-   protected val id = 8.toShort
+   val id = 8
 
    protected def writeValue( v: String, out: DataOutput ) { out.writeString( v )}
    protected def readValue( in: DataInput ) : String = in.readString()

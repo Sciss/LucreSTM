@@ -44,7 +44,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
    type Change = event.Change[ A ]
 //   type Ops
 
-   protected def id: Short
+   def id: Int
 
    protected type UnaryOp  = Tuple1Op[ A ]
    protected type BinaryOp = Tuple2Op[ A, A ]
@@ -66,7 +66,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
          (in.readUnsignedByte() /*: @switch */) match {
             case 0      => new VarRead( in, access, targets, tx )
             case arity  =>
-               val clazz = in.readShort()
+               val clazz = in.readInt()
                require( clazz == tpe.id, "Unexpected expression class " + clazz )
                val opID = in.readInt()
                readTuple( arity, opID, in, access, targets )
@@ -181,7 +181,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
       protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 1 )
 //         out.writeShort( op.id )
-         out.writeShort( tpe.id )
+         out.writeInt( tpe.id )
          out.writeInt( op.id )
          _1.write( out )
       }
@@ -225,7 +225,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] {
 
       protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 2 )
-         out.writeShort( tpe.id )
+         out.writeInt( tpe.id )
          out.writeInt( op.id )
          _1.write( out )
          _2.write( out )

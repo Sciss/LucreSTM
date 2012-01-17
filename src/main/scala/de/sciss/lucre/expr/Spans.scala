@@ -107,8 +107,8 @@ object Spans {
    def apply[ S <: Sys[ S ]]( longs: Longs[ S ])( implicit tx: S#Tx ) : Spans[ S ] = {
       implicit val itx = tx.peer
       val spans = new Spans[ S ]( longs )
-//      // 'Span'
-//      longs.addExtension( 0x5370616E, spans.LongExtensions )
+      // 'Span'
+      longs.addExtension( spans, spans.LongExtensions )
       spans
    }
 }
@@ -116,20 +116,21 @@ object Spans {
 final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, Span ] {
 //   type Span = expr.Span[ S ]
 
-   protected val id = 100.toShort
+   val id = 100
 
    private type LongEx = Expr[ S, Long ]
 
-//   private object LongExtensions extends Invariant.Reader[ S, LongEx ] {
-//      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
+   private object LongExtensions extends Invariant.Reader[ S, LongEx ] {
+      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : LongEx = {
+         sys.error( "TODO" )
 //         (in.readShort(): @switch) match {
 //            case 0 => new UnaryLongRead( UnaryLongOp.Start,  in, access, targets, tx )
 //            case 1 => new UnaryLongRead( UnaryLongOp.Stop,   in, access, targets, tx )
 //            case 2 => new UnaryLongRead( UnaryLongOp.Length, in, access, targets, tx )
 //            case opID => sys.error( "Unknown operator " + opID )
 //         }
-//      }
-//   }
+      }
+   }
 
    implicit def spanOps[ A <% Expr[ S, Span ]]( ex: A ) : SpanOps = new SpanOps( ex )
 
