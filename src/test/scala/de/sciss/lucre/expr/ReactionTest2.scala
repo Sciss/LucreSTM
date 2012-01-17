@@ -582,13 +582,13 @@ Usages:
       system.atomic { implicit tx =>
          vs.foreach( _.connect() )
          val _r3 = tx.access( r3v )
-//         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
-//            println( "Renamed to '" + newName + "'" )
-//         }
-         _r3.changed.react { (_, _) =>
-//            println( "Renamed to '" + newName + "'" )
-            println( "Changed" )
+         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
+            println( "Renamed to '" + newName + "'" )
          }
+//         _r3.changed.react { (_, _) =>
+////            println( "Renamed to '" + newName + "'" )
+//            println( "Changed" )
+//         }
       }
 
       vs.foreach( cp.add )
