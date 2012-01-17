@@ -510,7 +510,7 @@ Usages:
          import longs.longOps
          import spans.spanOps
 
-         val _r1   = EventRegion( "eins", Span( 0L, 10000L ))
+         val _r1   = EventRegion( "eins", Span(    0L, 10000L ))
          val _r2   = EventRegion( "zwei", Span( 5000L, 12000L ))
          val _r3   = EventRegion( _r1.name_#.append( "+" ).append( _r2.name_# ),
 //            longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),

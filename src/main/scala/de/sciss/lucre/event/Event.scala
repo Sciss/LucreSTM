@@ -932,7 +932,7 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
    private[lucre] def connect()( implicit tx: S#Tx ) : Unit
    private[lucre] def disconnect()( implicit tx: S#Tx ) : Unit
 
-   private[lucre] final def lazySources( implicit tx: S#Tx ) : Sources[ S ] = NoSources
+//   private[lucre] final def lazySources( implicit tx: S#Tx ) : Sources[ S ] = NoSources
 }
 
 
@@ -1053,16 +1053,12 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
    }
 
    final protected def connectNode()( implicit tx: S#Tx ) {
-      decl.events( this ).foreach { evt =>
-         evt.lazySources.foreach( _ ---> evt )
-      }
+      decl.events( this ).foreach( _.connect() )
    }
 
 
    final protected def disconnectNode()( implicit tx: S#Tx ) {
-      decl.events( this ).foreach { evt =>
-         evt.lazySources.foreach( _ -/-> evt )
-      }
+      decl.events( this ).foreach( _.disconnect() )
    }
 
 //   final protected def events = decl.events( this )
