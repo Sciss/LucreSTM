@@ -26,7 +26,6 @@
 package de.sciss.lucre
 package expr
 
-import collection.immutable.{IndexedSeq => IIdxSeq}
 import java.io.File
 import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
@@ -37,6 +36,7 @@ import stm.{TxnSerializer, Sys}
 import stm.impl.{InMemory, Confluent, BerkeleyDB}
 import stm.Mutable
 import event.{Compound, Decl, Event, Invariant}
+//import expr.any2stringadd
 
 object ReactionTest2 extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
@@ -88,14 +88,6 @@ Usages:
       implicit def longConst( n: Long ) : LongEx = longs.Const( n )   // why doesn't the direct import work??
       implicit def spanConst( span: Span ) : SpanEx = spans.Const( span )   // why doesn't the direct import work??
 
-   //   object Region {
-   //      def apply( name: StringEx, start: LongEx, stop: LongEx ) : Region = new RegionNew( name, start, stop )
-   //
-   //      private final class RegionNew( name0: StringEx, start0: LongEx, stop: LongEx ) extends Region {
-   //
-   //      }
-   //   }
-
       object Region {
          def apply( name: StringEx, span: SpanEx )( implicit tx: Tx ) : Region = new New( name, span, tx )
 
@@ -126,18 +118,10 @@ Usages:
       object RegionLike {
          sealed trait Impl extends RegionLike {
             def name_# : strings.Var
-//            def start_# : longs.Var
-//            def stop_# : longs.Var
             def span_# : spans.Var
 
             final def name( implicit tx: Tx ) : StringEx = name_#.get
             final def name_=( value: StringEx )( implicit tx: Tx ) { name_#.set( value )}
-
-//            final def start( implicit tx: Tx ) : LongEx = start_#.get
-//            final def start_=( value: LongEx )( implicit tx: Tx ) { start_#.set( value )}
-//
-//            final def stop( implicit tx: Tx ) : LongEx = stop_#.get
-//            final def stop_=( value: LongEx )( implicit tx: Tx ) { stop_#.set( value )}
 
             final def span( implicit tx: Tx ) : SpanEx = span_#.get
             final def span_=( value: SpanEx )( implicit tx: Tx ) { span_#.set( value )}
@@ -158,14 +142,6 @@ Usages:
          def name( implicit tx: Tx ) : StringEx
          def name_=( value: StringEx )( implicit tx: Tx ) : Unit
          def name_# : StringEx
-
-//         def start( implicit tx: Tx ) : LongEx
-//         def start_=( value: LongEx )( implicit tx: Tx ) : Unit
-//         def start_# : LongEx
-//
-//         def stop( implicit tx: Tx ) : LongEx
-//         def stop_=( value: LongEx )( implicit tx: Tx ) : Unit
-//         def stop_# : LongEx
 
          def span( implicit tx: Tx ) : SpanEx
          def span_=( value: SpanEx )( implicit tx: Tx ) : Unit
@@ -485,27 +461,11 @@ Usages:
          }
 
          private def connect( r: R )( implicit tx: Tx ) {
-//            r.name_#.changed.react  { case (_, event.Change( _, v )) => defer( ggName.setText(  v ))}
-            // new way -- simpler observer
             r.name_#.observe { (_, v) => defer( ggName.setText(  v ))}
-            // old full way -- observe changed events
-//            r.start_#.changed.react { case (_, event.Change( _, v )) => defer( ggStart.setText( v.toString ))}
-//            r.stop_#.changed.react  { case (_, event.Change( _, v )) => defer( ggStop.setText(  v.toString ))}
-
             r.span_#.observe( (tx, newSpan) => defer {
                ggStart.setText( newSpan.start.toString )
                ggStop.setText( newSpan.stop.toString )
             })
-
-//            val name0   = r.name.value
-//            val start0  = r.start.value
-//            val stop0   = r.stop.value
-
-//            defer {
-////               ggName.setText( name0 )
-//               ggStart.setText( start0.toString )
-//               ggStop.setText( stop0.toString )
-//            }
 
             implicit val system = tx.system
 
@@ -556,8 +516,8 @@ Usages:
 //            longOps( _r1.start_#.min( _r2.start_# )).+( -100L ),
 //            longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
             spans.Span(
-               longOps( _r1.span_#.start_#.min( _r2.span_#.start_#)).+( -100L ),
-               longOps( _r1.span_#.stop_#.max(  _r2.span_#.stop_#)).+(   100L ))
+               _r1.span_#.start_#.min( _r2.span_#.start_#) + -100L,
+               _r1.span_#.stop_#.max(  _r2.span_#.stop_#)  +  100L )
             )
 //         val _r3   = EventRegion( _r1.name_#.append( "+" ), Span( 6000L, 7000L ))
          val rootID  = tx.newID()
