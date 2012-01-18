@@ -218,18 +218,19 @@ Usages:
 
       object RegionList extends Decl[ S, RegionList ] {
 //         sealed trait Change
-         final case class Added( l: RegionList, idx: Int, region: EventRegion ) extends Update
-         final case class Removed( l: RegionList, idx: Int, region: EventRegion ) extends Update
-//         final case class Renamed( region: Region, change: event.Change[ String ]) extends Update
+         sealed trait Collection extends Update { def l: RegionList; def idx: Int; def region: EventRegion }
+         final case class Added(   l: RegionList, idx: Int, region: EventRegion ) extends Collection
+         final case class Removed( l: RegionList, idx: Int, region: EventRegion ) extends Collection
+         final case class Element( l: RegionList, change: EventRegion.Update ) extends Update
 
          declare[ Update ]( _.changed )
 
          def empty( implicit tx: Tx ) : RegionList = new New( tx )
 
          private sealed trait Impl extends RegionList {
-            private type LO = Option[ LinkedList[ EventRegion ]]
-
-            final lazy val changed = event[ RegionList.Update ]
+            final lazy val collectionChanged = event[ Collection ]
+            final lazy val elementChanged    = collection( (r: Elem) => r.changed ).map( Element( this, _ ))
+            final lazy val changed           = collectionChanged | elementChanged
 
             final protected def decl = RegionList
 
@@ -249,7 +250,7 @@ Usages:
 
             final def size( implicit tx: S#Tx ) : Int = sizeRef.get
 
-            final def insert( idx: Int, r: EventRegion )( implicit tx: S#Tx ) {
+            final def insert( idx: Int, r: Elem )( implicit tx: S#Tx ) {
                if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
                @tailrec def step( i: Int, pred: S#Var[ LO ]) {
                   if( i == idx ) insert( pred, r, idx ) else pred.get match {
@@ -260,12 +261,12 @@ Usages:
                step( 0, headRef )
             }
 
-            private def insert( pred: S#Var[ LO ], r: EventRegion, idx: Int )( implicit tx: S#Tx ) {
-               val l = LinkedList[ EventRegion ]( r, pred.get: Option[ LinkedList[ EventRegion ]])
+            private def insert( pred: S#Var[ LO ], r: Elem, idx: Int )( implicit tx: S#Tx ) {
+               val l = LinkedList[ EventRegion ]( r, pred.get: LO )
                pred.set( Some( l ))
                sizeRef.transform( _ + 1 )
 //               r.name_#.addReactor( regionRenamed )
-               changed( RegionList.Added( this, idx, r ))
+               collectionChanged( Added( this, idx, r ))
             }
 
             final def removeAt( idx: Int )( implicit tx: S#Tx ) {
@@ -281,9 +282,9 @@ Usages:
                step( 0, headRef )
             }
 
-            final def apply( idx: Int )( implicit tx: S#Tx ) : EventRegion = {
+            final def apply( idx: Int )( implicit tx: S#Tx ) : Elem = {
                if( idx < 0 ) throw new IllegalArgumentException( idx.toString )
-               @tailrec def step( i: Int, pred: S#Var[ LO ]) : EventRegion = {
+               @tailrec def step( i: Int, pred: S#Var[ LO ]) : Elem = {
                   pred.get match {
                      case None => throw new IndexOutOfBoundsException( idx.toString )
                      case Some( l ) =>
@@ -294,7 +295,7 @@ Usages:
                step( 0, headRef )
             }
 
-            final def remove( r: EventRegion )( implicit tx: S#Tx ) : Boolean = {
+            final def remove( r: Elem )( implicit tx: S#Tx ) : Boolean = {
                @tailrec def step( i: Int, pred: S#Var[ LO ]) : Boolean = {
                   pred.get match {
                      case None => false
@@ -309,13 +310,13 @@ Usages:
                step( 0, headRef )
             }
 
-            private def remove( pred: S#Var[ LO ], r: LinkedList[ EventRegion ], idx: Int )( implicit tx: S#Tx ) {
+            private def remove( pred: S#Var[ LO ], r: L, idx: Int )( implicit tx: S#Tx ) {
                pred.set( r.next )
                sizeRef.transform( _ - 1 )
-               changed( RegionList.Removed( this, idx, r.value ))
+               collectionChanged( Removed( this, idx, r.value ))
             }
 
-            final def indexOf( r: EventRegion )( implicit tx: S#Tx ) : Int = {
+            final def indexOf( r: Elem )( implicit tx: S#Tx ) : Int = {
                @tailrec def step( i: Int, pred: S#Var[ LO ]) : Int = {
                   pred.get match {
                      case None => -1
@@ -330,7 +331,7 @@ Usages:
          private final class New( tx0: Tx ) extends Impl {
             protected val targets         = Invariant.Targets[ S ]( tx0 )
             protected val sizeRef         = tx0.newIntVar( id, 0 )
-            protected val headRef         = tx0.newVar[ Option[ LinkedList[ EventRegion ]]]( id, None )
+            protected val headRef         = tx0.newVar[ LO ]( id, None )
 //            protected val regionRenamed   = new RegionRenamed {
 //               protected val targets      = Event.Invariant.Targets[ S ]( tx0 )
 //            }
@@ -350,15 +351,23 @@ Usages:
 
       trait RegionList extends Invariant[ S, RegionList.Update ]
       with Compound[ S, RegionList, RegionList.type ] {
-         def size( implicit tx: S#Tx ) : Int
-         def insert( idx: Int, r: EventRegion )( implicit tx: S#Tx ) : Unit
-         final def add( r: EventRegion )( implicit tx: S#Tx ) { insert( size, r )}
-         def removeAt( idx: Int )( implicit tx: S#Tx ) : Unit
-         def indexOf( r: EventRegion )( implicit tx: S#Tx ) : Int
-         def remove( r: EventRegion )( implicit tx: S#Tx ) : Boolean
-         def apply( idx: Int )( implicit tx: S#Tx ) : EventRegion
+         import RegionList._
 
-         def changed: Event[ S, RegionList.Update, RegionList ]
+         protected type Elem  = EventRegion
+         protected type L     = LinkedList[ Elem ]
+         protected type LO    = Option[ L ]
+
+         def size( implicit tx: S#Tx ) : Int
+         def insert( idx: Int, r: Elem )( implicit tx: S#Tx ) : Unit
+         final def add( r: Elem )( implicit tx: S#Tx ) { insert( size, r )}
+         def removeAt( idx: Int )( implicit tx: S#Tx ) : Unit
+         def indexOf( r: Elem )( implicit tx: S#Tx ) : Int
+         def remove( r: Elem )( implicit tx: S#Tx ) : Boolean
+         def apply( idx: Int )( implicit tx: S#Tx ) : Elem
+
+         def collectionChanged:  Ev[ Collection ]
+         def elementChanged:     Ev[ Element ]
+         def changed:            Ev[ Update ]
 
 //         final def observe( fun: (S#Tx, RegionList.Change) => Unit )( implicit tx: S#Tx ) : Observer[ S, RegionList.Change, RegionList ] = {
 //            val o = Observer[ S, RegionList.Change, RegionList ]( RegionList.serializer, fun )

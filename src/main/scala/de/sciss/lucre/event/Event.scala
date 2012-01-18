@@ -1016,6 +1016,8 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
 
    import de.sciss.lucre.{event => evt}
 
+   protected type Ev[ A <: D#Update ] = Event[ S, A, Repr ]
+
    protected def decl: D // Decl[ Repr ]
 
    implicit protected def eventOps1[ B ]( e: Event[ S, B, _ ]) : Compound.EventOps1[ S, Repr, D, B ] =
