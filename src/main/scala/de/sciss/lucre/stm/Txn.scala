@@ -46,7 +46,7 @@ trait Txn[ S <: Sys[ S ]] {
 //   def removeStateReaction( key: State.ReactorKey[ S ]) : Unit
 
    def addEventReaction[ A, Repr /* <: Event[ S, A, _ ] */]( reader: event.Reader[ S, Repr, _ ],
-                                                       fun: (S#Tx, A) => Unit ) : ObserverKey[ S ]
+                                                             fun: (S#Tx, A) => Unit ) : ObserverKey[ S ]
 //   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], keys: IIdxSeq[ Int ]) : Reactor[ S ]
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
                         observers: IIdxSeq[ ObserverKey[ S ]]) : NodeReactor[ S ]

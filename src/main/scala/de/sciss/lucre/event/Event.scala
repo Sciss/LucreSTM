@@ -90,7 +90,7 @@ object Selector {
       override def toString = reactor.toString + ".select(" + inlet + ")"
 
       final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                       visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) = {
+                                          visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) = {
          val cid     = reactor.id
          val bitset  = visited.getOrElse( cid, 0 )
          if( (bitset & inlet) == 0 ) {
@@ -154,17 +154,6 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
    }
 }
 
-//private final case class ObserverSelector[ S <: Sys[ S ]]( inlet: Int, reactor: ObserverKey[ S ])
-//extends Impl[ S ] {
-//   private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( reactor )
-//
-//   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-//                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) =
-//      reactor.propagate( source, update, parent, outlet /* ! inlet */, visited, reactions ) // XXX TODO: do we need to deal with the visited map?
-//
-//   protected def cookie: Int = 2
-//}
-
 /**
  * An abstract trait uniting invariant and mutating readers.
  */
@@ -208,11 +197,11 @@ object Observer {
    extends Observer[ S, A, Repr ] {
       override def toString = "Event.Observer<" + key.id + ">"
 
-      def add( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {
+      def add( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) {
          event ---> key
       }
 
-      def remove( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {
+      def remove( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) {
          event -/-> key
       }
 
@@ -224,8 +213,8 @@ object Observer {
    def dummy[ S <: Sys[ S ], A, Repr ] : Observer[ S, A, Repr ] = new Dummy[ S, A, Repr ]
 
    private final class Dummy[ S <: Sys[ S ], A, Repr ] extends Observer[ S, A, Repr ] {
-      def add( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {}
-      def remove( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) {}
+      def add( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) {}
+      def remove( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) {}
       def dispose()( implicit tx: S#Tx ) {}
    }
 }
@@ -235,8 +224,8 @@ object Observer {
  * `Observable`. The observe can be registered and unregistered with events.
  */
 sealed trait Observer[ S <: Sys[ S ], A, Repr ] extends Disposable[ S#Tx ] {
-   def add(    event: Event[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
-   def remove( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
+   def add(    event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) : Unit
+   def remove( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) : Unit
 }
 
 /**
@@ -286,63 +275,6 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
 
    final def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
 }
-
-//private final class TriggerImpl[ S <: Sys[ S ], A, A1 <: A, Repr <: Writer ]( protected val node: Node[ S, A ], key: Key[ A1, Repr ])
-//extends Trigger.Impl[ S, A, A1, Repr ] with Root[ S, A1 /*, Repr */ ] {
-//   override def toString = node.toString + "." + key.name
-//
-//   protected def selector: Int = key.id
-//   protected def reader: Reader[ S, Repr, _ ] = key.keys.reader
-//
-////      def apply( update: A1 )( implicit tx: S#Tx ) {
-////         val visited: Visited[ S ] = MMap.empty
-////         val n          = node
-////         val reactions  = n.propagate( this, update, n, key.id, visited, IIdxSeq.empty )
-////         reactions.map( _.apply() ).foreach( _.apply() )
-////      }
-////
-////      def +=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
-////         node.addReactor( r.select( key.id ))
-////      }
-////      def -=( r: Event.Reactor[ S ])( implicit tx: S#Tx ) {
-////         node.removeReactor( r.select( key.id ))
-////      }
-//}
-
-//sealed trait Key[ A, Repr <: Writer ] {
-//   def name: String
-//   private[event] def id: Int
-//   private[event] def keys: Keys[ Repr ]
-//   def unapply( id: Int ) : Boolean
-//}
-//
-//trait Keys[ Repr <: Writer ] {
-//   private var cnt = 0
-//
-////      implicit def reader[ S <: Sys[ S ]]: TxnReader[ S#Tx, S#Acc, Repr ]
-//   implicit def reader[ S <: Sys[ S ]]: Reader[ S, Repr, _ ]
-//
-//   final protected def key[ A ] : Key[ A, Repr ] = key[ A ]( "(trigger)" )
-//
-//   final protected def key[ A ]( name: String ) : Key[ A, Repr ] = {
-//      require( cnt < 31, "Key overflow" )
-//      val id = 1 << cnt
-//      cnt += 1
-//      new KeyImpl[ A, Repr ]( id, name, this )
-//   }
-//
-//   private final class KeyImpl[ A, Repr <: Writer ]( private[event] val id: Int, val name: String,
-//                                           private[event] val keys: Keys[ Repr ])
-//   extends Key[ A, Repr ] {
-//      def unapply( i: Int ) : Boolean = i == id
-//
-//      override def toString = "Key[" + name + "]@" + id
-//   }
-//}
-
-//   sealed trait Yield[ S <: Sys[ S ], A ] {
-//      def pull( )( implicit tx: S#Tx ) : Option[ A ]
-//   }
 
 /**
  * An `Event.Node` is most similar to EScala's `EventNode` class. It represents an observable
@@ -499,51 +431,6 @@ object Invariant {
    }
 }
 
-///**
-// * A late binding event node is one which only registers with its sources after the first
-// * target (dependent) is registered. Vice versa, it automatically unregisters from its sources
-// * after the last dependent is removed. Implementing classes must provide the `sources` method
-// * which defines a fixed number of sources for the event.
-// */
-//trait LateBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-//   protected final def sources( implicit tx: S#Tx ) : Sources[ S ]
-//
-//   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-//      if( targets.addReactor( outlet, sel )) {
-////            sources.foreach( _.addReactor( this ))
-//         sources.foreach( tup => tup._1 += this.select( tup._2 ))
-//      }
-//   }
-//
-//   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-//      if( targets.removeReactor( outlet, sel )) {
-////            sources.foreach( _.removeReactor( this ))
-//         sources.foreach( tup => tup._1 -= this.select( tup._2 ))
-//      }
-//   }
-//}
-//
-///**
-// * An early binding event node simply
-// */
-//trait EarlyBinding[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-//   final private[event] def addReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-//      targets.addReactor( outlet, sel )
-//   }
-//
-//   final private[event] def removeReactor( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-//      targets.removeReactor( outlet, sel )
-//   }
-//
-//   protected def addSource( r: Event[ S, _, _ ], inlet: Int )( implicit tx: S#Tx ) {
-//      r += this.select( inlet )
-//   }
-//
-//   protected def removeSource( r: Event[ S, _, _ ], inlet: Int )( implicit tx: S#Tx ) {
-//      r += this.select( inlet )
-//   }
-//}
-
 /**
  * An event which is `Invariant` designates a `Node` which does not mutate any internal state
  * as a result of events bubbling up from its sources. As a consequence, if an event is
@@ -647,18 +534,6 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
       res.add( this )
       res
    }
-
-//   private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
-//      // no way to make the node's pull be generic in the result type without big big fuss
-//      // (http://stackoverflow.com/questions/8798035/possible-to-perform-pattern-match-on-a-generic-value-with-type-conforming-result/8803684#8803684)
-////      node.pull( selector, source, update ).collect {
-////         case value: A1 => value
-////      }
-//      node.pull( selector, source, update ).asInstanceOf[ Option[ A1 ]]  // :-(
-//   }
-
-//      final def filter[ P <: (A) => Boolean ]( pred: P )( implicit tx: S#Tx ) : Event.Flat[ S, A1 ] =
-//         Filter[ S, A1, Event[ S, A1, Repr ], P ]( this )( pred )
 }
 
 /**
@@ -887,6 +762,8 @@ object Dummy {
    def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = new Dummy[ S, A, Repr ] {}
 }
 trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
+//   final protected def outlet = 0
+
    final private[lucre] def --->( r: Selector[ S ])( implicit tx: S#Tx ) {}
    final private[lucre] def -/->( r: Selector[ S ])( implicit tx: S#Tx ) {}
 
@@ -909,8 +786,7 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
  * split into `Event.Invariant` and `Event.Mutating`.
  */
 trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
-//   def +=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
-//   def -=( r: Reactor[ S ])( implicit tx: S#Tx ) : Unit
+//   def outlet: Int
 
    /**
     * Connects the given selector to this event. That is, this event will
@@ -923,16 +799,60 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
     */
    private[lucre] def -/->( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
+   /**
+    * Registers a live observer with this event. The method is called with the
+    * observing function which receives the event's update messages, and the
+    * method generates an opaque `Observer` instance, which may be used to
+    * remove the observer eventually (through the observer's `remove` method),
+    * or to add the observer to other events of the same type (using the
+    * observer's `add` method).
+    *
+    * Note that the caller should not call `add`
+    * on the resulting observer to register this event, as this is already
+    * done as part of the call to `react`.
+    */
    def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
 
+   /**
+    * Involves this event in the pull-phase of event delivery. The event should check
+    * the source of the originally fired event, and if it identifies itself with that
+    * source, cast the `update` to the appropriate type `A` and wrap it in an instance
+    * of `Some`. If this event is not the source, it should invoke `pull` on any
+    * appropriate event source feeding this event.
+    *
+    * @return  the `update` as seen through this event, or `None` if the event did not
+    *          originate from this part of the dependency graph or was absorbed by
+    *          a filtering function
+    */
    private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
+   /**
+    * Returns a `Selector` (inlet) representation of this event, that is the underlying `Node` along
+    * with the inlet identifier corresponding to this event.
+    */
    private[lucre] def select() : Selector[ S ]
 
+   /**
+    * Called when the first target is connected to the underlying dispatcher node. This allows
+    * the event to be lazily added to its sources. A lazy event (most events should be lazy)
+    * should call invoke `source ---> this` for each event source. A strict event, an event
+    * without sources, or a collection event may simply ignore this method by providing a
+    * no-op implementation.
+    */
    private[lucre] def connect()( implicit tx: S#Tx ) : Unit
+
+   /**
+    * The counterpart to `connect` -- called when the last target is disconnected from the
+    * underlying dispatcher node. Events participating in lazy source registration should use
+    * this call to detach themselves from their sources, e.g. call `source -/-> this` for
+    * each event source. All other events may ignore this method by providing a
+    * no-op implementation.
+    */
    private[lucre] def disconnect()( implicit tx: S#Tx ) : Unit
 
 //   private[lucre] final def lazySources( implicit tx: S#Tx ) : Sources[ S ] = NoSources
+
+//   final def map[ B >: A, A1 <: B ]( fun: ... )
 }
 
 
@@ -941,12 +861,63 @@ object Compound {
 //      private[Compound] def
 //   }
 
-   final protected class EventOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B ]( d: Compound[ S, Repr, D ],
-                                                                e: Event[ S, B, _ ]) {
+   final protected class EventOps1[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B ](
+      d: Compound[ S, Repr, D ], e: Event[ S, B, _ ]) {
       def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
          new Map[ S, Repr, D, B, A1 ]( d, e, fun, d.decl.eventID[ A1 ])
-      def |[ Up >: B, C <: Up ]( that: Event[ S, C, _ ]) : EventOr[ S, Repr, D, Up ] =
-         new EventOr[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, _ ]]( e, that ))
+//      def |[ Up >: B, C <: Up ]( that: Event[ S, C, _ ]) : EventOr[ S, Repr, D, Up ] =
+//         new EventOr[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, _ ]]( e, that ))
+   }
+
+   final protected class EventOps2[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B <: D#Update ](
+      d: Compound[ S, Repr, D ], e: Event[ S, B, Repr ]) {
+      def |[ Up >: B <: D#Update, C <: Up ]( that: Event[ S, C, Repr ]) : Or[ S, Repr, D, Up ] =
+         new Or[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, Repr ]]( e, that ))
+   }
+
+   final class Or[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B <: D#Update ] private[Compound](
+      d: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, _ <: B, Repr ]])
+//   extends event.Impl[ S, D#Update, B, Repr ] {
+   extends Event[ S, B, Repr ] {
+//      protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+//
+//      private[lucre] def connect()( implicit tx: S#Tx ) {
+//         events.foreach( _ ---> this )
+//      }
+//      private[lucre] def disconnect()( implicit tx: S#Tx ) {
+//         events.foreach( _ -/-> this )
+//      }
+
+      def react( fun: (S#Tx, B) => Unit )( implicit tx: S#Tx ) : Observer[ S, B, Repr ] = {
+         val obs = Observer( d.decl.serializer, fun )
+         elems.foreach( obs add _ )
+         obs
+      }
+
+      // XXX is this ever invoked?
+      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ B ] = {
+         elems.view.flatMap( _.pull( source, update )).headOption // .map( fun )
+      }
+
+//      def outlet = elems.foldLeft( 0 )( _ | _.outlet )
+
+      private[lucre] def select() = sys.error( "Operation not permitted" ) // d.select( 0 )
+
+      private[lucre] def connect()( implicit tx: S#Tx ) {}
+      private[lucre] def disconnect()( implicit tx: S#Tx ) {}
+
+      private[lucre] def --->( r: Selector[ S ])( implicit tx: S#Tx ) {
+         elems.foreach( _ ---> r )
+      }
+      private[lucre] def -/->( r: Selector[ S ])( implicit tx: S#Tx ) {
+         elems.foreach( _ -/-> r )
+      }
+
+      def |[ Up >: B <: D#Update, C <: Up ]( that: Event[ S, C, Repr ]) : Or[ S, Repr, D, Up ] =
+         new Or[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, Repr ]]( elems: _* ) :+ that )
+
+//      def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
+//         new OrMap[ S, Repr, D, B, A1 ]( d, elems, fun, d.decl.eventID[ A1 ])
    }
 
    final protected class CollectionOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem, B ](
@@ -964,7 +935,7 @@ object Compound {
 
       private[lucre] def connect()( implicit tx: S#Tx ) {}
       private[lucre] def disconnect()( implicit tx: S#Tx ) {}
-//      private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = NoSources
+      private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = NoSources
 
       def +=( elem: Elem )( implicit tx: S#Tx ) {
 //         elemEvt( elem ) += this
@@ -979,15 +950,6 @@ object Compound {
       private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
          sys.error( "TODO" )
       }
-   }
-
-   final class EventOr[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B ] private[Compound](
-      d: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, _ <: B, _ ]]) {
-      def |[ Up >: B, C <: Up ]( that: Event[ S, C, _ ]) : EventOr[ S, Repr, D, Up ] =
-         new EventOr[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, _ ]]( elems: _* ) :+ that )
-
-      def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
-         new OrMap[ S, Repr, D, B, A1 ]( d, elems, fun, d.decl.eventID[ A1 ])
    }
 
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
@@ -1006,25 +968,25 @@ object Compound {
       }
    }
 
-   private final class OrMap[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
-      protected val node: Compound[ S, Repr, D ], events: IIdxSeq[ Event[ S, _ <: B, _ ]], fun: B => A1,
-      protected val outlet: Int )
-   extends event.Impl[ S, D#Update, A1, Repr ] {
-      protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
-
-      private[lucre] def connect()( implicit tx: S#Tx ) {
-         events.foreach( _ ---> this )
-      }
-      private[lucre] def disconnect()( implicit tx: S#Tx ) {
-         events.foreach( _ -/-> this )
-      }
-
-//      private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = events
-
-      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
-         events.view.flatMap( _.pull( source, update )).headOption.map( fun )
-      }
-   }
+//   private final class OrMap[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
+//      protected val node: Compound[ S, Repr, D ], events: IIdxSeq[ Event[ S, _ <: B, _ ]], fun: B => A1,
+//      protected val outlet: Int )
+//   extends event.Impl[ S, D#Update, A1, Repr ] {
+//      protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+//
+//      private[lucre] def connect()( implicit tx: S#Tx ) {
+//         events.foreach( _ ---> this )
+//      }
+//      private[lucre] def disconnect()( implicit tx: S#Tx ) {
+//         events.foreach( _ -/-> this )
+//      }
+//
+////      private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = events
+//
+//      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
+//         events.view.flatMap( _.pull( source, update )).headOption.map( fun )
+//      }
+//   }
 
    private final class Trigger[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ](
       protected val node: Compound[ S, Repr, D ], protected val outlet: Int )
@@ -1039,8 +1001,11 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
 
    protected def decl: D // Decl[ Repr ]
 
-   implicit protected def eventOps[ B ]( e: Event[ S, B, _ ]) : Compound.EventOps[ S, Repr, D, B ] =
-      new Compound.EventOps( this, e )
+   implicit protected def eventOps1[ B ]( e: Event[ S, B, _ ]) : Compound.EventOps1[ S, Repr, D, B ] =
+      new Compound.EventOps1( this, e )
+
+   implicit protected def eventOps2[ B <: D#Update ]( e: Event[ S, B, Repr ]) : Compound.EventOps2[ S, Repr, D, B ] =
+      new Compound.EventOps2( this, e )
 
    protected def event[ A1 <: D#Update ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr ] =
       new Compound.Trigger( this, decl.eventID[ A1 ])

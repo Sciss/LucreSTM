@@ -153,10 +153,13 @@ Usages:
       }
 
       object EventRegion extends Decl[ S, EventRegion ] {
-         sealed trait ChangedLike extends Update { def r: EventRegion }
-         final case class Changed( r: EventRegion ) extends ChangedLike
-         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends ChangedLike
-         final case class Moved(   r: EventRegion, change: event.Change[ Span ]) extends ChangedLike
+         // we need to mix Renamed and Moved which are case classes,
+         // hence to ensure sweet OR operation, we gotta say that
+         // Changed extends Product and Serializable
+         sealed trait Changed extends Update with Product with Serializable { def r: EventRegion }
+//         final case class Changed( r: EventRegion ) extends ChangedLike
+         final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Changed
+         final case class Moved(   r: EventRegion, change: event.Change[ Span ]) extends Changed
 
          declare[ Renamed ]( _.renamed )
          declare[ Moved   ]( _.moved   )
@@ -169,6 +172,11 @@ Usages:
             final lazy val renamed  = name_#.changed.map( Renamed( this, _ ))
             final lazy val moved    = span_#.changed.map( Moved( this, _ ))
 //            final lazy val changed  = (renamed | moved).map( ch => Changed( ch.r ))
+
+//            // a bit stupid, because the upper bound is Changed with Product
+//            final lazy val changed: Event[ S, Changed, EventRegion ]  = renamed | moved
+
+            final lazy val changed = renamed | moved
 
 //            final protected def sources( implicit tx: S#Tx ) = IIdxSeq( (name_#, 1 << 0), (span_#, 1 << 1) )   // OUCH XXX
             final protected def reader = serializer
@@ -201,7 +209,7 @@ Usages:
 
          def renamed: Event[ S, Renamed, EventRegion ]
          def moved:   Event[ S, Moved,   EventRegion ]
-//         def changed: Event[ S, Changed, EventRegion ]
+         def changed: Event[ S, Changed, EventRegion ]
 //         final def renamed = name_#.changed.map( Renamed( this, _ ))
 //         final def moved   = span_#.changed.map( Moved(   this, _ ))
       }
@@ -545,10 +553,9 @@ Usages:
          _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
             println( "Renamed to '" + newName + "'" )
          }
-//         _r3.changed.react { (_, _) =>
-////            println( "Renamed to '" + newName + "'" )
-//            println( "Changed" )
-//         }
+         _r3.changed.react { (_, ch) =>
+            println( "Changed : " + ch )
+         }
       }
 
       vs.foreach( cp.add )

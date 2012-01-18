@@ -405,3 +405,90 @@ thus:
       def -=( Selector )
    }
 
+::::::::::::::::::::::::::::
+
+now back to or'ed events.
+
+    lazy val changed = renamed | moved
+
+currently, the visiting filter is as follows:
+
+         val cid     = reactor.id
+         val bitset  = visited.getOrElse( cid, 0 )
+         if( (bitset & inlet) == 0 ) {
+            visited.+=( (cid, bitset | inlet) )
+            ...propagate
+         }
+
+the simplest approach would be to relax the observer a bit, so that it could be simply added to the underlying events (operands).
+
+    val key = tx.addEventReaction[ A, Repr ]( reader, fun )
+
+`fun` is already contravariant in its arguments, meaning that we can call the function with a subtype of A.
+
+in reaction-map
+
+    leaf.pull( selector, source, update )
+
+will thus result in Option[ A1 <: A ], and we can savely call into the observer function with A1
+
+hence, instead of 
+
+    sealed trait Observer[ S <: Sys[ S ], A, Repr ] extends Disposable[ S#Tx ] {
+       def add(    event: Event[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
+       def remove( event: Event[ S, A, Repr ])( implicit tx: S#Tx ) : Unit
+    }
+
+we could have
+
+    sealed trait Observer[ S <: Sys[ S ], A, Repr ] extends Disposable[ S#Tx ] {
+       def add[ A1 <: A ](    event: Event[ S, A1, Repr ])( implicit tx: S#Tx ) : Unit
+       def remove[ A1 <: A ]( event: Event[ S, A1, Repr ])( implicit tx: S#Tx ) : Unit
+    }
+
+or (since we don't actually do anything with `A1` in those methods)
+
+    sealed trait Observer[ S <: Sys[ S ], A, Repr ] extends Disposable[ S#Tx ] {
+       def add(    event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) : Unit
+       def remove( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) : Unit
+    }
+
+(also type `A` is not used for the reader! it is `event.Reader[ S, Repr, _ ]`, so we only need to ensure invariance in `Repr`)
+
+::::::::::::::::::::::::::::
+
+Repr <: Node[ S, A, Repr ]
+   Event[ S, A1, Repr ].map[ B ]( fun: A1 => B )
+             : Event[ S, B, Repr ]
+
+the problem is `react`, returning an `Observer[ S, B, Repr ]
+   -- if the event is a proxy, then it cannot construct such an observer
+   -- but if `react` returns an opaque object that can only be removed, we can create proxies
+   (this makes probably more sense, than relying on heavy compounds?)
+
+but does that compose -- how would the map context be deserialized? for instance:
+
+    val renamed  = name_#.changed.map( Renamed( this, _ ))
+
+obviously, for renamed.react { ... } to work, the txn-registered observer cannot be Expr[ String ], but
+must be EventRegion...
+
+something must fail here, but what? --> collections! :
+- in the heavy case, we would only have one observer attached to each element (therefore, only one entry in the reaction map)
+- in the proxy case, we ...
+
+  !! we can't forward ---> for observer-keys, simple as that
+
+   imagine
+
+val changed: Event[ B ] = a: Event[ A ].map[ B ]( ... )
+val o = Observer[ B ]
+o.add( changed )
+
+which is just a shortcut for changed ---> o.key
+; and that comes with the promise that the reaction map can use the observer's reader in the right moment
+(e.g. here when Event[ A ] is deserialized -- so there is a mismatch, as we find Reader[ B ])
+
+::::::::::::::::::::::::::::
+
+thus, a 'heavy' `or` relies on the fact that the result is Event[ S, A1 <: A, Repr ]; hence it can only be performed on events form the same compound.

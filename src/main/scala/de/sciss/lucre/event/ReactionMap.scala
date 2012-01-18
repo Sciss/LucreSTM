@@ -84,7 +84,7 @@ object ReactionMap {
       }
 
       def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
-                                                     ( implicit tx: S#Tx ) : ObserverKey[ S ] = {
+                                                           ( implicit tx: S#Tx ) : ObserverKey[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
