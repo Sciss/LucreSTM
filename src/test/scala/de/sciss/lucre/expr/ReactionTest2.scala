@@ -212,6 +212,8 @@ Usages:
          def changed: Event[ S, Changed, EventRegion ]
 //         final def renamed = name_#.changed.map( Renamed( this, _ ))
 //         final def moved   = span_#.changed.map( Moved(   this, _ ))
+
+         override def toString = "Region" + id
       }
 
       object RegionList extends Decl[ S, RegionList ] {
@@ -550,9 +552,9 @@ Usages:
       system.atomic { implicit tx =>
          vs.foreach( _.connect() )
          val _r3 = tx.access( r3v )
-         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
-            println( "Renamed to '" + newName + "'" )
-         }
+//         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
+//            println( "Renamed to '" + newName + "'" )
+//         }
          _r3.changed.react { (_, ch) =>
             println( "Changed : " + ch )
          }

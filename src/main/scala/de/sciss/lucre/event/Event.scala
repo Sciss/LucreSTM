@@ -251,7 +251,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
          if( outlet2 == outlet ) {
             val sel = tup._2
             sel.propagate( source, update, parent, outlet, visited, rs )
-         } else reactions
+         } else rs
       }
    }
 
@@ -864,7 +864,7 @@ object Compound {
    final protected class EventOps1[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B ](
       d: Compound[ S, Repr, D ], e: Event[ S, B, _ ]) {
       def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
-         new Map[ S, Repr, D, B, A1 ]( d, e, fun, d.decl.eventID[ A1 ])
+         new Map[ S, Repr, D, B, A1 ]( d, e, fun )
 //      def |[ Up >: B, C <: Up ]( that: Event[ S, C, _ ]) : EventOr[ S, Repr, D, Up ] =
 //         new EventOr[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, _ ]]( e, that ))
    }
@@ -918,6 +918,8 @@ object Compound {
 
 //      def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
 //         new OrMap[ S, Repr, D, B, A1 ]( d, elems, fun, d.decl.eventID[ A1 ])
+
+      override def toString = elems.mkString( " | " )
    }
 
    final protected class CollectionOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem, B ](
@@ -953,10 +955,11 @@ object Compound {
    }
 
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
-      protected val node: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: B => A1,
-      protected val outlet: Int )
+      protected val node: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: B => A1 )( implicit m: ClassManifest[ A1 ])
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+
+      protected def outlet = node.decl.eventID[ A1 ]
 
       private[lucre] def connect()(    implicit tx: S#Tx ) { e ---> this }
       private[lucre] def disconnect()( implicit tx: S#Tx ) { e -/-> this }
@@ -966,6 +969,12 @@ object Compound {
       private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
          e.pull( source, update ).map( fun )
       }
+
+      override def toString = e.toString + ".map[" + {
+         val mn = m.toString
+         val i  = math.max( mn.lastIndexOf( '$' ), mn.lastIndexOf( '.' )) + 1
+         mn.substring( i )
+      } + "]"
    }
 
 //   private final class OrMap[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
@@ -989,9 +998,17 @@ object Compound {
 //   }
 
    private final class Trigger[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ](
-      protected val node: Compound[ S, Repr, D ], protected val outlet: Int )
+      protected val node: Compound[ S, Repr, D ])( implicit m: ClassManifest[ A1 ])
    extends event.Trigger.Impl[ S, D#Update, A1, Repr ] with Root[ S, A1 ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+
+      protected def outlet = node.decl.eventID[ A1 ]
+
+      override def toString = node.toString + ".event[" + {
+         val mn = m.toString
+         val i  = math.max( mn.lastIndexOf( '$' ), mn.lastIndexOf( '.' )) + 1
+         mn.substring( i )
+      } + "]"
    }
 }
 trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Update ] {
@@ -1008,7 +1025,7 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
       new Compound.EventOps2( this, e )
 
    protected def event[ A1 <: D#Update ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr ] =
-      new Compound.Trigger( this, decl.eventID[ A1 ])
+      new Compound.Trigger( this )
 
    protected def collection[ Elem, B ]( fun: Elem => Event[ S, B, _ ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
