@@ -2,7 +2,7 @@
 *  ReactionTest2.scala
 *  (LucreSTM)
 *
-*  Copyright (c) 2011 Hanns Holger Rutz. All rights reserved.
+*  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
 *
 *  This software is free software; you can redistribute it and/or
 *  modify it under the terms of the GNU General Public License
@@ -223,7 +223,9 @@ Usages:
          final case class Removed( l: RegionList, idx: Int, region: EventRegion ) extends Collection
          final case class Element( l: RegionList, change: EventRegion.Update ) extends Update
 
-         declare[ Update ]( _.changed )
+         declare[ Collection ]( _.collectionChanged )
+//         declare[ Update ]( _.changed )
+         declare[ Element ]( _.elementChanged )
 
          def empty( implicit tx: Tx ) : RegionList = new New( tx )
 
@@ -262,10 +264,11 @@ Usages:
             }
 
             private def insert( pred: S#Var[ LO ], r: Elem, idx: Int )( implicit tx: S#Tx ) {
-               val l = LinkedList[ EventRegion ]( r, pred.get: LO )
+               val l = LinkedList[ EventRegion ]( r, pred.get )
                pred.set( Some( l ))
                sizeRef.transform( _ + 1 )
 //               r.name_#.addReactor( regionRenamed )
+               elementChanged += r
                collectionChanged( Added( this, idx, r ))
             }
 
@@ -310,10 +313,12 @@ Usages:
                step( 0, headRef )
             }
 
-            private def remove( pred: S#Var[ LO ], r: L, idx: Int )( implicit tx: S#Tx ) {
-               pred.set( r.next )
+            private def remove( pred: S#Var[ LO ], lr: L, idx: Int )( implicit tx: S#Tx ) {
+               val r = lr.value
+               pred.set( lr.next )
                sizeRef.transform( _ - 1 )
-               collectionChanged( Removed( this, idx, r.value ))
+               elementChanged -= r
+               collectionChanged( Removed( this, idx, r ))
             }
 
             final def indexOf( r: Elem )( implicit tx: S#Tx ) : Int = {
