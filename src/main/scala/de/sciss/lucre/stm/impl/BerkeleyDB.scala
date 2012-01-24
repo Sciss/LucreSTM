@@ -35,7 +35,7 @@ import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, Trans
 import annotation.elidable
 import elidable.CONFIG
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeReactor, Event, Node, ObserverKey, ReactionMap, Reactions, Reactor, Targets}
+import event.{NodeReactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets}
 
 object BerkeleyDB {
    import LucreSTM.logConfig

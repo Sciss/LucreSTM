@@ -28,7 +28,7 @@ package stm
 
 import concurrent.stm.InTxn
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeReactor, Event, ObserverKey, Node, Reactions, Reactor, Targets}
+import event.{NodeReactor, Event, ObserverKey, Node, Reactions, Targets}
 
 trait Txn[ S <: Sys[ S ]] {
    def system: S

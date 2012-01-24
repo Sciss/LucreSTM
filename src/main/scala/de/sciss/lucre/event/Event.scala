@@ -90,13 +90,13 @@ object Selector {
       override def toString = reactor.toString + ".select(" + inlet + ")"
 
       final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                          visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) = {
+                                          visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) {
          val cid     = reactor.id
          val bitset  = visited.getOrElse( cid, 0 )
          if( (bitset & inlet) == 0 ) {
             visited.+=( (cid, bitset | inlet) )
             reactor.propagate( source, update, parent, inlet, visited, reactions )
-         } else reactions
+         }
       }
    }
 

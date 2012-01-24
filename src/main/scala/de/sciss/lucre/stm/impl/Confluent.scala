@@ -31,7 +31,7 @@ import stm.{ Txn => _Txn, Var => _Var }
 import concurrent.stm.{InTxn, TxnExecutor}
 import collection.immutable.{IntMap, IndexedSeq => IIdxSeq}
 import scala.util.MurmurHash
-import event.{NodeReactor, Event, Node, ObserverKey, ReactionMap, Reactions, Reactor, Targets}
+import event.{NodeReactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets}
 
 object Confluent {
    private type Acc = IIdxSeq[ Int ]

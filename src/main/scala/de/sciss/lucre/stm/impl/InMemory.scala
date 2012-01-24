@@ -30,7 +30,7 @@ package impl
 import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeReactor, Event, Node, ObserverKey, ReactionMap, Reactions, Reactor, Targets}
+import event.{NodeReactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets}
 
 object InMemory {
    private type S = InMemory
