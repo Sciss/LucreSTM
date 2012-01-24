@@ -138,8 +138,9 @@ object InMemory {
 
       def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
                           leaf: Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
-                          reactions: Reactions ) : Reactions =
+                          reactions: Reactions ) {
          system.reactionMap.propagateEvent( observer, source, update, leaf, selector, /* visited, */ reactions )( this )
+      }
 
       def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
 

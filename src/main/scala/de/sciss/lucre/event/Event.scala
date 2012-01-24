@@ -26,10 +26,10 @@
 package de.sciss.lucre
 package event
 
-import collection.mutable.{Map => MMap}
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import annotation.switch
 import stm.{Writer, Sys, Disposable, TxnSerializer}
+import collection.mutable.{Buffer, Map => MMap}
 
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
@@ -126,7 +126,7 @@ sealed trait Selector[ S <: Sys[ S ]] extends Writer {
     */
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
                                  visited: Visited[ S ], reactions: Reactions )
-                               ( implicit tx: S#Tx ) : Reactions
+                               ( implicit tx: S#Tx ) : Unit
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] // Option[ Int ]
 }
 
@@ -141,7 +141,7 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
 
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
+                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) {
       tx.propagateEvent( this, source, update, parent, outlet, /* visited, */ reactions )
    }
 
@@ -245,13 +245,13 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
     * @param   outlet   the key of the event or selector that invoked this target's node's `propagate`
     */
    final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                       visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
-      children.get.foldLeft( reactions ) { (rs, tup) =>
+                                       visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) {
+      children.get.foreach { tup =>
          val outlet2 = tup._1
          if( outlet2 == outlet ) {
             val sel = tup._2
-            sel.propagate( source, update, parent, outlet, visited, rs )
-         } else rs
+            sel.propagate( source, update, parent, outlet, visited, reactions )
+         }
       }
    }
 
@@ -331,8 +331,9 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
     */
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
                                  visited: Visited[ S ], reactions: Reactions )
-                               ( implicit tx: S#Tx ) : Reactions =
+                               ( implicit tx: S#Tx ) {
       targets.propagate( source, update, this, key, visited, reactions ) // replace parent event node
+   }
 
    final def write( out: DataOutput ) {
       targets.write( out )
@@ -559,9 +560,10 @@ trait Source[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
    protected def node: Node[ S, A ]
 
    final protected def fire( update: A1 )( implicit tx: S#Tx ) {
-      val visited: Visited[ S ] = MMap.empty
-      val n          = node
-      val reactions  = n.propagate( this, update, n, outlet, visited, IIdxSeq.empty )
+      val visited: Visited[ S ]  = MMap.empty
+      val reactions: Reactions   = Buffer.empty
+      val n                      = node
+      n.propagate( this, update, n, outlet, visited, reactions )
       reactions.map( _.apply() ).foreach( _.apply() )
    }
 }
@@ -750,7 +752,7 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
 //   def select( key: Int ) : Selector[ S ]
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
-                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Reactions
+                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Unit
 }
 
 sealed trait NodeReactor[ S <: Sys[ S ]] extends Reactor[ S ] {

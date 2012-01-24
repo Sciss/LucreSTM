@@ -29,10 +29,12 @@ package event
 import concurrent.stm.TMap
 import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
+import collection.mutable.Buffer
 
 object ReactionMap {
    type Reaction  = () => () => Unit
-   type Reactions = IIdxSeq[ Reaction ]
+//   type Reactions = IIdxSeq[ Reaction ]
+   type Reactions = Buffer[ Reaction ]
 
    private val noOpEval                   = () => ()
    private type AnyObsFun[ S <: Sys[ S ]] =  (S#Tx, AnyRef) => Unit
@@ -66,20 +68,18 @@ object ReactionMap {
 
       def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
                           leaf: Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
-                          reactions: Reactions )( implicit tx: S#Tx ) : Reactions = {
+                          reactions: Reactions )( implicit tx: S#Tx ) {
          val itx = tx.peer
-         eventMap.get( observer.id )( itx ) match {
-            case Some( obs ) =>
-               val react: Reaction = () => {
-                  leaf.pull( selector, source, update ) match {
-                     case Some( result ) =>
-                        () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
-                     case None => noOpEval
-                  }
+         eventMap.get( observer.id )( itx ).foreach { obs =>
+            val react: Reaction = () => {
+               leaf.pull( selector, source, update ) match {
+                  case Some( result ) =>
+                     () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
+                  case None => noOpEval
                }
-               reactions :+ react
-
-            case None => reactions
+            }
+//            reactions :+ react
+            reactions += react
          }
       }
 
@@ -163,5 +163,5 @@ trait ReactionMap[ S <: Sys[ S ]] {
 
    def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
                        leaf: Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
-                       reactions: Reactions )( implicit tx: S#Tx ) : Reactions
+                       reactions: Reactions )( implicit tx: S#Tx ) : Unit
 }

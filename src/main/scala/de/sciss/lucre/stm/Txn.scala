@@ -52,7 +52,7 @@ trait Txn[ S <: Sys[ S ]] {
                         observers: IIdxSeq[ ObserverKey[ S ]]) : NodeReactor[ S ]
    def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
                        leaf: Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
-                       reactions: Reactions ) : Reactions
+                       reactions: Reactions ) : Unit
    def removeEventReaction( key: ObserverKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]

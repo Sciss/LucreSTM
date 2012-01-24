@@ -1,12 +1,13 @@
 package de.sciss.lucre
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import collection.mutable.{Map => MMap}
 
 import stm.Sys
+import collection.mutable.{Buffer, Map => MMap}
 
 package object event {
-   type Reactions = IIdxSeq[ () => () => Unit ]
+//   type Reactions = IIdxSeq[ () => () => Unit ]
+   type Reactions = Buffer[ () => () => Unit ]
    type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
 
 //   private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ Selector[ S ]]
