@@ -32,9 +32,9 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 import collection.mutable.Buffer
 
 object ReactionMap {
-   type Reaction  = () => () => Unit
-//   type Reactions = IIdxSeq[ Reaction ]
-   type Reactions = Buffer[ Reaction ]
+//   type Reaction  = () => () => Unit
+////   type Reactions = IIdxSeq[ Reaction ]
+//   type Reactions = Buffer[ Reaction ]
 
    private val noOpEval                   = () => ()
    private type AnyObsFun[ S <: Sys[ S ]] =  (S#Tx, AnyRef) => Unit
@@ -67,11 +67,11 @@ object ReactionMap {
       }
 
       def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                          leaf: Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
+                          leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
                           reactions: Reactions )( implicit tx: S#Tx ) {
          val itx = tx.peer
          eventMap.get( observer.id )( itx ).foreach { obs =>
-            val react: Reaction = () => {
+            val react: event.Reaction = () => {
                leaf.pull( selector, source, update ) match {
                   case Some( result ) =>
                      () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
@@ -162,6 +162,6 @@ trait ReactionMap[ S <: Sys[ S ]] {
 //                     ( implicit tx: S#Tx ) : Reactions
 
    def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                       leaf: Node[ S, _ ], selector: Int, /* visited: Event.Visited[ S ], */
+                       leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
                        reactions: Reactions )( implicit tx: S#Tx ) : Unit
 }

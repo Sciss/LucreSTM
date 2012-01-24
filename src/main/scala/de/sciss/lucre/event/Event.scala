@@ -90,12 +90,13 @@ object Selector {
       override def toString = reactor.toString + ".select(" + inlet + ")"
 
       final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                          visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) {
+                                          path: Path[ S ], visited: Visited[ S ],
+                                          reactions: Reactions )( implicit tx: S#Tx ) {
          val cid     = reactor.id
          val bitset  = visited.getOrElse( cid, 0 )
          if( (bitset & inlet) == 0 ) {
             visited.+=( (cid, bitset | inlet) )
-            reactor.propagate( source, update, parent, inlet, visited, reactions )
+            reactor.propagate( source, update, parent, inlet, path, visited, reactions )
          }
       }
    }
@@ -125,7 +126,7 @@ sealed trait Selector[ S <: Sys[ S ]] extends Writer {
     * @param   outlet   the outlet id of the event that propagates to this selector
     */
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                 visited: Visited[ S ], reactions: Reactions )
+                                 path: Path[ S ], visited: Visited[ S ], reactions: Reactions )
                                ( implicit tx: S#Tx ) : Unit
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] // Option[ Int ]
 }
@@ -141,8 +142,8 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
 
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) {
-      tx.propagateEvent( this, source, update, parent, outlet, /* visited, */ reactions )
+                                 path: Path[ S ], visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) {
+      tx.propagateEvent( this, source, update, parent, outlet, path, /* visited, */ reactions )
    }
 
 //   def select( key: Int ) : Selector[ S ] = Selector( key, this )
@@ -245,12 +246,14 @@ sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
     * @param   outlet   the key of the event or selector that invoked this target's node's `propagate`
     */
    final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                       visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) {
+                                       path: Path[ S ], visited: Visited[ S ],
+                                       reactions: Reactions )( implicit tx: S#Tx ) {
+      val path1 = id :: path
       children.get.foreach { tup =>
          val outlet2 = tup._1
          if( outlet2 == outlet ) {
             val sel = tup._2
-            sel.propagate( source, update, parent, outlet, visited, reactions )
+            sel.propagate( source, update, parent, outlet, path1, visited, reactions )
          }
       }
    }
@@ -330,9 +333,9 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
     * @param   key   the key of the event or selector that invoked this method
     */
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
-                                 visited: Visited[ S ], reactions: Reactions )
+                                 path: Path[ S ], visited: Visited[ S ], reactions: Reactions )
                                ( implicit tx: S#Tx ) {
-      targets.propagate( source, update, this, key, visited, reactions ) // replace parent event node
+      targets.propagate( source, update, this, key, path, visited, reactions ) // replace parent event node
    }
 
    final def write( out: DataOutput ) {
@@ -562,8 +565,9 @@ trait Source[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
    final protected def fire( update: A1 )( implicit tx: S#Tx ) {
       val visited: Visited[ S ]  = MMap.empty
       val reactions: Reactions   = Buffer.empty
+      val path: Path[ S ]        = Nil
       val n                      = node
-      n.propagate( this, update, n, outlet, visited, reactions )
+      n.propagate( this, update, n, outlet, path, visited, reactions )
       reactions.map( _.apply() ).foreach( _.apply() )
    }
 }
@@ -752,7 +756,7 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
 //   def select( key: Int ) : Selector[ S ]
    private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
-                                 visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Unit
+                                 path: Path[ S ], visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Unit
 }
 
 sealed trait NodeReactor[ S <: Sys[ S ]] extends Reactor[ S ] {
