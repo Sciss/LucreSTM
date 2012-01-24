@@ -940,13 +940,11 @@ object Compound {
       private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = NoSources
 
       def +=( elem: Elem )( implicit tx: S#Tx ) {
-//         elemEvt( elem ) += this
-         sys.error( "TODO" )
+         elemEvt( elem ) ---> this
       }
 
       def -=( elem: Elem )( implicit tx: S#Tx ) {
-//         elemEvt( elem ) -= this
-         sys.error( "TODO" )
+         elemEvt( elem ) -/-> this
       }
 
       private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
