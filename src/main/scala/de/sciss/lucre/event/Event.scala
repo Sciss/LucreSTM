@@ -40,18 +40,16 @@ object Selector {
 //      new ObserverSelector[ S ]( key, observer )
 
    def apply[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ]) : Selector[ S ] =
-      sys.error( "TODO" )
-//      new InvariantSelector[ S ]( key, targets )
+      new InvariantTargetsSelector[ S ]( key, targets )
 
    def apply[ S <: Sys[ S ]]( key: Int, node: Invariant[ S, _ ]) : Selector[ S ] =
-      new InvariantSelector[ S ]( key, node )
+      new InvariantNodeSelector[ S ]( key, node )
 
    def apply[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ]) : Selector[ S ] =
-      sys.error( "TODO" )
-//      new MutatingSelector[ S ]( key, targets )
+      new MutatingTargetsSelector[ S ]( key, targets )
 
    def apply[ S <: Sys[ S ]]( key: Int, node: Mutating[ S, _ ]) : Selector[ S ] =
-      new MutatingSelector[ S ]( key, node )
+      new MutatingNodeSelector[ S ]( key, node )
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
@@ -80,15 +78,37 @@ object Selector {
       }
    }
 
-   private final case class InvariantSelector[ S <: Sys[ S ]]( inlet: Int, reactor: NodeReactor[ S ])
-   extends NodeSelector[ S ] {
+   private sealed trait InvariantSelector {
       protected def cookie: Int = 0
    }
 
-   private final case class MutatingSelector[ S <: Sys[ S ]]( inlet: Int, reactor: NodeReactor[ S ])
-   extends NodeSelector[ S ] {
+   private sealed trait MutatingSelector {
       protected def cookie: Int = 1
    }
+
+   private sealed trait EmptyNodeSelector[ S <: Sys[ S ]] extends NodeSelector[ S ] {
+      final private[event] def pull( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ] = None
+   }
+
+   private sealed trait FullNodeSelector[ S <: Sys[ S ]] extends NodeSelector[ S ] {
+      protected def reactor: Node[ S, _ ]
+
+      final private[event] def pull( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ] = {
+         sys.error( "TODO" )
+      }
+   }
+
+   private final case class InvariantNodeSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Invariant[ S, _ ])
+   extends FullNodeSelector[ S ] with InvariantSelector
+
+   private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Invariant.Targets[ S ])
+   extends EmptyNodeSelector[ S ] with InvariantSelector
+
+   private final case class MutatingNodeSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating[ S, _ ])
+   extends FullNodeSelector[ S ] with MutatingSelector
+
+   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating.Targets[ S ])
+   extends EmptyNodeSelector[ S ] with MutatingSelector
 }
 
 sealed trait Selector[ S <: Sys[ S ]] extends Writer {
@@ -101,6 +121,8 @@ sealed trait Selector[ S <: Sys[ S ]] extends Writer {
 
    protected def writeData( out: DataOutput ) : Unit
 
+//   private[event] def pull( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ]
+
    /**
     * @param   outlet   the outlet id of the event that propagates to this selector
     */
@@ -109,6 +131,10 @@ sealed trait Selector[ S <: Sys[ S ]] extends Writer {
                                ( implicit tx: S#Tx ) : Unit
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] // Option[ Int ]
 }
+
+//object NodeSelector {
+//
+//}
 
 sealed trait NodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    protected def reactor: NodeReactor[ S ]
@@ -122,6 +148,8 @@ sealed trait NodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    final private[event] def toObserverKey : Option[ ObserverKey[ S ]] = None
 
    override def toString = reactor.toString + ".select(" + inlet + ")"
+
+   private[event] def pull( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ]
 
    final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
                                        path: Path[ S ], visited: Visited[ S ],
@@ -339,7 +367,7 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
    }
 
 //   private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
-   private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
+//   private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
    final def id: S#ID = targets.id
 

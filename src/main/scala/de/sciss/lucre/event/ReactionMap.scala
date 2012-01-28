@@ -70,16 +70,19 @@ object ReactionMap {
                           leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
                           reactions: Reactions )( implicit tx: S#Tx ) {
          val itx = tx.peer
-         eventMap.get( observer.id )( itx ).foreach { obs =>
-            val react: event.Reaction = () => {
-               leaf.pull( selector, source, update ) match {
-                  case Some( result ) =>
-                     () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
-                  case None => noOpEval
+         path match {
+            case sel :: path1 =>
+               eventMap.get( observer.id )( itx ).foreach { obs =>
+                  val react: event.Reaction = () => {
+                     sel.pull( path1, update ) match {
+                        case Some( result ) =>
+                           () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
+                        case None => noOpEval
+                     }
+                  }
+                  reactions += react
                }
-            }
-//            reactions :+ react
-            reactions += react
+            case _ =>
          }
       }
 
