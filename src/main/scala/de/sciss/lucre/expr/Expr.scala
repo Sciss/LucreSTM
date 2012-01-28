@@ -26,8 +26,7 @@
 package de.sciss.lucre
 package expr
 
-import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{Dummy, Change, Event, Reactor, Source, Sources, StandaloneLike}
+import event.{Dummy, Change, Event, Source, StandaloneLike}
 import stm.{Disposable, Var => _Var, Sys, Writer}
 
 object Expr {
@@ -124,8 +123,9 @@ object Expr {
 //                       ( implicit tx: S#Tx ) : Event.Observer[ S, Event.Change[ A ], Expr[ S, A ]] = {
 //         Event.Observer[ S, Event.Change[ A ], Expr[ S, A ]]( reader, fun )
 //      }
-      final def +=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
-      final def -=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
+
+//      final def +=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
+//      final def -=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
 
       override def toString = constValue.toString
    }

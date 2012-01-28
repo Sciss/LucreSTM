@@ -40,13 +40,15 @@ object Selector {
 //      new ObserverSelector[ S ]( key, observer )
 
    def apply[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ]) : Selector[ S ] =
-      new InvariantSelector[ S ]( key, targets )
+      sys.error( "TODO" )
+//      new InvariantSelector[ S ]( key, targets )
 
    def apply[ S <: Sys[ S ]]( key: Int, node: Invariant[ S, _ ]) : Selector[ S ] =
       new InvariantSelector[ S ]( key, node )
 
    def apply[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ]) : Selector[ S ] =
-      new MutatingSelector[ S ]( key, targets )
+      sys.error( "TODO" )
+//      new MutatingSelector[ S ]( key, targets )
 
    def apply[ S <: Sys[ S ]]( key: Int, node: Mutating[ S, _ ]) : Selector[ S ] =
       new MutatingSelector[ S ]( key, node )
@@ -63,41 +65,18 @@ object Selector {
                val inlet   = in.readInt()
                val targets = Invariant.Targets.readAndExpand[ S ]( in, access )
                targets.select( inlet )
+//               Selector( inlet, targets )
             case 1 =>
                val inlet   = in.readInt()
                val targets = Mutating.Targets.readAndExpand[ S ]( in, access )
                targets.select( inlet )
+//               Selector( inlet, targets )
             case 2 =>
                val id = in.readInt()
                new ObserverKey[ S ]( id )
             case cookie => sys.error( "Unexpected cookie " + cookie )
          }
 //         reactor.select( selector )
-      }
-   }
-
-   private sealed trait NodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
-      protected def reactor: NodeReactor[ S ]
-      protected def inlet: Int
-
-      final protected def writeData( out: DataOutput ) {
-         out.writeInt( inlet )
-         reactor.write( out )
-      }
-
-      final private[event] def toObserverKey : Option[ ObserverKey[ S ]] = None
-
-      override def toString = reactor.toString + ".select(" + inlet + ")"
-
-      final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                          path: Path[ S ], visited: Visited[ S ],
-                                          reactions: Reactions )( implicit tx: S#Tx ) {
-         val cid     = reactor.id
-         val bitset  = visited.getOrElse( cid, 0 )
-         if( (bitset & inlet) == 0 ) {
-            visited.+=( (cid, bitset | inlet) )
-            reactor.propagate( source, update, parent, inlet, path, visited, reactions )
-         }
       }
    }
 
@@ -131,12 +110,45 @@ sealed trait Selector[ S <: Sys[ S ]] extends Writer {
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] // Option[ Int ]
 }
 
+sealed trait NodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
+   protected def reactor: NodeReactor[ S ]
+   protected def inlet: Int
+
+   final protected def writeData( out: DataOutput ) {
+      out.writeInt( inlet )
+      reactor.write( out )
+   }
+
+   final private[event] def toObserverKey : Option[ ObserverKey[ S ]] = None
+
+   override def toString = reactor.toString + ".select(" + inlet + ")"
+
+   final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
+                                       path: Path[ S ], visited: Visited[ S ],
+                                       reactions: Reactions )( implicit tx: S#Tx ) {
+      val cid     = reactor.id
+      val bitset  = visited.getOrElse( cid, 0 )
+      if( (bitset & inlet) == 0 ) {
+         visited.+=( (cid, bitset | inlet) )
+//         reactor.propagate( source, update, parent, inlet, path, visited, reactions )
+         val path1 = this :: path
+         reactor.children.foreach { tup =>
+            val inlet2 = tup._1
+            if( inlet2 == inlet ) {
+               val sel = tup._2
+               sel.propagate( source, update, parent, outlet, path1, visited, reactions )
+            }
+         }
+      }
+   }
+}
+
 /**
  * Instances of `ObserverKey` are provided by methods in `Txn`, when a live `Observer` is registered. Since
  * the observing function is not persisted, the key will be used for lookup (again through the transaction)
  * of the reacting function during the first reaction gathering phase of event propagation.
  */
-final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends Reactor[ S ] with Selector[ S ] {
+final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends /* Reactor[ S ] with */ Selector[ S ] {
    protected def cookie: Int = 2
 
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
@@ -235,48 +247,52 @@ sealed trait Observer[ S <: Sys[ S ], A, Repr ] extends Disposable[ S#Tx ] {
  * object, sharing the same `id` as its targets. As a `Reactor`, it has a method to
  * `propagate` a fired event.
  */
-sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] {
-//      private[event] def id: S#ID
+sealed trait Targets[ S <: Sys[ S ]] extends NodeReactor[ S ] /* extends Writer with Disposable[ S#Tx ] */ {
+   /* private[event] */ def id: S#ID
 
-   protected def children: S#Var[ Children[ S ]]
+//   def select( key: Int ) : Selector[ S ]
+
+   protected def childrenVar: S#Var[ Children[ S ]]
 
    override def toString = "Event.Targets" + id
 
-   /**
-    * @param   outlet   the key of the event or selector that invoked this target's node's `propagate`
-    */
-   final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                       path: Path[ S ], visited: Visited[ S ],
-                                       reactions: Reactions )( implicit tx: S#Tx ) {
-      val path1 = id :: path
-      children.get.foreach { tup =>
-         val outlet2 = tup._1
-         if( outlet2 == outlet ) {
-            val sel = tup._2
-            sel.propagate( source, update, parent, outlet, path1, visited, reactions )
-         }
-      }
-   }
+//   /**
+//    * @param   outlet   the key of the event or selector that invoked this target's node's `propagate`
+//    */
+//   final private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
+//                                       path: Path[ S ], visited: Visited[ S ],
+//                                       reactions: Reactions )( implicit tx: S#Tx ) {
+//      val path1 = id :: path
+//      children.get.foreach { tup =>
+//         val outlet2 = tup._1
+//         if( outlet2 == outlet ) {
+//            val sel = tup._2
+//            sel.propagate( source, update, parent, outlet, path1, visited, reactions )
+//         }
+//      }
+//   }
+
+   final private[event] def children( implicit tx: S#Tx ) : Children[ S ] = childrenVar.get
 
    final private[event] def add( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
       val tup  = (outlet, sel)
-      val old  = children.get
-      children.set( old :+ tup )
+      val old  = childrenVar.get
+      childrenVar.set( old :+ tup )
       old.isEmpty
    }
 
    final private[event] def remove( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
       val tup  = (outlet, sel)
-      val xs   = children.get
+      val xs   = childrenVar.get
       val i    = xs.indexOf( tup )
       if( i >= 0 ) {
          val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
-         children.set( xs1 )
+         childrenVar.set( xs1 )
          xs1.isEmpty
       } else false
    }
 
-   final def isConnected( implicit tx: S#Tx ) : Boolean = children.get.nonEmpty
+   final def isConnected( implicit tx: S#Tx ) : Boolean = childrenVar.get.nonEmpty
 }
 
 /**
@@ -296,6 +312,7 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
    protected def writeData( out: DataOutput ) : Unit
    protected def disposeData()( implicit tx: S#Tx ) : Unit
 
+   final private[event] def children( implicit tx: S#Tx ) = targets.children
 
 //   final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
 //   protected def events : IIdxSeq[ Event[ S, _, _ ]]
@@ -321,6 +338,7 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
       }
    }
 
+//   private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
    private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
    final def id: S#ID = targets.id
@@ -329,14 +347,14 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
 //      new TriggerImpl[ S, A, A1, Repr ]( this, key )
 //   }
 
-   /**
-    * @param   key   the key of the event or selector that invoked this method
-    */
-   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
-                                 path: Path[ S ], visited: Visited[ S ], reactions: Reactions )
-                               ( implicit tx: S#Tx ) {
-      targets.propagate( source, update, this, key, path, visited, reactions ) // replace parent event node
-   }
+//   /**
+//    * @param   key   the key of the event or selector that invoked this method
+//    */
+//   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+//                                 path: Path[ S ], visited: Visited[ S ], reactions: Reactions )
+//                               ( implicit tx: S#Tx ) {
+//      targets.propagate( source, update, this, key, path, visited, reactions ) // replace parent event node
+//   }
 
    final def write( out: DataOutput ) {
       targets.write( out )
@@ -367,7 +385,7 @@ object Invariant {
 
       private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : NodeReactor[ S ] = {
          val targets    = read( in, access )
-         val observers  = targets.children.get.flatMap( _._2.toObserverKey )
+         val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
          tx.mapEventTargets( in, access, targets, observers )
       }
 
@@ -387,18 +405,18 @@ object Invariant {
          new Impl( id, children )
 
       private final class Impl[ S <: Sys[ S ]](
-         val id: S#ID, protected val children: S#Var[ Children[ S ]])
+         val id: S#ID, protected val childrenVar: S#Var[ Children[ S ]])
       extends Targets[ S ] {
          def write( out: DataOutput ) {
             out.writeUnsignedByte( 0 )
             id.write( out )
-            children.write( out )
+            childrenVar.write( out )
          }
 
          def dispose()( implicit tx: S#Tx ) {
             require( !isConnected, "Disposing a event reactor which is still being observed" )
             id.dispose()
-            children.dispose()
+            childrenVar.dispose()
          }
 
          def select( key: Int ) : Selector[ S ] = Selector( key, this )
@@ -495,8 +513,8 @@ final case class Change[ @specialized A ]( before: A, now: A ) {
 trait Constant[ S <: Sys[ S ] /*, A */] /* extends Val[ S, A ] with Root[ S, Change[ A ]] */ {
 //      protected def constValue : A
 //      final def value( implicit tx: S#Tx ) : A = constValue
-   final private[event] def addReactor(     r: Reactor[ S ])( implicit tx: S#Tx ) {}
-   final private[event] def removeReactor(  r: Reactor[ S ])( implicit tx: S#Tx ) {}
+//   final private[event] def addReactor(     r: Reactor[ S ])( implicit tx: S#Tx ) {}
+//   final private[event] def removeReactor(  r: Reactor[ S ])( implicit tx: S#Tx ) {}
 
    final def write( out: DataOutput ) {
       out.writeUnsignedByte( 3 )
@@ -567,7 +585,8 @@ trait Source[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
       val reactions: Reactions   = Buffer.empty
       val path: Path[ S ]        = Nil
       val n                      = node
-      n.propagate( this, update, n, outlet, path, visited, reactions )
+//      n.propagate( this, update, n, outlet, path, visited, reactions )
+      select().propagate( this, update, n, outlet, path, visited, reactions )
       reactions.map( _.apply() ).foreach( _.apply() )
    }
 }
@@ -649,7 +668,7 @@ object Mutating {
 
       private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : NodeReactor[ S ] = {
          val targets    = read( in, access )
-         val observers  = targets.children.get.flatMap( _._2.toObserverKey )
+         val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
          tx.mapEventTargets( in, access, targets, observers )
       }
 
@@ -671,7 +690,7 @@ object Mutating {
          new Impl( id, children, invalid )
 
       private final class Impl[ S <: Sys[ S ]](
-         val id: S#ID, protected val children: S#Var[ Children[ S ]], invalid: S#Var[ Boolean ])
+         val id: S#ID, protected val childrenVar: S#Var[ Children[ S ]], invalid: S#Var[ Boolean ])
       extends Targets[ S ] {
          def isInvalid( implicit tx: S#Tx ) : Boolean = invalid.get
          def validated()( implicit tx: S#Tx ) { invalid.set( false )}
@@ -679,14 +698,14 @@ object Mutating {
          def write( out: DataOutput ) {
             out.writeUnsignedByte( 1 )
             id.write( out )
-            children.write( out )
+            childrenVar.write( out )
             invalid.write( out )
          }
 
          def dispose()( implicit tx: S#Tx ) {
             require( !isConnected, "Disposing a event reactor which is still being observed" )
             id.dispose()
-            children.dispose()
+            childrenVar.dispose()
             invalid.dispose()
          }
 
@@ -753,15 +772,16 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
  * either a persisted event `Node` or a registered `ObserverKey` which is resolved through the transaction
  * as pointing to a live view.
  */
-sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
-//   def select( key: Int ) : Selector[ S ]
-   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
-                                 path: Path[ S ], visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Unit
-}
+//sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
+////   def select( key: Int ) : Selector[ S ]
+//   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
+//                                 path: Path[ S ], visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Unit
+//}
 
-sealed trait NodeReactor[ S <: Sys[ S ]] extends Reactor[ S ] {
+sealed trait NodeReactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disposable[ S#Tx ] {
    def id: S#ID
-   def select( inlet: Int ) : Selector[ S ]
+   private[event] def select( inlet: Int ) : Selector[ S ]
+   private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 }
 
 object Dummy {
