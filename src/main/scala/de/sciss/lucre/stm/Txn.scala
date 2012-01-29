@@ -50,9 +50,9 @@ trait Txn[ S <: Sys[ S ]] {
 //   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], keys: IIdxSeq[ Int ]) : Reactor[ S ]
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
                         observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ]
-   def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                       leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
-                       reactions: Reactions ) : Unit
+   def processEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
+                     leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
+                     reactions: Reactions ) : Unit
    def removeEventReaction( key: ObserverKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]

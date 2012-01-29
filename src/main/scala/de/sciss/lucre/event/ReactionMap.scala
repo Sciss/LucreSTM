@@ -66,7 +66,7 @@ object ReactionMap {
          }
       }
 
-      def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
+      def processEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
                           leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
                           reactions: Reactions )( implicit tx: S#Tx ) {
          val itx = tx.peer
@@ -74,7 +74,7 @@ object ReactionMap {
             case sel :: path1 =>
                eventMap.get( observer.id )( itx ).foreach { obs =>
                   val react: event.Reaction = () => {
-                     sel.pull( path1, update ) match {
+                     sel.pullUpdate( path1, update ) match {
                         case Some( result ) =>
                            () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
                         case None => noOpEval
@@ -164,7 +164,7 @@ trait ReactionMap[ S <: Sys[ S ]] {
 //   def propagateEvent( observer: ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Node[ S, _ ], reactions: Reactions )
 //                     ( implicit tx: S#Tx ) : Reactions
 
-   def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                       leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
-                       reactions: Reactions )( implicit tx: S#Tx ) : Unit
+   def processEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
+                     leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
+                     reactions: Reactions )( implicit tx: S#Tx ) : Unit
 }

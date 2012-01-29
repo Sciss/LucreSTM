@@ -165,8 +165,8 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 //         }
 //      }
 
-      private[lucre] def pull( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         _1.changed.pull( path.tail, update ).flatMap { ach =>
+      private[lucre] def pullUpdate( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+         _1.changed.pullUpdate( path.tail, update ).flatMap { ach =>
             change( op.value( ach.before ), op.value( ach.now ))
          }
       }
@@ -226,14 +226,14 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 //         }
 //      }
 
-      private[lucre] def pull( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+      private[lucre] def pullUpdate( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
          path match {
             case sel :: path1 =>
                val _1c = _1.changed
                val _2c = _2.changed
 
-               val _1ch = if( _1c.isSource( sel )) _1c.pull( path1, update ) else None
-               val _2ch = if( _2c.isSource( sel )) _2c.pull( path1, update ) else None
+               val _1ch = if( _1c.isSource( sel )) _1c.pullUpdate( path1, update ) else None
+               val _2ch = if( _2c.isSource( sel )) _2c.pullUpdate( path1, update ) else None
 
                (_1ch, _2ch) match {
                   case (Some( ach ), None) =>

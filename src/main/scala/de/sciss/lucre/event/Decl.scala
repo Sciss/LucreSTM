@@ -55,7 +55,7 @@ trait Decl[ S <: Sys[ S ], Impl ] {
 //                            update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
 //      idMap( id ).apply( impl ).pull( source, update )
 
-   private[event] def pull( impl: Impl, id: Int ) : Event[ S, _ <: Update, _ ] = idMap( id ).apply( impl )
+   private[event] def getEvent( impl: Impl, id: Int ) : Event[ S, _ <: Update, _ ] = idMap( id ).apply( impl )
 
 //   private[event] def connectSources( impl: Impl )( implicit tx: S#Tx ) {
 //      sys.error( "TODO" )

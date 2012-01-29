@@ -103,11 +103,11 @@ object Expr {
 
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 
-      final private[lucre] def pull( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
+      final private[lucre] def pullUpdate( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
          if( path.isEmpty ) {
             Some( update.asInstanceOf[ Change[ A ]])
          } else {
-            get.changed.pull( path.tail, update )
+            get.changed.pullUpdate( path.tail, update )
          }
       }
 
