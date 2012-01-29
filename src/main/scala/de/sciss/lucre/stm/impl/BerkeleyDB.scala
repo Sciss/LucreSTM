@@ -35,7 +35,7 @@ import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, Trans
 import annotation.elidable
 import elidable.CONFIG
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeReactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets}
+import event.{Reactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets}
 
 object BerkeleyDB {
    import LucreSTM.logConfig
@@ -500,7 +500,7 @@ object BerkeleyDB {
          system.reactionMap.addEventReaction( reader, fun )( this )
 
       def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-                           observers: IIdxSeq[ ObserverKey[ S ]]) : NodeReactor[ S ] =
+                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
          system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
 
       def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,

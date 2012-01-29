@@ -11,7 +11,7 @@ package object event {
    type Reactions = Buffer[ Reaction ]
    type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
 //   type Path[ S <: Sys[ S ]] = List[ S#ID ]
-   type Path[ S <: Sys[ S ]] = List[ NodeSelector[ S ]]
+   type Path[ S <: Sys[ S ]] = List[ ReactorSelector[ S ]]
 
 //   private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ Selector[ S ]]
    private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Selector[ S ])]

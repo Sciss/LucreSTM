@@ -30,7 +30,7 @@ package impl
 import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeReactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets}
+import event.{Reactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets}
 
 object InMemory {
    private type S = InMemory
@@ -133,7 +133,7 @@ object InMemory {
          system.reactionMap.addEventReaction( reader, fun )( this )
 
       def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-                           observers: IIdxSeq[ ObserverKey[ S ]]) : NodeReactor[ S ] =
+                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
          system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
 
       def propagateEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
