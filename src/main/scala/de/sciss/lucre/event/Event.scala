@@ -86,11 +86,11 @@ object Selector {
       protected def cookie: Int = 1
    }
 
-   private sealed trait EmptyNodeSelector[ S <: Sys[ S ]] extends NodeSelector[ S ] {
+   private sealed trait CompressedNodeSelector[ S <: Sys[ S ]] extends NodeSelector[ S ] {
       final private[event] def pull( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ] = None
    }
 
-   private sealed trait FullNodeSelector[ S <: Sys[ S ]] extends NodeSelector[ S ] {
+   private sealed trait ExpandedNodeSelector[ S <: Sys[ S ]] extends NodeSelector[ S ] {
       def reactor: Node[ S, _ ]
 
       final private[event] def pull( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ] = {
@@ -99,16 +99,16 @@ object Selector {
    }
 
    private final case class InvariantNodeSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Invariant[ S, _ ])
-   extends FullNodeSelector[ S ] with InvariantSelector
+   extends ExpandedNodeSelector[ S ] with InvariantSelector
 
    private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Invariant.Targets[ S ])
-   extends EmptyNodeSelector[ S ] with InvariantSelector
+   extends CompressedNodeSelector[ S ] with InvariantSelector
 
    private final case class MutatingNodeSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating[ S, _ ])
-   extends FullNodeSelector[ S ] with MutatingSelector
+   extends ExpandedNodeSelector[ S ] with MutatingSelector
 
    private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating.Targets[ S ])
-   extends EmptyNodeSelector[ S ] with MutatingSelector
+   extends CompressedNodeSelector[ S ] with MutatingSelector
 }
 
 sealed trait Selector[ S <: Sys[ S ]] extends Writer {
