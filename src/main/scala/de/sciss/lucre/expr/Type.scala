@@ -159,8 +159,14 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
          _1.write( out )
       }
 
-      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         _1.changed.pull( source, update ).flatMap { ach =>
+//      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+//         _1.changed.pull( source, update ).flatMap { ach =>
+//            change( op.value( ach.before ), op.value( ach.now ))
+//         }
+//      }
+
+      private[lucre] def pull( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+         _1.changed.pull( path.tail, update ).flatMap { ach =>
             change( op.value( ach.before ), op.value( ach.now ))
          }
       }
@@ -206,17 +212,41 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
          _2.write( out )
       }
 
-      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
-         (_1.changed.pull( source, update ), _2.changed.pull( source, update )) match {
-            case (None, None)                => None
-            case (Some( ach ), None )        =>
-               val bv = _2.value
-               change( op.value( ach.before, bv ), op.value( ach.now, bv ))
-            case (None, Some( bch ))         =>
-               val av = _1.value
-               change( op.value( av, bch.before ), op.value( av, bch.now ))
-            case (Some( ach ), Some( bch ))  =>
-               change( op.value( ach.before, bch.before ), op.value( ach.now, bch.now ))
+//      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+//         (_1.changed.pull( source, update ), _2.changed.pull( source, update )) match {
+//            case (None, None)                => None
+//            case (Some( ach ), None )        =>
+//               val bv = _2.value
+//               change( op.value( ach.before, bv ), op.value( ach.now, bv ))
+//            case (None, Some( bch ))         =>
+//               val av = _1.value
+//               change( op.value( av, bch.before ), op.value( av, bch.now ))
+//            case (Some( ach ), Some( bch ))  =>
+//               change( op.value( ach.before, bch.before ), op.value( ach.now, bch.now ))
+//         }
+//      }
+
+      private[lucre] def pull( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+         path match {
+            case sel :: path1 =>
+               val _1c = _1.changed
+               val _2c = _2.changed
+               if( _1c.isSource( sel )) {
+                  _1c.pull( path1, update ).flatMap { ach =>
+                     val bv = _2.value
+                     change( op.value( ach.before, bv ), op.value( ach.now, bv ))
+                  }
+               } else if( _2c.isSource( sel )) {
+                  _2c.pull( path1, update ).flatMap { bch =>
+                     val av = _1.value
+                     change( op.value( av, bch.before ), op.value( av, bch.now ))
+                  }
+
+               } else {
+                  sys.error( "Event wrongly routed" )
+               }
+
+            case _ => sys.error( "Event wrongly routed" )
          }
       }
 

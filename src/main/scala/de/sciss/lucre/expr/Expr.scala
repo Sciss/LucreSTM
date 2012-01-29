@@ -34,8 +34,8 @@ object Expr {
    with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] {
       final def changed: Event[ S, Change[ A ], Expr[ S, A ]] = this
 
-      final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] =
-         pull( source, update )
+//      final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] =
+//         pull( source, update )
 
       final def disposeData()( implicit tx: S#Tx ) {}
    }
@@ -103,11 +103,11 @@ object Expr {
 
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 
-      final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
-         if( source == changed ) {
+      final private[lucre] def pull( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = {
+         if( path.isEmpty ) {
             Some( update.asInstanceOf[ Change[ A ]])
          } else {
-            get.changed.pull( source, update )
+            get.changed.pull( path.tail, update )
          }
       }
 
