@@ -370,7 +370,7 @@ sealed trait Node[ S <: Sys[ S ], A ] extends NodeReactor[ S ] /* with Dispatche
 //   private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 
 //   private[lucre] def pull( key: Int, path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
-   private[event] def pull( key: Int ) : Event[ S, A, _ ]
+   private[event] def pull( key: Int ) : Event[ S, _ <: A, _ ]
 
    final def id: S#ID = targets.id
 
@@ -614,7 +614,7 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] wit
 
 //   final def pull( key: Int, path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = pull( path, update )
 
-   final private[lucre] def pull( key: Int ) : Event[ S, A, _ ] = this
+   final private[lucre] def pull( key: Int ) : Event[ S, _ <: A, _ ] = this
 }
 
 trait Source[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
@@ -934,7 +934,7 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
 
 //   final def map[ B >: A, A1 <: B ]( fun: ... )
 
-   final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
+//   final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
 }
 
 
@@ -1126,9 +1126,11 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
    protected def collection[ Elem, B ]( fun: Elem => Event[ S, B, _ ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
-   final private[event] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ D#Update ] = {
-      decl.pull( this, key, source, update ) // .asInstanceOf[ Option[ D#Update ]]
-   }
+//   final private[event] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ D#Update ] = {
+//      decl.pull( this, key, source, update ) // .asInstanceOf[ Option[ D#Update ]]
+//   }
+
+   final private[lucre] def pull( key: Int ) : Event[ S, _ <: D#Update, _ ] = decl.pull( this, key ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
 
    final protected def connectNode()( implicit tx: S#Tx ) {
       decl.events( this ).foreach( _.connect() )

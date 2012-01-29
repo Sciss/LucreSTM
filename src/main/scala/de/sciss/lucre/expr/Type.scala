@@ -27,7 +27,7 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import event.{Event, Observer, Invariant}
+import event.{Observer, Invariant}
 
 /**
  * IDs:

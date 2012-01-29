@@ -50,9 +50,12 @@ trait Decl[ S <: Sys[ S ], Impl ] {
 //   def id[ U <: Update ]( clz: Class[ U ]): Int = keyMap( clz )
    private[event] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
 //   private[event] def route[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int ) : Event[ S, Update, _ ] = idMap( id ).apply( impl )
-   private[event] def pull( impl: Impl, id: Int, source: Event[ S, _, _ ],
-                            update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
-      idMap( id ).apply( impl ).pull( source, update )
+
+//   private[event] def pull( impl: Impl, id: Int, source: Event[ S, _, _ ],
+//                            update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
+//      idMap( id ).apply( impl ).pull( source, update )
+
+   private[event] def pull( impl: Impl, id: Int ) : Event[ S, _ <: Update, _ ] = idMap( id ).apply( impl )
 
 //   private[event] def connectSources( impl: Impl )( implicit tx: S#Tx ) {
 //      sys.error( "TODO" )
