@@ -91,7 +91,7 @@ object Selector {
    }
 
    private sealed trait FullNodeSelector[ S <: Sys[ S ]] extends NodeSelector[ S ] {
-      private[lucre] def reactor: Node[ S, _ ]
+      def reactor: Node[ S, _ ]
 
       final private[event] def pull( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ] = {
          reactor.pull( inlet ).pull( path, update )
@@ -137,8 +137,8 @@ sealed trait Selector[ S <: Sys[ S ]] extends Writer {
 //}
 
 sealed trait NodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
-   private[lucre] def reactor: NodeReactor[ S ]
-   protected def inlet: Int
+   def reactor: NodeReactor[ S ]
+   def inlet: Int
 
    final protected def writeData( out: DataOutput ) {
       out.writeInt( inlet )
@@ -575,7 +575,9 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
 
    final private[lucre] def select() : NodeSelector[ S ] = node.select( outlet )
 
-   final private[lucre] def isSource( sel: NodeSelector[ S ]) : Boolean = sel.reactor.id == node.id
+   final private[lucre] def isSource( sel: NodeSelector[ S ]) : Boolean = {
+      (sel.reactor.id == node.id) && (sel.inlet == outlet)
+   }
 
    protected def reader: Reader[ S, Repr, _ ]
 //      implicit protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A1, Repr ]]

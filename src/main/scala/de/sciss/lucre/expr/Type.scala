@@ -231,20 +231,36 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
             case sel :: path1 =>
                val _1c = _1.changed
                val _2c = _2.changed
-               if( _1c.isSource( sel )) {
-                  _1c.pull( path1, update ).flatMap { ach =>
+
+               val _1ch = if( _1c.isSource( sel )) _1c.pull( path1, update ) else None
+               val _2ch = if( _2c.isSource( sel )) _2c.pull( path1, update ) else None
+
+               (_1ch, _2ch) match {
+                  case (Some( ach ), None) =>
                      val bv = _2.value
                      change( op.value( ach.before, bv ), op.value( ach.now, bv ))
-                  }
-               } else if( _2c.isSource( sel )) {
-                  _2c.pull( path1, update ).flatMap { bch =>
+                  case (None, Some( bch )) =>
                      val av = _1.value
                      change( op.value( av, bch.before ), op.value( av, bch.now ))
-                  }
-
-               } else {
-                  sys.error( "Event wrongly routed" )
+                  case (Some( ach ), Some( bch )) =>
+                     change( op.value( ach.before, bch.before ), op.value( ach.now, bch.now ))
+                  case _ => None
                }
+
+//               if( _1c.isSource( sel )) {
+//                  _1c.pull( path1, update ).flatMap { ach =>
+//                     val bv = _2.value
+//                     change( op.value( ach.before, bv ), op.value( ach.now, bv ))
+//                  }
+//               } else if( _2c.isSource( sel )) {
+//                  _2c.pull( path1, update ).flatMap { bch =>
+//                     val av = _1.value
+//                     change( op.value( av, bch.before ), op.value( av, bch.now ))
+//                  }
+//
+//               } else {
+//                  sys.error( "Event wrongly routed" )
+//               }
 
             case _ => sys.error( "Event wrongly routed" )
          }

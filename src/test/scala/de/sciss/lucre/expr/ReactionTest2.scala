@@ -541,8 +541,9 @@ Usages:
 //            longOps( _r1.stop_#.max( _r2.stop_# )).+( 100L ))
             spans.Span(
                _r1.span_#.start_#.min( _r2.span_#.start_#) + -100L,
-               _r1.span_#.stop_#.max(  _r2.span_#.stop_#)  +  100L )
-            )
+//               _r1.span_#.stop_#.max(  _r2.span_#.stop_#)  +  100L )
+               _r1.span_#.stop_# ) // .max( 12000L ))
+         )
 //         val _r3   = EventRegion( _r1.name_#.append( "+" ), Span( 6000L, 7000L ))
          val rootID  = tx.newID()
          val _rvs    = Seq( _r1, _r2, _r3 ).map( tx.newVar( rootID, _ ))
