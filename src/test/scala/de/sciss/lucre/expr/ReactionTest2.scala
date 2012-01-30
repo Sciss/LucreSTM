@@ -538,8 +538,8 @@ Usages:
          val _r2   = EventRegion( "zwei", Span( 5000L, 12000L ))
          val _span3 = spans.Span(
             _r1.span_#.start_#.min( _r2.span_#.start_#) + -100L,
-         // _r1.span_#.stop_#.max(  _r2.span_#.stop_#)  +  100L )
-            _r1.span_#.stop_# // .max( 12000L ))
+            _r1.span_#.stop_#.max(  _r2.span_#.stop_#)  +  100L
+//            _r1.span_#.stop_# // .max( 12000L ))
          )
          val _r3   = EventRegion( _r1.name_#.append( "+" ).append( _r2.name_# ), _span3 )
          val rootID  = tx.newID()

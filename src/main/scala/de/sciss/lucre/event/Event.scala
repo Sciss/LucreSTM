@@ -659,13 +659,19 @@ trait Generator[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] 
    protected def node: Node[ S, A ]
 
    final protected def fire( update: A1 )( implicit tx: S#Tx ) {
-      val visited: Visited[ S ]  = MMap.empty
+//      val visited: Visited[ S ]  = MMap.empty
       val reactions: Reactions   = Buffer.empty
 //      val path: Path[ S ]        = Nil
 //      val n                      = node
 //      n.propagate( this, update, n, outlet, path, visited, reactions )
 //      val reactor = select()
 //      reactor.pushUpdate( update, reactor, visited, reactions )
+
+      // important: to be discovered as source (isSource), there must be
+      // an entry in the visited map for the generating event, but this
+      // must be pointing to an empty set to tell an event that can be
+      // both origin and transformer that it actually generated the event!
+      val visited: Visited[ S ]  = MMap( (select(), Set.empty) )
       node.children.foreach { tup =>
          val inlet2 = tup._1
          if( inlet2 == outlet /* inlet */) {

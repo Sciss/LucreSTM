@@ -106,10 +106,10 @@ object Expr {
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 
       final private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change[ A ]] = {
-         if( visited.contains( select() )) {
-            get.changed.pullUpdate( visited, update )
-         } else {
+         if( visited( select() ).isEmpty ) {
             Pull( update.asInstanceOf[ Change[ A ]])
+         } else {
+            get.changed.pullUpdate( visited, update )
          }
       }
 
