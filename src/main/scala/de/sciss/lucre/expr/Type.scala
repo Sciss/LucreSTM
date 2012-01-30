@@ -232,8 +232,16 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
                val _1c = _1.changed
                val _2c = _2.changed
 
-               val _1ch = if( _1c.isSource( sel )) _1c.pullUpdate( path1, update ) else None
-               val _2ch = if( _2c.isSource( sel )) _2c.pullUpdate( path1, update ) else None
+               val _1ch = if( _1c.isSource( sel )) {
+                  _1c.pullUpdate( path1, update )
+               } else {
+                  None
+               }
+               val _2ch = if( _2c.isSource( sel )) {
+                  _2c.pullUpdate( path1, update )
+               } else {
+                  None
+               }
 
                (_1ch, _2ch) match {
                   case (Some( ach ), None) =>

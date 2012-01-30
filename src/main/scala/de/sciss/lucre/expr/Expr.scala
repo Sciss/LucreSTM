@@ -38,6 +38,8 @@ object Expr {
 //         pull( source, update )
 
       final def disposeData()( implicit tx: S#Tx ) {}
+
+      override def toString = "Expr" + id
    }
 
    trait Var[ S <: Sys[ S ], A ] extends Expr[ S, A ] with _Var[ S#Tx, Expr[ S, A ]]
@@ -110,6 +112,8 @@ object Expr {
             get.changed.pullUpdate( path.tail, update )
          }
       }
+
+      override def toString = "Expr.Var" + id
 
 //      final private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] =
 //         pull( source, update )

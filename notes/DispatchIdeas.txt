@@ -1,0 +1,4 @@
+- Instead of the multiple immutable Path instances, if we had one mutable tree, we could shortcut the multiple pulls from each observer by also using this as a 'visited' structure with stored updates
+
+- if Span wasn't constructed as a binary op, but using _1changed = _1.changed.map(identity), _2changed = _2changed.map(identity), and changed = _1changed | _2changed, we'd have two separate slots and if only 'start' changes, no tree coming out from a reference to 'stop' will be traversed
+

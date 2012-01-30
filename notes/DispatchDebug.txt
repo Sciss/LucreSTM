@@ -1,0 +1,57 @@
+::::::::::::::
+
+push phase:
+
+Expr.Var<5 @ 0,1>.select(1)
+|
++-ObserverKey(1) = region 1 view
+|
++-Targets<16 @ 0,1>.select(1) -- ?? span1
+| |
+| +-Targets<20 @ 0,1>.select(1) -- min( span1_start#, span2_start# )
+|   |
+|   +-Targets<22 @ 0,1>.select(1) -- +( min( start1, start2 ), -100 )
+|     |
+|     +-Targets<26 @ 0,1>.select(1) -- span3
+|       |
+|       +-Expr.Var<37 @ 0,1>.select(1) -- region 3 span var
+|         |
+|         +-ObserverKey(5) = region 3 view
+|         |
+|         +-Region<32 @ 0,1>.select(2) -- region changed
+|             |
+|             +- SKIP 1 -> ObserverKey(6)
+|             |
+|             +-2 -> ObserverKey(6) = println
+|
++-Targets<24 @ 0,1>.select(1) -- span1_stop#
+  |
+  +-Targets<26 @ 0,1>.select(1) -- span3
+    // was already visited
+
+:::::::::::::::
+
+pull phase:
+
+(1) Expr.Var<5 @ 0,1>.select(1) pullUpdate( path = Nil )
+
+(2) Expr.Var<37 @ 0,1>.select(1) pullUpdate( path = List(
+   Targets<26 @ 0,1>.select(1), 
+   Targets<22 @ 0,1>.select(1), 
+   Targets<20 @ 0,1>.select(1), 
+   Targets<16 @ 0,1>.select(1), 
+   Expr.Var<5 @ 0,1>.select(1)
+))
+
+now here is the problem: 
+Targets<26 @ 0,1>.select(1)  is span3
+- the propagation reached it through the span3.start.changed branch, and did not
+  go through the span3.stop.changed branch (the last step in the push-phase, as
+  <26> was already visited at its only slot)
+
+the result in Tuple2.pullUpdate is, that _1ch is Some( before = now ), and
+_2c.isSource reports false, yielding a _2ch of None.
+
+::::::::::::::::
+
+so this worked with the propagate( source ) approach, but doesn't work properly with pushUpdate( path ) because it wrongly suppresses vital paths.

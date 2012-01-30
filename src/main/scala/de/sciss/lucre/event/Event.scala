@@ -236,7 +236,7 @@ object Observer {
    private final class Impl[ S <: Sys[ S ], A, Repr ](
       key: ObserverKey[ S ])
    extends Observer[ S, A, Repr ] {
-      override def toString = "Event.Observer<" + key.id + ">"
+      override def toString = "Observer<" + key.id + ">"
 
       def add( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) {
          event ---> key
@@ -282,7 +282,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 
    protected def childrenVar: S#Var[ Children[ S ]]
 
-   override def toString = "Event.Targets" + id
+   override def toString = "Targets" + id
 
 //   /**
 //    * @param   outlet   the key of the event or selector that invoked this target's node's `propagate`
@@ -336,6 +336,8 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
  * targets.
  */
 sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] /* with Dispatcher[ S, A ] */ {
+   override def toString = "Node" + id
+
    protected def targets: Targets[ S ]
    protected def writeData( out: DataOutput ) : Unit
    protected def disposeData()( implicit tx: S#Tx ) : Unit
@@ -501,7 +503,7 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 
    final def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
 
-   override def toString = "Event.Invariant" + id
+//   override def toString = "Event.Invariant" + id
 }
 
 /**
@@ -806,7 +808,7 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 
    final def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
 
-   override def toString = "Event.Mutating" + id
+//   override def toString = "Event.Mutating" + id
 }
 
 /**
