@@ -35,7 +35,7 @@ import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, Trans
 import annotation.elidable
 import elidable.CONFIG
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{ReactorSelector, Reactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets, Visited}
+import event.{NodeSelector, ReactorSelector, Reactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets, Visited}
 
 object BerkeleyDB {
    import LucreSTM.logConfig
@@ -507,8 +507,8 @@ object BerkeleyDB {
                            observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
          system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
 
-      def processEvent( observer: ObserverKey[ S ], update: Any, source: ReactorSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
-         system.reactionMap.processEvent( observer, update, source, visited, reactions )( this )
+      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
+         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
       }
 
       def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
