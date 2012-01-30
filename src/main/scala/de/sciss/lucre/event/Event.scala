@@ -44,14 +44,14 @@ object Selector {
    def apply[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ]) : ReactorSelector[ S ] =
       new InvariantTargetsSelector[ S ]( key, targets )
 
-   def apply[ S <: Sys[ S ]]( key: Int, node: Invariant[ S, _ ]) : ReactorSelector[ S ] =
-      new InvariantNodeSelector[ S ]( key, node )
+   def apply[ S <: Sys[ S ], A ]( key: Int, node: Invariant[ S, A ]) : ReactorSelector[ S ] =
+      new InvariantNodeSelector[ S, A, Invariant[ S, A ]]( key, node )
 
    def apply[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ]) : ReactorSelector[ S ] =
       new MutatingTargetsSelector[ S ]( key, targets )
 
-   def apply[ S <: Sys[ S ]]( key: Int, node: Mutating[ S, _ ]) : ReactorSelector[ S ] =
-      new MutatingNodeSelector[ S ]( key, node )
+   def apply[ S <: Sys[ S ], A ]( key: Int, node: Mutating[ S, A ]) : ReactorSelector[ S ] =
+      new MutatingNodeSelector[ S, A, Mutating[ S, A ]]( key, node )
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
@@ -92,22 +92,22 @@ object Selector {
       final private[event] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] = EmptyPull
    }
 
-   private sealed trait NodeSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
-      def reactor: Node[ S, _ ]
+   private sealed trait NodeSelector[ S <: Sys[ S ], A, Repr <: Node[ S, A ]] extends ReactorSelector[ S ] {
+      def reactor: Repr // Node[ S, _ ]
 
       final private[event] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] = {
          reactor.getEvent( inlet ).pullUpdate( visited, update )
       }
    }
 
-   private final case class InvariantNodeSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Invariant[ S, _ ])
-   extends NodeSelector[ S ] with InvariantSelector
+   private final case class InvariantNodeSelector[ S <: Sys[ S ], A, Repr <: Invariant[ S, A ]]( inlet: Int, reactor: Repr )
+   extends NodeSelector[ S, A, Repr ] with InvariantSelector
 
    private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Invariant.Targets[ S ])
    extends TargetsSelector[ S ] with InvariantSelector
 
-   private final case class MutatingNodeSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating[ S, _ ])
-   extends NodeSelector[ S ] with MutatingSelector
+   private final case class MutatingNodeSelector[ S <: Sys[ S ], A, Repr <: Mutating[ S, A ]]( inlet: Int, reactor: Repr )
+   extends NodeSelector[ S, A, Repr ] with MutatingSelector
 
    private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating.Targets[ S ])
    extends TargetsSelector[ S ] with MutatingSelector
