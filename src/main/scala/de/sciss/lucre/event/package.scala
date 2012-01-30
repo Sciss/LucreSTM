@@ -10,8 +10,8 @@ package object event {
    type Reaction  = () => () => Unit
    type Reactions = Buffer[ Reaction ]
 //   type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
-   type Sources[ S <: Sys[ S ]] = Set[ ReactorSelector[ S ]]
-   type Visited[ S <: Sys[ S ]] = MMap[ ReactorSelector[ S ], Sources[ S ]]
+   type Parents[ S <: Sys[ S ]] = Set[ ReactorSelector[ S ]]
+   type Visited[ S <: Sys[ S ]] = MMap[ ReactorSelector[ S ], Parents[ S ]]
 //   type Path[ S <: Sys[ S ]] = List[ ReactorSelector[ S ]]
    type Pull[ A ] = Option[ A ] // List[ A ]
    val EmptyPull = None // Nil
@@ -34,5 +34,5 @@ package object event {
 
 //   private[lucre] def NoSources[ S <: Sys[ S ]]  : Sources[ S ]   = emptySeq
    private[lucre] def NoChildren[ S <: Sys[ S ]] : Children[ S ]  = emptySeq
-   private[lucre] def NoSources[ S <: Sys[ S ]]  : Sources[ S ]   = emptySet.asInstanceOf[ Sources[ S ]]
+   private[lucre] def NoParents[ S <: Sys[ S ]]  : Parents[ S ]   = emptySet.asInstanceOf[ Parents[ S ]]
 }

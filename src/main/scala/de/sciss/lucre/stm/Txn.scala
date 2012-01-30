@@ -50,7 +50,7 @@ trait Txn[ S <: Sys[ S ]] {
 //   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], keys: IIdxSeq[ Int ]) : Reactor[ S ]
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
                         observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ]
-   def processEvent( observer: ObserverKey[ S ], update: Any, source: ReactorSelector[ S ], visited: Visited[ S ],
+   def processEvent( observer: ObserverKey[ S ], update: Any, parent: ReactorSelector[ S ], visited: Visited[ S ],
                      reactions: Reactions ) : Unit
    def removeEventReaction( key: ObserverKey[ S ]) : Unit
 

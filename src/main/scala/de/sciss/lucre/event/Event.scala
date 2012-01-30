@@ -184,11 +184,11 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 //      }
 //   }
 
-   final private[event] def pushUpdate( update: Any, source: ReactorSelector[ S ], visited: Visited[ S ],
+   final private[event] def pushUpdate( update: Any, parent: ReactorSelector[ S ], visited: Visited[ S ],
                                         reactions: Reactions )( implicit tx: S#Tx ) {
-      val sources = visited.getOrElse( this, NoSources )
-      visited += ((this, sources + source))
-      if( sources.isEmpty ) {
+      val parents = visited.getOrElse( this, NoParents )
+      visited += ((this, parents + parent))
+      if( parents.isEmpty ) {
          reactor.children.foreach { tup =>
             val inlet2 = tup._1
             if( inlet2 == inlet ) {
@@ -210,9 +210,9 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
 
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
 
-   private[event] def pushUpdate( update: Any, source: ReactorSelector[ S ], visited: Visited[ S ],
+   private[event] def pushUpdate( update: Any, parent: ReactorSelector[ S ], visited: Visited[ S ],
                                   reactions: Reactions )( implicit tx: S#Tx ) {
-      tx.processEvent( this, update, source, visited, reactions )
+      tx.processEvent( this, update, parent, visited, reactions )
    }
 
 //   def select( key: Int ) : Selector[ S ] = Selector( key, this )
