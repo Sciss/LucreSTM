@@ -26,11 +26,12 @@
 package de.sciss.lucre
 package event
 
+import collection.breakOut
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import annotation.switch
-import stm.{Writer, Sys, Disposable, TxnSerializer}
 import collection.mutable.{Buffer, Map => MMap}
+import annotation.switch
 import scala.util.MurmurHash
+import stm.{TxnReader, Writer, Sys, Disposable, TxnSerializer}
 
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
@@ -136,6 +137,8 @@ sealed trait Selector[ S <: Sys[ S ]] extends Writer {
 sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    def reactor: Reactor[ S ]
    def inlet: Int
+
+//   def expand[ A ]( implicit : NodeSelector[ S ]
 
    final protected def writeData( out: DataOutput ) {
       out.writeInt( inlet )
@@ -1074,15 +1077,15 @@ object Compound {
    }
 
    final protected class CollectionOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem, B ](
-      d: Compound[ S, Repr, D ], elem: Elem => Event[ S, B, _ ]) {
+      d: Compound[ S, Repr, D ], elem: Elem => Event[ S, B, Elem ])( implicit elemReader: TxnReader[ S#Tx, S#Acc, Elem ]) {
 
-      def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : CollectionEvent[ S, Repr, D, Elem, B, A1 ] =
+      def map[ A1 <: D#Update ]( fun: IIdxSeq[ B ] => A1 )( implicit m: ClassManifest[ A1 ]) : CollectionEvent[ S, Repr, D, Elem, B, A1 ] =
          new CollectionEvent[ S, Repr, D, Elem, B, A1 ]( d, elem, fun, d.decl.eventID[ A1 ])
    }
 
    final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem, B, A1 <: D#Update ] private[Compound](
-      protected val node: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, _ ], fun: B => A1,
-      protected val outlet: Int )
+      protected val node: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, Elem ], fun: IIdxSeq[ B ] => A1,
+      protected val outlet: Int )( implicit elemReader: TxnReader[ S#Tx, S#Acc, Elem ])
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
@@ -1100,6 +1103,10 @@ object Compound {
 
       private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ A1 ] = {
          sys.error( "TODO" )
+//         val elems: IIdxSeq[ B ] = visited( select() ).flatMap( sel =>
+//            elemEvt( tx.read[ Elem ]( sel.reactor.id )).pullUpdate( visited, update )
+//         )( breakOut )
+//         if( elems.isEmpty ) None else Some( fun( elems ))
       }
 
 //      private[lucre] def isSource
@@ -1186,7 +1193,8 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
    protected def event[ A1 <: D#Update ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr ] =
       new Compound.Trigger( this )
 
-   protected def collection[ Elem, B ]( fun: Elem => Event[ S, B, _ ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
+   protected def collection[ Elem, B ]( fun: Elem => Event[ S, B, Elem ])
+                                      ( implicit elemReader: TxnReader[ S#Tx, S#Acc, Elem ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
 //   final private[event] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ D#Update ] = {

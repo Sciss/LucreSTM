@@ -230,6 +230,10 @@ object Confluent {
          new IDImpl( id, pid.path )
       }
 
+//      def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+//         system.read ( id.id )( in => reader.read( in, () )( this ))( this )
+//      }
+
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] = {
          val id = readSource( in, pid )
          new VarImpl( id, system, ser )

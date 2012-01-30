@@ -44,7 +44,9 @@ object BerkeleyDB {
 
    /* private val */ var DB_CONSOLE_LOG_LEVEL   = "OFF" // "ALL"
 
-   sealed trait ID extends Identifier[ Txn ]
+   sealed trait ID extends Identifier[ Txn ] {
+      private[BerkeleyDB] def id: Int
+   }
 
    def open( file: File, createIfNecessary: Boolean = true ) : S = {
       val exists = file.isFile
@@ -566,6 +568,10 @@ object BerkeleyDB {
 //      }
 
       def newVarArray[ A ]( size: Int ) : Array[ Var[ A ]] = new Array[ Var[ A ]]( size )
+
+//      def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+//         system.read( id.id )( in => reader.read( in, () )( this ))( this )
+//      }
 
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val id = in.readInt()
