@@ -152,8 +152,8 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    private[event] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ]
 
    final private[event] def pushUpdate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
-                                       path: Path[ S ], visited: Visited[ S ],
-                                       reactions: Reactions )( implicit tx: S#Tx ) {
+                                        path: Path[ S ], visited: Visited[ S ],
+                                        reactions: Reactions )( implicit tx: S#Tx ) {
       val cid     = reactor.id
       val bitset  = visited.getOrElse( cid, 0 )
       if( (bitset & inlet) == 0 ) {

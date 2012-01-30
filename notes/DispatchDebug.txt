@@ -55,3 +55,80 @@ _2c.isSource reports false, yielding a _2ch of None.
 ::::::::::::::::
 
 so this worked with the propagate( source ) approach, but doesn't work properly with pushUpdate( path ) because it wrongly suppresses vital paths.
+
+so both paths must be followed:
+
+ <..5...> = expr var
+  |    |
+ <16>  |
+  |    |
+ <20>  |
+  |    |
+ <22> <24>
+  |    |
+ <..26..> = span 3
+
+such that _1c.isSource and _2c.isSource both report true
+
+so what is the anatomy of Path[_] ?
+
+::::::::::::::::
+
+it should be a structure (see _Ideas.txt) that can store the cached updates as well
+
+- a reactor selector is (Int, S#ID)
+- Visited is MMap[ S#ID, Int ]
+- Children is Seq[ (Int, Selector[ S ])]
+
+the core push mechanism
+
+      val cid     = reactor.id
+      val bitset  = visited.getOrElse( cid, 0 )
+      if( (bitset & inlet) == 0 ) {
+         visited.+=( (cid, bitset | inlet) )
+         val path1 = this :: path
+         reactor.children.foreach { tup =>
+            val inlet2 = tup._1
+            if( inlet2 == inlet ) {
+               val sel = tup._2
+               sel.pushUpdate( source, update, parent, outlet, path1, visited, reactions )
+            }
+         }
+      }
+
+::::::::::::::::
+
+- however, the whole problem would also disappear if TupleN Expr was mainting N input slots...
+- still the update cache would be desirable?
+- and also: _1c | _2c currently is an _addition_, it would fire twice!
+- so what we want is actually _1c merge _1c
+- like (_1.changed, _2.changed).map( ... )
+
+- either the propagating reactor needs to establish whether the selector is 'accumulative' or
+  'synthesizing'; or: the path for each observer is actually an inverted tree
+- in the latter case, we can avoid having to create two events for Tuple2
+
+- but... don't we already have a double filter, covering both inlets and outlets?
+  - if( (bitset & inlet) == 0 ) --> refers to the _outlet_ 
+- so, assuming we have two inlets in Span, 01(binary) for start, and 10(binary) for stop
+  - span's pushUpdate would pass the bitset test twice
+  - thus, any child of the span which is a reactor-selector would block in the second iteration
+  - but, still, the observer's won't check the visited stuff and be invoked twice :-(
+
+::::::::::::::::
+
+the whole notion of inlet and outlet is still blurry.
+
+it seems a selector is actually (inlet, outlet, node-id), where outlet is aka event-id !!
+
+- but do we need this inlet for isSource? probably _not_, because if we have the inlet's input selector as
+  path.head, we can safely perform checks against _1.changed.select and _2.changed.select
+
+- so instead of complicating things more... path could be replaced by a Map?
+
+- meaning that Path and Visited will be _merged_ into Map[ ReactorSelector, List[ ReactorSelector ]]
+  where ReactorSelector.equals/hashCode = (event-id, node-id)
+
+- and in pull, we would havea additionally a Map[ ReactorSelector, Option[ Any ]] representing the cached pull
+
+  
