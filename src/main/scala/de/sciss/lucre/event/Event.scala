@@ -1120,8 +1120,18 @@ object Compound {
       private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ A1 ] = {
          val elems: IIdxSeq[ B ] = visited( select() ).flatMap( sel =>
             sel.nodeOption match {
-               case Some( nodeSel ) => nodeSel.pullUpdate( visited, update ).asInstanceOf[ Option[ B ]]
-               case _ => elemEvt( elemReader.read( sys.error( "TODO" ), sys.error( "TODO" ))).pullUpdate( visited, update )
+               case Some( nodeSel ) => // this happens for mem-cached and not persisting systems (e.g. `InMemory`)
+                  nodeSel.pullUpdate( visited, update ).asInstanceOf[ Option[ B ]]
+               case _ =>
+                  // this happens for a persisting system (e.g. `BerkeleyDB`).
+                  // ; although this is not type enforced (yet), we know that
+                  // `Event[ _, _, Elem ]` is represented by a `NodeSelector` with
+                  // its node being _represented by_ `Elem`, and thus we know that
+                  // at `sel.reactor.id` indeed an `Elem` is stored. Therefore, we
+                  // may safely deserialize the element with the given reader, and
+                  // can then apply `elemEvt` to get the event/selector.
+                  val elem = tx.read[ Elem ]( sel.reactor.id )
+                  elemEvt( elem ).pullUpdate( visited, update ) // we could also do elem.select( sel.inlet ) but would need an additional cast
             }
          )( breakOut )
 

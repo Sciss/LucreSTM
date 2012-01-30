@@ -222,7 +222,7 @@ Usages:
          sealed trait Collection extends Update { def l: RegionList; def idx: Int; def region: EventRegion }
          final case class Added(   l: RegionList, idx: Int, region: EventRegion ) extends Collection
          final case class Removed( l: RegionList, idx: Int, region: EventRegion ) extends Collection
-         final case class Element( l: RegionList, changes: IIdxSeq[ EventRegion.Update ]) extends Update
+         final case class Element( l: RegionList, changes: IIdxSeq[ EventRegion.Changed ]) extends Update
 
          declare[ Collection ]( _.collectionChanged )
 //         declare[ Update ]( _.changed )
@@ -578,13 +578,11 @@ Usages:
       showFrame( f )
    }
 
-   class TrackItem( name0: String, span0: Span ) {
-      var name: String  = name0
-      var span: Span    = span0
-   }
+   case class TrackItem( id: Any, name: String, span: Span )
 
    class TrackView extends JComponent {
       private val items = Buffer.empty[ TrackItem ]
+      private var map = Map.empty[ Any, TrackItem ]
       private val colrRegion = new Color( 0x00, 0x00, 0x00, 0x80 )
 
       var start         = 0L
@@ -597,6 +595,7 @@ Usages:
 
       def insert( idx: Int, r: TrackItem ) {
          items.insert( idx, r )
+         map += ((r.id, r))
          if( idx == items.size - 1 ) {
             repaintTracks( r.span.start, r.span.stop, idx, idx + 1 )
          } else {
@@ -606,11 +605,20 @@ Usages:
 
       def removeAt( idx: Int ) {
          val it = items.remove( idx )
+         map -= it.id
          if( idx == items.size ) {
             repaintTracks( it.span.start, it.span.stop, idx, idx + 1 )
          } else {
             repaintTracks( start, stop, idx, items.size + 1 )
          }
+      }
+
+      def update( r: TrackItem ) {
+         val old = map( r.id )
+         val idx = items.indexOf( old )
+         items.update( idx, r )
+         map += ((r.id, r))
+         repaintTracks( math.min( r.span.start, old.span.start ), math.max( r.span.stop, old.span.stop ), idx, idx + 1 )
       }
 
       private def trackHeight = regionHeight + 2
@@ -723,17 +731,30 @@ Usages:
 
       val coll = system.atomic { implicit tx =>
          val res = RegionList.empty
-         res.changed.react { (tx, update) => update match {
-            case RegionList.Added( _, idx, r ) =>
-               implicit val _tx = tx
-               val name    = r.name.value
-               val span    = r.span.value
-               defer {
-                  tr.insert( idx, new TrackItem( name, span ))
-               }
-            case RegionList.Removed( _, idx, r ) =>
-               defer { tr.removeAt( idx )}
-         }}
+         res.changed.react { (tx, update) =>
+            implicit val _tx = tx
+            update match {
+               case RegionList.Added( _, idx, r ) =>
+                  val name    = r.name.value
+                  val span    = r.span.value
+                  defer {
+                     tr.insert( idx, new TrackItem( r.id, name, span ))
+                  }
+
+               case RegionList.Removed( _, idx, r ) =>
+                  defer { tr.removeAt( idx )}
+
+               case RegionList.Element( _, changes ) =>
+                  val viewChanges = changes.map { c =>
+                     val r = c.r
+                     new TrackItem( r.id, r.name.value, r.span.value )
+                  }
+
+                  defer {
+                     viewChanges.foreach( tr.update )
+                  }
+            }
+         }
          res
       }
 
@@ -755,6 +776,16 @@ Usages:
             if( coll.size > 0 ) {
                val r    = coll.apply( rnd.nextInt( coll.size ))
                r.name   = scramble( r.name.value )
+            }
+         }
+      })
+      actionPane.add( button( "Random move" ) {
+         system.atomic { implicit tx =>
+            if( coll.size > 0 ) {
+               val r       = coll.apply( rnd.nextInt( coll.size ))
+               val len     = (r.span.value.length / 44100L).toInt
+               val start   = rnd.nextInt( 21 - len )
+               r.span      = Span( start * 44100L, (start + len) * 44100L )
             }
          }
       })

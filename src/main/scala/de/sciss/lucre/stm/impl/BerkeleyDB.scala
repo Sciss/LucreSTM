@@ -35,7 +35,7 @@ import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, Trans
 import annotation.elidable
 import elidable.CONFIG
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeSelector, ReactorSelector, Reactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets, Visited}
+import event.{NodeSelector, Reactor, ObserverKey, ReactionMap, Reactions, Targets, Visited}
 
 object BerkeleyDB {
    import LucreSTM.logConfig
@@ -569,9 +569,9 @@ object BerkeleyDB {
 
       def newVarArray[ A ]( size: Int ) : Array[ Var[ A ]] = new Array[ Var[ A ]]( size )
 
-//      def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
-//         system.read( id.id )( in => reader.read( in, () )( this ))( this )
-//      }
+      def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+         system.read( id.id )( in => reader.read( in, () )( this ))( this )
+      }
 
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val id = in.readInt()

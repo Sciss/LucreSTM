@@ -31,7 +31,7 @@ import stm.{ Txn => _Txn, Var => _Var }
 import concurrent.stm.{InTxn, TxnExecutor}
 import collection.immutable.{IntMap, IndexedSeq => IIdxSeq}
 import scala.util.MurmurHash
-import event.{NodeSelector, ReactorSelector, Reactor, ObserverKey, ReactionMap, Reactions, Targets, Visited}
+import event.{NodeSelector, Reactor, ObserverKey, ReactionMap, Reactions, Targets, Visited}
 
 object Confluent {
    private type Acc = IIdxSeq[ Int ]
@@ -230,9 +230,11 @@ object Confluent {
          new IDImpl( id, pid.path )
       }
 
-//      def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
-//         system.read ( id.id )( in => reader.read( in, () )( this ))( this )
-//      }
+      def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+         val best = system.storage( id.id )( id.path )
+         val in = new DataInput( best )
+         reader.read( in, id.path )( this )
+      }
 
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] = {
          val id = readSource( in, pid )

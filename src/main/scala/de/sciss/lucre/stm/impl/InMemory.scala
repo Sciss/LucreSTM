@@ -30,7 +30,7 @@ package impl
 import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeSelector, ReactorSelector, Reactor, ObserverKey, ReactionMap, Reactions, Targets, Visited}
+import event.{NodeSelector, Reactor, ObserverKey, ReactionMap, Reactions, Targets, Visited}
 
 object InMemory {
    private type S = InMemory
@@ -173,6 +173,8 @@ object InMemory {
 //      }
 
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
+
+      def read[ A ]( id: ID )( implicit ser: TxnReader[ Txn, Unit, A ]) : A = opNotSupported( "read" )
 
       def readVar[ A ]( id: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          opNotSupported( "readVar" )
