@@ -32,6 +32,7 @@ import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayou
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import annotation.tailrec
 import collection.mutable.Buffer
+import collection.immutable.{IndexedSeq => IIdxSeq}
 import stm.{TxnSerializer, Sys}
 import stm.impl.{InMemory, Confluent, BerkeleyDB}
 import stm.Mutable
@@ -221,7 +222,7 @@ Usages:
          sealed trait Collection extends Update { def l: RegionList; def idx: Int; def region: EventRegion }
          final case class Added(   l: RegionList, idx: Int, region: EventRegion ) extends Collection
          final case class Removed( l: RegionList, idx: Int, region: EventRegion ) extends Collection
-         final case class Element( l: RegionList, change: EventRegion.Update ) extends Update
+         final case class Element( l: RegionList, changes: IIdxSeq[ EventRegion.Update ]) extends Update
 
          declare[ Collection ]( _.collectionChanged )
 //         declare[ Update ]( _.changed )

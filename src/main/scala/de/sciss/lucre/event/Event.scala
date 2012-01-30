@@ -89,14 +89,11 @@ object Selector {
    }
 
    private sealed trait TargetsSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
-      final private[event] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] = EmptyPull
-   }
+      final private[event] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] =
+         sys.error( "Operation not supported" ) // EmptyPull
 
-   private sealed trait NodeSelector[ S <: Sys[ S ], A, Repr <: Node[ S, A ]] extends ReactorSelector[ S ] {
-      def reactor: Repr // Node[ S, _ ]
-
-      final private[event] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] = {
-         reactor.getEvent( inlet ).pullUpdate( visited, update )
+      final private[event] def expand[ A, Repr <: Node[ S, A ]]( implicit reader: TxnReader[ S#Tx, S#Acc, Repr ]) : NodeSelector[ S, A, Repr ] = {
+         sys.error( "TODO" )
       }
    }
 
@@ -138,7 +135,7 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    def reactor: Reactor[ S ]
    def inlet: Int
 
-//   def expand[ A ]( implicit : NodeSelector[ S ]
+   private[event] def expand[ A, Repr <: Node[ S, A ]]( implicit reader: TxnReader[ S#Tx, S#Acc, Repr ]) : NodeSelector[ S, A, Repr ]
 
    final protected def writeData( out: DataOutput ) {
       out.writeInt( inlet )
@@ -202,6 +199,18 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
             }
          }
       }
+   }
+}
+
+sealed trait NodeSelector[ S <: Sys[ S ], A, Repr <: Node[ S, A ]] extends ReactorSelector[ S ] {
+   def reactor: Repr // Node[ S, _ ]
+
+   final private[event] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] = {
+      reactor.getEvent( inlet ).pullUpdate( visited, update )
+   }
+
+   final private[event] def expand[ A1, Repr1 <: Node[ S, A1 ]]( implicit reader: TxnReader[ S#Tx, S#Acc, Repr1 ]) : NodeSelector[ S, A1, Repr1 ] = {
+      this.asInstanceOf[ NodeSelector[ S, A1, Repr1 ]]   // XXX not nice :-(
    }
 }
 
@@ -1102,6 +1111,12 @@ object Compound {
       }
 
       private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ A1 ] = {
+//         val elems: IIdxSeq[ B ] = visited( select() ).flatMap( sel =>
+//            sel.pullUpdate( visited, update ).asInstanceOf[ ]
+//
+//            elemEvt( tx.read[ Elem ]( sel.reactor.id )).pullUpdate( visited, update )
+//         )( breakOut )
+
          sys.error( "TODO" )
 //         val elems: IIdxSeq[ B ] = visited( select() ).flatMap( sel =>
 //            elemEvt( tx.read[ Elem ]( sel.reactor.id )).pullUpdate( visited, update )
