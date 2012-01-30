@@ -148,14 +148,16 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
       val c = startMagicA
       val k = startMagicB
       h = extendHash( h, inlet, c, k )
-      h = extendHash( h, reactor.##, nextMagicA( c ), nextMagicB( k ))
+//      h = extendHash( h, reactor.##, nextMagicA( c ), nextMagicB( k ))
+      h = extendHash( h, reactor.id.##, nextMagicA( c ), nextMagicB( k ))
       finalizeHash( h )
    }
 
    override def equals( that: Any ) : Boolean = {
       (if( that.isInstanceOf[ ReactorSelector[ _ ]]) {
          val thatSel = that.asInstanceOf[ ReactorSelector[ _ ]]
-         (inlet == thatSel.inlet && reactor == thatSel.reactor)
+//         (inlet == thatSel.inlet && reactor == thatSel.reactor)
+         (inlet == thatSel.inlet && reactor.id == thatSel.reactor.id)
       } else super.equals( that ))
    }
 
@@ -428,13 +430,13 @@ sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] /* with Dispatcher[ S
       disposeData()
    }
 
-   override def equals( that: Any ) : Boolean = {
-      (if( that.isInstanceOf[ Node[ _, _ ]]) {
-         id == that.asInstanceOf[ Node[ _, _ ]].id
-      } else super.equals( that ))
-   }
-
-   override def hashCode = id.hashCode()
+//   override def equals( that: Any ) : Boolean = {
+//      (if( that.isInstanceOf[ Node[ _, _ ]]) {
+//         id == that.asInstanceOf[ Node[ _, _ ]].id
+//      } else super.equals( that ))
+//   }
+//
+//   override def hashCode = id.hashCode()
 }
 
 object Invariant {
@@ -866,6 +868,14 @@ sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disp
    def id: S#ID
    private[event] def select( inlet: Int ) : ReactorSelector[ S ]
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
+
+   override def equals( that: Any ) : Boolean = {
+      (if( that.isInstanceOf[ Reactor[ _ ]]) {
+         id == that.asInstanceOf[ Reactor[ _ ]].id
+      } else super.equals( that ))
+   }
+
+   override def hashCode = id.hashCode()
 }
 
 object Dummy {

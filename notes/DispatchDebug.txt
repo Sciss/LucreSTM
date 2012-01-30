@@ -151,3 +151,35 @@ that they have the same length, and there would be no way to tell which index co
 
 ; therefore, the better solution is to have collection events specifically emit Seqs, while Pull[ A ] remains Option[ A ]
 ; we could then still compose with collection events, if we use a map operator
+
+::::::::::::::::
+
+visited map for changing region1_stop-var
+
+Targets<26 @ 0,1>.select(1) -> 
+  Targets<24 @ 0,1>.select(1)
+
+Targets<26 @ 0,1>.select(1) -> 
+  Targets<22 @ 0,1>.select(1)
+
+Targets<24 @ 0,1>.select(1) ->
+  Expr.Var<5 @ 0,1>.select(1)
+
+Region<32 @ 0,1>.select(2) ->
+  Expr.Var<37 @ 0,1>.select(1)
+
+Targets<22 @ 0,1>.select(1) ->
+  Targets<20 @ 0,1>.select(1)
+
+Targets<20 @ 0,1>.select(1) ->
+  Targets<16 @ 0,1>.select(1)
+
+Targets<16 @ 0,1>.select(1) ->
+  Expr.Var<5 @ 0,1>.select(1)
+
+Expr.Var<37 @ 0,1>.select(1) ->
+  Targets<26 @ 0,1>.select(1)
+  Targets<26 @ 0,1>.select(1)
+
+all correct, but duplicate entry for Targets<26> indicates equals/hashCode missing
+

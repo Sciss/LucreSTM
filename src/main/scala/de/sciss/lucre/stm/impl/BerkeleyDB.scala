@@ -253,6 +253,8 @@ object BerkeleyDB {
    private final class IDImpl( val id: Int ) extends ID {
       def write( out: DataOutput ) { out.writeInt( id )}
 
+      override def hashCode : Int = id
+
       override def equals( that: Any ) : Boolean = {
          /* (that != null) && */ that.isInstanceOf[ IDImpl ] && (id == that.asInstanceOf[ IDImpl ].id)
       }
