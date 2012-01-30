@@ -28,7 +28,7 @@ package stm
 
 import concurrent.stm.InTxn
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{Reactor, Event, ObserverKey, Node, Reactions, Targets}
+import event.{ReactorSelector, Reactor, Event, ObserverKey, Node, Reactions, Targets, Visited}
 
 trait Txn[ S <: Sys[ S ]] {
    def system: S
@@ -50,8 +50,7 @@ trait Txn[ S <: Sys[ S ]] {
 //   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], keys: IIdxSeq[ Int ]) : Reactor[ S ]
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
                         observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ]
-   def processEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                     leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
+   def processEvent( observer: ObserverKey[ S ], update: Any, source: ReactorSelector[ S ], visited: Visited[ S ],
                      reactions: Reactions ) : Unit
    def removeEventReaction( key: ObserverKey[ S ]) : Unit
 

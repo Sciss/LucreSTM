@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package expr
 
-import event.{Dummy, Change, Event, Source, StandaloneLike, Path, Pull}
+import event.{Dummy, Change, Event, Generator, StandaloneLike, Visited, Pull}
 import stm.{Disposable, Var => _Var, Sys, Writer}
 
 object Expr {
@@ -45,7 +45,7 @@ object Expr {
    trait Var[ S <: Sys[ S ], A ] extends Expr[ S, A ] with _Var[ S#Tx, Expr[ S, A ]]
    // with Invariant[ S, Change[ A ]]
    with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] /* with LateBinding[ S, Change[ A ]] */
-   with Source[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
+   with Generator[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
       expr =>
 
       import de.sciss.lucre.{event => evt}
@@ -105,11 +105,11 @@ object Expr {
 
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 
-      final private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change[ A ]] = {
-         if( path.isEmpty ) {
-            Pull( update.asInstanceOf[ Change[ A ]])
+      final private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change[ A ]] = {
+         if( visited.contains( select() )) {
+            get.changed.pullUpdate( visited, update )
          } else {
-            get.changed.pullUpdate( path.tail, update )
+            Pull( update.asInstanceOf[ Change[ A ]])
          }
       }
 

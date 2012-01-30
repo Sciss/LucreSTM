@@ -30,7 +30,7 @@ package impl
 import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{Reactor, Event, Node, ObserverKey, ReactionMap, Reactions, Targets}
+import event.{ReactorSelector, Reactor, ObserverKey, ReactionMap, Reactions, Targets, Visited}
 
 object InMemory {
    private type S = InMemory
@@ -136,10 +136,8 @@ object InMemory {
                            observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
          system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
 
-      def processEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                        leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
-                        reactions: Reactions ) {
-         system.reactionMap.processEvent( observer, source, update, leaf, selector, path, /* visited, */ reactions )( this )
+      def processEvent( observer: ObserverKey[ S ], update: Any, source: ReactorSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
+         system.reactionMap.processEvent( observer, update, source, visited, reactions )( this )
       }
 
       def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}

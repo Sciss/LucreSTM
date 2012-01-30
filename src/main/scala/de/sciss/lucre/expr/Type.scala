@@ -27,7 +27,7 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import event.{Observer, Invariant, Path, Pull, EmptyPull}
+import event.{Observer, Invariant, Pull, EmptyPull, Visited}
 
 /**
  * IDs:
@@ -165,8 +165,8 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 //         }
 //      }
 
-      private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change ] = {
-         _1.changed.pullUpdate( path.tail, update ).flatMap { ach =>
+      private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change ] = {
+         _1.changed.pullUpdate( visited, update ).flatMap { ach =>
             change( op.value( ach.before ), op.value( ach.now ))
          }
       }
@@ -226,51 +226,32 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 //         }
 //      }
 
-      private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change ] = {
-         path match {
-            case sel :: path1 =>
-               val _1c = _1.changed
-               val _2c = _2.changed
+      private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change ] = {
+         val sources = visited( select() )
+         val _1c = _1.changed
+         val _2c = _2.changed
 
-               val _1ch = if( _1c.isSource( sel )) {
-                  _1c.pullUpdate( path1, update )
-               } else {
-                  EmptyPull
-               }
-               val _2ch = if( _2c.isSource( sel )) {
-                  _2c.pullUpdate( path1, update )
-               } else {
-                  EmptyPull
-               }
+         val _1ch = if( _1c.isSource( visited )) {
+            _1c.pullUpdate( visited, update )
+         } else {
+            EmptyPull
+         }
+         val _2ch = if( _2c.isSource( visited )) {
+            _2c.pullUpdate( visited, update )
+         } else {
+            EmptyPull
+         }
 
-               (_1ch, _2ch) match {
-                  case (Some( ach ), None) =>
-                     val bv = _2.value
-                     change( op.value( ach.before, bv ), op.value( ach.now, bv ))
-                  case (None, Some( bch )) =>
-                     val av = _1.value
-                     change( op.value( av, bch.before ), op.value( av, bch.now ))
-                  case (Some( ach ), Some( bch )) =>
-                     change( op.value( ach.before, bch.before ), op.value( ach.now, bch.now ))
-                  case _ => None
-               }
-
-//               if( _1c.isSource( sel )) {
-//                  _1c.pull( path1, update ).flatMap { ach =>
-//                     val bv = _2.value
-//                     change( op.value( ach.before, bv ), op.value( ach.now, bv ))
-//                  }
-//               } else if( _2c.isSource( sel )) {
-//                  _2c.pull( path1, update ).flatMap { bch =>
-//                     val av = _1.value
-//                     change( op.value( av, bch.before ), op.value( av, bch.now ))
-//                  }
-//
-//               } else {
-//                  sys.error( "Event wrongly routed" )
-//               }
-
-            case _ => sys.error( "Event wrongly routed" )
+         (_1ch, _2ch) match {
+            case (Some( ach ), None) =>
+               val bv = _2.value
+               change( op.value( ach.before, bv ), op.value( ach.now, bv ))
+            case (None, Some( bch )) =>
+               val av = _1.value
+               change( op.value( av, bch.before ), op.value( av, bch.now ))
+            case (Some( ach ), Some( bch )) =>
+               change( op.value( ach.before, bch.before ), op.value( ach.now, bch.now ))
+            case _ => None
          }
       }
 

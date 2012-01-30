@@ -29,7 +29,6 @@ package event
 import concurrent.stm.TMap
 import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import collection.mutable.Buffer
 
 object ReactionMap {
 //   type Reaction  = () => () => Unit
@@ -66,23 +65,18 @@ object ReactionMap {
          }
       }
 
-      def processEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                          leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
-                          reactions: Reactions )( implicit tx: S#Tx ) {
+      def processEvent( observer: ObserverKey[ S ], update: Any, source: ReactorSelector[ S ], visited: Visited[ S ],
+                        reactions: Reactions )( implicit tx: S#Tx ) {
          val itx = tx.peer
-         path match {
-            case sel :: path1 =>
-               eventMap.get( observer.id )( itx ).foreach { obs =>
-                  val react: event.Reaction = () => {
-                     sel.pullUpdate( path1, update ) match {
-                        case Some( result ) =>
-                           () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
-                        case None => noOpEval
-                     }
-                  }
-                  reactions += react
+         eventMap.get( observer.id )( itx ).foreach { obs =>
+            val react: Reaction = () => {
+               source.pullUpdate( visited, update ) match {
+                  case Some( result ) =>
+                     () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
+                  case None => noOpEval
                }
-            case _ =>
+            }
+            reactions += react
          }
       }
 
@@ -164,7 +158,6 @@ trait ReactionMap[ S <: Sys[ S ]] {
 //   def propagateEvent( observer: ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Node[ S, _ ], reactions: Reactions )
 //                     ( implicit tx: S#Tx ) : Reactions
 
-   def processEvent( observer: ObserverKey[ S ], source: Event[ S, _, _ ], update: Any,
-                     leaf: Node[ S, _ ], selector: Int, path: event.Path[ S ], /* visited: Event.Visited[ S ], */
+   def processEvent( observer: ObserverKey[ S ], update: Any, source: ReactorSelector[ S ], visited: Visited[ S ],
                      reactions: Reactions )( implicit tx: S#Tx ) : Unit
 }
