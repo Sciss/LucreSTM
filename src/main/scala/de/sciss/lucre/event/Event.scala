@@ -89,7 +89,7 @@ object Selector {
    }
 
    private sealed trait TargetsSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
-      final def nodeOption = Option.empty[ NodeSelector[ S ]]
+      final def nodeOption: Option[ NodeSelector[ S ]] = None
 
 //      final private[event] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] =
 //         sys.error( "Operation not supported" ) // EmptyPull
@@ -209,7 +209,7 @@ sealed trait NodeSelector[ S <: Sys[ S ] /*, A, Repr <: Node[ S, A ] */] extends
 //   def reactor: Repr
    def reactor: Node[ S, _ ]
 
-   final def nodeOption = Option( this )
+   final def nodeOption: Option[ NodeSelector[ S ]] = Some( this )
 
    final private[event] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] = {
       reactor.getEvent( inlet ).pullUpdate( visited, update )
@@ -1118,20 +1118,15 @@ object Compound {
       }
 
       private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ A1 ] = {
-//         val elems: IIdxSeq[ B ] = visited( select() ).flatMap( sel =>
-//            sel.pullUpdate( visited, update ).asInstanceOf[ ]
-//
-//            elemEvt( tx.read[ Elem ]( sel.reactor.id )).pullUpdate( visited, update )
-//         )( breakOut )
+         val elems: IIdxSeq[ B ] = visited( select() ).flatMap( sel =>
+            sel.nodeOption match {
+               case Some( nodeSel ) => nodeSel.pullUpdate( visited, update ).asInstanceOf[ Option[ B ]]
+               case _ => elemEvt( elemReader.read( sys.error( "TODO" ), sys.error( "TODO" ))).pullUpdate( visited, update )
+            }
+         )( breakOut )
 
-         sys.error( "TODO" )
-//         val elems: IIdxSeq[ B ] = visited( select() ).flatMap( sel =>
-//            elemEvt( tx.read[ Elem ]( sel.reactor.id )).pullUpdate( visited, update )
-//         )( breakOut )
-//         if( elems.isEmpty ) None else Some( fun( elems ))
+         if( elems.isEmpty ) None else Some( fun( elems ))
       }
-
-//      private[lucre] def isSource
    }
 
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
