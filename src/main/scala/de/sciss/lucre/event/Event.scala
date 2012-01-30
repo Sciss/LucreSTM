@@ -87,13 +87,13 @@ object Selector {
    }
 
    private sealed trait TargetsSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
-      final private[event] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ] = None
+      final private[event] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] = EmptyPull
    }
 
    private sealed trait NodeSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
       def reactor: Node[ S, _ ]
 
-      final private[event] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ] = {
+      final private[event] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] = {
          reactor.getEvent( inlet ).pullUpdate( path, update )
       }
    }
@@ -149,7 +149,7 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 
    override def toString = reactor.toString + ".select(" + inlet + ")"
 
-   private[event] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Any ]
+   private[event] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ]
 
    final private[event] def pushUpdate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], outlet: Int,
                                         path: Path[ S ], visited: Visited[ S ],
@@ -525,9 +525,9 @@ trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
 //      if( source == this ) Some( update.asInstanceOf[ A ]) else None
 //   }
 
-   final /* override */ private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+   final /* override */ private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ A ] = {
       require( path.isEmpty )
-      Some( update.asInstanceOf[ A ])
+      Pull( update.asInstanceOf[ A ])
    }
 }
 
@@ -538,6 +538,7 @@ trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
 final case class Change[ @specialized A ]( before: A, now: A ) {
    def isSignificant: Boolean = before != now
    def toOption: Option[ Change[ A ]] = if( isSignificant ) Some( this ) else None
+   def toPull: Pull[ Change[ A ]] = if( isSignificant ) Pull( this ) else EmptyPull
 }
 
 /**
@@ -850,7 +851,7 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
       Observer.dummy[ S, A, Repr ]
 
 //   final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
-   final private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = {
+   final private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ A ] = {
 //      None
       opNotSupported
    }
@@ -906,7 +907,7 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
     *          a filtering function
     */
 //   private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
-   private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
+   private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ A ]
 
    /**
     * Returns a `Selector` (inlet) representation of this event, that is the underlying `Node` along
@@ -986,7 +987,7 @@ object Compound {
 //      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ B ] = {
 //         elems.view.flatMap( _.pull( source, update )).headOption // .map( fun )
 //      }
-      private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ B ] = {
+      private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ B ] = {
          opNotSupported
 //         elems.view.flatMap( _.pull( path, update )).headOption // .map( fun )
       }
@@ -1039,7 +1040,7 @@ object Compound {
          elemEvt( elem ) -/-> this
       }
 
-      private[lucre] def pullUpdate( source: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
+      private[lucre] def pullUpdate( source: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ A1 ] = {
          sys.error( "TODO" )
       }
 
@@ -1058,7 +1059,7 @@ object Compound {
 
 //      private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( e )
 
-      private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ A1 ] = {
+      private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ A1 ] = {
 //         e.pull( source, update ).map( fun )
 //         path match {
 //            case eSel :: path1 =>

@@ -12,6 +12,9 @@ package object event {
    type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
 //   type Path[ S <: Sys[ S ]] = List[ S#ID ]
    type Path[ S <: Sys[ S ]] = List[ ReactorSelector[ S ]]
+   type Pull[ A ] = Option[ A ] // List[ A ]
+   val EmptyPull = None // Nil
+   def Pull[ A ]( update: A ) : Pull[ A ] = Some( update ) //  update :: Nil
 
 //   private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ Selector[ S ]]
    private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Selector[ S ])]

@@ -131,4 +131,23 @@ it seems a selector is actually (inlet, outlet, node-id), where outlet is aka ev
 
 - and in pull, we would havea additionally a Map[ ReactorSelector, Option[ Any ]] representing the cached pull
 
-  
+::::::::::::::::
+
+let's first make sure that this works with collection events...
+
+- assume R2 = transform(R1)
+- assume Coll = { R1, R2 }
+- assume Obs <-- Coll
+- assume R1 fires
+- then Obs needs to receive two notifications
+- the only way this can successfully work is, if pull(): Option[A] is changed to pull(): Seq[A]
+- and I think this case isn't covered by other frameworks, such as EScala?
+
+::::::::::::::::
+
+but if Pull[ A ] = Seq[ A ], we run into problems with combining operators, e.g. _ + _
+--> it would receive two seqs, one from operand A, one from operand B, and there wouldn't be a guarantee
+that they have the same length, and there would be no way to tell which index corresponds with which index
+
+; therefore, the better solution is to have collection events specifically emit Seqs, while Pull[ A ] remains Option[ A ]
+; we could then still compose with collection events, if we use a map operator

@@ -27,7 +27,7 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import event.{Observer, Invariant}
+import event.{Observer, Invariant, Path, Pull, EmptyPull}
 
 /**
  * IDs:
@@ -116,7 +116,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
       new VarRead( in, access, targets, tx )
    }
 
-   /* protected */ def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption
+   /* protected */ def change( before: A, now: A ) : Pull[ Change ] = new event.Change( before, now ).toPull
 
 //   protected def newBinaryOp( op: BinaryOp, a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( op, a, b, tx )
 //   protected def newUnaryOp( op: UnaryOp, a: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( op, a, tx )
@@ -165,7 +165,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 //         }
 //      }
 
-      private[lucre] def pullUpdate( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+      private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change ] = {
          _1.changed.pullUpdate( path.tail, update ).flatMap { ach =>
             change( op.value( ach.before ), op.value( ach.now ))
          }
@@ -226,7 +226,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 //         }
 //      }
 
-      private[lucre] def pullUpdate( path: event.Path[ S ], update: Any )( implicit tx: S#Tx ) : Option[ Change ] = {
+      private[lucre] def pullUpdate( path: Path[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change ] = {
          path match {
             case sel :: path1 =>
                val _1c = _1.changed
@@ -235,12 +235,12 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
                val _1ch = if( _1c.isSource( sel )) {
                   _1c.pullUpdate( path1, update )
                } else {
-                  None
+                  EmptyPull
                }
                val _2ch = if( _2c.isSource( sel )) {
                   _2c.pullUpdate( path1, update )
                } else {
-                  None
+                  EmptyPull
                }
 
                (_1ch, _2ch) match {
