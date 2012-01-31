@@ -182,6 +182,8 @@ object Confluent {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = system.newID()( this )
 
+      override def toString = "Confluent#Tx" // + system.path.mkString( "<", ",", ">" )
+
 //      def addStateReaction[ A, Repr <: State[ S, A ]](
 //         reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
 //            system.reactionMap.addStateReaction( reader, fun )( this )
@@ -233,7 +235,8 @@ object Confluent {
       def read[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
          val acc     = parent.path
          val path    = id.path
-         val best    = system.storage( id.id )( path )
+         val map     = system.storage( id.id )
+         val best    = map( path )
          val bestLen = path.zip( acc ).segmentLength({ case (a, b) => a == b }, 0 )
          val in      = new DataInput( best )
          reader.read( in, acc.drop( bestLen ))( this )

@@ -700,14 +700,11 @@ Usages:
    def collections[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
       val (system, cleanUp) = tup
 
-      val infra = system.atomic { implicit tx => System[ S ]}
-      import infra._
-
-      val id = system.atomic { implicit tx => tx.newID() }
-
-      val cnt = system.atomic { implicit tx =>
-         tx.newIntVar( id, 0 )
-      }
+//      val id = system.atomic { implicit tx => tx.newID() }
+//
+//      val cnt = system.atomic { implicit tx =>
+//         tx.newIntVar( id, 0 )
+//      }
 
       val rnd = new scala.util.Random( 1L )
 
@@ -716,22 +713,15 @@ Usages:
          Seq.fill[ Char ]( s.length )( sb.remove( rnd.nextInt( sb.size ))).mkString
       }
 
-      def newRegion()( implicit tx: S#Tx ) : EventRegion = {
-         val c = cnt.get + 1
-         cnt.set( c )
-         val name    = "Region #" + c
-         val len     = rnd.nextInt( 10 ) + 1
-         val start   = rnd.nextInt( 21 - len )
-         val r       = EventRegion( name, Span( start * 44100L, (start + len) * 44100L ))
-//         println( "Region(" + r.name.value + ", " + r.start.value + ", " + r.stop.value + ")" )
-         r
-      }
-
       val tr   = new TrackView
 
-      val coll = system.atomic { implicit tx =>
-         val res = RegionList.empty
-         res.changed.react { (tx, update) =>
+      val (infra, cnt, cv) = system.atomic { implicit tx =>
+         val _infra = System[ S ]
+         import _infra._
+         val _id  = tx.newID()
+         val _cnt = tx.newIntVar( _id, 0 )
+         val _coll = RegionList.empty
+         _coll.changed.react { (tx, update) =>
             implicit val _tx = tx
             update match {
                case RegionList.Added( _, idx, r ) =>
@@ -755,7 +745,21 @@ Usages:
                   }
             }
          }
-         res
+         val _cv = tx.newVar( tx.newID(), _coll )
+         (_infra, _cnt, _cv)
+      }
+
+      import infra._
+
+      def newRegion()( implicit tx: S#Tx ) : EventRegion = {
+         val c = cnt.get + 1
+         cnt.set( c )
+         val name    = "Region #" + c
+         val len     = rnd.nextInt( 10 ) + 1
+         val start   = rnd.nextInt( 21 - len )
+         val r       = EventRegion( name, Span( start * 44100L, (start + len) * 44100L ))
+//         println( "Region(" + r.name.value + ", " + r.start.value + ", " + r.stop.value + ")" )
+         r
       }
 
       val f    = frame( "Reaction Test 2", cleanUp )
@@ -763,16 +767,19 @@ Usages:
       val actionPane = Box.createHorizontalBox()
       actionPane.add( button( "Add last" ) {
          system.atomic { implicit tx =>
+            val coll = tx.access( cv )
             coll.add( newRegion() )
          }
       })
       actionPane.add( button( "Remove first" ) {
          system.atomic { implicit tx =>
+            val coll = tx.access( cv )
             if( coll.size > 0 ) coll.removeAt( 0 )
          }
       })
       actionPane.add( button( "Random rename" ) {
          system.atomic { implicit tx =>
+            val coll = tx.access( cv )
             if( coll.size > 0 ) {
                val r    = coll.apply( rnd.nextInt( coll.size ))
                r.name   = scramble( r.name.value )
@@ -781,6 +788,7 @@ Usages:
       })
       actionPane.add( button( "Random move" ) {
          system.atomic { implicit tx =>
+            val coll = tx.access( cv )
             if( coll.size > 0 ) {
                val r       = coll.apply( rnd.nextInt( coll.size ))
                val len     = (r.span.value.length / 44100L).toInt
