@@ -1112,7 +1112,7 @@ object Compound {
 
       def +=( elem: Elem )( implicit tx: S#Tx ) {
          elemEvt( elem ) ---> this
-         tx.write( elem.id, elem )
+         tx.write( node.id, elem.id, elem )
       }
 
       def -=( elem: Elem )( implicit tx: S#Tx ) {

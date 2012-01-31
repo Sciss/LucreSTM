@@ -573,7 +573,7 @@ object BerkeleyDB {
          system.read( id.id )( in => reader.read( in, () )( this ))( this )
       }
 
-      def write[ A ]( id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
+      def write[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
          system.write( id.id )( out => ser.write( value, out ))( this )
       }
 

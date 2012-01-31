@@ -200,3 +200,13 @@ Expr.Var<10 @ 1,2>
  parent = <2 @ 0,1,2>
  id = <8 @ 1,2>
 
+----
+   
+   Targets<8 @ 1,2>
+
+Expr.Var<10 @ 1,2>.map[Renamed] | Expr.Var<13 @ 1,2>.map[Moved] pullUpdate
+
+Map(Expr.Var<10 @ 1,2>.select(1) -> Set(), Node<2 @ 0,1,2>.select(2) -> Set(Targets<8 @ 1,2>.select(1)), Targets<8 @ 1,2>.select(1) -> Set(Expr.Var<10 @ 1,2>.select(1)))
+
+Expr.Var<10 @ 1,2>.map[Renamed] pullUpdate
+

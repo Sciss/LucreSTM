@@ -176,7 +176,7 @@ object InMemory {
 
       def read[ A ]( parent: S#ID, id: S#ID )( implicit ser: TxnReader[ Txn, Unit, A ]) : A = opNotSupported( "read" )
 
-      def write[ A ]( id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {}
+      def write[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {}
 
       def readVar[ A ]( id: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          opNotSupported( "readVar" )
