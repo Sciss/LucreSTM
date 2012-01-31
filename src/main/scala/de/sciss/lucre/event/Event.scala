@@ -1060,13 +1060,14 @@ object Compound {
          obs
       }
 
-      // XXX is this ever invoked?
+      // XXX is this ever invoked? YES YES YES
 //      private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ B ] = {
 //         elems.view.flatMap( _.pull( source, update )).headOption // .map( fun )
 //      }
       private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ B ] = {
-         opNotSupported
+//         opNotSupported
 //         elems.view.flatMap( _.pull( path, update )).headOption // .map( fun )
+         elems.find( ev => ev.isSource( visited )).flatMap( _.pullUpdate( visited, update ))
       }
 
       private[lucre] def isSource( visited: Visited[ S ]) : Boolean = opNotSupported
@@ -1092,16 +1093,16 @@ object Compound {
       override def toString = elems.mkString( " | " )
    }
 
-   final protected class CollectionOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem, B ](
-      d: Compound[ S, Repr, D ], elem: Elem => Event[ S, B, Elem ])( implicit elemReader: TxnReader[ S#Tx, S#Acc, Elem ]) {
+   final protected class CollectionOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S, _ ], B ](
+      d: Compound[ S, Repr, D ], elem: Elem => Event[ S, B, Elem ])( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ]) {
 
       def map[ A1 <: D#Update ]( fun: IIdxSeq[ B ] => A1 )( implicit m: ClassManifest[ A1 ]) : CollectionEvent[ S, Repr, D, Elem, B, A1 ] =
          new CollectionEvent[ S, Repr, D, Elem, B, A1 ]( d, elem, fun, d.decl.eventID[ A1 ])
    }
 
-   final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem, B, A1 <: D#Update ] private[Compound](
+   final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S, _ ], B, A1 <: D#Update ] private[Compound](
       protected val node: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, Elem ], fun: IIdxSeq[ B ] => A1,
-      protected val outlet: Int )( implicit elemReader: TxnReader[ S#Tx, S#Acc, Elem ])
+      protected val outlet: Int )( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ])
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
@@ -1111,6 +1112,7 @@ object Compound {
 
       def +=( elem: Elem )( implicit tx: S#Tx ) {
          elemEvt( elem ) ---> this
+         tx.write( elem.id, elem )
       }
 
       def -=( elem: Elem )( implicit tx: S#Tx ) {
@@ -1220,8 +1222,8 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
    protected def event[ A1 <: D#Update ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr ] =
       new Compound.Trigger( this )
 
-   protected def collection[ Elem, B ]( fun: Elem => Event[ S, B, Elem ])
-                                      ( implicit elemReader: TxnReader[ S#Tx, S#Acc, Elem ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
+   protected def collection[ Elem <: Node[ S, _ ], B ]( fun: Elem => Event[ S, B, Elem ])
+                                      ( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
 //   final private[event] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ D#Update ] = {

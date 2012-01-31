@@ -573,6 +573,10 @@ object BerkeleyDB {
          system.read( id.id )( in => reader.read( in, () )( this ))( this )
       }
 
+      def write[ A ]( id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
+         system.write( id.id )( out => ser.write( value, out ))( this )
+      }
+
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val id = in.readInt()
          new VarImpl[ A ]( id, ser )

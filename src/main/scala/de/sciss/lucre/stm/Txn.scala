@@ -65,7 +65,17 @@ trait Txn[ S <: Sys[ S ]] {
    def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ]
    def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
    def readLongVar( id: S#ID, in: DataInput ) : S#Var[ Long ]
+
+   /**
+    * A raw read. If the underlying system doesn't persist objects, an implementation may
+    * throw an exception.
+    */
    def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A
+   /**
+    * A raw write. If the underlying system doesn't persist objects, the implementation
+    * should provide a no-op stub, but must not throw an exception.
+    */
+   def write[ A ]( id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : Unit
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
 

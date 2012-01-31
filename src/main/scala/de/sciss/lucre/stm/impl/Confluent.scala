@@ -236,6 +236,14 @@ object Confluent {
          reader.read( in, id.path )( this )
       }
 
+      def write[ A ]( id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
+         val out = new DataOutput()
+         ser.write( value, out )
+         val bytes = out.toByteArray
+         system.storage += id.id -> (system.storage.getOrElse( id.id,
+            Map.empty[ Acc, Array[ Byte ]]) + (id.path -> bytes))
+      }
+
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] = {
          val id = readSource( in, pid )
          new VarImpl( id, system, ser )
