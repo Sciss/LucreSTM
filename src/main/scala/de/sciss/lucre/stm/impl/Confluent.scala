@@ -93,6 +93,23 @@ object Confluent {
          }
       }
 
+      def access( id: Int, acc: S#Acc )( implicit tx: Txn ) : (DataInput, S#Acc) = {
+         var best: Array[Byte]   = null
+         var bestLen = 0
+         val map = storage.getOrElse( id, Map.empty )
+         map.foreach {
+            case (path, arr) =>
+               val len = path.zip( acc ).segmentLength({ case (a, b) => a == b }, 0 )
+               if( len > bestLen && len == path.size ) {
+                  best     = arr
+                  bestLen  = len
+               }
+         }
+         require( best != null, "No value for path " + acc )
+         val in = new DataInput( best )
+         (in, acc.drop( bestLen ))
+      }
+
       def fromPath[ A ]( path: Acc )( fun: Tx => A ) : A = {
          TxnExecutor.defaultAtomic[ A ] { itx =>
             pathVar = path :+ (pathVar.lastOption.getOrElse( -1 ) + 1)
@@ -233,13 +250,8 @@ object Confluent {
       }
 
       def read[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
-         val acc     = parent.path
-         val path    = id.path
-         val map     = system.storage( id.id )
-         val best    = map( path )
-         val bestLen = path.zip( acc ).segmentLength({ case (a, b) => a == b }, 0 )
-         val in      = new DataInput( best )
-         reader.read( in, acc.drop( bestLen ))( this )
+         val (in, acc) = system.access( id.id, parent.path )( this )
+         reader.read( in, acc )( this )
       }
 
       def write[ A ]( id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
@@ -309,20 +321,8 @@ object Confluent {
       final def get( implicit tx: Txn ) : A = access( id.path )
 
       final def access( acc: S#Acc )( implicit tx: Txn ) : A = {
-         var best: Array[Byte]   = null
-         var bestLen = 0
-         val map = system.storage.getOrElse( id.id, Map.empty )
-         map.foreach {
-            case (path, arr) =>
-               val len = path.zip( acc ).segmentLength({ case (a, b) => a == b }, 0 )
-               if( len > bestLen && len == path.size ) {
-                  best     = arr
-                  bestLen  = len
-               }
-         }
-         require( best != null, "No value for path " + acc )
-         val in = new DataInput( best )
-         readValue( in, acc.drop( bestLen ))
+         val (in, acc1) = system.access( id.id, acc )
+         readValue( in, acc1 )
       }
 
       final def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}

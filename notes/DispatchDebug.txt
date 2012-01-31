@@ -183,3 +183,20 @@ Expr.Var<37 @ 0,1>.select(1) ->
 
 all correct, but duplicate entry for Targets<26> indicates equals/hashCode missing
 
+::::::::::::::::::::::::::::
+
+Node<2 @ 0,1>.event[Collection]
+Added(Node<2 @ 0,1>,0,Region<8 @ 1>)
+
+rename:
+
+Expr.Var<10 @ 1,2>
+  Change(Region #1, e1ig#oRn)
+
+  Targets<8 @ 1,2>.select(1) -- Region
+    Node<2 @ 0,1,2>.select(2) -- RegionList
+
+---> tx.read :  Targets<8 @ 1,2>.select(1)
+ parent = <2 @ 0,1,2>
+ id = <8 @ 1,2>
+
