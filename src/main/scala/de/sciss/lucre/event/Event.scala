@@ -31,7 +31,7 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 import collection.mutable.{Buffer, Map => MMap}
 import annotation.switch
 import scala.util.MurmurHash
-import stm.{TxnReader, Writer, Sys, Disposable, TxnSerializer}
+import stm.{Writer, Sys, Disposable, TxnSerializer}
 
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
@@ -1132,7 +1132,7 @@ object Compound {
                   // at `sel.reactor.id` indeed an `Elem` is stored. Therefore, we
                   // may safely deserialize the element with the given reader, and
                   // can then apply `elemEvt` to get the event/selector.
-                  val elem = tx.read[ Elem ]( sel.reactor.id )
+                  val elem = tx.read[ Elem ]( node.id, sel.reactor.id )
                   elemEvt( elem ).pullUpdate( visited, update ) // we could also do elem.select( sel.inlet ) but would need an additional cast
             }
          )( breakOut )

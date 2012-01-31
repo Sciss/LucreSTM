@@ -174,7 +174,7 @@ object InMemory {
 
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
 
-      def read[ A ]( id: ID )( implicit ser: TxnReader[ Txn, Unit, A ]) : A = opNotSupported( "read" )
+      def read[ A ]( parent: S#ID, id: S#ID )( implicit ser: TxnReader[ Txn, Unit, A ]) : A = opNotSupported( "read" )
 
       def write[ A ]( id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {}
 

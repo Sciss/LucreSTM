@@ -230,10 +230,13 @@ object Confluent {
          new IDImpl( id, pid.path )
       }
 
-      def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
-         val best = system.storage( id.id )( id.path )
-         val in = new DataInput( best )
-         reader.read( in, id.path )( this )
+      def read[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+         val acc     = parent.path
+         val path    = id.path
+         val best    = system.storage( id.id )( path )
+         val bestLen = path.zip( acc ).segmentLength({ case (a, b) => a == b }, 0 )
+         val in      = new DataInput( best )
+         reader.read( in, acc.drop( bestLen ))( this )
       }
 
       def write[ A ]( id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {

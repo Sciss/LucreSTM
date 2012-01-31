@@ -569,7 +569,7 @@ object BerkeleyDB {
 
       def newVarArray[ A ]( size: Int ) : Array[ Var[ A ]] = new Array[ Var[ A ]]( size )
 
-      def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+      def read[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
          system.read( id.id )( in => reader.read( in, () )( this ))( this )
       }
 

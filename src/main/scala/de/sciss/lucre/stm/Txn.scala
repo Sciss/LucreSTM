@@ -70,7 +70,7 @@ trait Txn[ S <: Sys[ S ]] {
     * A raw read. If the underlying system doesn't persist objects, an implementation may
     * throw an exception.
     */
-   def read[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A
+   def read[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A
    /**
     * A raw write. If the underlying system doesn't persist objects, the implementation
     * should provide a no-op stub, but must not throw an exception.
