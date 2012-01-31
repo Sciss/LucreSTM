@@ -327,7 +327,7 @@ Usages:
                   pred.get match {
                      case None => -1
                      case Some( l ) =>
-                        if( l == r ) i else step( i + 1, l.next_# )
+                        if( l.value == r ) i else step( i + 1, l.next_# )
                   }
                }
                step( 0, headRef )
@@ -578,11 +578,11 @@ Usages:
       showFrame( f )
    }
 
-   case class TrackItem( id: Any, name: String, span: Span )
+   case class TrackItem( /* id: Any, */ name: String, span: Span )
 
    class TrackView extends JComponent {
       private val items = Buffer.empty[ TrackItem ]
-      private var map = Map.empty[ Any, TrackItem ]
+//      private var map = Map.empty[ Any, TrackItem ]
       private val colrRegion = new Color( 0x00, 0x00, 0x00, 0x80 )
 
       var start         = 0L
@@ -595,7 +595,7 @@ Usages:
 
       def insert( idx: Int, r: TrackItem ) {
          items.insert( idx, r )
-         map += ((r.id, r))
+//         map += ((r.id, r))
          if( idx == items.size - 1 ) {
             repaintTracks( r.span.start, r.span.stop, idx, idx + 1 )
          } else {
@@ -605,7 +605,7 @@ Usages:
 
       def removeAt( idx: Int ) {
          val it = items.remove( idx )
-         map -= it.id
+//         map -= it.id
          if( idx == items.size ) {
             repaintTracks( it.span.start, it.span.stop, idx, idx + 1 )
          } else {
@@ -613,11 +613,13 @@ Usages:
          }
       }
 
-      def update( r: TrackItem ) {
-         val old = map( r.id )
-         val idx = items.indexOf( old )
+      def update( idx: Int, r: TrackItem ) {
+//         val old = map( r.id )
+         val old = items( idx )
+//         val idx = items.indexOf( old )
          items.update( idx, r )
-         map += ((r.id, r))
+//         map += ((r.id, r))
+
          repaintTracks( math.min( r.span.start, old.span.start ), math.max( r.span.stop, old.span.stop ), idx, idx + 1 )
       }
 
@@ -721,6 +723,7 @@ Usages:
          val _id  = tx.newID()
          val _cnt = tx.newIntVar( _id, 0 )
          val _coll = RegionList.empty
+         val _cv = tx.newVar( tx.newID(), _coll )
          _coll.changed.react { (tx, update) =>
             implicit val _tx = tx
             update match {
@@ -728,7 +731,7 @@ Usages:
                   val name    = r.name.value
                   val span    = r.span.value
                   defer {
-                     tr.insert( idx, new TrackItem( r.id, name, span ))
+                     tr.insert( idx, new TrackItem( /* r.id, */ name, span ))
                   }
 
                case RegionList.Removed( _, idx, r ) =>
@@ -737,15 +740,16 @@ Usages:
                case RegionList.Element( _, changes ) =>
                   val viewChanges = changes.map { c =>
                      val r = c.r
-                     new TrackItem( r.id, r.name.value, r.span.value )
+                     val ti = new TrackItem( /* r.id, */ r.name.value, r.span.value )
+                     val idx = tx.access( _cv ).indexOf( r )
+                     (idx, ti)
                   }
 
                   defer {
-                     viewChanges.foreach( tr.update )
+                     viewChanges.foreach { case (idx, ti) => tr.update( idx, ti )}
                   }
             }
          }
-         val _cv = tx.newVar( tx.newID(), _coll )
          (_infra, _cnt, _cv)
       }
 
