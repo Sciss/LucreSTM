@@ -1,0 +1,7 @@
+There are quite a few similarities to scala-virtualized's idea of expressions with our idea of expression trees as lazy structures which can be subject to persistence.
+
+E.g.
+
+"The shallow embedding is enabled by Scala's flexible syntax. The deep embedding relies on lightweight modular staging, which uses type information to drive staging. For the purpose of the tutorial, it suffices to think of staging as "delaying execution" of programs by turning them into a representation that can first be analyzed and then executed. This representation is usually structured as an abstract syntax tree. Overall, for reasons explained later, we'll distinguish two kinds of AST's: expressions and statements."
+
+( https://github.com/TiarkRompf/scala-virtualized/wiki/Tutorial:-Introduction )
