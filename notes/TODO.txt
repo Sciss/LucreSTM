@@ -1,4 +1,4 @@
 	(1) check confluent correctness (normal [OK], meld, retro)
-	(2) collection events
+[OK]	(2) collection events
 	(3) spatial region list
 [OK]	(4) test with bdb

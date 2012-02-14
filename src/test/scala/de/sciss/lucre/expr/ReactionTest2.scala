@@ -36,7 +36,8 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 import stm.{TxnSerializer, Sys}
 import stm.impl.{InMemory, Confluent, BerkeleyDB}
 import stm.Mutable
-import event.{Compound, Decl, Event, Invariant}
+import event.{Mutating, Compound, Decl, Event, Invariant}
+
 //import expr.any2stringadd
 
 object ReactionTest2 extends App {
@@ -424,6 +425,17 @@ Usages:
          def next_# : S#Var[ Option[ LinkedList[ A ]]]
          final def next( implicit tx: Tx ) : Option[ LinkedList[ A ]] = next_#.get
          final def next_=( elem: Option[ LinkedList[ A ]])( implicit tx: Tx ) { next_#.set( elem )}
+      }
+
+      object SortedRegionList extends Decl[ S, SortedRegionList ] {
+         implicit val serializer : Mutating.Serializer[ S, SortedRegionList ] = new Mutating.Serializer[ S, SortedRegionList ] {
+            def read( in: DataInput, access: S#Acc, targets: Mutating.Targets[ S ])( implicit tx: S#Tx ) : SortedRegionList =
+               sys.error( "TODO" ) // new Read( in, access, targets, tx )
+         }
+      }
+      trait SortedRegionList extends Mutating[ S, SortedRegionList.Update ]
+      with Compound[ S, SortedRegionList, SortedRegionList.type ] {
+
       }
 
       final class RegionView[ R <: RegionLike ]( rv: S#Var[ R ], id: String ) extends JPanel {
