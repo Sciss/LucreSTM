@@ -404,19 +404,22 @@ sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] /* with Dispatcher[ S
    protected def connectNode()(    implicit tx: S#Tx ) : Unit
    protected def disconnectNode()( implicit tx: S#Tx ) : Unit
 
-   final private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-      if( targets.add( outlet, sel )) {
-//         events.foreach( _.connectSources() )
-         connectNode()
-      }
-   }
+   private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+   private[event] def removeTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
 
-   final private[event] def removeTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
-      if( targets.remove( outlet, sel )) {
-//         events.foreach( _.disconnectSources() )
-         disconnectNode()
-      }
-   }
+//   final private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+//      if( targets.add( outlet, sel )) {
+////         events.foreach( _.connectSources() )
+//         connectNode()
+//      }
+//   }
+//
+//   final private[event] def removeTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+//      if( targets.remove( outlet, sel )) {
+////         events.foreach( _.disconnectSources() )
+//         disconnectNode()
+//      }
+//   }
 
 //   private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
 //   private[lucre] def pull( key: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ]
@@ -444,10 +447,10 @@ sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] /* with Dispatcher[ S
       writeData( out )
    }
 
-   final def dispose()( implicit tx: S#Tx ) {
-      targets.dispose()
-      disposeData()
-   }
+//   final def dispose()( implicit tx: S#Tx ) {
+//      targets.dispose()
+//      disposeData()
+//   }
 
 //   override def equals( that: Any ) : Boolean = {
 //      (if( that.isInstanceOf[ Node[ _, _ ]]) {
@@ -553,7 +556,22 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 
    final def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
 
-//   override def toString = "Event.Invariant" + id
+   final private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      if( targets.add( outlet, sel )) {
+         connectNode()
+      }
+   }
+
+   final private[event] def removeTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      if( targets.remove( outlet, sel )) {
+         disconnectNode()
+      }
+   }
+
+   final def dispose()( implicit tx: S#Tx ) {
+      targets.dispose()
+      disposeData()
+   }
 }
 
 /**
@@ -874,11 +892,25 @@ object Mutating {
  * it must check the targets' invalidation status and rebuild the internal state if necessary.
  */
 trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
+//   connectNode()
+
    protected def targets: Mutating.Targets[ S ]
 
    final def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
 
-//   override def toString = "Event.Mutating" + id
+   final private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      targets.add( outlet, sel )
+   }
+
+   final private[event] def removeTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+      targets.remove( outlet, sel )
+   }
+
+   final def dispose()( implicit tx: S#Tx ) {
+      targets.dispose()
+      disconnectNode()
+      disposeData()
+   }
 }
 
 /**

@@ -44,6 +44,8 @@ Usage:
 //               case Sorted.Element( _, chs )    => chs.foreach( ch => println( "Changed: " + ch ))
 //            }}
 
+            sorted.toList  // make sure it's validated, to ensure that re-validation actually works!
+
             val rnd = new scala.util.Random( 0L )
             (1 to 10).foreach { i =>
                val start = (rnd.nextDouble() * 441000L).toLong
@@ -155,7 +157,8 @@ println( "VALIDATING" )
          protected val seq       = tx0.newVar[ RegionSeq ]( id, IIdxSeq.empty )
 
          // ---- constructor ----
-         ensureValidity()( tx0 )
+         connectNode()( tx0 )
+//         ensureValidity()( tx0 )
       }
 
       private final class Read( in: DataInput, access: S#Acc, protected val targets: Mutating.Targets[ S ], tx0: S#Tx )
