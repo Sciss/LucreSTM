@@ -84,7 +84,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
    /* protected */ def readExpr( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Ex = serializer.read( in, access )
 
    private sealed trait ConstLike extends Expr.Const[ S, A ] {
-      final def react( fun: (S#Tx, Change) => Unit )
+      final def react( fun: S#Tx => Change => Unit )
                        ( implicit tx: S#Tx ) : Observer[ S, Change, Ex ] = {
          Observer[ S, Change, Ex ]( serializer, fun )
       }

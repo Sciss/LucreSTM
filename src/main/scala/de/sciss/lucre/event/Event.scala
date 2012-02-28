@@ -277,7 +277,7 @@ extends Invariant.Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
 
 object Observer {
    def apply[ S <: Sys[ S ], A, Repr ](
-      reader: Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
+      reader: Reader[ S, Repr, _ ], fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
 
       val key = tx.addEventReaction[ A, Repr ]( reader, fun )
       new Impl[ S, A, Repr ]( key )
@@ -645,7 +645,10 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
       node.removeTarget( outlet, r )
    }
 
-   final def react( fun: (S#Tx, A1) => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] = {
+   final def react( fun: A1 => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] =
+      reactTx( _ => fun )
+
+   final def reactTx( fun: S#Tx => A1 => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] = {
       val res = Observer[ S, A1, Repr ]( reader, fun )
       res.add( this )
       res
@@ -923,7 +926,10 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
     */
    final private[lucre] def isSource( visited: Visited[ S ]) = false
 
-   final def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
+   final def react( fun: A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
+      Observer.dummy[ S, A, Repr ]
+
+   final def reactTx( fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
       Observer.dummy[ S, A, Repr ]
 
 //   final private[lucre] def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ A ] = None
@@ -969,7 +975,9 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
     * on the resulting observer to register this event, as this is already
     * done as part of the call to `react`.
     */
-   def react( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
+   def react( fun: A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
+
+   def reactTx( fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
 
    /**
     * Involves this event in the pull-phase of event delivery. The event should check
@@ -1058,7 +1066,10 @@ object Compound {
 //         events.foreach( _ -/-> this )
 //      }
 
-      def react( fun: (S#Tx, B) => Unit )( implicit tx: S#Tx ) : Observer[ S, B, Repr ] = {
+      def react( fun: B => Unit )( implicit tx: S#Tx ) : Observer[ S, B, Repr ] =
+         reactTx( _ => fun )
+
+      def reactTx( fun: S#Tx => B => Unit )( implicit tx: S#Tx ) : Observer[ S, B, Repr ] = {
          val obs = Observer( d.decl.serializer, fun )
          elems.foreach( obs add _ )
          obs

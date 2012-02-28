@@ -500,7 +500,7 @@ object BerkeleyDB {
 //      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
       def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
-                                                       fun: (S#Tx, A) => Unit ) : ObserverKey[ S ] =
+                                                       fun: S#Tx => A => Unit ) : ObserverKey[ S ] =
          system.reactionMap.addEventReaction( reader, fun )( this )
 
       def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],

@@ -140,9 +140,12 @@ trait Expr[ S <: Sys[ S ], A ] extends /* Event.Val[ S, A ] with Event[ S, Chang
    def changed: Event[ S, Change[ A ], Expr[ S, A ]]
    def value( implicit tx: S#Tx ) : A
 
-   final def observe( fun: (S#Tx, A) => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
-      val o = changed.react { (tx, change) => fun( tx, change.now )}
-      fun( tx, value )
+   final def observe( fun: A => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] =
+      observeTx( _ => fun )
+
+   final def observeTx( fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] = {
+      val o = changed.reactTx { tx => change => fun( tx )( change.now )}
+      fun( tx )( value )
       o
    }
 }

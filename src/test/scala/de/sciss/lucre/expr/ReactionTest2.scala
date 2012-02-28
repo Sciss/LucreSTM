@@ -142,8 +142,8 @@ Usages:
          }
 
          private def connect( r: R )( implicit tx: Tx ) {
-            r.name_#.observe { (_, v) => defer( ggName.setText(  v ))}
-            r.span_#.observe( (tx, newSpan) => defer {
+            r.name_#.observe { v => defer( ggName.setText(  v ))}
+            r.span_#.observe( newSpan => defer {
                ggStart.setText( newSpan.start.toString )
                ggStop.setText( newSpan.stop.toString )
             })
@@ -225,9 +225,7 @@ Usages:
 //         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
 //            println( "Renamed to '" + newName + "'" )
 //         }
-         _r3.changed.react { (_, ch) =>
-            println( "Changed : " + ch )
-         }
+         _r3.changed.react { ch => println( "Changed : " + ch )}
       }
 
       vs.foreach( cp.add )
@@ -382,32 +380,29 @@ Usages:
          val _cnt = tx.newIntVar( _id, 0 )
          val _coll = RegionList.empty
          val _cv = tx.newVar( tx.newID(), _coll )
-         _coll.changed.react { (tx, update) =>
-            implicit val _tx = tx
-            update match {
-               case RegionList.Added( _, idx, r ) =>
-                  val name    = r.name.value
-                  val span    = r.span.value
-                  defer {
-                     tr.insert( idx, new TrackItem( /* r.id, */ name, span ))
-                  }
+         _coll.changed.reactTx { implicit tx => {
+            case RegionList.Added( _, idx, r ) =>
+               val name    = r.name.value
+               val span    = r.span.value
+               defer {
+                  tr.insert( idx, new TrackItem( /* r.id, */ name, span ))
+               }
 
-               case RegionList.Removed( _, idx, r ) =>
-                  defer { tr.removeAt( idx )}
+            case RegionList.Removed( _, idx, r ) =>
+               defer { tr.removeAt( idx )}
 
-               case RegionList.Element( _, changes ) =>
-                  val viewChanges = changes.map { c =>
-                     val r = c.r
-                     val ti = new TrackItem( /* r.id, */ r.name.value, r.span.value )
-                     val idx = tx.access( _cv ).indexOf( r )
-                     (idx, ti)
-                  }
+            case RegionList.Element( _, changes ) =>
+               val viewChanges = changes.map { c =>
+                  val r = c.r
+                  val ti = new TrackItem( /* r.id, */ r.name.value, r.span.value )
+                  val idx = tx.access( _cv ).indexOf( r )
+                  (idx, ti)
+               }
 
-                  defer {
-                     viewChanges.foreach { case (idx, ti) => tr.update( idx, ti )}
-                  }
-            }
-         }
+               defer {
+                  viewChanges.foreach { case (idx, ti) => tr.update( idx, ti )}
+               }
+         }}
          (_infra, _cnt, _cv)
       }
 

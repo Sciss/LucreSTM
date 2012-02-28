@@ -10,9 +10,7 @@ object EventTest extends App {
 
    val bang = system.atomic { implicit tx => Bang[ S ]}
 
-   system.atomic { implicit tx => bang.react { (tx, _) =>
-      println( "Bang!" )
-   }}
+   system.atomic { implicit tx => bang.react { _ => println( "Bang!" )}}
 
    system.atomic { implicit tx =>
       bang()

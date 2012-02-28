@@ -36,7 +36,7 @@ object ReactionMap {
 //   type Reactions = Buffer[ Reaction ]
 
    private val noOpEval                   = () => ()
-   private type AnyObsFun[ S <: Sys[ S ]] =  (S#Tx, AnyRef) => Unit
+   private type AnyObsFun[ S <: Sys[ S ]] =  S#Tx => AnyRef => Unit
 
    def apply[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx ) : ReactionMap[ S ] =
       new Impl[ S, T ]( cnt )
@@ -45,7 +45,7 @@ object ReactionMap {
 //      reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
 
    private final case class EventObservation[ S <: Sys[ S ], A, Repr /* <: Event[ S, A, _ ] */](
-      reader: event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
+      reader: event.Reader[ S, Repr, _ ], fun: S#Tx => A => Unit )
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
@@ -72,7 +72,7 @@ object ReactionMap {
             val react: Reaction = () => {
                parent.pullUpdate( visited, update ) match {
                   case Some( result ) =>
-                     () => obs.fun.asInstanceOf[ AnyObsFun[ S ]].apply( tx, result.asInstanceOf[ AnyRef ])
+                     () => obs.fun.asInstanceOf[ AnyObsFun[ S ]]( tx )( result.asInstanceOf[ AnyRef ])
                   case None => noOpEval
                }
             }
@@ -80,7 +80,7 @@ object ReactionMap {
          }
       }
 
-      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
+      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ], fun: S#Tx => A => Unit )
                                                            ( implicit tx: S#Tx ) : ObserverKey[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
@@ -147,7 +147,7 @@ trait ReactionMap[ S <: Sys[ S ]] {
 //   def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions )
 //                     ( implicit tx: S#Tx ) : State.Reactions
 
-   def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ], fun: (S#Tx, A) => Unit )
+   def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ], fun: S#Tx => A => Unit )
                                                   ( implicit tx: S#Tx ) : ObserverKey[ S ]
 
    def removeEventReaction( key: ObserverKey[ S ])( implicit tx: S#Tx ) : Unit

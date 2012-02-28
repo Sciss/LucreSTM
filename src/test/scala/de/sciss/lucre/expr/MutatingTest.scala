@@ -4,8 +4,47 @@ package expr
 import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import event.{Compound, Decl, Mutating}
+import stm.impl.{BerkeleyDB, InMemory, Confluent}
+import java.io.File
 
-object MutatingTest {
+object MutatingTest extends App {
+   private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
+   private def confluentSys : (Confluent, () => Unit) = (Confluent(), () => ())
+   private def databaseSys  : (BerkeleyDB, () => Unit) = {
+      val file = new File( new File( new File( sys.props( "user.home" ), "Desktop" ), "mutating" ), "data" )
+      val db   = BerkeleyDB.open( file )
+      (db, () => db.close())
+   }
+
+   args.toSeq.take( 2 ) match {
+      case Seq( "--memory" )      => run[ InMemory ]( memorySys )
+      case Seq( "--confluent" )   => run( confluentSys )
+      case Seq( "--database" )    => run( databaseSys )
+      case _  => println( """
+Usage:
+   --memory
+   --confluent
+   --database
+""" )
+   }
+
+   def run[ S <: Sys[ S ]]( setup: (S, () => Unit) ) {
+      val (system, cleanUp) = setup
+      try {
+         system.atomic { implicit tx =>
+            val m = apply( tx )
+            import m._
+            import regions._
+
+            val unsorted   = RegionList.empty
+            val sorted     = Sorted( unsorted )
+//            sorted.changed.react()
+         }
+      } finally {
+         cleanUp()
+      }
+   }
+
    def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : MutatingTest[ S ] = {
       val strings = Strings[ S ]
       val longs   = Longs[ S ]
