@@ -37,7 +37,11 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
          protected def seq : S#Var[ RegionSeq ]
          protected def unsorted: RegionList
 
-         final lazy val collectionChanged = event[ Collection ]
+//         final lazy val collectionChanged = event[ Collection ]
+         final lazy val collectionChanged = unsorted.collectionChanged.mapTx[ Collection ] { (e, tx) => e match {
+            case RegionList.Added(   _, _, region ) => add(    region )( tx ); Added(   this, region )
+            case RegionList.Removed( _, _, region ) => remove( region )( tx ); Removed( this, region )
+         }}
          final lazy val elementChanged    = unsorted.elementChanged.map( e => Element( this, e.changes ))
          final lazy val changed           = collectionChanged | elementChanged
 
@@ -53,7 +57,15 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
             val idx        = if( idx0 >= 0 ) idx0 else es.size
             val esNew      = es.patch( idx, IIdxSeq( elem ), 0 )
             seq.set( esNew )
-            collectionChanged( Added( this, elem ))
+//            collectionChanged( Added( this, elem ))
+         }
+
+         private def remove( elem: Elem )( implicit tx: S#Tx ) {
+            val es         = seq.get
+            val idx        = es.indexOf( elem )
+            if( idx < 0 ) return
+            val esNew      = es.patch( idx, IIdxSeq.empty, 1 )
+            seq.set( esNew )
          }
 
          final protected def disposeData()( implicit tx: S#Tx ) {
@@ -75,6 +87,8 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
             var idx = 0; while( idx < sz ) {
                add( unsorted( idx )( tx0 ))( tx0 )
             idx += 1 }
+            
+//            unsorted.collectionChanged.--->()
          }
       }
    }

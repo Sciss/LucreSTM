@@ -1030,7 +1030,11 @@ object Compound {
    final protected class EventOps1[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B ](
       d: Compound[ S, Repr, D ], e: Event[ S, B, _ ]) {
       def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
+         new Map[ S, Repr, D, B, A1 ]( d, e, (v, _) => fun( v ))
+
+      def mapTx[ A1 <: D#Update ]( fun: (B, S#Tx) => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
          new Map[ S, Repr, D, B, A1 ]( d, e, fun )
+
 //      def |[ Up >: B, C <: Up ]( that: Event[ S, C, _ ]) : EventOr[ S, Repr, D, Up ] =
 //         new EventOr[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, _ ]]( e, that ))
    }
@@ -1142,7 +1146,7 @@ object Compound {
    }
 
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
-      protected val node: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: B => A1 )( implicit m: ClassManifest[ A1 ])
+      protected val node: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: (B, S#Tx) => A1 )( implicit m: ClassManifest[ A1 ])
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
 
@@ -1160,7 +1164,7 @@ object Compound {
 //
 //            case _ => None
 //         }
-         e.pullUpdate( visited, update ).map( fun )
+         e.pullUpdate( visited, update ).map( fun( _, tx ))
       }
 
       override def toString = e.toString + ".map[" + {
