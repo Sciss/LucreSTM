@@ -773,11 +773,11 @@ trait Bang[ S <: Sys[ S ]] extends Trigger.Impl[ S, Unit, Unit, Bang[ S ]] with 
 
 object Mutating {
    object Targets {
-      def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
+      def apply[ S <: Sys[ S ]]( invalid: Boolean )( implicit tx: S#Tx ) : Targets[ S ] = {
          val id         = tx.newID()
          val children   = tx.newVar[ Children[ S ]]( id, IIdxSeq.empty )
-         val invalid    = tx.newBooleanVar( id, false )
-         new Impl( id, children, invalid )
+         val invalidVar = tx.newBooleanVar( id, invalid )
+         new Impl( id, children, invalidVar )
       }
 
       private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
@@ -828,7 +828,7 @@ object Mutating {
    }
 
    sealed trait Targets[ S <: Sys[ S ]] extends event.Targets[ S ] {
-      private[event] def isInvalid( implicit tx: S#Tx ) : Boolean
+      /* private[event] */ def isInvalid( implicit tx: S#Tx ) : Boolean
 //         final def select( key: Int ) : Selector[ S ] = Selector( key, this )
       def validated()( implicit tx: S#Tx ) : Unit
    }
@@ -850,10 +850,11 @@ object Mutating {
 //         val cookie = in.readUnsignedByte()
 //         if( cookie == 1 ) {
             val targets = Targets.read[ S ]( in, access )
-            val invalid = targets.isInvalid
-            val res     = read( in, access, targets /*, invalid */)
-            if( invalid ) require( !targets.isInvalid, "Reader did not validate structure" )
-            res
+//            val invalid = targets.isInvalid
+//            val res     =
+               read( in, access, targets /*, invalid */)
+//            if( invalid ) require( !targets.isInvalid, "Reader did not validate structure" )
+//            res
 //         } else {
 //            sys.error( "Unexpected cookie " + cookie )
 //         }

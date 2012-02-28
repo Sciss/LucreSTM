@@ -103,7 +103,21 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
 
          final protected def decl = Sorted
 
-         final def toList( implicit tx: S#Tx ) : List[ Elem ] = seq.get.toList
+         final def toList( implicit tx: S#Tx ) : List[ Elem ] = {
+            ensureValidity()
+            seq.get.toList
+         }
+
+         final protected def ensureValidity()( implicit tx: S#Tx ) {
+            if( targets.isInvalid ) {
+println( "VALIDATING" )
+               val sz = unsorted.size
+               var idx = 0; while( idx < sz ) {
+                  add( unsorted( idx ))
+               idx += 1 }
+               targets.validated()
+            }
+         }
 
          override def toString = "Sorted" + id
 
@@ -137,18 +151,11 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
       }
 
       private final class New( tx0: Tx, protected val unsorted: RegionList ) extends Impl {
-         protected val targets   = Mutating.Targets[ S ]( tx0 )
-         protected val seq       = tx0.newVar[ RegionSeq ]( id, IIdxSeq.empty );
+         protected val targets   = Mutating.Targets[ S ]( true )( tx0 )
+         protected val seq       = tx0.newVar[ RegionSeq ]( id, IIdxSeq.empty )
 
          // ---- constructor ----
-         {
-            val sz = unsorted.size( tx0 )
-            var idx = 0; while( idx < sz ) {
-               add( unsorted( idx )( tx0 ))( tx0 )
-            idx += 1 }
-            
-//            unsorted.collectionChanged.--->()
-         }
+         ensureValidity()( tx0 )
       }
 
       private final class Read( in: DataInput, access: S#Acc, protected val targets: Mutating.Targets[ S ], tx0: S#Tx )
