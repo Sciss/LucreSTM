@@ -38,12 +38,22 @@ Usage:
 
             val unsorted   = RegionList.empty
             val sorted     = Sorted( unsorted )
-            sorted.changed.react {
-               case e => println( "REACT: " + e )
+            sorted.changed.reactTx { implicit tx => {
+               case Sorted.Added(   _, region ) => println( "Added: " + region.name.value + " @ " + region.span.value )
+               case Sorted.Removed( _, region ) => println( "Removed: " + region.name.value + " @ " + region.span.value )
+               case Sorted.Element( _, chs ) => chs.foreach( ch => println( "Changed: " + ch ))
+            }}
+
+            val rnd = new scala.util.Random( 0L )
+            (1 to 10).foreach { i =>
+               val start = (rnd.nextDouble() * 441000L).toLong
+               val stop  = start + (rnd.nextDouble() * 441000L).toLong
+               unsorted.add( EventRegion( "r" + i, Span( start, stop )))
             }
 
-            unsorted.add( EventRegion( "r1", Span( 1000, 2000 )))
+            println( "\nSorted:\n" + sorted.toList.map( r => r.name.value + " @ " + r.span.value ).mkString( "\n" ))
          }
+
       } finally {
          cleanUp()
       }
