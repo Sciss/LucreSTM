@@ -38,7 +38,11 @@ Usage:
 
             val unsorted   = RegionList.empty
             val sorted     = Sorted( unsorted )
-//            sorted.changed.react()
+            sorted.changed.react {
+               case e => println( "REACT: " + e )
+            }
+
+            unsorted.add( EventRegion( "r1", Span( 1000, 2000 )))
          }
       } finally {
          cleanUp()
@@ -68,7 +72,10 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
 
       def apply[ A ]( unsorted: RegionList )( implicit tx: S#Tx ) : Sorted = new New( tx, unsorted )
 
-      val serializer : event.Reader[ S, Sorted, _ ] = sys.error( "TODO" )
+      val serializer : event.Reader[ S, Sorted, Mutating.Targets[ S ]] = new Mutating.Serializer[ S, Sorted ] {
+         def read( in: DataInput, access: S#Acc, targets: Mutating.Targets[ S ])( implicit tx: S#Tx ) : Sorted =
+            sys.error( "TODO" )
+      }
 
       private type RegionSeq = IIdxSeq[ EventRegion ]
 
@@ -87,6 +94,8 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
          final protected def decl = Sorted
 
          final def toList( implicit tx: S#Tx ) : List[ Elem ] = seq.get.toList
+
+         override def toString = "Sorted" + id
 
          final protected def add( elem: Elem )( implicit tx: S#Tx ) {
             val es         = seq.get
