@@ -38,11 +38,11 @@ Usage:
 
             val unsorted   = RegionList.empty
             val sorted     = Sorted( unsorted )
-            sorted.changed.reactTx { implicit tx => {
-               case Sorted.Added(   _, region ) => println( "Added: " + region.name.value + " @ " + region.span.value )
-               case Sorted.Removed( _, region ) => println( "Removed: " + region.name.value + " @ " + region.span.value )
-               case Sorted.Element( _, chs ) => chs.foreach( ch => println( "Changed: " + ch ))
-            }}
+//            sorted.changed.reactTx { implicit tx => {
+//               case Sorted.Added(   _, region ) => println( "Added: " + region.name.value + " @ " + region.span.value )
+//               case Sorted.Removed( _, region ) => println( "Removed: " + region.name.value + " @ " + region.span.value )
+//               case Sorted.Element( _, chs )    => chs.foreach( ch => println( "Changed: " + ch ))
+//            }}
 
             val rnd = new scala.util.Random( 0L )
             (1 to 10).foreach { i =>
@@ -84,7 +84,7 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
 
       val serializer : event.Reader[ S, Sorted, Mutating.Targets[ S ]] = new Mutating.Serializer[ S, Sorted ] {
          def read( in: DataInput, access: S#Acc, targets: Mutating.Targets[ S ])( implicit tx: S#Tx ) : Sorted =
-            sys.error( "TODO" )
+            new Read( in, access, targets, tx )
       }
 
       private type RegionSeq = IIdxSeq[ EventRegion ]
@@ -131,6 +131,7 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
          }
 
          final protected def writeData( out: DataOutput ) {
+            unsorted.write( out )
             seq.write( out )
          }
       }
@@ -148,6 +149,12 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
             
 //            unsorted.collectionChanged.--->()
          }
+      }
+
+      private final class Read( in: DataInput, access: S#Acc, protected val targets: Mutating.Targets[ S ], tx0: S#Tx )
+      extends Impl {
+         protected val unsorted  = RegionList.serializer.read( in, access )( tx0 )
+         protected val seq       = tx0.readVar[ RegionSeq ]( id, in )
       }
    }
 
