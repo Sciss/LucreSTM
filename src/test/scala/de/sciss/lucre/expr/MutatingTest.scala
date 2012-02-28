@@ -25,16 +25,9 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
       final case class Element( l: Sorted, changes: IIdxSeq[ EventRegion.Changed ]) extends Update
 
       declare[ Collection ]( _.collectionChanged )
-      declare[ Element ]( _.elementChanged )
+      declare[ Element    ]( _.elementChanged    )
 
-      def apply[ A ]( unsorted: RegionList )( implicit tx: S#Tx ) : Sorted = {
-         val res = new New( tx )
-         val sz = unsorted.size
-         var idx = 0; while( idx < sz ) {
-            res.add( unsorted( idx ))
-         idx += 1 }
-         res
-      }
+      def apply[ A ]( unsorted: RegionList )( implicit tx: S#Tx ) : Sorted = new New( tx, unsorted )
 
       val serializer : event.Reader[ S, Sorted, _ ] = sys.error( "TODO" )
 
@@ -42,14 +35,26 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
 
       private sealed trait Impl extends Sorted {
          protected def seq : S#Var[ RegionSeq ]
+         protected def unsorted: RegionList
 
          final lazy val collectionChanged = event[ Collection ]
-         final lazy val elementChanged    = collection( (r: Elem) => r.changed ).map( Element( this, _ ))
+         final lazy val elementChanged    = unsorted.elementChanged.map( e => Element( this, e.changes ))
          final lazy val changed           = collectionChanged | elementChanged
 
          final protected def decl = Sorted
 
          final def toList( implicit tx: S#Tx ) : List[ Elem ] = seq.get.toList
+
+         final protected def add( elem: Elem )( implicit tx: S#Tx ) {
+            val es         = seq.get
+            val newStart   = elem.span.value.start
+            // Obviously we'd have at least a binary search here in a real application...
+            val idx0       = es.indexWhere( _.span.value.start > newStart )
+            val idx        = if( idx0 >= 0 ) idx0 else es.size
+            val esNew      = es.patch( idx, IIdxSeq( elem ), 0 )
+            seq.set( esNew )
+            collectionChanged( Added( this, elem ))
+         }
 
          final protected def disposeData()( implicit tx: S#Tx ) {
             seq.dispose()
@@ -60,19 +65,16 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
          }
       }
 
-      private final class New( tx0: Tx ) extends Impl {
+      private final class New( tx0: Tx, protected val unsorted: RegionList ) extends Impl {
          protected val targets   = Mutating.Targets[ S ]( tx0 )
-         protected val seq       = tx0.newVar[ RegionSeq ]( id, IIdxSeq.empty )
+         protected val seq       = tx0.newVar[ RegionSeq ]( id, IIdxSeq.empty );
 
-         def add( elem: Elem )( implicit tx: S#Tx ) {
-            val es         = seq.get
-            val newStart   = elem.span.value.start
-            // Obviously we'd have at least a binary search here in a real application...
-            val idx0       = es.indexWhere( _.span.value.start > newStart )
-            val idx        = if( idx0 >= 0 ) idx0 else es.size
-            val esNew      = es.patch( idx, IIdxSeq( elem ), 0 )
-            seq.set( esNew )
-            collectionChanged( Added( this, elem ))
+         // ---- constructor ----
+         {
+            val sz = unsorted.size( tx0 )
+            var idx = 0; while( idx < sz ) {
+               add( unsorted( idx )( tx0 ))( tx0 )
+            idx += 1 }
          }
       }
    }
