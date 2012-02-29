@@ -45,21 +45,15 @@ object Selector {
    def apply[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ]) : ReactorSelector[ S ] =
       new InvariantTargetsSelector[ S ]( key, targets )
 
-   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Invariant[ S, _ /* A */])( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = {
-      val sel = new InvariantNodeSelector[ S /*, A, Invariant[ S, A ] */]( key, node )
-//      sel.writeValue()
-      tx.writeVal( node.id, node )
-      sel
+   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Invariant[ S, _ /* A */]) : ReactorSelector[ S ] with ExpandedSelector[ S ] = {
+      new InvariantNodeSelector[ S /*, A, Invariant[ S, A ] */]( key, node )
    }
 
    def apply[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ]) : ReactorSelector[ S ] =
       new MutatingTargetsSelector[ S ]( key, targets )
 
-   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Mutating[ S, _ /* A */])( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = {
-      val sel = new MutatingNodeSelector[ S /*, A, Mutating[ S, A ] */]( key, node )
-//      sel.writeValue()
-      tx.writeVal( node.id, node )
-      sel
+   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Mutating[ S, _ /* A */]) : ReactorSelector[ S ] with ExpandedSelector[ S ] = {
+      new MutatingNodeSelector[ S /*, A, Mutating[ S, A ] */]( key, node )
    }
 
 //   private final class Reader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Selector[ S ]]
@@ -219,6 +213,7 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 }
 
 sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writer */ {
+   private[event] def writeValue()( implicit tx: S#Tx ) : Unit
 //   protected def cookie: Int
 //
 //   final def write( out: DataOutput ) {
@@ -237,6 +232,10 @@ sealed trait NodeSelector[ S <: Sys[ S ] /*, A, Repr <: Node[ S, A ] */] extends
 
    final private[event] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Any ] = {
       reactor.getEvent( inlet ).pullUpdate( visited, update )
+   }
+
+   final private[event] def writeValue()( implicit tx: S#Tx ) {
+      tx.writeVal( reactor.id, reactor )
    }
 
 //   final private[event] def expand[ A1, Repr1 <: Node[ S, A1 ]]( implicit reader: TxnReader[ S#Tx, S#Acc, Repr1 ]) : NodeSelector[ S, A1, Repr1 ] = {
@@ -261,6 +260,8 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
    }
 
 //   def select( key: Int ) : Selector[ S ] = Selector( key, this )
+
+   private[event] def writeValue()( implicit tx: S#Tx ) {}  // we are light weight, nothing to do here
 
    def dispose()( implicit tx: S#Tx ) {}  // XXX really?
 
@@ -379,6 +380,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    final private[event] def add( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
       val tup  = (outlet, sel)
       val old  = childrenVar.get
+      sel.writeValue()
       childrenVar.set( old :+ tup )
       old.isEmpty
    }
@@ -418,7 +420,7 @@ sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] /* with Dispatcher[ S
 
    final private[event] def children( implicit tx: S#Tx ) = targets.children
 
-   private[event] def select( inlet: Int )( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ]
+   private[event] def select( inlet: Int ) : ReactorSelector[ S ] with ExpandedSelector[ S ]
 
 //   final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
 //   protected def events : IIdxSeq[ Event[ S, _, _ ]]
@@ -541,7 +543,7 @@ object Invariant {
             childrenVar.dispose()
          }
 
-         def select( key: Int )( implicit tx: S#Tx ) : ReactorSelector[ S ] = Selector( key, this )
+         def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
       }
    }
 
@@ -590,7 +592,7 @@ object Invariant {
 trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
    protected def targets: Invariant.Targets[ S ]
 
-   final def select( key: Int )( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = Selector( key, this )
+   final def select( key: Int ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = Selector( key, this )
 
    final private[event] def addTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
       if( targets.add( outlet, sel )) {
@@ -680,9 +682,9 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
    protected def outlet: Int
    protected def node: Node[ S, A ]
 
-   final private[lucre] def select()( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = node.select( outlet )
+   final private[lucre] def select() : ReactorSelector[ S ] with ExpandedSelector[ S ] = node.select( outlet )
 
-   final private[lucre] def isSource( visited: Visited[ S ])( implicit tx: S#Tx ) : Boolean = {
+   final private[lucre] def isSource( visited: Visited[ S ]) : Boolean = {
       visited.contains( select() )
 //      (sel.reactor.id == node.id) && (sel.inlet == outlet)
    }
@@ -888,7 +890,7 @@ object Mutating {
             invalid.dispose()
          }
 
-         def select( key: Int )( implicit tx: S#Tx ) : ReactorSelector[ S ] = Selector( key, this )
+         def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
       }
    }
 
@@ -944,7 +946,7 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 
    protected def targets: Mutating.Targets[ S ]
 
-   final def select( key: Int )( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = Selector( key, this )
+   final def select( key: Int ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = Selector( key, this )
 
    final private[event] def addTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
       targets.add( outlet, sel )
@@ -976,12 +978,7 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disposable[ S#Tx ] {
    def id: S#ID
 
-   /**
-    * TODO: we should remove the `tx` argument again, as well as calling `writeValue` from
-    * `Selector.apply`. The better solution is to call `writeValue` from the target's
-    * `add` method!
-    */
-   private[event] def select( inlet: Int )( implicit tx: S#Tx ) : ReactorSelector[ S ]
+   private[event] def select( inlet: Int ) : ReactorSelector[ S ]
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
    override def equals( that: Any ) : Boolean = {
@@ -1006,12 +1003,12 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
    final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {}
    final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {}
 
-   final private[lucre] def select()( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = opNotSupported
+   final private[lucre] def select() : ReactorSelector[ S ] with ExpandedSelector[ S ] = opNotSupported
 
    /**
     * Returns `false`, as a dummy is never a source event.
     */
-   final private[lucre] def isSource( visited: Visited[ S ])( implicit tx: S#Tx ) = false
+   final private[lucre] def isSource( visited: Visited[ S ]) = false
 
    final def react( fun: A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
       Observer.dummy[ S, A, Repr ]
@@ -1084,10 +1081,10 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
     * Returns a `Selector` (inlet) representation of this event, that is the underlying `Node` along
     * with the inlet identifier corresponding to this event.
     */
-   private[lucre] def select()( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ]
+   private[lucre] def select() : ReactorSelector[ S ] with ExpandedSelector[ S ]
 
 //   private[lucre] def isSource( sel: ReactorSelector[ S ]) : Boolean
-   private[lucre] def isSource( visited: Visited[ S ])( implicit tx: S#Tx ) : Boolean
+   private[lucre] def isSource( visited: Visited[ S ]) : Boolean
 
    /**
     * Called when the first target is connected to the underlying dispatcher node. This allows
@@ -1172,9 +1169,9 @@ object Compound {
          elems.find( ev => ev.isSource( visited )).flatMap( _.pullUpdate( visited, update ))
       }
 
-      private[lucre] def isSource( visited: Visited[ S ])( implicit tx: S#Tx ) : Boolean = opNotSupported
+      private[lucre] def isSource( visited: Visited[ S ]) : Boolean = opNotSupported
 
-      private[lucre] def select()( implicit tx: S#Tx ) = opNotSupported
+      private[lucre] def select() = opNotSupported
 
       private[lucre] def connect()( implicit tx: S#Tx ) {}
       private[lucre] def disconnect()( implicit tx: S#Tx ) {}
