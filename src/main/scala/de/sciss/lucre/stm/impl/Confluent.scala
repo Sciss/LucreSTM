@@ -249,17 +249,30 @@ object Confluent {
          new IDImpl( id, pid.path )
       }
 
-      def read[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+      def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
          val (in, acc) = system.access( id.id, parent.path )( this )
          reader.read( in, acc )( this )
       }
 
-      def write[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
+      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
          val out = new DataOutput()
          ser.write( value, out )
          val bytes = out.toByteArray
          system.storage += id.id -> (system.storage.getOrElse( id.id,
             Map.empty[ Acc, Array[ Byte ]]) + (parent.path -> bytes))
+      }
+
+      def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+         val (in, acc) = system.access( id.id, id.path )( this )
+         reader.read( in, acc )( this )
+      }
+
+      def writeVal( id: S#ID, value: Writer ) {
+         val out = new DataOutput()
+         value.write( out )
+         val bytes = out.toByteArray
+         system.storage += id.id -> (system.storage.getOrElse( id.id,
+            Map.empty[ Acc, Array[ Byte ]]) + (id.path -> bytes))
       }
 
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] = {

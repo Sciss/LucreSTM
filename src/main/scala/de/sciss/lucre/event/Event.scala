@@ -146,7 +146,8 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 
    final protected def writeData( out: DataOutput ) {
       out.writeInt( inlet )
-      reactor.write( out )
+//      reactor.write( out )
+      reactor.id.write( out )
    }
 
    override def hashCode : Int = {
@@ -487,9 +488,19 @@ object Invariant {
       }
 
       private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-         val targets    = read( in, access )
-         val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
-         tx.mapEventTargets( in, access, targets, observers )
+//         val targets    = read( in, access )
+//         val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
+//         tx.mapEventTargets( in, access, targets, observers )
+         val id         = tx.readID( in, access )
+         tx.readVal( id )( new ExpanderReader[ S ])
+      }
+
+      private class ExpanderReader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Reactor[ S ]] {
+         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+            val targets    = Targets.read( in, access )
+            val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
+            tx.mapEventTargets( in, access, targets, observers )
+         }
       }
 
       private[lucre] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
@@ -816,9 +827,19 @@ object Mutating {
       }
 
       private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-         val targets    = read( in, access )
-         val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
-         tx.mapEventTargets( in, access, targets, observers )
+//         val targets    = read( in, access )
+//         val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
+//         tx.mapEventTargets( in, access, targets, observers )
+         val id         = tx.readID( in, access )
+         tx.readVal( id )( new ExpanderReader[ S ])
+      }
+
+      private class ExpanderReader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Reactor[ S ]] {
+         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+            val targets    = Targets.read( in, access )
+            val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
+            tx.mapEventTargets( in, access, targets, observers )
+         }
       }
 
       private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
@@ -1185,7 +1206,7 @@ object Compound {
 
       def +=( elem: Elem )( implicit tx: S#Tx ) {
          elemEvt( elem ) ---> this
-         tx.write( node.id, elem.id, elem )
+         tx._writeUgly( node.id, elem.id, elem )
       }
 
       def -=( elem: Elem )( implicit tx: S#Tx ) {
@@ -1205,7 +1226,7 @@ object Compound {
                   // at `sel.reactor.id` indeed an `Elem` is stored. Therefore, we
                   // may safely deserialize the element with the given reader, and
                   // can then apply `elemEvt` to get the event/selector.
-                  val elem = tx.read[ Elem ]( node.id, sel.reactor.id )
+                  val elem = tx._readUgly[ Elem ]( node.id, sel.reactor.id )
                   elemEvt( elem ).pullUpdate( visited, update ) // we could also do elem.select( sel.inlet ) but would need an additional cast
             }
          )( breakOut )

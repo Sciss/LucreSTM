@@ -174,9 +174,13 @@ object InMemory {
 
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
 
-      def read[ A ]( parent: S#ID, id: S#ID )( implicit ser: TxnReader[ Txn, Unit, A ]) : A = opNotSupported( "read" )
+      def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit ser: TxnReader[ Txn, Unit, A ]) : A = opNotSupported( "_readUgly" )
 
-      def write[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {}
+      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {}
+
+      def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ Txn, Unit, A ]) : A = opNotSupported( "readVal" )
+
+      def writeVal( id: S#ID, value: Writer ) {}
 
       def readVar[ A ]( id: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          opNotSupported( "readVar" )

@@ -569,12 +569,20 @@ object BerkeleyDB {
 
       def newVarArray[ A ]( size: Int ) : Array[ Var[ A ]] = new Array[ Var[ A ]]( size )
 
-      def read[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+      def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
          system.read( id.id )( in => reader.read( in, () )( this ))( this )
       }
 
-      def write[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
+      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
          system.write( id.id )( out => ser.write( value, out ))( this )
+      }
+
+      def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+         system.read( id.id )( in => reader.read( in, () )( this ))( this )
+      }
+
+      def writeVal( id: S#ID, value: Writer ) {
+         system.write( id.id )( out => value.write( out ))( this )
       }
 
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
