@@ -153,3 +153,29 @@ Vector((1,Targets<4 @ 0>.select(1)), (2,Sorted<4 @ 0>.select(2)))
 the problem thus is that there is a non-resolved element in the children list, and that gets re-written, chopping off the actual data of the sorted (the writeData part).
 
 ; so there is an indirection missing (putting only the id's in the children seq), or the targets when not resolved still need to store the whole binary representation
+
+::::::::::::::::::::::
+
+two solutions
+(1) children = IIdxSeq[ (Int, S#ID) ] instead
+(2) children = mutable linked list
+
+probably for the small typical size of children, variant (1) is more efficient both space and time wise. But it's more tricky as it needs to access low level things like getting the key part of the id.
+
+so let's evaluate (2) first.
+
+before we had S#Var[ IIdxSeq[ (Int, Selector[ S ])]]
+
+for zero children, it would require 4 bytes in the target write; and then in the value write (apart from the oracle structure) 4 bytes size
+
+for zero children in the LL variant: S#Var[ LL[ (Int, NodeSelector[ S ]) ]]
+    4 bytes for the target write; 1 byte for the value write
+
+one child: before: 4 bytes + selector (1 byte + 4 byte + id + children + data! --> at least in the order of 50 byets)
+one child: with LL: Cons cell = 1 byte + 4 byte next var + selector
+
+::::::::::::::::::
+
+The problem remains the same with LL, because in the removal we have pred.nextRef.set( succ ) and that will write the selector of succ again in the current implementation.
+
+We should thus go for (1), it just makes life easier in the end.
