@@ -975,6 +975,12 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 
 sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disposable[ S#Tx ] {
    def id: S#ID
+
+   /**
+    * TODO: we should remove the `tx` argument again, as well as calling `writeValue` from
+    * `Selector.apply`. The better solution is to call `writeValue` from the target's
+    * `add` method!
+    */
    private[event] def select( inlet: Int )( implicit tx: S#Tx ) : ReactorSelector[ S ]
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
