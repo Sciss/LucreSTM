@@ -171,6 +171,8 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
          protected def headRef: S#Var[ LO ]
 //            protected def regionRenamed: RegionRenamed
 
+         override def toString = "RegionList" + id
+
          final protected def writeData( out: DataOutput ) {
             sizeRef.write( out )
             headRef.write( out )
@@ -326,6 +328,8 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
          final protected def disposeData()( implicit tx: S#Tx ) {
             next_#.dispose()
          }
+
+         override def toString = "LinkedList" + id
       }
 
       private final class New[ A ]( val value: A, next0: Option[ LinkedList[ A ]], tx0: S#Tx,

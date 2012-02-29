@@ -109,7 +109,13 @@ object Selector {
    extends NodeSelector[ S /*, A, Repr */] with MutatingSelector
 
    private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating.Targets[ S ])
-   extends TargetsSelector[ S ] with MutatingSelector
+   extends TargetsSelector[ S ] with MutatingSelector {
+      override private[event] def pushUpdate( update: Any, parent: ReactorSelector[ S ], visited: Visited[ S ],
+                                              reactions: Reactions )( implicit tx: S#Tx ) {
+         reactor.invalidate()
+         super.pushUpdate( update, parent, visited, reactions )
+      }
+   }
 }
 
 sealed trait Selector[ S <: Sys[ S ]] extends Writer {
@@ -189,7 +195,7 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 //      }
 //   }
 
-   final private[event] def pushUpdate( update: Any, parent: ReactorSelector[ S ], visited: Visited[ S ],
+   /* final */ private[event] def pushUpdate( update: Any, parent: ReactorSelector[ S ], visited: Visited[ S ],
                                         reactions: Reactions )( implicit tx: S#Tx ) {
       val parents = visited.getOrElse( this, NoParents )
       visited += ((this, parents + parent))
@@ -826,6 +832,7 @@ object Mutating {
       extends Targets[ S ] {
          def isInvalid( implicit tx: S#Tx ) : Boolean = invalid.get
          def validated()( implicit tx: S#Tx ) { invalid.set( false )}
+         def invalidate()( implicit tx: S#Tx ) { invalid.set( true )}
 
          def write( out: DataOutput ) {
             out.writeUnsignedByte( 1 )
@@ -848,6 +855,7 @@ object Mutating {
    sealed trait Targets[ S <: Sys[ S ]] extends event.Targets[ S ] {
       /* private[event] */ def isInvalid( implicit tx: S#Tx ) : Boolean
 //         final def select( key: Int ) : Selector[ S ] = Selector( key, this )
+      def invalidate()( implicit tx: S#Tx ) : Unit
       def validated()( implicit tx: S#Tx ) : Unit
    }
 
@@ -1150,9 +1158,15 @@ object Compound {
 
    final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S, _ ], B, A1 <: D#Update ] private[Compound](
       protected val node: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, Elem ], fun: IIdxSeq[ B ] => A1,
-      protected val outlet: Int )( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ])
+      protected val outlet: Int )( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ], m: ClassManifest[ A1 ])
    extends event.Impl[ S, D#Update, A1, Repr ] {
       protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+
+      override def toString = node.toString + ".collection[" + {
+         val mn = m.toString
+         val i  = math.max( mn.lastIndexOf( '$' ), mn.lastIndexOf( '.' )) + 1
+         mn.substring( i )
+      } + "]"
 
       private[lucre] def connect()( implicit tx: S#Tx ) {}
       private[lucre] def disconnect()( implicit tx: S#Tx ) {}

@@ -54,6 +54,22 @@ Usage:
             }
 
             println( "\nSorted:\n" + sorted.toList.map( r => r.name.value + " @ " + r.span.value ).mkString( "\n" ))
+
+            println( "\nTrying again..." )
+            sorted.toList
+
+            println( "\nNow observed..." )
+            sorted.changed.reactTx { implicit tx => {
+               case Sorted.Added(   _, region ) => println( "Added: " + region.name.value + " @ " + region.span.value )
+               case Sorted.Removed( _, region ) => println( "Removed: " + region.name.value + " @ " + region.span.value )
+               case Sorted.Element( _, chs )    => chs.foreach( ch => println( "Changed: " + ch ))
+            }}
+
+            val r = EventRegion( "rx", Span( 12345, 67890 ))
+            unsorted.add( r )
+
+            println( "\nTrying again..." )
+            sorted.toList
          }
 
       } finally {
