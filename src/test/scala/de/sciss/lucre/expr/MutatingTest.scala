@@ -44,6 +44,7 @@ Usage:
 //               case Sorted.Element( _, chs )    => chs.foreach( ch => println( "Changed: " + ch ))
 //            }}
 
+            println( "\nInitial: (_should re-validate_)" )
             sorted.toList  // make sure it's validated, to ensure that re-validation actually works!
 
             val rnd = new scala.util.Random( 0L )
@@ -53,9 +54,10 @@ Usage:
                unsorted.add( EventRegion( "r" + i, Span( start, stop )))
             }
 
-            println( "\nSorted:\n" + sorted.toList.map( r => r.name.value + " @ " + r.span.value ).mkString( "\n" ))
+            println( "\nSorted: (_should re-validate_)" )
+            println( sorted.toList.map( r => r.name.value + " @ " + r.span.value ).mkString( "\n" ))
 
-            println( "\nTrying again..." )
+            println( "\nTrying again... (_should NOT re-validate_)" )
             sorted.toList
 
             println( "\nNow observed..." )
@@ -68,7 +70,7 @@ Usage:
             val r = EventRegion( "rx", Span( 12345, 67890 ))
             unsorted.add( r )
 
-            println( "\nTrying again..." )
+            println( "\nTrying again... (_should NOT re-validate_)" )
             sorted.toList
          }
 

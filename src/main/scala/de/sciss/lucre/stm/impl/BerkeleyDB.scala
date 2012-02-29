@@ -582,7 +582,10 @@ object BerkeleyDB {
       }
 
       def writeVal( id: S#ID, value: Writer ) {
-         system.write( id.id )( out => value.write( out ))( this )
+         val idi = id.id
+         if( !system.exists( idi )( this )) {
+            system.write( idi )( out => value.write( out ))( this )
+         }
       }
 
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
