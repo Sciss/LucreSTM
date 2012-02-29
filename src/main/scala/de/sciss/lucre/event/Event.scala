@@ -31,10 +31,11 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 import collection.mutable.{Buffer, Map => MMap}
 import annotation.switch
 import scala.util.MurmurHash
-import stm.{Writer, Sys, Disposable, TxnSerializer}
+import stm.{TxnReader, Writer, Sys, Disposable, TxnSerializer}
 
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
+//   implicit def reader[ S <: Sys[ S ]] : TxnReader[ S#Tx, S#Acc, Selector[ S ]] = new Reader[ S ]
 
    implicit def event[ S <: Sys[ S ]]( ev: Event[ S, _, _ ]) : ReactorSelector[ S ] with ExpandedSelector[ S ] = ev.select()
 
@@ -53,6 +54,7 @@ object Selector {
    def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Mutating[ S, _ /* A */]) : ReactorSelector[ S ] with ExpandedSelector[ S ] =
       new MutatingNodeSelector[ S /*, A, Mutating[ S, A ] */]( key, node )
 
+//   private final class Reader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Selector[ S ]]
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
          v.write( out )
@@ -207,7 +209,16 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    }
 }
 
-sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ]
+sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writer */ {
+//   protected def cookie: Int
+//
+//   final def write( out: DataOutput ) {
+//      out.writeUnsignedByte( cookie )
+//      writeData( out )
+//   }
+//
+//   protected def writeData( out: DataOutput ) : Unit
+}
 
 sealed trait NodeSelector[ S <: Sys[ S ] /*, A, Repr <: Node[ S, A ] */] extends ReactorSelector[ S ] with ExpandedSelector[ S ] {
 //   def reactor: Repr
@@ -356,14 +367,14 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 
    final private[event] def children( implicit tx: S#Tx ) : Children[ S ] = childrenVar.get
 
-   final private[event] def add( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+   final private[event] def add( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
       val tup  = (outlet, sel)
       val old  = childrenVar.get
       childrenVar.set( old :+ tup )
       old.isEmpty
    }
 
-   final private[event] def remove( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
+   final private[event] def remove( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
       val tup  = (outlet, sel)
       val xs   = childrenVar.get
       val i    = xs.indexOf( tup )

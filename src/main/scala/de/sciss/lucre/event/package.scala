@@ -19,6 +19,7 @@ package object event {
 
 //   private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ Selector[ S ]]
    private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Selector[ S ])]
+//   private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, ExpandedSelector[ S ])]
 
   /**
    * Late binding events are defined by a static number of sources. This type specifies those
