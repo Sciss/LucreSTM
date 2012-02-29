@@ -36,7 +36,7 @@ import stm.{Writer, Sys, Disposable, TxnSerializer}
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
-   implicit def event[ S <: Sys[ S ]]( ev: Event[ S, _, _ ]) : ReactorSelector[ S ] = ev.select()
+   implicit def event[ S <: Sys[ S ]]( ev: Event[ S, _, _ ]) : ReactorSelector[ S ] with Selector.Full[ S ] = ev.select()
 
 //   def apply[ S <: Sys[ S ]]( key: Int, observer: ObserverKey[ S ]) : Selector[ S ] =
 //      new ObserverSelector[ S ]( key, observer )
@@ -44,13 +44,13 @@ object Selector {
    def apply[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ]) : ReactorSelector[ S ] =
       new InvariantTargetsSelector[ S ]( key, targets )
 
-   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Invariant[ S, _ /* A */]) : ReactorSelector[ S ] =
+   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Invariant[ S, _ /* A */]) : ReactorSelector[ S ] with Selector.Full[ S ] =
       new InvariantNodeSelector[ S /*, A, Invariant[ S, A ] */]( key, node )
 
    def apply[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ]) : ReactorSelector[ S ] =
       new MutatingTargetsSelector[ S ]( key, targets )
 
-   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Mutating[ S, _ /* A */]) : ReactorSelector[ S ] =
+   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Mutating[ S, _ /* A */]) : ReactorSelector[ S ] with Selector.Full[ S ] =
       new MutatingNodeSelector[ S /*, A, Mutating[ S, A ] */]( key, node )
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
@@ -116,6 +116,8 @@ object Selector {
          super.pushUpdate( update, parent, visited, reactions )
       }
    }
+
+   sealed trait Full[ S <: Sys[ S ]] extends Selector[ S ]
 }
 
 sealed trait Selector[ S <: Sys[ S ]] extends Writer {
@@ -211,7 +213,7 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    }
 }
 
-sealed trait NodeSelector[ S <: Sys[ S ] /*, A, Repr <: Node[ S, A ] */] extends ReactorSelector[ S ] {
+sealed trait NodeSelector[ S <: Sys[ S ] /*, A, Repr <: Node[ S, A ] */] extends ReactorSelector[ S ] with Selector.Full[ S ] {
 //   def reactor: Repr
    def reactor: Node[ S, _ ]
 
@@ -231,7 +233,7 @@ sealed trait NodeSelector[ S <: Sys[ S ] /*, A, Repr <: Node[ S, A ] */] extends
  * the observing function is not persisted, the key will be used for lookup (again through the transaction)
  * of the reacting function during the first reaction gathering phase of event propagation.
  */
-final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends /* Reactor[ S ] with */ Selector[ S ] {
+final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends Selector.Full[ S ] {
    protected def cookie: Int = 2
 
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
@@ -400,6 +402,8 @@ sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] /* with Dispatcher[ S
 
    final private[event] def children( implicit tx: S#Tx ) = targets.children
 
+   private[event] def select( inlet: Int ) : ReactorSelector[ S ] with Selector.Full[ S ]
+
 //   final protected def sources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq.empty
 //   protected def events : IIdxSeq[ Event[ S, _, _ ]]
 //   protected final def events : IIdxSeq[ Event[ S, _, _ ]] = IIdxSeq.empty
@@ -410,8 +414,8 @@ sealed trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] /* with Dispatcher[ S
    protected def connectNode()(    implicit tx: S#Tx ) : Unit
    protected def disconnectNode()( implicit tx: S#Tx ) : Unit
 
-   private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
-   private[event] def removeTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) : Unit
+   private[event] def addTarget( outlet: Int, sel: Selector.Full[ S ])( implicit tx: S#Tx ) : Unit
+   private[event] def removeTarget( outlet: Int, sel: Selector.Full[ S ])( implicit tx: S#Tx ) : Unit
 
 //   final private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
 //      if( targets.add( outlet, sel )) {
@@ -560,15 +564,15 @@ object Invariant {
 trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
    protected def targets: Invariant.Targets[ S ]
 
-   final def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
+   final def select( key: Int ) : ReactorSelector[ S ] with Selector.Full[ S ] = Selector( key, this )
 
-   final private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+   final private[event] def addTarget( outlet: Int, sel: Selector.Full[ S ])( implicit tx: S#Tx ) {
       if( targets.add( outlet, sel )) {
          connectNode()
       }
    }
 
-   final private[event] def removeTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+   final private[event] def removeTarget( outlet: Int, sel: Selector.Full[ S ])( implicit tx: S#Tx ) {
       if( targets.remove( outlet, sel )) {
          disconnectNode()
       }
@@ -650,7 +654,7 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
    protected def outlet: Int
    protected def node: Node[ S, A ]
 
-   final private[lucre] def select() : ReactorSelector[ S ] = node.select( outlet )
+   final private[lucre] def select() : ReactorSelector[ S ] with Selector.Full[ S ] = node.select( outlet )
 
    final private[lucre] def isSource( visited: Visited[ S ]) : Boolean = {
       visited.contains( select() )
@@ -660,12 +664,12 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
    protected def reader: Reader[ S, Repr, _ ]
 //      implicit protected def serializer: TxnSerializer[ S#Tx, S#Acc, Event[ S, A1, Repr ]]
 
-   final private[lucre] def --->( r: Selector[ S ])( implicit tx: S#Tx ) {
+   final private[lucre] def --->( r: Selector.Full[ S ])( implicit tx: S#Tx ) {
 //      node.addReactor( r.select( selector ))
       node.addTarget( outlet, r )
    }
 
-   final private[lucre] def -/->( r: Selector[ S ])( implicit tx: S#Tx ) {
+   final private[lucre] def -/->( r: Selector.Full[ S ])( implicit tx: S#Tx ) {
       node.removeTarget( outlet, r )
    }
 
@@ -904,13 +908,13 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 
    protected def targets: Mutating.Targets[ S ]
 
-   final def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
+   final def select( key: Int ) : ReactorSelector[ S ] with Selector.Full[ S ] = Selector( key, this )
 
-   final private[event] def addTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+   final private[event] def addTarget( outlet: Int, sel: Selector.Full[ S ])( implicit tx: S#Tx ) {
       targets.add( outlet, sel )
    }
 
-   final private[event] def removeTarget( outlet: Int, sel: Selector[ S ])( implicit tx: S#Tx ) {
+   final private[event] def removeTarget( outlet: Int, sel: Selector.Full[ S ])( implicit tx: S#Tx ) {
       targets.remove( outlet, sel )
    }
 
@@ -957,10 +961,10 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
 
    import Dummy._
 
-   final private[lucre] def --->( r: Selector[ S ])( implicit tx: S#Tx ) {}
-   final private[lucre] def -/->( r: Selector[ S ])( implicit tx: S#Tx ) {}
+   final private[lucre] def --->( r: Selector.Full[ S ])( implicit tx: S#Tx ) {}
+   final private[lucre] def -/->( r: Selector.Full[ S ])( implicit tx: S#Tx ) {}
 
-   final private[lucre] def select() : ReactorSelector[ S ] = opNotSupported
+   final private[lucre] def select() : ReactorSelector[ S ] with Selector.Full[ S ] = opNotSupported
 
    /**
     * Returns `false`, as a dummy is never a source event.
@@ -997,12 +1001,12 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
     * Connects the given selector to this event. That is, this event will
     * adds the selector to its propagation targets.
     */
-   private[lucre] def --->( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
+   private[lucre] def --->( r: Selector.Full[ S ])( implicit tx: S#Tx ) : Unit
    /**
     * Disconnects the given selector from this event. That is, this event will
     * remove the selector from its propagation targets.
     */
-   private[lucre] def -/->( r: Selector[ S ])( implicit tx: S#Tx ) : Unit
+   private[lucre] def -/->( r: Selector.Full[ S ])( implicit tx: S#Tx ) : Unit
 
    /**
     * Registers a live observer with this event. The method is called with the
@@ -1038,7 +1042,7 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
     * Returns a `Selector` (inlet) representation of this event, that is the underlying `Node` along
     * with the inlet identifier corresponding to this event.
     */
-   private[lucre] def select() : ReactorSelector[ S ]
+   private[lucre] def select() : ReactorSelector[ S ] with Selector.Full[ S ]
 
 //   private[lucre] def isSource( sel: ReactorSelector[ S ]) : Boolean
    private[lucre] def isSource( visited: Visited[ S ]) : Boolean
@@ -1133,10 +1137,10 @@ object Compound {
       private[lucre] def connect()( implicit tx: S#Tx ) {}
       private[lucre] def disconnect()( implicit tx: S#Tx ) {}
 
-      private[lucre] def --->( r: Selector[ S ])( implicit tx: S#Tx ) {
+      private[lucre] def --->( r: Selector.Full[ S ])( implicit tx: S#Tx ) {
          elems.foreach( _ ---> r )
       }
-      private[lucre] def -/->( r: Selector[ S ])( implicit tx: S#Tx ) {
+      private[lucre] def -/->( r: Selector.Full[ S ])( implicit tx: S#Tx ) {
          elems.foreach( _ -/-> r )
       }
 
