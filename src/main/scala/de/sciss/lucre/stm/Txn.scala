@@ -27,8 +27,7 @@ package de.sciss.lucre
 package stm
 
 import concurrent.stm.InTxn
-import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeSelector, Reactor, ObserverKey, Reactions, Targets, Visited}
+import event.ReactionMap
 
 trait Txn[ S <: Sys[ S ]] {
    def system: S
@@ -45,14 +44,15 @@ trait Txn[ S <: Sys[ S ]] {
 //   def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions
 //   def removeStateReaction( key: State.ReactorKey[ S ]) : Unit
 
-   def addEventReaction[ A, Repr /* <: Event[ S, A, _ ] */]( reader: event.Reader[ S, Repr, _ ],
-                                                             fun: S#Tx => A => Unit ) : ObserverKey[ S ]
-//   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], keys: IIdxSeq[ Int ]) : Reactor[ S ]
-   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-                        observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ]
-   def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ],
-                     reactions: Reactions ) : Unit
-   def removeEventReaction( key: ObserverKey[ S ]) : Unit
+   def reactionMap : ReactionMap[ S ]
+
+//   def addEventReaction[ A, Repr /* <: Event[ S, A, _ ] */]( reader: event.Reader[ S, Repr, _ ],
+//                                                             fun: S#Tx => A => Unit ) : ObserverKey[ S ]
+////   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], keys: IIdxSeq[ Int ]) : Reactor[ S ]
+//   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
+//                        observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ]
+//   def processEvent( leaf: ObserverKey[ S ], parent: NodeSelector[ S ], push: Push[ S ]) : Unit
+//   def removeEventReaction( key: ObserverKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]

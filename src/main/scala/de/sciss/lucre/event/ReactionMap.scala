@@ -65,18 +65,17 @@ object ReactionMap {
          }
       }
 
-      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ],
-                        reactions: Reactions )( implicit tx: S#Tx ) {
+      def processEvent( leaf: ObserverKey[ S ], parent: NodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) {
          val itx = tx.peer
-         eventMap.get( observer.id )( itx ).foreach { obs =>
+         eventMap.get( leaf.id )( itx ).foreach { obs =>
             val react: Reaction = () => {
-               parent.pullUpdate( visited, update ) match {
+               parent.pullUpdate( push ) match {
                   case Some( result ) =>
                      () => obs.fun.asInstanceOf[ AnyObsFun[ S ]]( tx )( result.asInstanceOf[ AnyRef ])
                   case None => noOpEval
                }
             }
-            reactions += react
+            push.addReaction( react )
          }
       }
 
@@ -158,6 +157,5 @@ trait ReactionMap[ S <: Sys[ S ]] {
 //   def propagateEvent( observer: ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Node[ S, _ ], reactions: Reactions )
 //                     ( implicit tx: S#Tx ) : Reactions
 
-   def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ],
-                     reactions: Reactions )( implicit tx: S#Tx ) : Unit
+   def processEvent( leaf: ObserverKey[ S ], parent: NodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) : Unit
 }

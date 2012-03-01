@@ -34,8 +34,7 @@ import java.io.{FileNotFoundException, File, IOException}
 import com.sleepycat.je.{DatabaseEntry, DatabaseConfig, EnvironmentConfig, TransactionConfig, Environment, Database, Transaction, OperationStatus}
 import annotation.elidable
 import elidable.CONFIG
-import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeSelector, Reactor, ObserverKey, ReactionMap, Reactions, Targets, Visited}
+import event.ReactionMap
 
 object BerkeleyDB {
    import LucreSTM.logConfig
@@ -499,19 +498,21 @@ object BerkeleyDB {
 //
 //      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
-      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
-                                                       fun: S#Tx => A => Unit ) : ObserverKey[ S ] =
-         system.reactionMap.addEventReaction( reader, fun )( this )
+      def reactionMap : ReactionMap[ S ] = system.reactionMap
 
-      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
-         system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
-
-      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
-         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
-      }
-
-      def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+//      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
+//                                                       fun: S#Tx => A => Unit ) : ObserverKey[ S ] =
+//         system.reactionMap.addEventReaction( reader, fun )( this )
+//
+//      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
+//                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
+//         system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
+//
+//      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
+//         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
+//      }
+//
+//      def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
 
       override def toString = "Txn<" + id + ">"
 

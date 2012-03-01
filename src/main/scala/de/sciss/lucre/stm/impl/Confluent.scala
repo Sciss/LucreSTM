@@ -31,7 +31,7 @@ import stm.{ Txn => _Txn, Var => _Var }
 import concurrent.stm.{InTxn, TxnExecutor}
 import collection.immutable.{IntMap, IndexedSeq => IIdxSeq}
 import scala.util.MurmurHash
-import event.{NodeSelector, Reactor, ObserverKey, ReactionMap, Reactions, Targets, Visited}
+import event.ReactionMap
 
 object Confluent {
    private type Acc = IIdxSeq[ Int ]
@@ -215,19 +215,21 @@ object Confluent {
 //
 //      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
-      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
-                                                       fun: S#Tx => A => Unit ) : ObserverKey[ S ] =
-         system.reactionMap.addEventReaction( reader, fun )( this )
+      def reactionMap : ReactionMap[ S ] = system.reactionMap
 
-      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
-         system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
-
-      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
-         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
-      }
-
-      def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+//      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
+//                                                       fun: S#Tx => A => Unit ) : ObserverKey[ S ] =
+//         system.reactionMap.addEventReaction( reader, fun )( this )
+//
+//      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
+//                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
+//         system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
+//
+//      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
+//         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
+//      }
+//
+//      def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 

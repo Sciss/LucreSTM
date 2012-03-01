@@ -29,8 +29,7 @@ package impl
 
 import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
-import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{NodeSelector, Reactor, ObserverKey, ReactionMap, Reactions, Targets, Visited}
+import event.ReactionMap
 
 object InMemory {
    private type S = InMemory
@@ -128,19 +127,21 @@ object InMemory {
 //
 //      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
 
-      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
-                                                       fun: S#Tx => A => Unit ) : ObserverKey[ S ] =
-         system.reactionMap.addEventReaction( reader, fun )( this )
+      def reactionMap : ReactionMap[ S ] = system.reactionMap
 
-      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
-         system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
-
-      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
-         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
-      }
-
-      def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+//      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
+//                                                       fun: S#Tx => A => Unit ) : ObserverKey[ S ] =
+//         system.reactionMap.addEventReaction( reader, fun )( this )
+//
+//      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
+//                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
+//         system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
+//
+//      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
+//         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
+//      }
+//
+//      def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val peer = ScalaRef( init )

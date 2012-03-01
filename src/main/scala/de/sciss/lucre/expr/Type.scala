@@ -27,7 +27,7 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import event.{Observer, Invariant, Pull, EmptyPull, Visited}
+import event.{Pull, Observer, Invariant}
 
 /**
  * IDs:
@@ -116,7 +116,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
       new VarRead( in, access, targets, tx )
    }
 
-   /* protected */ def change( before: A, now: A ) : Pull[ Change ] = new event.Change( before, now ).toPull
+   /* protected */ def change( before: A, now: A ) : Option[ Change ] = new event.Change( before, now ).toOption
 
 //   protected def newBinaryOp( op: BinaryOp, a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( op, a, b, tx )
 //   protected def newUnaryOp( op: UnaryOp, a: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( op, a, tx )
@@ -165,8 +165,8 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 //         }
 //      }
 
-      private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change ] = {
-         _1.changed.pullUpdate( visited, update ).flatMap { ach =>
+      private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ Change ] = {
+         _1.changed.pullUpdate( pull ).flatMap { ach =>
             change( op.value( ach.before ), op.value( ach.now ))
          }
       }
@@ -226,20 +226,20 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 //         }
 //      }
 
-      private[lucre] def pullUpdate( visited: Visited[ S ], update: Any )( implicit tx: S#Tx ) : Pull[ Change ] = {
-         val sources = visited( select() )
+      private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ Change ] = {
+//         val sources = pull.parents( select() )
          val _1c = _1.changed
          val _2c = _2.changed
 
-         val _1ch = if( _1c.isSource( visited )) {
-            _1c.pullUpdate( visited, update )
+         val _1ch = if( _1c.isSource( pull )) {
+            _1c.pullUpdate( pull )
          } else {
-            EmptyPull
+            None
          }
-         val _2ch = if( _2c.isSource( visited )) {
-            _2c.pullUpdate( visited, update )
+         val _2ch = if( _2c.isSource( pull )) {
+            _2c.pullUpdate( pull )
          } else {
-            EmptyPull
+            None
          }
 
          (_1ch, _2ch) match {

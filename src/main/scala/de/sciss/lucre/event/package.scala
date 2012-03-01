@@ -3,19 +3,17 @@ package de.sciss.lucre
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 import stm.Sys
-import collection.mutable.{Buffer, Map => MMap}
 
 package object event {
 //   type Reactions = IIdxSeq[ () => () => Unit ]
    type Reaction  = () => () => Unit
-   type Reactions = Buffer[ Reaction ]
+//   type Reactions = Buffer[ Reaction ]
 //   type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
-   type Parents[ S <: Sys[ S ]] = Set[ ReactorSelector[ S ]]
-   type Visited[ S <: Sys[ S ]] = MMap[ ReactorSelector[ S ], Parents[ S ]]
+//   type Parents[ S <: Sys[ S ]] = Set[ ReactorSelector[ S ]]
+//   type Visited[ S <: Sys[ S ]] = MMap[ ReactorSelector[ S ], Parents[ S ]]
 //   type Path[ S <: Sys[ S ]] = List[ ReactorSelector[ S ]]
-   type Pull[ A ] = Option[ A ] // List[ A ]
-   val EmptyPull = None // Nil
-   def Pull[ A ]( update: A ) : Pull[ A ] = Some( update ) //  update :: Nil
+//   val EmptyPull = None // Nil
+//   def Pull[ A ]( update: A ) : Option[ A ] = Some( update ) //  update :: Nil
 
 //   private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ Selector[ S ]]
    private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Selector[ S ])]
@@ -31,9 +29,7 @@ package object event {
 //   private[lucre] type Sources[ S <: Sys[ S ]] = IIdxSeq[ Event[ S, _, _ ]]
 
    private val emptySeq = IIdxSeq.empty[ Nothing ]
-   private val emptySet = Set.empty[ Nothing ]
 
 //   private[lucre] def NoSources[ S <: Sys[ S ]]  : Sources[ S ]   = emptySeq
    private[lucre] def NoChildren[ S <: Sys[ S ]] : Children[ S ]  = emptySeq
-   private[lucre] def NoParents[ S <: Sys[ S ]]  : Parents[ S ]   = emptySet.asInstanceOf[ Parents[ S ]]
 }
