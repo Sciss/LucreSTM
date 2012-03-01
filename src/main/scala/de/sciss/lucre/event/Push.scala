@@ -6,7 +6,7 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object Push {
    private[event] def apply[ S <: Sys[ S ], A ]( source: NodeSelector[ S ], update: Any )( implicit tx: S#Tx ) {
-      val push    = new Impl( /* source, */ update )
+      val push    = new Impl( source, update )
       val inlet   = source.inlet
       source.reactor.children.foreach { tup =>
          val inlet2 = tup._1
@@ -20,15 +20,15 @@ object Push {
 
    private val NoReactions = IIdxSeq.empty[ Reaction ]
    private val emptySet = Set.empty[ Nothing ]
-   private val emptyMap = Map.empty[ Nothing, Nothing ]
+//   private val emptyMap = Map.empty[ Nothing, Nothing ]
    type Parents[ S <: Sys[ S ]] = Set[ ReactorSelector[ S ]]
    private def NoParents[ S <: Sys[ S ]] : Parents[ S ] = emptySet.asInstanceOf[ Parents[ S ]]
    private type Visited[ S <: Sys[ S ]] = Map[ ReactorSelector[ S ], Parents[ S ]]
-   private def EmptyVisited[ S <: Sys[ S ]] : Visited[ S ] = emptyMap.asInstanceOf[ Visited[ S ]]
+//   private def EmptyVisited[ S <: Sys[ S ]] : Visited[ S ] = emptyMap.asInstanceOf[ Visited[ S ]]
 
-   private final class Impl[ S <: Sys[ S ]]( /* source: ReactorSelector[ S ], */ val update: Any )( implicit tx: S#Tx )
+   private final class Impl[ S <: Sys[ S ]]( source: ReactorSelector[ S ], val update: Any )( implicit tx: S#Tx )
    extends Push[ S ] {
-      private var visited     = EmptyVisited[ S ]
+      private var visited     = Map( (source, NoParents[ S ])) // EmptyVisited[ S ]
       private var reactions   = NoReactions
 
       def visit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) {
@@ -58,7 +58,8 @@ object Push {
       def addReaction( r: Reaction ) { reactions :+= r }
 
       def pull() {
-         reactions.map( _.apply() ).foreach( _.apply() )
+         val firstPass = reactions.map( _.apply() )
+         firstPass.foreach( _.apply() )
       }
 
       def resolve[ A ] : Option[ A ] = Some( update.asInstanceOf[ A ])
