@@ -48,10 +48,11 @@ Usage:
             sorted.toList  // make sure it's validated, to ensure that re-validation actually works!
 
             val rnd = new scala.util.Random( 0L )
-            (1 to 10).foreach { i =>
+            (1 to 2).foreach { i =>
                val start = (rnd.nextDouble() * 441000L).toLong
                val stop  = start + (rnd.nextDouble() * 441000L).toLong
-               unsorted.add( EventRegion( "r" + i, Span( start, stop )))
+               val r = EventRegion( "r" + i, Span( start, stop ))
+               unsorted.add( r )
             }
 
             println( "\nSorted: (_should re-validate_)" )
@@ -142,6 +143,7 @@ println( "VALIDATING" )
          override def toString = "Sorted" + id
 
          final protected def add( elem: Elem )( implicit tx: S#Tx ) {
+println( "ADD" )
             val es         = seq.get
             val newStart   = elem.span.value.start
             // Obviously we'd have at least a binary search here in a real application...
