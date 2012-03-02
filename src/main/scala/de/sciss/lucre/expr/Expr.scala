@@ -31,7 +31,7 @@ import event._
 
 object Expr {
    trait Node[ S <: Sys[ S ], A ] extends Expr[ S, A ] // with Invariant[ S, Change[ A ]]
-   with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] with InvariantEvent[ S, Change[ A ], Expr[ S, A ]] {
+   with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] with InvariantSelector[ S ] {
       final def changed: Event[ S, Change[ A ], Expr[ S, A ]] = this
 
 //      final private[lucre] def pull( slot: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] =
@@ -45,7 +45,7 @@ object Expr {
    trait Var[ S <: Sys[ S ], A ] extends Expr[ S, A ] with _Var[ S#Tx, Expr[ S, A ]]
    // with Invariant[ S, Change[ A ]]
    with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] /* with LateBinding[ S, Change[ A ]] */
-   with Generator[ S, Change[ A ], Change[ A ], Expr[ S, A ]] with InvariantEvent[ S, Change[ A ], Expr[ S, A ]] {
+   with Generator[ S, Change[ A ], Change[ A ], Expr[ S, A ]] with InvariantSelector[ S ] {
       expr =>
 
       import de.sciss.lucre.{event => evt}

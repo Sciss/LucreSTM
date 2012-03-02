@@ -60,6 +60,7 @@ object Selector {
    extends ReactorSelector[ S ] /* with InvariantSelector[ S ] */ {
       def nodeOption: Option[ NodeSelector[ S, _ ]] = None
 
+      protected def cookie: Int = sys.error( "TODO" )
       private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { sys.error( "TODO" )}
    }
 }
@@ -79,7 +80,7 @@ sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {
 }
 
 sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
-   final protected def cookie: Int = 0
+//   final protected def cookie: Int = 0
 
    private[event] def reactor: Reactor[ S ]
    private[event] def slot: Int
@@ -144,6 +145,23 @@ sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writ
 
    final private[event] def writeValue()( implicit tx: S#Tx ) {
       tx.writeVal( reactor.id, reactor )
+   }
+}
+
+trait InvariantSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+   final protected def cookie: Int = 0
+
+   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
+      push.visit( this, parent )
+   }
+}
+
+trait MutatingSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+   final protected def cookie: Int = 1
+
+   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
+      push.markInvalid( this )
+      push.visit( this, parent )
    }
 }
 

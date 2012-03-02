@@ -50,7 +50,7 @@ object Compound {
 
    final class Or[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B <: D#Update ] private[Compound](
       private[event] val reactor: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, _ <: B, Repr ]])
-   extends InvariantEvent[ S, B, Repr ] {
+   extends Event[ S, B, Repr ] with InvariantSelector[ S ] {
 
 // XXX
 //protected def cookie = opNotSupported
@@ -101,7 +101,7 @@ private[event] def slot = opNotSupported
    final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S, _ ], B, A1 <: D#Update ] private[Compound](
       private[event] val reactor: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, Elem ], fun: IIdxSeq[ B ] => A1,
       private[event] val slot: Int )( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ], m: ClassManifest[ A1 ])
-   extends event.Impl[ S, D#Update, A1, Repr ] with InvariantEvent[ S, A1, Repr ] {
+   extends event.Impl[ S, D#Update, A1, Repr ] with InvariantSelector[ S ] {
       protected def reader: Reader[ S, Repr ] = reactor.decl.serializer // [ S ]
 
       override def toString = reactor.toString + ".collection[" + {
@@ -146,7 +146,7 @@ private[event] def slot = opNotSupported
 
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
       private[event] val reactor: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ])
-   extends event.Impl[ S, D#Update, A1, Repr ] with InvariantEvent[ S, A1, Repr ] {
+   extends event.Impl[ S, D#Update, A1, Repr ] with InvariantSelector[ S ] {
       protected def reader: Reader[ S, Repr ] = reactor.decl.serializer // [ S ]
 
       private[event] def slot = reactor.decl.eventID[ A1 ]
@@ -168,7 +168,7 @@ private[event] def slot = opNotSupported
    private final class Trigger[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ](
       private[event] val reactor: Compound[ S, Repr, D ])( implicit m: ClassManifest[ A1 ])
    extends event.Trigger.Impl[ S, D#Update, A1, Repr ] with Root[ S, A1 ]
-   with InvariantEvent[ S, A1, Repr ] {
+   with InvariantSelector[ S ] {
       protected def reader: Reader[ S, Repr ] = reactor.decl.serializer // [ S ]
 
       private[event] def slot = reactor.decl.eventID[ A1 ]
