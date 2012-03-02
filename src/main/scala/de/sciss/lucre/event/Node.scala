@@ -175,26 +175,6 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    }
 }
 
-//object Invariant {
-//
-//   trait Reader[ S <: Sys[ S ], +Repr ] extends event.Reader[ S, Repr, Targets[ S ]]
-//
-//   /**
-//    * A trait to serialize events which are immutable nodes.
-//    * An implementation mixing in this trait just needs to implement
-//    * `read` with the `Event.Targets` argument to return the node instance.
-//    */
-//   trait Serializer[ S <: Sys[ S ], Repr <: /* Writer */ Invariant[ S, _ ]]
-//   extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
-//      final def write( v: Repr, out: DataOutput ) { v.write( out )}
-//
-//      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
-//         val targets = Targets.read[ S ]( in, access )
-//         read( in, access, targets )
-//      }
-//   }
-//}
-
 /**
  * An event which is `Invariant` designates a `Node` which does not mutate any internal state
  * as a result of events bubbling up from its sources. As a consequence, if an event is
@@ -208,7 +188,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
  * mapping, filtering and forwarding nodes.
  */
 trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-   protected def targets: Targets[ S ]
+//   protected def targets: Targets[ S ]
 
 //   final def select( slot: Int ) : NodeSelector[ S, A ] = Selector( slot, this )
 

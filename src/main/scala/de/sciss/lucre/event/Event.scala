@@ -132,10 +132,4 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
  * implementations should extend either of `Event.Constant` or `Event.Node` (which itself is sealed and
  * split into `Event.Invariant` and `Event.Mutating`.
  */
-trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] with NodeSelector[ S, A ] {
-   /**
-    * Returns a `Selector` (slot) representation of this event, that is the underlying `Node` along
-    * with the slot identifier corresponding to this event.
-    */
-//   private[lucre] def select() : NodeSelector[ S ] // with ExpandedSelector[ S ]
-}
+trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] with NodeSelector[ S, A ]

@@ -33,14 +33,8 @@ import scala.util.MurmurHash
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
-//   implicit def event[ S <: Sys[ S ]]( ev: Event[ S, _, _ ])( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = ev.select()
-
    def apply[ S <: Sys[ S ]]( key: Int, targets: Targets[ S ]) : ReactorSelector[ S ] =
       new TargetsSelector[ S ]( key, targets )
-
-//   def apply[ S <: Sys[ S ], A ]( key: Int, node: Invariant[ S, A ]) : NodeSelector[ S, A ] = {
-//      new InvariantNodeSelector[ S, A ]( key, node )
-//   }
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
@@ -51,45 +45,21 @@ object Selector {
          // 0 = invariant, 1 = mutating, 2 = observer
          (in.readUnsignedByte(): @switch) match {
             case 0 =>
-               val inlet   = in.readInt()
+               val slot   = in.readInt()
                val targets = /* Invariant. */ Targets.readAndExpand[ S ]( in, access )
-               targets.select( inlet )
-//               Selector( slot, targets )
-//            case 1 =>
-//               val slot   = in.readInt()
-//               val targets = Mutating.Targets.readAndExpand[ S ]( in, access )
-//               targets.select( slot )
-////               Selector( slot, targets )
+               targets.select( slot )
             case 2 =>
                val id = in.readInt()
                new ObserverKey[ S ]( id )
             case cookie => sys.error( "Unexpected cookie " + cookie )
          }
-//         reactor.select( selector )
       }
    }
-
-//   private sealed trait TargetsSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
-//      final def nodeOption: Option[ NodeSelector[ S ]] = None
-//   }
-
-//   private final case class InvariantNodeSelector[ S <: Sys[ S ], A ]( slot: Int, reactor: Invariant[ S, A ] /* Repr */)
-//   extends NodeSelector[ S, A ] with InvariantSelector[ S ] {
-//      private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = {
-//         reactor.getEvent( slot ).pullUpdate( pull )
-//      }
-//   }
 
    private final case class TargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
    extends ReactorSelector[ S ] with InvariantSelector[ S ] {
       def nodeOption: Option[ NodeSelector[ S, _ ]] = None
    }
-
-//   private final case class MutatingNodeSelector[ S <: Sys[ S ] /*, A, Repr <: Mutating[ S, A ] */]( slot: Int, reactor: Mutating[ S, _ ] /* Repr */)
-//   extends NodeSelector[ S /*, A, Repr */] with MutatingSelector[ S ]
-
-//   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Mutating.Targets[ S ])
-//   extends TargetsSelector[ S ] with MutatingSelector[ S ]
 }
 
 sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {
@@ -163,10 +133,6 @@ sealed trait MutatingSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
    final private[event] def nodeOption: Option[ NodeSelector[ S, _ ]] = Some( this )
 
    private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
-
-//   final private[event] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ Any ] = {
-//      reactor.getEvent( slot ).pullUpdate( pull )
-//   }
 
    final private[event] def writeValue()( implicit tx: S#Tx ) {
       tx.writeVal( reactor.id, reactor )
