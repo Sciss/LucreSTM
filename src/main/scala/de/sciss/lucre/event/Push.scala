@@ -48,7 +48,7 @@ object Push {
 //   private val emptyMap = Map.empty[ Nothing, Nothing ]
    type Parents[ S <: Sys[ S ]] = Set[ ReactorSelector[ S ]]
    private def NoParents[ S <: Sys[ S ]] : Parents[ S ] = emptySet.asInstanceOf[ Parents[ S ]]
-   private def NoMutating[ S <: Sys[ S ]] : Set[ MutatingSelector[ S ]] = emptySet.asInstanceOf[ Set[ MutatingSelector[ S ]]]
+//   private def NoMutating[ S <: Sys[ S ]] : Set[ MutatingSelector[ S ]] = emptySet.asInstanceOf[ Set[ MutatingSelector[ S ]]]
    private type Visited[ S <: Sys[ S ]] = Map[ ReactorSelector[ S ], Parents[ S ]]
 //   private def EmptyVisited[ S <: Sys[ S ]] : Visited[ S ] = emptyMap.asInstanceOf[ Visited[ S ]]
 
@@ -56,7 +56,7 @@ object Push {
    extends Push[ S ] {
       private var visited     = Map( (source, NoParents[ S ])) // EmptyVisited[ S ]
       private var reactions   = NoReactions
-      private var mutating    = NoMutating[ S ]
+//      private var mutating    = NoMutating[ S ]
 
       private def addVisited( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Boolean = {
          val parents = visited.getOrElse( sel, NoParents )
@@ -79,12 +79,12 @@ object Push {
          if( addVisited( sel, parent )) visitChildren( sel )
       }
 
-      def visit( sel: MutatingSelector[ S ], parent: ReactorSelector[ S ]) {
-         if( addVisited( sel, parent )) {
-            mutating += sel
-            visitChildren( sel )
-         }
-      }
+//      def visit( sel: MutatingSelector[ S ], parent: ReactorSelector[ S ]) {
+//         if( addVisited( sel, parent )) {
+//            mutating += sel
+//            visitChildren( sel )
+//         }
+//      }
 
       def hasVisited( sel: ReactorSelector[ S ]) : Boolean = visited.contains( sel )
 
@@ -101,9 +101,9 @@ object Push {
          val firstPass  =    reactions.map( _.apply() )
       /* val secondPass = */ firstPass.foreach( _.apply() )
 
-         if( mutating.nonEmpty ) {
-            println( "INVALIDATED: " + mutating.mkString( ", " ))
-         }
+//         if( mutating.nonEmpty ) {
+//            println( "INVALIDATED: " + mutating.mkString( ", " ))
+//         }
       }
 
       def resolve[ A ] : Option[ A ] = Some( update.asInstanceOf[ A ])
@@ -117,7 +117,7 @@ sealed trait Pull[ S <: Sys[ S ]] {
 }
 sealed trait Push[ S <: Sys[ S ]] extends Pull[ S ] {
    def visit( sel: InvariantSelector[ S ], parent: ReactorSelector[ S ]) : Unit
-   def visit( sel: MutatingSelector[ S ],  parent: ReactorSelector[ S ]) : Unit
+//   def visit( sel: MutatingSelector[ S ],  parent: ReactorSelector[ S ]) : Unit
 //   def mutatingVisit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Unit
 //   def addMutation( sel: ReactorSelector[ S ]) : Unit
    def addLeaf( leaf: ObserverKey[ S ], parent: ReactorSelector[ S ]) : Unit

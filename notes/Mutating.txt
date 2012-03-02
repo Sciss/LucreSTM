@@ -250,3 +250,10 @@ and we'd have
 EventStub = TargetsSelector
 Event     = NodeSelector
 
+:::::::::::::::::::::::::
+
+in progress
+[OK]	- should remove extra invariant/mutating cookie from target serialization
+[OK]	- should re-ensure that reactor selector is sealed / cookies are safe
+- add dirty bit field to targets
+

@@ -53,7 +53,7 @@ object Compound {
    extends Event[ S, B, Repr ] {
 
 // XXX
-protected def cookie = opNotSupported
+//protected def cookie = opNotSupported
 private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { opNotSupported }
 private[event] def slot = opNotSupported
 
