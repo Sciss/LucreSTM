@@ -61,7 +61,7 @@ object Targets {
    private class ExpanderReader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Reactor[ S ]] {
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
          val targets    = Targets.read( in, access )
-         val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
+         val observers  = targets.observers //
          tx.reactionMap.mapEventTargets( in, access, targets, observers )
       }
    }
@@ -91,12 +91,42 @@ object Targets {
       }
 
       def dispose()( implicit tx: S#Tx ) {
-         require( !isConnected, "Disposing a event reactor which is still being observed" )
+         require( children.isEmpty, "Disposing a event reactor which is still being observed" )
          id.dispose()
          childrenVar.dispose()
       }
 
       def select( slot: Int ) : ReactorSelector[ S ] = Selector( slot, this )
+
+      private[event] def children( implicit tx: S#Tx ) : Children[ S ] = childrenVar.get
+
+      override def toString = "Targets" + id
+
+      private[event] def add( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
+         val tup  = (slot, sel)
+         val old  = childrenVar.get
+         sel.writeValue()
+         childrenVar.set( old :+ tup )
+         !old.exists( _._1 == slot )
+      }
+
+      private[event] def remove( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
+         val tup  = (slot, sel)
+         val xs   = childrenVar.get
+         val i    = xs.indexOf( tup )
+         if( i >= 0 ) {
+            val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
+            childrenVar.set( xs1 )
+   //         xs1.isEmpty
+            !xs1.exists( _._1 == slot )
+         } else false
+      }
+
+      private[event] def observers( implicit tx: S#Tx ): IIdxSeq[ ObserverKey[ S ]] =
+         children.flatMap( _._2.toObserverKey )
+
+      def isEmpty(  implicit tx: S#Tx ) : Boolean = children.isEmpty
+      def nonEmpty( implicit tx: S#Tx ) : Boolean = children.nonEmpty
    }
 }
 
@@ -109,32 +139,36 @@ object Targets {
 sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with Disposable[ S#Tx ] */ {
    /* private[event] */ def id: S#ID
 
-   protected def childrenVar: S#Var[ Children[ S ]]
+//   protected def childrenVar: S#Var[ Children[ S ]]
 
-   override def toString = "Targets" + id
+//   override def toString = "Targets" + id
 
-   final private[event] def children( implicit tx: S#Tx ) : Children[ S ] = childrenVar.get
+   private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
-   final private[event] def add( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
-      val tup  = (slot, sel)
-      val old  = childrenVar.get
-      sel.writeValue()
-      childrenVar.set( old :+ tup )
-      old.isEmpty
-   }
+   /**
+    * Adds a dependant to this node target.
+    *
+    * @param slot the slot for this node to be pushing to the dependant
+    * @param sel  the target selector to which an event at slot `slot` will be pushed
+    *
+    * @return  `true` if this was the first dependant registered with the given slot, `false` otherwise
+    */
+   private[event] def add( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
 
-   final private[event] def remove( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
-      val tup  = (slot, sel)
-      val xs   = childrenVar.get
-      val i    = xs.indexOf( tup )
-      if( i >= 0 ) {
-         val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
-         childrenVar.set( xs1 )
-         xs1.isEmpty
-      } else false
-   }
+   def isEmpty( implicit tx: S#Tx ) : Boolean
+   def nonEmpty( implicit tx: S#Tx ) : Boolean
 
-   final def isConnected( implicit tx: S#Tx ) : Boolean = childrenVar.get.nonEmpty
+   /**
+    * Removes a dependant from this node target.
+    *
+    * @param slot the slot for this node which is currently pushing to the dependant
+    * @param sel  the target selector which was registered with the slot
+    *
+    * @return  `true` if this was the last dependant unregistered with the given slot, `false` otherwise
+    */
+   private[event] def remove( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
+
+   private[event] def observers( implicit tx: S#Tx ): IIdxSeq[ ObserverKey[ S ]]
 }
 
 /**
@@ -161,11 +195,17 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    private[event] def select( slot: Int ) : NodeSelector[ S, A ]
 //   private[event] def getEvent( slot: Int ) : Event[ S, _ <: A, _ ]
 
-   protected def connectNode()(    implicit tx: S#Tx ) : Unit
-   protected def disconnectNode()( implicit tx: S#Tx ) : Unit
+//   protected def connectNode()(    implicit tx: S#Tx ) : Unit
+//   protected def disconnectNode()( implicit tx: S#Tx ) : Unit
 
-   private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
-   private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
+//   private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
+//   private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
+
+   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
+      targets.add( slot, sel )
+
+   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
+      targets.remove( slot, sel )
 
    final def id: S#ID = targets.id
 
@@ -192,17 +232,11 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 
 //   final def select( slot: Int ) : NodeSelector[ S, A ] = Selector( slot, this )
 
-   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      if( targets.add( slot, sel )) {
-         connectNode()
-      }
-   }
-
-   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      if( targets.remove( slot, sel )) {
-         disconnectNode()
-      }
-   }
+//   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
+//      targets.add( slot, sel )
+//
+//   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
+//      targets.remove( slot, sel )
 
    final def dispose()( implicit tx: S#Tx ) {
       targets.dispose()

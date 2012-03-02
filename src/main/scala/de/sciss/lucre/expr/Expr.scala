@@ -87,12 +87,10 @@ object Expr {
       final def set( expr: Ex )( implicit tx: S#Tx ) {
          val before = ref.get
          if( before != expr ) {
-            val con = targets.isConnected
-//            if( con ) before -= this
+            val con = targets.nonEmpty
             if( con ) before.changed -/-> this
             ref.set( expr )
             if( con ) {
-//               expr += this
                expr.changed ---> this
                val beforeV = before.value
                val exprV   = expr.value

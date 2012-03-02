@@ -42,8 +42,8 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Invariant[ S, A ] with Im
    final private[event] def slot = 1
    final private[event] def reactor: Node[ S, A ] = this
 
-   final protected def connectNode()( implicit tx: S#Tx ) { connect() }
-   final protected def disconnectNode()( implicit tx: S#Tx ) { disconnect() }
+//   final protected def connectNode()( implicit tx: S#Tx ) { connect() }
+//   final protected def disconnectNode()( implicit tx: S#Tx ) { disconnect() }
 
 //   final private[lucre] def getEvent( key: Int ) : Event[ S, _ <: A, _ ] = this
 
