@@ -83,14 +83,6 @@ object Selector {
       }
    }
 
-   private sealed trait InvariantSelector {
-      protected def cookie: Int = 0
-   }
-
-   private sealed trait MutatingSelector {
-      protected def cookie: Int = 1
-   }
-
    private sealed trait TargetsSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
       final def nodeOption: Option[ NodeSelector[ S ]] = None
 
@@ -103,16 +95,16 @@ object Selector {
    }
 
    private final case class InvariantNodeSelector[ S <: Sys[ S ] /*, A, Repr <: Invariant[ S, A ] */]( inlet: Int, reactor: Invariant[ S, _ ] /* Repr */)
-   extends NodeSelector[ S /*, A, Repr */ ] with InvariantSelector
+   extends NodeSelector[ S /*, A, Repr */ ] with InvariantSelector[ S ]
 
    private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Invariant.Targets[ S ])
-   extends TargetsSelector[ S ] with InvariantSelector
+   extends TargetsSelector[ S ] with InvariantSelector[ S ]
 
    private final case class MutatingNodeSelector[ S <: Sys[ S ] /*, A, Repr <: Mutating[ S, A ] */]( inlet: Int, reactor: Mutating[ S, _ ] /* Repr */)
-   extends NodeSelector[ S /*, A, Repr */] with MutatingSelector
+   extends NodeSelector[ S /*, A, Repr */] with MutatingSelector[ S ]
 
    private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating.Targets[ S ])
-   extends TargetsSelector[ S ] with MutatingSelector {
+   extends TargetsSelector[ S ] with MutatingSelector[ S ] {
 //      override private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) {
 //         reactor.invalidate()
 //         super.pushUpdate( parent, push )
@@ -193,9 +185,9 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 //      }
 //   }
 
-   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
-      push.visit( this, parent )
-   }
+//   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
+//      push.visit( this, parent )
+//   }
 }
 
 sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writer */ {
@@ -208,6 +200,20 @@ sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writ
 //   }
 //
 //   protected def writeData( out: DataOutput ) : Unit
+}
+
+sealed trait InvariantSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+   protected def cookie: Int = 0
+   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
+      push.visit( this, parent )
+   }
+}
+
+sealed trait MutatingSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+   protected def cookie: Int = 1
+   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
+      push.visit( this, parent )
+   }
 }
 
 sealed trait NodeSelector[ S <: Sys[ S ] /*, A, Repr <: Node[ S, A ] */] extends ReactorSelector[ S ] with ExpandedSelector[ S ] {
