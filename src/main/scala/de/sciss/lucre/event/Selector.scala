@@ -51,7 +51,7 @@ object Selector {
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
-         v.write( out )
+         v.writeSelector( out )
       }
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Selector[ S ] = {
@@ -93,15 +93,15 @@ object Selector {
    extends TargetsSelector[ S ] with MutatingSelector[ S ]
 }
 
-sealed trait Selector[ S <: Sys[ S ]] extends Writer {
+sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {
    protected def cookie: Int
 
-   final def write( out: DataOutput ) {
+   final def writeSelector( out: DataOutput ) {
       out.writeUnsignedByte( cookie )
-      writeData( out )
+      writeSelectorData( out )
    }
 
-   protected def writeData( out: DataOutput ) : Unit
+   protected def writeSelectorData( out: DataOutput ) : Unit
 
    private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) : Unit // ( implicit tx: S#Tx ) : Unit
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] // Option[ Int ]
@@ -113,7 +113,7 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 
    def nodeOption: Option[ NodeSelector[ S ]]
 
-   final protected def writeData( out: DataOutput ) {
+   final protected def writeSelectorData( out: DataOutput ) {
       out.writeInt( inlet )
       reactor.id.write( out )
    }
@@ -188,7 +188,7 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
 
    def dispose()( implicit tx: S#Tx ) {}  // XXX really?
 
-   protected def writeData( out: DataOutput ) {
+   protected def writeSelectorData( out: DataOutput ) {
       out.writeInt( id )
    }
 }
