@@ -48,7 +48,7 @@ object Push {
 //   private val emptyMap = Map.empty[ Nothing, Nothing ]
    type Parents[ S <: Sys[ S ]] = Set[ ReactorSelector[ S ]]
    private def NoParents[ S <: Sys[ S ]] : Parents[ S ] = emptySet.asInstanceOf[ Parents[ S ]]
-//   private def NoMutating[ S <: Sys[ S ]] : Set[ MutatingSelector[ S ]] = emptySet.asInstanceOf[ Set[ MutatingSelector[ S ]]]
+   private def NoMutating[ S <: Sys[ S ]] : Set[ MutatingEvent[ S, _, _ ]] = emptySet.asInstanceOf[ Set[ MutatingEvent[ S, _, _ ]]]
    private type Visited[ S <: Sys[ S ]] = Map[ ReactorSelector[ S ], Parents[ S ]]
 //   private def EmptyVisited[ S <: Sys[ S ]] : Visited[ S ] = emptyMap.asInstanceOf[ Visited[ S ]]
 
@@ -56,7 +56,7 @@ object Push {
    extends Push[ S ] {
       private var visited     = Map( (source, NoParents[ S ])) // EmptyVisited[ S ]
       private var reactions   = NoReactions
-//      private var mutating    = NoMutating[ S ]
+      private var mutating    = NoMutating[ S ]
 
       private def addVisited( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Boolean = {
          val parents = visited.getOrElse( sel, NoParents )
@@ -101,9 +101,18 @@ object Push {
          val firstPass  =    reactions.map( _.apply() )
       /* val secondPass = */ firstPass.foreach( _.apply() )
 
-//         if( mutating.nonEmpty ) {
-//            println( "INVALIDATED: " + mutating.mkString( ", " ))
-//         }
+         if( mutating.nonEmpty ) {
+            println( "INVALIDATED: " + mutating.mkString( ", " ))
+
+         }
+      }
+
+      def markInvalid( evt: MutatingEvent[ S, _, _ ]) {
+         mutating += evt
+      }
+
+      def clearInvalid( evt: MutatingEvent[ S, _, _ ]) {
+         mutating -= evt
       }
 
       def resolve[ A ] : Option[ A ] = Some( update.asInstanceOf[ A ])
@@ -114,6 +123,7 @@ sealed trait Pull[ S <: Sys[ S ]] {
    def update: Any
    def hasVisited( sel: ReactorSelector[ S ]) : Boolean
    def parents( sel: ReactorSelector[ S ]) : Push.Parents[ S ]
+   def clearInvalid( evt: MutatingEvent[ S, _, _ ])
 }
 sealed trait Push[ S <: Sys[ S ]] extends Pull[ S ] {
    def visit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Unit
@@ -122,4 +132,5 @@ sealed trait Push[ S <: Sys[ S ]] extends Pull[ S ] {
 //   def addMutation( sel: ReactorSelector[ S ]) : Unit
    def addLeaf( leaf: ObserverKey[ S ], parent: ReactorSelector[ S ]) : Unit
    def addReaction( r: Reaction ) : Unit
+   def markInvalid( evt: MutatingEvent[ S, _, _ ])
 }

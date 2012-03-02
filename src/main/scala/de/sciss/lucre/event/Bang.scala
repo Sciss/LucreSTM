@@ -8,7 +8,7 @@ object Bang {
       protected val targets = Targets[ S ]
    }
 
-   private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit /*, Bang[ S ] */] {
+   private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S, Unit, Bang[ S ]] with Root[ S, Unit /*, Bang[ S ] */] {
       protected def reader = Bang.serializer[ S ]
    }
 

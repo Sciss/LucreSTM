@@ -34,11 +34,11 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] /* wi
    protected def reader: Reader[ S, Repr ]
 
    final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      if( reactor.addTarget( slot, r )) connect()
+      if( reactor._targets.add( slot, r )) connect()
    }
 
    final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      if( reactor.removeTarget( slot, r )) disconnect()
+      if( reactor._targets.remove( slot, r )) disconnect()
    }
 
    final def react( fun: A1 => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] =

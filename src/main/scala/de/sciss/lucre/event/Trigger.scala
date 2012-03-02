@@ -48,7 +48,7 @@ object Trigger {
          }
    }
    trait Standalone[ S <: Sys[ S ], A ] extends Impl[ S, A, A, Standalone[ S, A ]]
-   with StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] /* with EarlyBinding[ S, A ] */
+   with StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S, A, Standalone[ S, A ]] /* with EarlyBinding[ S, A ] */
    with Root[ S, A /*, Standalone[ S, A ] */ ] {
       final protected def reader: Reader[ S, Standalone[ S, A ]] = Standalone.serializer[ S, A ]
    }

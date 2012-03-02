@@ -59,6 +59,8 @@ object Selector {
    private final case class TargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
    extends ReactorSelector[ S ] /* with InvariantSelector[ S ] */ {
       def nodeOption: Option[ NodeSelector[ S, _ ]] = None
+
+      private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { sys.error( "TODO" )}
    }
 }
 
@@ -82,9 +84,9 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    private[event] def reactor: Reactor[ S ]
    private[event] def slot: Int
 
-   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
-      push.visit( this, parent )
-   }
+//   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
+//      push.visit( this, parent )
+//   }
 
    private[event] def nodeOption: Option[ NodeSelector[ S, _ ]]
 

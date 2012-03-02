@@ -190,6 +190,8 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    protected def writeData( out: DataOutput ) : Unit
    protected def disposeData()( implicit tx: S#Tx ) : Unit
 
+   final private[event] def _targets = targets
+
    final private[event] def children( implicit tx: S#Tx ) = targets.children
 
    private[event] def select( slot: Int ) : NodeSelector[ S, A ]
@@ -201,11 +203,11 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 //   private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
 //   private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
 
-   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
-      targets.add( slot, sel )
-
-   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
-      targets.remove( slot, sel )
+//   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
+//      targets.add( slot, sel )
+//
+//   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
+//      targets.remove( slot, sel )
 
    final def id: S#ID = targets.id
 

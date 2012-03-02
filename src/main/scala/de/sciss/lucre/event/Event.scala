@@ -123,7 +123,7 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
 
    final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = opNotSupported
 
-   final private[lucre] def connect()( implicit tx: S#Tx ) {}
+   final private[lucre] def connect()(    implicit tx: S#Tx ) {}
    final private[lucre] def disconnect()( implicit tx: S#Tx ) {}
 }
 
@@ -133,3 +133,27 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
  * split into `Event.Invariant` and `Event.Mutating`.
  */
 trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] with NodeSelector[ S, A ]
+
+trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
+   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
+      push.visit( this, parent )
+   }
+}
+
+trait MutatingEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
+//   final private[event] def invalidate()( implicit tx: S#Tx ) {
+//      reactor.targets.invalidate( slot )
+//   }
+
+   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
+      push.markInvalid( this )
+      push.visit( this, parent )
+   }
+
+   final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = {
+      pull.clearInvalid( this )
+      processUpdate( pull )
+   }
+
+   protected def processUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
+}
