@@ -341,38 +341,6 @@ trait Generator[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] 
    final protected def fire( update: A1 )( implicit tx: S#Tx ) { Push( select(), update )}
 }
 
-object Bang {
-   def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Bang[ S ] = new Impl[ S ] {
-      protected val targets = Invariant.Targets[ S ]
-   }
-
-   private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit /*, Bang[ S ] */] {
-      protected def reader = Bang.serializer[ S ]
-   }
-
-   def serializer[ S <: Sys[ S ]] : Invariant.Serializer[ S, Bang[ S ]] = new Invariant.Serializer[ S, Bang[ S ]] {
-      def read( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Bang[ S ] =
-         new Impl[ S ] {
-            protected val targets = _targets
-         }
-   }
-}
-
-/**
- * A simple event implementation for an imperative (trigger) event that fires "bangs" or impulses, using the
- * `Unit` type as event type parameter. The `apply` method of the companion object builds a `Bang` which also
- * implements the `Observable` trait, so that the bang can be connected to a live view (e.g. a GUI).
- */
-trait Bang[ S <: Sys[ S ]] extends Trigger.Impl[ S, Unit, Unit, Bang[ S ]] with StandaloneLike[ S, Unit, Bang[ S ]]
-/* with EarlyBinding[ S, Unit ] */ {
-   /**
-    * A parameterless convenience version of the `Trigger`'s `apply` method.
-    */
-   def apply()( implicit tx: S#Tx ) { apply( () )}
-
-   override def toString = "Bang"
-}
-
 object Mutating {
    object Targets {
       def apply[ S <: Sys[ S ]]( invalid: Boolean )( implicit tx: S#Tx ) : Targets[ S ] = {
@@ -493,17 +461,11 @@ trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 }
 
 /**
- * The sealed `Reactor` trait encompasses the possible targets (dependents) of an event. It defines
+ * The `Reactor` trait encompasses the possible targets (dependents) of an event. It defines
  * the `propagate` method which is used in the push-phase (first phase) of propagation. A `Reactor` is
  * either a persisted event `Node` or a registered `ObserverKey` which is resolved through the transaction
  * as pointing to a live view.
  */
-//sealed trait Reactor[ S <: Sys[ S ]] extends Writer with Disposable[ S#Tx ] {
-////   def select( key: Int ) : Selector[ S ]
-//   private[event] def propagate( source: Event[ S, _, _ ], update: Any, parent: Node[ S, _ ], key: Int,
-//                                 path: Path[ S ], visited: Visited[ S ], reactions: Reactions )( implicit tx: S#Tx ) : Unit
-//}
-
 sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disposable[ S#Tx ] {
    def id: S#ID
 
