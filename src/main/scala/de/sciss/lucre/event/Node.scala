@@ -96,7 +96,7 @@ object Targets {
          childrenVar.dispose()
       }
 
-//      def select( slot: Int ) : ReactorSelector[ S ] = Selector( slot, this )
+      def select( slot: Int, mutating: Boolean ) : ReactorSelector[ S ] = Selector( slot, this, mutating )
 
       private[event] def children( implicit tx: S#Tx ) : Children[ S ] = childrenVar.get
 
@@ -128,7 +128,7 @@ object Targets {
       def isEmpty(  implicit tx: S#Tx ) : Boolean = children.isEmpty
       def nonEmpty( implicit tx: S#Tx ) : Boolean = children.nonEmpty
 
-      private[event] def nodeOption : Option[ Node[ S, _ ]] = None
+//      private[event] def nodeOption : Option[ Node[ S, _ ]] = None
       private[event] def _targets : Targets[ S ] = this
    }
 }
@@ -199,9 +199,9 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 
 //   private[event] def select( slot: Int ) : NodeSelector[ S, A ]
 
-   private[event] def select( slot: Int ) : Event[ S, _ <: A, _ ]
+//   private[event] def select( slot: Int ) : Event[ S, _ <: A, _ ]
 
-   final private[event] def nodeOption : Option[ Node[ S, _ ]] = Some( this )
+//   final private[event] def nodeOption : Option[ Node[ S, _ ]] = Some( this )
 
 //   protected def connectNode()(    implicit tx: S#Tx ) : Unit
 //   protected def disconnectNode()( implicit tx: S#Tx ) : Unit
@@ -380,11 +380,12 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disposable[ S#Tx ] {
    def id: S#ID
 
-//   private[event] def select( slot: Int ) : ReactorSelector[ S ]
+   private[event] def select( slot: Int, mutating: Boolean ) : ReactorSelector[ S ]
+
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
    private[event] def _targets : Targets[ S ]
-   private[event] def nodeOption: Option[ Node[ S, _ ]]
+//   private[event] def nodeOption: Option[ Node[ S, _ ]]
 
    override def equals( that: Any ) : Boolean = {
       (if( that.isInstanceOf[ Reactor[ _ ]]) {

@@ -33,8 +33,9 @@ import scala.util.MurmurHash
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
-   def apply[ S <: Sys[ S ]]( key: Int, targets: Targets[ S ]) : ReactorSelector[ S ] =
-      new TargetsSelector[ S ]( key, targets )
+   def apply[ S <: Sys[ S ]]( key: Int, targets: Targets[ S ], mutating: Boolean ) : ReactorSelector[ S ] =
+      sys.error( "TODO" )
+//      new TargetsSelector[ S ]( key, targets )
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
@@ -47,11 +48,12 @@ object Selector {
          if( cookie == 0 || cookie == 1 ) {
             val slot    = in.readInt()
             val reactor = Targets.readAndExpand[ S ]( in, access )
-            reactor.nodeOption match {
-               case Some( node ) => node.select( slot )
-               case _ =>
-                  sys.error( "TODO" ) // if( cookie == 0 )
-            }
+            reactor.select( slot, cookie == 0 )
+//            reactor.nodeOption match {
+//               case Some( node ) => node.select( slot )
+//               case _ =>
+//                  sys.error( "TODO" ) // if( cookie == 0 )
+//            }
 //               targets.select( slot )
          } else if( cookie == 2 ) {
             val id = in.readInt()
@@ -62,13 +64,13 @@ object Selector {
       }
    }
 
-   private final case class TargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
-   extends ReactorSelector[ S ] /* with InvariantSelector[ S ] */ {
-      private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
-
-      protected def cookie: Int = sys.error( "TODO" )
-      private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { sys.error( "TODO" )}
-   }
+//   private final case class TargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
+//   extends ReactorSelector[ S ] /* with InvariantSelector[ S ] */ {
+//      private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
+//
+//      protected def cookie: Int = sys.error( "TODO" )
+//      private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { sys.error( "TODO" )}
+//   }
 }
 
 sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {
