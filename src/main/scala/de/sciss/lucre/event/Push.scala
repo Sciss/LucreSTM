@@ -91,7 +91,7 @@ object Push {
       def parents( sel: ReactorSelector[ S ]) : Parents[ S ] = visited.getOrElse( sel, NoParents )
 
       def addLeaf( leaf: ObserverKey[ S ], parent: ReactorSelector[ S ]) {
-         val nParent = parent.nodeOption.getOrElse( sys.error( "Orphan observer " + leaf + " - no expanded node selector" ))
+         val nParent = parent.nodeSelectorOption.getOrElse( sys.error( "Orphan observer " + leaf + " - no expanded node selector" ))
          tx.reactionMap.processEvent( leaf, nParent, this )
       }
 

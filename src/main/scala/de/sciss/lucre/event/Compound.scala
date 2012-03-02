@@ -124,7 +124,7 @@ private[event] def slot = opNotSupported
 
       private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
          val elems: IIdxSeq[ B ] = pull.parents( this /* select() */).flatMap( sel =>
-            sel.nodeOption match {
+            sel.nodeSelectorOption match {
                case Some( nodeSel ) => // this happens for mem-cached and not persisting systems (e.g. `InMemory`)
                   nodeSel.pullUpdate( pull ).asInstanceOf[ Option[ B ]]
                case _ =>
@@ -205,6 +205,8 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
 //   final private[lucre] def getEvent( slot: Int ) : Event[ S, _ <: D#Update, _ ] = decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
 
 //   final private[event] def select( slot: Int ) : NodeSelector[ S, D#Update ] = decl.getEvent( this, slot )
+
+   final private[lucre] def select( slot: Int ) : Event[ S, _ <: D#Update, _ ] = decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
 
 //   final protected def connectNode()( implicit tx: S#Tx ) {
 //      decl.events( this ).foreach( _.connect() )

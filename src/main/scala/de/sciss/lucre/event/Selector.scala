@@ -42,24 +42,29 @@ object Selector {
       }
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Selector[ S ] = {
+         val cookie = in.readUnsignedByte()
          // 0 = invariant, 1 = mutating, 2 = observer
-         (in.readUnsignedByte(): @switch) match {
-            case 0 =>
-               val slot   = in.readInt()
-               val targets = /* Invariant. */ Targets.readAndExpand[ S ]( in, access )
+         if( cookie == 0 || cookie == 1 ) {
+            val slot    = in.readInt()
+            val reactor = Targets.readAndExpand[ S ]( in, access )
+            reactor.nodeOption match {
+               case Some( node ) => node.select( slot )
+               case _ =>
+                  sys.error( "TODO" ) // if( cookie == 0 )
+            }
 //               targets.select( slot )
-               sys.error( "TODO" )
-            case 2 =>
-               val id = in.readInt()
-               new ObserverKey[ S ]( id )
-            case cookie => sys.error( "Unexpected cookie " + cookie )
+         } else if( cookie == 2 ) {
+            val id = in.readInt()
+            new ObserverKey[ S ]( id )
+         } else {
+            sys.error( "Unexpected cookie " + cookie )
          }
       }
    }
 
    private final case class TargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
    extends ReactorSelector[ S ] /* with InvariantSelector[ S ] */ {
-      def nodeOption: Option[ NodeSelector[ S, _ ]] = None
+      private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
 
       protected def cookie: Int = sys.error( "TODO" )
       private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { sys.error( "TODO" )}
@@ -90,7 +95,7 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 //      push.visit( this, parent )
 //   }
 
-   private[event] def nodeOption: Option[ NodeSelector[ S, _ ]]
+   private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]]
 
    final protected def writeSelectorData( out: DataOutput ) {
       out.writeInt( slot )
@@ -140,7 +145,7 @@ sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writ
 /* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends ReactorSelector[ S ] with ExpandedSelector[ S ] {
    private[event] def reactor: Node[ S, _ ]
 
-   final private[event] def nodeOption: Option[ NodeSelector[ S, _ ]] = Some( this )
+   final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
 
    private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
 

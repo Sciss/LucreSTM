@@ -127,6 +127,9 @@ object Targets {
 
       def isEmpty(  implicit tx: S#Tx ) : Boolean = children.isEmpty
       def nonEmpty( implicit tx: S#Tx ) : Boolean = children.nonEmpty
+
+      private[event] def nodeOption : Option[ Node[ S, _ ]] = None
+      private[event] def _targets : Targets[ S ] = this
    }
 }
 
@@ -190,13 +193,15 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    protected def writeData( out: DataOutput ) : Unit
    protected def disposeData()( implicit tx: S#Tx ) : Unit
 
-   final private[event] def _targets = targets
+   final private[event] def _targets : Targets[ S ] = targets
 
    final private[event] def children( implicit tx: S#Tx ) = targets.children
 
 //   private[event] def select( slot: Int ) : NodeSelector[ S, A ]
 
-//   private[event] def getEvent( slot: Int ) : Event[ S, _ <: A, _ ]
+   private[event] def select( slot: Int ) : Event[ S, _ <: A, _ ]
+
+   final private[event] def nodeOption : Option[ Node[ S, _ ]] = Some( this )
 
 //   protected def connectNode()(    implicit tx: S#Tx ) : Unit
 //   protected def disconnectNode()( implicit tx: S#Tx ) : Unit
@@ -377,6 +382,9 @@ sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disp
 
 //   private[event] def select( slot: Int ) : ReactorSelector[ S ]
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
+
+   private[event] def _targets : Targets[ S ]
+   private[event] def nodeOption: Option[ Node[ S, _ ]]
 
    override def equals( that: Any ) : Boolean = {
       (if( that.isInstanceOf[ Reactor[ _ ]]) {
