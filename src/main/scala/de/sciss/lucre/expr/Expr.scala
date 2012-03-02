@@ -136,7 +136,7 @@ object Expr {
    }
 }
 
-trait Expr[ S <: Sys[ S ], A ] extends /* Event.Val[ S, A ] with Event[ S, Change[ A ], Expr[ S, A ]] with */ Writer {
+trait Expr[ S <: Sys[ S ], A ] extends Writer {
    def changed: EventLike[ S, Change[ A ], Expr[ S, A ]]
    def value( implicit tx: S#Tx ) : A
 

@@ -30,8 +30,15 @@ import stm.Sys
 
 /**
  * Standalone events unite a node and one particular event.
+ *
+ * WARNING: the implementations of `equals` are really tricky right now. `Impl` is more specific in that
+ * `ReactorSelector` checks if the compared object is another `ReactorSelector` whose reactor has the
+ * same id and whose slot is the same. On the other hand `Invariant` inherits `equals` from `Reactor`
+ * which checks for another reactor and then compares their ids.
+ *
+ * I don't know if `Reactor` still needs the `equals` implementation?
  */
-trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ] {
+trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Invariant[ S, A ] with Impl[ S, A, A, Repr ] {
    final private[event] def slot = 1
    final private[event] def reactor: Node[ S, A ] = this
 
