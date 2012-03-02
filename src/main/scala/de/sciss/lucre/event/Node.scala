@@ -28,36 +28,76 @@ package event
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import stm.{TxnReader, TxnSerializer, Sys, Writer, Disposable}
-import annotation.switch
 
 /**
  * An abstract trait uniting invariant and mutating readers.
  */
-sealed trait Reader[ S <: Sys[ S ], +Repr, T ] {
-   def read( in: DataInput, access: S#Acc, targets: T )( implicit tx: S#Tx ) : Repr
+/* sealed */ trait Reader[ S <: Sys[ S ], +Repr ] {
+   def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
 }
 
-/**
- * A trait to serialize events which can be both constants and immutable nodes.
- * An implementation mixing in this trait just needs to implement methods
- * `readConstant` to return the constant instance, and `read` with the
- * `Event.Invariant.Targets` argument to return the immutable node instance.
- */
-trait Serializer[ S <: Sys[ S ], Repr <: Writer /* Node[ S, _ ] */]
-extends Invariant.Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
+trait NodeSerializer[ S <: Sys[ S ], Repr <: /* Writer */ Invariant[ S, _ ]]
+extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
    def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
-      (in.readUnsignedByte(): @switch) match {
-         case 3 => readConstant( in )
-         case 0 =>
-            val targets = Invariant.Targets.readIdentified[ S ]( in, access )
-            read( in, access, targets )
-         case cookie => sys.error( "Unexpected cookie " + cookie )
+      val targets = Targets.read[ S ]( in, access )
+      read( in, access, targets )
+   }
+}
+
+object Targets {
+   def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
+      val id         = tx.newID()
+      val children   = tx.newVar[ Children[ S ]]( id, NoChildren )
+      new Impl( id, children )
+   }
+
+   private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+      val id         = tx.readID( in, access )
+      tx.readVal( id )( new ExpanderReader[ S ])
+   }
+
+   private class ExpanderReader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Reactor[ S ]] {
+      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+         val targets    = Targets.read( in, access )
+         val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
+         tx.reactionMap.mapEventTargets( in, access, targets, observers )
       }
    }
 
-   def readConstant( in: DataInput )( implicit tx: S#Tx ) : Repr
+   private[lucre] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+      val cookie = in.readUnsignedByte()
+      require( cookie == 0, "Unexpected cookie " + cookie )
+      readIdentified( in, access )
+   }
+
+   private[event] def readIdentified[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+      val id            = tx.readID( in, access )
+      val children      = tx.readVar[ Children[ S ]]( id, in )
+      new Impl[ S ]( id, children )
+   }
+
+   private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]]) : Targets[ S ] =
+      new Impl( id, children )
+
+   private final class Impl[ S <: Sys[ S ]](
+      val id: S#ID, protected val childrenVar: S#Var[ Children[ S ]])
+   extends Targets[ S ] {
+      def write( out: DataOutput ) {
+         out.writeUnsignedByte( 0 )
+         id.write( out )
+         childrenVar.write( out )
+      }
+
+      def dispose()( implicit tx: S#Tx ) {
+         require( !isConnected, "Disposing a event reactor which is still being observed" )
+         id.dispose()
+         childrenVar.dispose()
+      }
+
+      def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
+   }
 }
 
 /**
@@ -136,80 +176,25 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    }
 }
 
-object Invariant {
-   object Targets {
-      def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
-         val id         = tx.newID()
-         val children   = tx.newVar[ Children[ S ]]( id, NoChildren )
-         new Impl( id, children )
-      }
-
-      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-         val id         = tx.readID( in, access )
-         tx.readVal( id )( new ExpanderReader[ S ])
-      }
-
-      private class ExpanderReader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Reactor[ S ]] {
-         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-            val targets    = Targets.read( in, access )
-            val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
-            tx.reactionMap.mapEventTargets( in, access, targets, observers )
-         }
-      }
-
-      private[lucre] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-         val cookie = in.readUnsignedByte()
-         require( cookie == 0, "Unexpected cookie " + cookie )
-         readIdentified( in, access )
-      }
-
-      private[event] def readIdentified[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-         val id            = tx.readID( in, access )
-         val children      = tx.readVar[ Children[ S ]]( id, in )
-         new Impl[ S ]( id, children )
-      }
-
-      private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]]) : Targets[ S ] =
-         new Impl( id, children )
-
-      private final class Impl[ S <: Sys[ S ]](
-         val id: S#ID, protected val childrenVar: S#Var[ Children[ S ]])
-      extends Targets[ S ] {
-         def write( out: DataOutput ) {
-            out.writeUnsignedByte( 0 )
-            id.write( out )
-            childrenVar.write( out )
-         }
-
-         def dispose()( implicit tx: S#Tx ) {
-            require( !isConnected, "Disposing a event reactor which is still being observed" )
-            id.dispose()
-            childrenVar.dispose()
-         }
-
-         def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
-      }
-   }
-
-   sealed trait Targets[ S <: Sys[ S ]] extends event.Targets[ S ]
-
-   trait Reader[ S <: Sys[ S ], +Repr ] extends event.Reader[ S, Repr, Targets[ S ]]
-
-   /**
-    * A trait to serialize events which are immutable nodes.
-    * An implementation mixing in this trait just needs to implement
-    * `read` with the `Event.Invariant.Targets` argument to return the node instance.
-    */
-   trait Serializer[ S <: Sys[ S ], Repr <: /* Writer */ Invariant[ S, _ ]]
-   extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
-      final def write( v: Repr, out: DataOutput ) { v.write( out )}
-
-      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
-         val targets = Targets.read[ S ]( in, access )
-         read( in, access, targets )
-      }
-   }
-}
+//object Invariant {
+//
+//   trait Reader[ S <: Sys[ S ], +Repr ] extends event.Reader[ S, Repr, Targets[ S ]]
+//
+//   /**
+//    * A trait to serialize events which are immutable nodes.
+//    * An implementation mixing in this trait just needs to implement
+//    * `read` with the `Event.Targets` argument to return the node instance.
+//    */
+//   trait Serializer[ S <: Sys[ S ], Repr <: /* Writer */ Invariant[ S, _ ]]
+//   extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
+//      final def write( v: Repr, out: DataOutput ) { v.write( out )}
+//
+//      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
+//         val targets = Targets.read[ S ]( in, access )
+//         read( in, access, targets )
+//      }
+//   }
+//}
 
 /**
  * An event which is `Invariant` designates a `Node` which does not mutate any internal state
@@ -224,7 +209,7 @@ object Invariant {
  * mapping, filtering and forwarding nodes.
  */
 trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-   protected def targets: Invariant.Targets[ S ]
+   protected def targets: Targets[ S ]
 
    final def select( key: Int ) : NodeSelector[ S ] = Selector( key, this )
 
@@ -246,124 +231,124 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
    }
 }
 
-object Mutating {
-   object Targets {
-      def apply[ S <: Sys[ S ]]( invalid: Boolean )( implicit tx: S#Tx ) : Targets[ S ] = {
-         val id         = tx.newID()
-         val children   = tx.newVar[ Children[ S ]]( id, IIdxSeq.empty )
-         val invalidVar = tx.newBooleanVar( id, invalid )
-         new Impl( id, children, invalidVar )
-      }
+//object Mutating {
+//   object Targets {
+//      def apply[ S <: Sys[ S ]]( invalid: Boolean )( implicit tx: S#Tx ) : Targets[ S ] = {
+//         val id         = tx.newID()
+//         val children   = tx.newVar[ Children[ S ]]( id, IIdxSeq.empty )
+//         val invalidVar = tx.newBooleanVar( id, invalid )
+//         new Impl( id, children, invalidVar )
+//      }
+//
+//      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+//         val id         = tx.readID( in, access )
+//         tx.readVal( id )( new ExpanderReader[ S ])
+//      }
+//
+//      private class ExpanderReader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Reactor[ S ]] {
+//         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+//            val targets    = Targets.read( in, access )
+//            val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
+//            tx.reactionMap.mapEventTargets( in, access, targets, observers )
+//         }
+//      }
+//
+//      private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+//         val cookie = in.readUnsignedByte()
+//         require( cookie == 1, "Unexpected cookie " + cookie )
+//         readIdentified( in, access )
+//      }
+//
+//      private[event] def readIdentified[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+//         val id            = tx.readID( in, access )
+//         val children      = tx.readVar[ Children[ S ]]( id, in )
+//         val invalid       = tx.readBooleanVar( id, in )
+//         new Impl[ S ]( id, children, invalid )
+//      }
+//
+//      private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]],
+//                                                invalid: S#Var[ Boolean ]) : Targets[ S ] =
+//         new Impl( id, children, invalid )
+//
+//      private final class Impl[ S <: Sys[ S ]](
+//         val id: S#ID, protected val childrenVar: S#Var[ Children[ S ]], invalid: S#Var[ Boolean ])
+//      extends Targets[ S ] {
+//         def isInvalid( implicit tx: S#Tx ) : Boolean = invalid.get
+//         def validated()( implicit tx: S#Tx ) { invalid.set( false )}
+//         def invalidate()( implicit tx: S#Tx ) { invalid.set( true )}
+//
+//         def write( out: DataOutput ) {
+//            out.writeUnsignedByte( 1 )
+//            id.write( out )
+//            childrenVar.write( out )
+//            invalid.write( out )
+//         }
+//
+//         def dispose()( implicit tx: S#Tx ) {
+//            require( !isConnected, "Disposing a event reactor which is still being observed" )
+//            id.dispose()
+//            childrenVar.dispose()
+//            invalid.dispose()
+//         }
+//
+//         def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
+//      }
+//   }
+//
+//   sealed trait Targets[ S <: Sys[ S ]] extends event.Targets[ S ] {
+//      /* private[event] */ def isInvalid( implicit tx: S#Tx ) : Boolean
+//      def invalidate()( implicit tx: S#Tx ) : Unit
+//      def validated()( implicit tx: S#Tx ) : Unit
+//   }
+//
+//   trait Reader[ S <: Sys[ S ], +Repr ] extends event.Reader[ S, Repr, Targets[ S ]]
+//
+//   /**
+//    * A trait to serialize events which are mutable nodes.
+//    * An implementation mixing in this trait just needs to implement
+//    * `read` with the `Event.Mutating.Targets` argument to return the node instance.
+//    */
+//   trait Serializer[ S <: Sys[ S ], Repr <: Mutating[ S, _ ]]
+//   extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
+//      final def write( v: Repr, out: DataOutput ) { v.write( out )}
+//
+//      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
+//         val targets = Targets.read[ S ]( in, access )
+//         read( in, access, targets /*, invalid */)
+//      }
+//   }
+//}
 
-      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-         val id         = tx.readID( in, access )
-         tx.readVal( id )( new ExpanderReader[ S ])
-      }
-
-      private class ExpanderReader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Reactor[ S ]] {
-         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-            val targets    = Targets.read( in, access )
-            val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
-            tx.reactionMap.mapEventTargets( in, access, targets, observers )
-         }
-      }
-
-      private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-         val cookie = in.readUnsignedByte()
-         require( cookie == 1, "Unexpected cookie " + cookie )
-         readIdentified( in, access )
-      }
-
-      private[event] def readIdentified[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-         val id            = tx.readID( in, access )
-         val children      = tx.readVar[ Children[ S ]]( id, in )
-         val invalid       = tx.readBooleanVar( id, in )
-         new Impl[ S ]( id, children, invalid )
-      }
-
-      private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]],
-                                                invalid: S#Var[ Boolean ]) : Targets[ S ] =
-         new Impl( id, children, invalid )
-
-      private final class Impl[ S <: Sys[ S ]](
-         val id: S#ID, protected val childrenVar: S#Var[ Children[ S ]], invalid: S#Var[ Boolean ])
-      extends Targets[ S ] {
-         def isInvalid( implicit tx: S#Tx ) : Boolean = invalid.get
-         def validated()( implicit tx: S#Tx ) { invalid.set( false )}
-         def invalidate()( implicit tx: S#Tx ) { invalid.set( true )}
-
-         def write( out: DataOutput ) {
-            out.writeUnsignedByte( 1 )
-            id.write( out )
-            childrenVar.write( out )
-            invalid.write( out )
-         }
-
-         def dispose()( implicit tx: S#Tx ) {
-            require( !isConnected, "Disposing a event reactor which is still being observed" )
-            id.dispose()
-            childrenVar.dispose()
-            invalid.dispose()
-         }
-
-         def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
-      }
-   }
-
-   sealed trait Targets[ S <: Sys[ S ]] extends event.Targets[ S ] {
-      /* private[event] */ def isInvalid( implicit tx: S#Tx ) : Boolean
-      def invalidate()( implicit tx: S#Tx ) : Unit
-      def validated()( implicit tx: S#Tx ) : Unit
-   }
-
-   trait Reader[ S <: Sys[ S ], +Repr ] extends event.Reader[ S, Repr, Targets[ S ]]
-
-   /**
-    * A trait to serialize events which are mutable nodes.
-    * An implementation mixing in this trait just needs to implement
-    * `read` with the `Event.Mutating.Targets` argument to return the node instance.
-    */
-   trait Serializer[ S <: Sys[ S ], Repr <: Mutating[ S, _ ]]
-   extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
-      final def write( v: Repr, out: DataOutput ) { v.write( out )}
-
-      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
-         val targets = Targets.read[ S ]( in, access )
-         read( in, access, targets /*, invalid */)
-      }
-   }
-}
-
-/**
- * An event node `Mutating` internal state as part of the event propagation. Examples of this behavior
- * are caching algorithms or persisted data structures which need to adapt according to changes in
- * source events (e.g. a sorted collection storing mutable objects).
- *
- * This is implementation is INCOMPLETE at the moment. The idea is to enhance the event's `Targets`
- * with an invalidation flag which is set during propagation when no live reactions are hanging of the
- * node's target tree (in which case the targets are not fully deserialized to the `Mutating` node,
- * and thus the node is not able to update its internal state). When a mutating node is deserialized
- * it must check the targets' invalidation status and rebuild the internal state if necessary.
- */
-trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-   protected def targets: Mutating.Targets[ S ]
-
-   final def select( key: Int ) : NodeSelector[ S ] = Selector( key, this )
-
-   final private[event] def addTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      targets.add( outlet, sel )
-   }
-
-   final private[event] def removeTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      targets.remove( outlet, sel )
-   }
-
-   final def dispose()( implicit tx: S#Tx ) {
-      targets.dispose()
-      disconnectNode()
-      disposeData()
-   }
-}
+///**
+// * An event node `Mutating` internal state as part of the event propagation. Examples of this behavior
+// * are caching algorithms or persisted data structures which need to adapt according to changes in
+// * source events (e.g. a sorted collection storing mutable objects).
+// *
+// * This is implementation is INCOMPLETE at the moment. The idea is to enhance the event's `Targets`
+// * with an invalidation flag which is set during propagation when no live reactions are hanging of the
+// * node's target tree (in which case the targets are not fully deserialized to the `Mutating` node,
+// * and thus the node is not able to update its internal state). When a mutating node is deserialized
+// * it must check the targets' invalidation status and rebuild the internal state if necessary.
+// */
+//trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
+//   protected def targets: Mutating.Targets[ S ]
+//
+//   final def select( key: Int ) : NodeSelector[ S ] = Selector( key, this )
+//
+//   final private[event] def addTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+//      targets.add( outlet, sel )
+//   }
+//
+//   final private[event] def removeTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+//      targets.remove( outlet, sel )
+//   }
+//
+//   final def dispose()( implicit tx: S#Tx ) {
+//      targets.dispose()
+//      disconnectNode()
+//      disposeData()
+//   }
+//}
 
 /**
  * The `Reactor` trait encompasses the possible targets (dependents) of an event. It defines

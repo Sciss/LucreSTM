@@ -63,7 +63,7 @@ object Expr {
 
       // ---- these need to be implemented by subtypes ----
       protected def ref: S#Var[ Ex ]
-      protected def reader: evt.Reader[ S, Expr[ S, A ], _ ]
+      protected def reader: evt.Reader[ S, Expr[ S, A ]]
 
       final protected def writeData( out: DataOutput ) {
          out.writeUnsignedByte( 0 )

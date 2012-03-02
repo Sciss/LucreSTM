@@ -30,13 +30,9 @@ import java.io.File
 import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
-import annotation.tailrec
 import collection.mutable.Buffer
-import collection.immutable.{IndexedSeq => IIdxSeq}
-import stm.{TxnSerializer, Sys}
+import stm.Sys
 import stm.impl.{InMemory, Confluent, BerkeleyDB}
-import stm.Mutable
-import event.{Mutating, Compound, Decl, Event, Invariant}
 
 //import expr.any2stringadd
 

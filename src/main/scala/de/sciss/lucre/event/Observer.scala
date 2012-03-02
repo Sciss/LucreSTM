@@ -30,7 +30,7 @@ import stm.{Disposable, Sys}
 
 object Observer {
    def apply[ S <: Sys[ S ], A, Repr ](
-      reader: Reader[ S, Repr, _ ], fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
+      reader: Reader[ S, Repr ], fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
 
       val key = tx.reactionMap.addEventReaction[ A, Repr ]( reader, fun )
       new Impl[ S, A, Repr ]( key )

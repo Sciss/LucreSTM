@@ -35,19 +35,19 @@ object Selector {
 
    implicit def event[ S <: Sys[ S ]]( ev: Event[ S, _, _ ])( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = ev.select()
 
-   def apply[ S <: Sys[ S ]]( key: Int, targets: Invariant.Targets[ S ]) : ReactorSelector[ S ] =
-      new InvariantTargetsSelector[ S ]( key, targets )
+   def apply[ S <: Sys[ S ]]( key: Int, targets: Targets[ S ]) : ReactorSelector[ S ] =
+      new TargetsSelector[ S ]( key, targets )
 
    def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Invariant[ S, _ /* A */]) : NodeSelector[ S ] = {
       new InvariantNodeSelector[ S /*, A, Invariant[ S, A ] */]( key, node )
    }
 
-   def apply[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ]) : ReactorSelector[ S ] =
-      new MutatingTargetsSelector[ S ]( key, targets )
+//   def apply[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ]) : ReactorSelector[ S ] =
+//      new MutatingTargetsSelector[ S ]( key, targets )
 
-   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Mutating[ S, _ /* A */]) : NodeSelector[ S ] = {
-      new MutatingNodeSelector[ S /*, A, Mutating[ S, A ] */]( key, node )
-   }
+//   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Mutating[ S, _ /* A */]) : NodeSelector[ S ] = {
+//      new MutatingNodeSelector[ S /*, A, Mutating[ S, A ] */]( key, node )
+//   }
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
@@ -59,14 +59,14 @@ object Selector {
          (in.readUnsignedByte(): @switch) match {
             case 0 =>
                val inlet   = in.readInt()
-               val targets = Invariant.Targets.readAndExpand[ S ]( in, access )
+               val targets = /* Invariant. */ Targets.readAndExpand[ S ]( in, access )
                targets.select( inlet )
 //               Selector( inlet, targets )
-            case 1 =>
-               val inlet   = in.readInt()
-               val targets = Mutating.Targets.readAndExpand[ S ]( in, access )
-               targets.select( inlet )
-//               Selector( inlet, targets )
+//            case 1 =>
+//               val inlet   = in.readInt()
+//               val targets = Mutating.Targets.readAndExpand[ S ]( in, access )
+//               targets.select( inlet )
+////               Selector( inlet, targets )
             case 2 =>
                val id = in.readInt()
                new ObserverKey[ S ]( id )
@@ -76,21 +76,23 @@ object Selector {
       }
    }
 
-   private sealed trait TargetsSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
-      final def nodeOption: Option[ NodeSelector[ S ]] = None
-   }
+//   private sealed trait TargetsSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+//      final def nodeOption: Option[ NodeSelector[ S ]] = None
+//   }
 
    private final case class InvariantNodeSelector[ S <: Sys[ S ] /*, A, Repr <: Invariant[ S, A ] */]( inlet: Int, reactor: Invariant[ S, _ ] /* Repr */)
    extends NodeSelector[ S /*, A, Repr */ ] with InvariantSelector[ S ]
 
-   private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Invariant.Targets[ S ])
-   extends TargetsSelector[ S ] with InvariantSelector[ S ]
+   private final case class TargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Targets[ S ])
+   extends ReactorSelector[ S ] with InvariantSelector[ S ] {
+      def nodeOption: Option[ NodeSelector[ S ]] = None
+   }
 
-   private final case class MutatingNodeSelector[ S <: Sys[ S ] /*, A, Repr <: Mutating[ S, A ] */]( inlet: Int, reactor: Mutating[ S, _ ] /* Repr */)
-   extends NodeSelector[ S /*, A, Repr */] with MutatingSelector[ S ]
+//   private final case class MutatingNodeSelector[ S <: Sys[ S ] /*, A, Repr <: Mutating[ S, A ] */]( inlet: Int, reactor: Mutating[ S, _ ] /* Repr */)
+//   extends NodeSelector[ S /*, A, Repr */] with MutatingSelector[ S ]
 
-   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating.Targets[ S ])
-   extends TargetsSelector[ S ] with MutatingSelector[ S ]
+//   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating.Targets[ S ])
+//   extends TargetsSelector[ S ] with MutatingSelector[ S ]
 }
 
 sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {

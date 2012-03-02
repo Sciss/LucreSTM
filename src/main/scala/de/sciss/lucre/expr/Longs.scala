@@ -29,7 +29,7 @@ package expr
 import stm.Sys
 import annotation.switch
 import stm.impl.InMemory
-import event.Invariant
+import event.{Targets, Invariant}
 
 object Longs {
    def apply[ S <: Sys[ S ]] : Longs[ S ] = new Longs[ S ]
@@ -56,7 +56,7 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
    }
 
    def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
-                  targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+                  targets: Targets[ S ])( implicit tx: S#Tx ) : Ex = {
       (arity: @switch) match {
          case 1 => UnaryOp(  opID ).read( in, access, targets )
          case 2 => BinaryOp( opID ).read( in, access, targets )
@@ -70,9 +70,9 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
 
       sealed trait Basic extends UnaryOp {
          final def apply( _1: Ex )( implicit tx: S#Tx ) : Ex =
-            new Tuple1( tpe.id, this, Invariant.Targets[ S ], _1 )
+            new Tuple1( tpe.id, this, Targets[ S ], _1 )
 
-         final def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+         final def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Ex = {
             val _1 = readExpr( in, access )
             new Tuple1( tpe.id, this, targets, _1 )
          }
@@ -98,9 +98,9 @@ final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
 
       sealed trait Basic extends BinaryOp {
          final def apply( _1: Ex, _2: Ex )( implicit tx: S#Tx ) : Ex =
-            new Tuple2( tpe.id, this, Invariant.Targets[ S ], _1, _2 )
+            new Tuple2( tpe.id, this, Targets[ S ], _1, _2 )
 
-         final def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+         final def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Ex = {
             val _1 = readExpr( in, access )
             val _2 = readExpr( in, access )
             new Tuple2( tpe.id, this, targets, _1, _2 )

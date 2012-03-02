@@ -27,7 +27,7 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import event.{Pull, Observer, Invariant}
+import event.{EventLikeSerializer, Targets, Pull, Observer, Invariant}
 
 /**
  * IDs:
@@ -53,8 +53,8 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
       final protected def reader = serializer
    }
 
-   implicit object serializer extends event.Serializer[ S, Ex ] {
-      def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+   implicit object serializer extends EventLikeSerializer[ S, Ex ] {
+      def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Ex = {
          // 0 = var, 1 = op
          (in.readUnsignedByte() /*: @switch */) match {
             case 0      => new VarRead( in, access, targets, tx )
@@ -76,7 +76,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
       protected val constValue = readValue( in )
    }
 
-   private final class VarRead( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+   private final class VarRead( in: DataInput, access: S#Acc, protected val targets: Targets[ S ], tx0: S#Tx )
    extends Basic with Expr.Var[ S, A ] {
       protected val ref = tx0.readVar[ Ex ]( id, in )
    }
@@ -99,19 +99,19 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
    }
 
    def Var( init: Ex )( implicit tx: S#Tx ) : Var = new Basic with Expr.Var[ S, A ] {
-      protected val targets   = Invariant.Targets[ S ]
+      protected val targets   = Targets[ S ]
       protected val ref       = tx.newVar[ Ex ]( id, init )
    }
 
    def NamedVar( name: => String, init: Ex )( implicit tx: S#Tx ) : Var = new Basic with Expr.Var[ S, A ] {
-      protected val targets   = Invariant.Targets[ S ]
+      protected val targets   = Targets[ S ]
       protected val ref       = tx.newVar[ Ex ]( id, init )
       override def toString   = name
    }
 
    def readVar( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Var = {
       // XXX should go somewhere else
-      val targets = Invariant.Targets.read[ S ]( in, access )
+      val targets = Targets.read[ S ]( in, access )
       require( in.readUnsignedByte == 0 )
       new VarRead( in, access, targets, tx )
    }
@@ -121,13 +121,13 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 //   protected def newBinaryOp( op: BinaryOp, a: Ex, b: Ex )( implicit tx: S#Tx ) : Ex = new BinaryOpNew( op, a, b, tx )
 //   protected def newUnaryOp( op: UnaryOp, a: Ex )( implicit tx: S#Tx ) : Ex = new UnaryOpNew( op, a, tx )
 
-   /* protected */ sealed trait TupleOp extends Invariant.Reader[ S, Ex ] {
+   /* protected */ sealed trait TupleOp extends event.Reader[ S, Ex ] {
       def id: Int
    }
 
    /* protected */ trait Tuple1Op[ T1 ] extends TupleOp {
 //      final def apply( _1: Expr[ S, T1 ])( implicit tx: S#Tx ) : Ex =
-//         new Tuple1[ T1 ]( this, Invariant.Targets[ S ], _1 )
+//         new Tuple1[ T1 ]( this, Targets[ S ], _1 )
 
       def value( a: T1 ) : A
 
@@ -135,7 +135,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
    }
 
    final /* protected */ class Tuple1[ T1 ]( typeID: Int, op: Tuple1Op[ T1 ],
-                                       protected val targets: Invariant.Targets[ S ],
+                                       protected val targets: Targets[ S ],
                                        _1: Expr[ S, T1 ])
    extends Basic with Expr.Node[ S, A ] {
 //      protected def op: Tuple1Op[ T1 ]
@@ -176,7 +176,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
 
    /* protected */  trait Tuple2Op[ T1, T2 ] extends TupleOp {
 //      final def apply( _1: Expr[ S, T1 ], _2: Expr[ S, T2 ])( implicit tx: S#Tx ) : Ex =
-//         new Tuple2[ T1, T2 ]( this, Invariant.Targets[ S ], _1, _2 )
+//         new Tuple2[ T1, T2 ]( this, Targets[ S ], _1, _2 )
 
       def value( a: T1, b: T2 ) : A
 
@@ -186,7 +186,7 @@ trait Type[ S <: Sys[ S ], A ] extends Extensions[ S, A ] with TupleReader[ S, A
    }
 
    final /* protected */  class Tuple2[ T1, T2 ]( typeID: Int, op: Tuple2Op[ T1, T2 ],
-                                           protected val targets: Invariant.Targets[ S ],
+                                           protected val targets: Targets[ S ],
                                            _1: Expr[ S, T1 ], _2: Expr[ S, T2 ])
    extends Basic with Expr.Node[ S, A ] {
 //      protected def op: Tuple1Op[ T1 ]

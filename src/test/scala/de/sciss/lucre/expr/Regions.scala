@@ -2,9 +2,9 @@ package de.sciss.lucre
 package expr
 
 import stm.{TxnSerializer, Mutable, Sys}
-import event.{Event, Compound, Invariant, Decl}
 import annotation.tailrec
 import collection.immutable.{IndexedSeq => IIdxSeq}
+import event.{Targets, NodeSerializer, Event, Compound, Invariant, Decl}
 
 class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ], val spans: Spans[ S ]) {
    type Tx  = S#Tx
@@ -117,20 +117,20 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
       private final class New( name0: StringEx, span0: SpanEx, tx0: S#Tx ) extends Impl {
          region =>
 
-         protected val targets = Invariant.Targets[ S ]( tx0 )
+         protected val targets = Targets[ S ]( tx0 )
          val name_#  = strings.NamedVar( region.toString + ".name_#",  name0 )(  tx0 )
          val span_#  = spans.NamedVar(   region.toString + ".span_#",  span0 )(  tx0 )
       }
 
       private final class Read( in: DataInput, access: S#Acc,
-                                protected val targets: Invariant.Targets[ S ], tx0: S#Tx ) extends Impl {
+                                protected val targets: Targets[ S ], tx0: S#Tx ) extends Impl {
          val name_#  = strings.readVar( in, access )( tx0 )
          val span_#  = spans.readVar(   in, access )( tx0 )
       }
 
-      implicit val serializer : Invariant.Serializer[ S, EventRegion ] = new Invariant.Serializer[ S, EventRegion ] {
+      implicit val serializer : NodeSerializer[ S, EventRegion ] = new NodeSerializer[ S, EventRegion ] {
 //            def write( v: EventRegion, out: DataOutput ) { v.write( out )}
-         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : EventRegion =
+         def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : EventRegion =
             new Read( in, access, targets, tx )
       }
    }
@@ -267,7 +267,7 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
       }
 
       private final class New( tx0: Tx ) extends Impl {
-         protected val targets         = Invariant.Targets[ S ]( tx0 )
+         protected val targets         = Targets[ S ]( tx0 )
          protected val sizeRef         = tx0.newIntVar( id, 0 )
          protected val headRef         = tx0.newVar[ LO ]( id, None )
 //            protected val regionRenamed   = new RegionRenamed {
@@ -275,14 +275,14 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
 //            }
       }
 
-      private final class Read( in: DataInput, access: S#Acc, protected val targets: Invariant.Targets[ S ], tx0: S#Tx )
+      private final class Read( in: DataInput, access: S#Acc, protected val targets: Targets[ S ], tx0: S#Tx )
       extends Impl {
          protected val sizeRef   = tx0.readIntVar( id, in )
          protected val headRef   = tx0.readVar[ Option[ LinkedList[ EventRegion ]]]( id, in )
       }
 
-      implicit val serializer : Invariant.Serializer[ S, RegionList ] = new Invariant.Serializer[ S, RegionList ] {
-         def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : RegionList =
+      implicit val serializer : NodeSerializer[ S, RegionList ] = new NodeSerializer[ S, RegionList ] {
+         def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : RegionList =
             new Read( in, access, targets, tx )
       }
    }

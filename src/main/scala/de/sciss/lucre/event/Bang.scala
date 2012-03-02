@@ -5,15 +5,15 @@ import stm.Sys
 
 object Bang {
    def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Bang[ S ] = new Impl[ S ] {
-      protected val targets = Invariant.Targets[ S ]
+      protected val targets = Targets[ S ]
    }
 
    private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit /*, Bang[ S ] */] {
       protected def reader = Bang.serializer[ S ]
    }
 
-   def serializer[ S <: Sys[ S ]] : Invariant.Serializer[ S, Bang[ S ]] = new Invariant.Serializer[ S, Bang[ S ]] {
-      def read( in: DataInput, access: S#Acc, _targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Bang[ S ] =
+   def serializer[ S <: Sys[ S ]] : NodeSerializer[ S, Bang[ S ]] = new NodeSerializer[ S, Bang[ S ]] {
+      def read( in: DataInput, access: S#Acc, _targets: Targets[ S ])( implicit tx: S#Tx ) : Bang[ S ] =
          new Impl[ S ] {
             protected val targets = _targets
          }

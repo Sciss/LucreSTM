@@ -29,7 +29,7 @@ package expr
 import stm.Sys
 import annotation.switch
 import stm.impl.InMemory
-import event.Invariant
+import event.Targets
 
 object Strings {
    def apply[ S <: Sys[ S ]] : Strings[ S ] = new Strings[ S ]
@@ -57,14 +57,14 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
    }
 
    def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc,
-                  targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+                  targets: Targets[ S ])( implicit tx: S#Tx ) : Ex = {
       (arity: @switch) match {
          case 1 => UnaryOp(  opID ).read( in, access, targets )
          case 2 => BinaryOp( opID ).read( in, access, targets )
       }
    }
 
-//   protected def readLiteral( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex =
+//   protected def readLiteral( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Ex =
 //      sys.error( "Strings doesn't define a literal type" )
 //
 //   protected def unaryOp( id: Int ) = UnaryOp( id )
@@ -77,9 +77,9 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
 
       sealed trait Basic extends UnaryOp {
          final def apply( _1: Ex )( implicit tx: S#Tx ) : Ex =
-            new Tuple1( tpe.id, this, Invariant.Targets[ S ], _1 )
+            new Tuple1( tpe.id, this, Targets[ S ], _1 )
 
-         final def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+         final def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Ex = {
             val _1 = readExpr( in, access )
             new Tuple1( tpe.id, this, targets, _1 )
          }
@@ -108,9 +108,9 @@ final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
 
       sealed trait Basic extends BinaryOp {
          final def apply( _1: Ex, _2: Ex )( implicit tx: S#Tx ) : Ex =
-            new Tuple2( tpe.id, this, Invariant.Targets[ S ], _1, _2 )
+            new Tuple2( tpe.id, this, Targets[ S ], _1, _2 )
 
-         final def read( in: DataInput, access: S#Acc, targets: Invariant.Targets[ S ])( implicit tx: S#Tx ) : Ex = {
+         final def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Ex = {
             val _1 = readExpr( in, access )
             val _2 = readExpr( in, access )
             new Tuple2( tpe.id, this, targets, _1, _2 )

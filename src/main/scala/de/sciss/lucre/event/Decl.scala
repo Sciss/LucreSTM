@@ -98,7 +98,7 @@ trait Decl[ S <: Sys[ S ], Impl ] {
 
    /* sealed */ trait Update
 
-   def serializer: Reader[ S, Impl, _ ]
+   def serializer: Reader[ S, Impl ]
 }
 
 //class Setup[ S <: Sys[ S ]] {

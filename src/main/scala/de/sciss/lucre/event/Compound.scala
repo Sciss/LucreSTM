@@ -95,7 +95,7 @@ object Compound {
       protected val node: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, Elem ], fun: IIdxSeq[ B ] => A1,
       protected val outlet: Int )( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ], m: ClassManifest[ A1 ])
    extends event.Impl[ S, D#Update, A1, Repr ] {
-      protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+      protected def reader: Reader[ S, Repr ] = node.decl.serializer // [ S ]
 
       override def toString = node.toString + ".collection[" + {
          val mn = m.toString
@@ -140,7 +140,7 @@ object Compound {
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
       protected val node: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ])
    extends event.Impl[ S, D#Update, A1, Repr ] {
-      protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+      protected def reader: Reader[ S, Repr ] = node.decl.serializer // [ S ]
 
       protected def outlet = node.decl.eventID[ A1 ]
 
@@ -161,7 +161,7 @@ object Compound {
    private final class Trigger[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ](
       protected val node: Compound[ S, Repr, D ])( implicit m: ClassManifest[ A1 ])
    extends event.Trigger.Impl[ S, D#Update, A1, Repr ] with Root[ S, A1 ] {
-      protected def reader: Reader[ S, Repr, _ ] = node.decl.serializer // [ S ]
+      protected def reader: Reader[ S, Repr ] = node.decl.serializer // [ S ]
 
       protected def outlet = node.decl.eventID[ A1 ]
 

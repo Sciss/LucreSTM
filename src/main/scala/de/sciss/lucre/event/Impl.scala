@@ -36,7 +36,7 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
 
    final private[lucre] def isSource( pull: Pull[ S ]) : Boolean = pull.hasVisited( select() )
 
-   protected def reader: Reader[ S, Repr, _ ]
+   protected def reader: Reader[ S, Repr ]
 
    final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
       node.addTarget( outlet, r )
