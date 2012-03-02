@@ -38,7 +38,7 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] wit
    final protected def connectNode()( implicit tx: S#Tx ) { connect() }
    final protected def disconnectNode()( implicit tx: S#Tx ) { disconnect() }
 
-   final private[lucre] def getEvent( key: Int ) : Event[ S, _ <: A, _ ] = this
+//   final private[lucre] def getEvent( key: Int ) : Event[ S, _ <: A, _ ] = this
 
    final private[event] def select( slot: Int ) : NodeSelector[ S, A ] = {
       require( slot == 1, "Invalid slot " + slot )

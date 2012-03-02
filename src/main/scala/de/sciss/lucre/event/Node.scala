@@ -159,14 +159,13 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    final private[event] def children( implicit tx: S#Tx ) = targets.children
 
    private[event] def select( slot: Int ) : NodeSelector[ S, A ]
+//   private[event] def getEvent( slot: Int ) : Event[ S, _ <: A, _ ]
 
    protected def connectNode()(    implicit tx: S#Tx ) : Unit
    protected def disconnectNode()( implicit tx: S#Tx ) : Unit
 
    private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
    private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
-
-   private[event] def getEvent( slot: Int ) : Event[ S, _ <: A, _ ]
 
    final def id: S#ID = targets.id
 
