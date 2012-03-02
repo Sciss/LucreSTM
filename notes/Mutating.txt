@@ -194,3 +194,9 @@ Things to solve in this...
 - we'd have another event operation describing the side effects. e.g. unsorted.elementChanged.mapEffect
 - then `Compound` could either add another event op for `mapEffect` with evidence argument that `Repr` is mutating. or there is simply `MutatingCompound`.
 
+A simpler first solution without the need to refactor Event/Selector could be to just go for the new `mapEffect` method.
+
+    collectionChanged = unsorted.collectionChanged.mapEffect[ Collection ] { implicit tx => ... }
+
+... still we need to figure out how to restrict the addMutating call to collectionChanged and not just any selector from the node ...
+
