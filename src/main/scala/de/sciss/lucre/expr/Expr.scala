@@ -27,7 +27,7 @@ package de.sciss.lucre
 package expr
 
 import stm.{Disposable, Var => _Var, Sys, Writer}
-import event.{Pull, Dummy, Change, Event, Generator, StandaloneLike}
+import event.{EventLike, Pull, Dummy, Change, Event, Generator, StandaloneLike}
 
 object Expr {
    trait Node[ S <: Sys[ S ], A ] extends Expr[ S, A ] // with Invariant[ S, Change[ A ]]
@@ -137,7 +137,7 @@ object Expr {
 }
 
 trait Expr[ S <: Sys[ S ], A ] extends /* Event.Val[ S, A ] with Event[ S, Change[ A ], Expr[ S, A ]] with */ Writer {
-   def changed: Event[ S, Change[ A ], Expr[ S, A ]]
+   def changed: EventLike[ S, Change[ A ], Expr[ S, A ]]
    def value( implicit tx: S#Tx ) : A
 
    final def observe( fun: A => Unit )( implicit tx: S#Tx ) : Disposable[ S#Tx ] =

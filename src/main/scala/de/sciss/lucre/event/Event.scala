@@ -28,42 +28,7 @@ package event
 
 import stm.Sys
 
-object Dummy {
-   def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = new Dummy[ S, A, Repr ] {}
-
-   private def opNotSupported = sys.error( "Operation not supported ")
-}
-trait Dummy[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
-   import Dummy._
-
-   final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {}
-   final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {}
-
-   final private[lucre] def select() : NodeSelector[ S ] = opNotSupported
-
-   /**
-    * Returns `false`, as a dummy is never a source event.
-    */
-   final private[lucre] def isSource( pull: Pull[ S ]) = false
-
-   final def react( fun: A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
-      Observer.dummy[ S, A, Repr ]
-
-   final def reactTx( fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
-      Observer.dummy[ S, A, Repr ]
-
-   final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = opNotSupported
-
-   final private[lucre] def connect()( implicit tx: S#Tx ) {}
-   final private[lucre] def disconnect()( implicit tx: S#Tx ) {}
-}
-
-/**
- * `Event` is not sealed in order to allow you define traits inheriting from it, while the concrete
- * implementations should extend either of `Event.Constant` or `Event.Node` (which itself is sealed and
- * split into `Event.Invariant` and `Event.Mutating`.
- */
-trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
+sealed trait EventLike[ S <: Sys[ S ], A, Repr ] {
    /**
     * Connects the given selector to this event. That is, this event will
     * adds the selector to its propagation targets.
@@ -89,27 +54,15 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
     */
    def react( fun: A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
 
+   /**
+    * Like `react`, but passing in a transaction as first function argument.
+    */
    def reactTx( fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
 
    /**
-    * Involves this event in the pull-phase of event delivery. The event should check
-    * the source of the originally fired event, and if it identifies itself with that
-    * source, cast the `update` to the appropriate type `A` and wrap it in an instance
-    * of `Some`. If this event is not the source, it should invoke `pull` on any
-    * appropriate event source feeding this event.
-    *
-    * @return  the `update` as seen through this event, or `None` if the event did not
-    *          originate from this part of the dependency graph or was absorbed by
-    *          a filtering function
+    * Tests whether this event participates in a pull. That is, whether the
+    * event was visited during the push phase.
     */
-   private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
-
-   /**
-    * Returns a `Selector` (inlet) representation of this event, that is the underlying `Node` along
-    * with the inlet identifier corresponding to this event.
-    */
-   private[lucre] def select() : NodeSelector[ S ] // with ExpandedSelector[ S ]
-
    private[lucre] def isSource( pull: Pull[ S ]) : Boolean
 
    /**
@@ -129,4 +82,60 @@ trait Event[ S <: Sys[ S ], A, Repr ] /* extends Writer */ {
     * no-op implementation.
     */
    private[lucre] def disconnect()( implicit tx: S#Tx ) : Unit
+
+   /**
+    * Involves this event in the pull-phase of event delivery. The event should check
+    * the source of the originally fired event, and if it identifies itself with that
+    * source, cast the `update` to the appropriate type `A` and wrap it in an instance
+    * of `Some`. If this event is not the source, it should invoke `pull` on any
+    * appropriate event source feeding this event.
+    *
+    * @return  the `update` as seen through this event, or `None` if the event did not
+    *          originate from this part of the dependency graph or was absorbed by
+    *          a filtering function
+    */
+   private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
+}
+
+object Dummy {
+   def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = new Dummy[ S, A, Repr ] {}
+
+   private def opNotSupported = sys.error( "Operation not supported ")
+}
+trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
+   import Dummy._
+
+   final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {}
+   final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {}
+
+//   final private[lucre] def select() : NodeSelector[ S ] = opNotSupported
+
+   /**
+    * Returns `false`, as a dummy is never a source event.
+    */
+   final private[lucre] def isSource( pull: Pull[ S ]) = false
+
+   final def react( fun: A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
+      Observer.dummy[ S, A, Repr ]
+
+   final def reactTx( fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
+      Observer.dummy[ S, A, Repr ]
+
+   final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = opNotSupported
+
+   final private[lucre] def connect()( implicit tx: S#Tx ) {}
+   final private[lucre] def disconnect()( implicit tx: S#Tx ) {}
+}
+
+/**
+ * `Event` is not sealed in order to allow you define traits inheriting from it, while the concrete
+ * implementations should extend either of `Event.Constant` or `Event.Node` (which itself is sealed and
+ * split into `Event.Invariant` and `Event.Mutating`.
+ */
+trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
+   /**
+    * Returns a `Selector` (inlet) representation of this event, that is the underlying `Node` along
+    * with the inlet identifier corresponding to this event.
+    */
+   private[lucre] def select() : NodeSelector[ S ] // with ExpandedSelector[ S ]
 }
