@@ -28,7 +28,7 @@ package event
 
 import stm.Sys
 
-trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] with InvariantSelector[ S ] {
+trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] /* with InvariantSelector[ S ] */ {
    final private[lucre] def isSource( pull: Pull[ S ]) : Boolean = pull.hasVisited( this /* select() */)
 
    protected def reader: Reader[ S, Repr ]

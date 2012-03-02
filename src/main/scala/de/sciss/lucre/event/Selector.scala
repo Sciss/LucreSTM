@@ -57,7 +57,7 @@ object Selector {
    }
 
    private final case class TargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
-   extends ReactorSelector[ S ] with InvariantSelector[ S ] {
+   extends ReactorSelector[ S ] /* with InvariantSelector[ S ] */ {
       def nodeOption: Option[ NodeSelector[ S, _ ]] = None
    }
 }
@@ -81,6 +81,10 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 
    private[event] def reactor: Reactor[ S ]
    private[event] def slot: Int
+
+   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
+      push.visit( this, parent )
+   }
 
    private[event] def nodeOption: Option[ NodeSelector[ S, _ ]]
 
@@ -115,12 +119,12 @@ sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writ
    private[event] def writeValue()( implicit tx: S#Tx ) : Unit
 }
 
-/* sealed */ trait InvariantSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
-//   protected def cookie: Int = 0
-   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
-      push.visit( this, parent )
-   }
-}
+///* sealed */ trait InvariantSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+////   protected def cookie: Int = 0
+//   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
+//      push.visit( this, parent )
+//   }
+//}
 
 //sealed trait MutatingSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
 //   protected def cookie: Int = 1

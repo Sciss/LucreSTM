@@ -54,7 +54,7 @@ object Compound {
 
 // XXX
 //protected def cookie = opNotSupported
-private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { opNotSupported }
+//private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { opNotSupported }
 private[event] def slot = opNotSupported
 
 

@@ -75,7 +75,7 @@ object Push {
          }
       }
 
-      def visit( sel: InvariantSelector[ S ], parent: ReactorSelector[ S ]) {
+      def visit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) {
          if( addVisited( sel, parent )) visitChildren( sel )
       }
 
@@ -116,7 +116,7 @@ sealed trait Pull[ S <: Sys[ S ]] {
    def parents( sel: ReactorSelector[ S ]) : Push.Parents[ S ]
 }
 sealed trait Push[ S <: Sys[ S ]] extends Pull[ S ] {
-   def visit( sel: InvariantSelector[ S ], parent: ReactorSelector[ S ]) : Unit
+   def visit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Unit
 //   def visit( sel: MutatingSelector[ S ],  parent: ReactorSelector[ S ]) : Unit
 //   def mutatingVisit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Unit
 //   def addMutation( sel: ReactorSelector[ S ]) : Unit
