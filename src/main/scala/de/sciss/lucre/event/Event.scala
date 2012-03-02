@@ -258,15 +258,6 @@ trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
 }
 
 /**
- * Value based events fire instances of `Change` which provides the value before
- * and after modification.
- */
-final case class Change[ @specialized A ]( before: A, now: A ) {
-   def isSignificant: Boolean = before != now
-   def toOption: Option[ Change[ A ]] = if( isSignificant ) Some( this ) else None
-}
-
-/**
  * A constant "event" is one which doesn't actually fire. It thus arguably isn't really an event,
  * but it can be used to implement the constant type of an expression system which can use a unified
  * event approach, where the `Constant` event just acts as a dummy event. `addReactor` and `removeReactor`
@@ -318,20 +309,6 @@ trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
       res.add( this )
       res
    }
-}
-
-/**
- * Standalone events unite a node and one particular event.
- */
-trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ]
-/* with EarlyBinding[ S, A ] */ /* with Singleton[ S ] with Root[ S, A ] */ {
-   final protected def outlet = 1
-   final protected def node: Node[ S, A ] = this
-
-   final protected def connectNode()( implicit tx: S#Tx ) { connect() }
-   final protected def disconnectNode()( implicit tx: S#Tx ) { disconnect() }
-
-   final private[lucre] def getEvent( key: Int ) : Event[ S, _ <: A, _ ] = this
 }
 
 object Mutating {
