@@ -47,9 +47,9 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Invariant[ S, A ] with Im
 
 //   final private[lucre] def getEvent( key: Int ) : Event[ S, _ <: A, _ ] = this
 
-   final private[event] def select( slot: Int, mutating: Boolean ) : ReactorSelector[ S ] = {
+   final private[event] def select( slot: Int, invariant: Boolean ) : ReactorSelector[ S ] = {
       require( slot == 1, "Invalid slot " + slot )
-      require( !mutating, "Invalid mutating flag. Should be false" )
+      require( invariant, "Invalid invariant flag. Should be true" )
       this
    }
 }

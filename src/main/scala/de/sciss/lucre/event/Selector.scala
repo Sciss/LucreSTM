@@ -27,15 +27,15 @@ package de.sciss.lucre
 package event
 
 import stm.{TxnSerializer, Sys}
-import annotation.switch
 import scala.util.MurmurHash
 
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
-   def apply[ S <: Sys[ S ]]( key: Int, targets: Targets[ S ], mutating: Boolean ) : ReactorSelector[ S ] =
-      sys.error( "TODO" )
-//      new TargetsSelector[ S ]( key, targets )
+   def apply[ S <: Sys[ S ]]( slot: Int, targets: Targets[ S ], invariant: Boolean ) : ReactorSelector[ S ] = {
+      if( invariant ) InvariantTargetsSelector( slot, targets )
+      else            MutatingTargetsSelector(  slot, targets )
+   }
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
@@ -49,12 +49,6 @@ object Selector {
             val slot    = in.readInt()
             val reactor = Targets.readAndExpand[ S ]( in, access )
             reactor.select( slot, cookie == 0 )
-//            reactor.nodeOption match {
-//               case Some( node ) => node.select( slot )
-//               case _ =>
-//                  sys.error( "TODO" ) // if( cookie == 0 )
-//            }
-//               targets.select( slot )
          } else if( cookie == 2 ) {
             val id = in.readInt()
             new ObserverKey[ S ]( id )
@@ -64,13 +58,15 @@ object Selector {
       }
    }
 
-//   private final case class TargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
-//   extends ReactorSelector[ S ] /* with InvariantSelector[ S ] */ {
-//      private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
-//
-//      protected def cookie: Int = sys.error( "TODO" )
-//      private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { sys.error( "TODO" )}
-//   }
+   private sealed trait TargetsSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+      final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
+   }
+
+   private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
+   extends TargetsSelector[ S ] with InvariantSelector[ S ]
+
+   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
+   extends TargetsSelector[ S ] with MutatingSelector[ S ]
 }
 
 sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {

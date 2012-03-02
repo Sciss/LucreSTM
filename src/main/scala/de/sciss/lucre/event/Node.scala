@@ -96,7 +96,7 @@ object Targets {
          childrenVar.dispose()
       }
 
-      def select( slot: Int, mutating: Boolean ) : ReactorSelector[ S ] = Selector( slot, this, mutating )
+      def select( slot: Int, invariant: Boolean ) : ReactorSelector[ S ] = Selector( slot, this, invariant )
 
       private[event] def children( implicit tx: S#Tx ) : Children[ S ] = childrenVar.get
 
@@ -380,7 +380,7 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disposable[ S#Tx ] {
    def id: S#ID
 
-   private[event] def select( slot: Int, mutating: Boolean ) : ReactorSelector[ S ]
+   private[event] def select( slot: Int, invariant: Boolean ) : ReactorSelector[ S ]
 
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
