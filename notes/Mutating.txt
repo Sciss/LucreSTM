@@ -179,3 +179,18 @@ one child: with LL: Cons cell = 1 byte + 4 byte next var + selector
 The problem remains the same with LL, because in the removal we have pred.nextRef.set( succ ) and that will write the selector of succ again in the current implementation.
 
 We should thus go for (1), it just makes life easier in the end.
+
+::::::::::::::::::
+
+02-Mar-12
+
+The problem is that now pullUpdate being both in Event and NodeSelector gets nasty -- it means it's the event's responsibility to remove the mutating state from pull... terrible approach.
+
+In other words, the only clean solution is what we should have done before: Unify ReactorSelector and Event somehow........
+
+Things to solve in this...
+- (major!) Invariant versus Mutating nodes -- this shouldn't determine whether events are mutating or not mutating, as a node can perfectly host both mutating and non-mutating nodes
+- therefore, `select` should be removed from `Node` altogether; it's the event that needs to know whether it's mutating or not, resulting in the equivalent of `InvariantSelector` versus `MutatingSelector`.
+- we'd have another event operation describing the side effects. e.g. unsorted.elementChanged.mapEffect
+- then `Compound` could either add another event op for `mapEffect` with evidence argument that `Repr` is mutating. or there is simply `MutatingCompound`.
+

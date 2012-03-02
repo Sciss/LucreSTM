@@ -100,6 +100,10 @@ object Push {
       def pull() {
          val firstPass  =    reactions.map( _.apply() )
       /* val secondPass = */ firstPass.foreach( _.apply() )
+
+         if( mutating.nonEmpty ) {
+            println( "INVALIDATED: " + mutating.mkString( ", " ))
+         }
       }
 
       def resolve[ A ] : Option[ A ] = Some( update.asInstanceOf[ A ])
