@@ -28,22 +28,22 @@ package event
 
 import stm.Sys
 
-trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
-   protected def outlet: Int
-   protected def node: Node[ S, A ]
+trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] with InvariantSelector[ S ] {
+//   protected def slot: Int
+//   protected def reactor: Node[ S, A ]
 
-   final private[lucre] def select() : NodeSelector[ S ] = node.select( outlet )
+//   final private[lucre] def select() : NodeSelector[ S ] = node.select( slot )
 
-   final private[lucre] def isSource( pull: Pull[ S ]) : Boolean = pull.hasVisited( select() )
+   final private[lucre] def isSource( pull: Pull[ S ]) : Boolean = pull.hasVisited( this /* select() */)
 
    protected def reader: Reader[ S, Repr ]
 
    final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      node.addTarget( outlet, r )
+      reactor.addTarget( slot, r )
    }
 
    final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      node.removeTarget( outlet, r )
+      reactor.removeTarget( slot, r )
    }
 
    final def react( fun: A1 => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] =

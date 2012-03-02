@@ -28,7 +28,7 @@ package event
 
 import stm.Sys
 
-sealed trait EventLike[ S <: Sys[ S ], A, Repr ] {
+/* sealed */ trait EventLike[ S <: Sys[ S ], A, Repr ] {
    /**
     * Connects the given selector to this event. That is, this event will
     * adds the selector to its propagation targets.
@@ -132,10 +132,10 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
  * implementations should extend either of `Event.Constant` or `Event.Node` (which itself is sealed and
  * split into `Event.Invariant` and `Event.Mutating`.
  */
-trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
+trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] with NodeSelector[ S, A ] {
    /**
-    * Returns a `Selector` (inlet) representation of this event, that is the underlying `Node` along
-    * with the inlet identifier corresponding to this event.
+    * Returns a `Selector` (slot) representation of this event, that is the underlying `Node` along
+    * with the slot identifier corresponding to this event.
     */
-   private[lucre] def select() : NodeSelector[ S ] // with ExpandedSelector[ S ]
+//   private[lucre] def select() : NodeSelector[ S ] // with ExpandedSelector[ S ]
 }

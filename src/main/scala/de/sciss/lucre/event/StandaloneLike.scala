@@ -32,11 +32,16 @@ import stm.Sys
  * Standalone events unite a node and one particular event.
  */
 trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] with Invariant[ S, A ] {
-   final protected def outlet = 1
-   final protected def node: Node[ S, A ] = this
+   final private[event] def slot = 1
+   final private[event] def reactor: Node[ S, A ] = this
 
    final protected def connectNode()( implicit tx: S#Tx ) { connect() }
    final protected def disconnectNode()( implicit tx: S#Tx ) { disconnect() }
 
    final private[lucre] def getEvent( key: Int ) : Event[ S, _ <: A, _ ] = this
+
+   final private[event] def select( slot: Int ) : NodeSelector[ S, A ] = {
+      require( slot == 1, "Invalid slot " + slot )
+      this
+   }
 }

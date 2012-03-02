@@ -96,7 +96,7 @@ object Targets {
          childrenVar.dispose()
       }
 
-      def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
+      def select( slot: Int ) : ReactorSelector[ S ] = Selector( slot, this )
    }
 }
 
@@ -115,16 +115,16 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 
    final private[event] def children( implicit tx: S#Tx ) : Children[ S ] = childrenVar.get
 
-   final private[event] def add( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
-      val tup  = (outlet, sel)
+   final private[event] def add( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
+      val tup  = (slot, sel)
       val old  = childrenVar.get
       sel.writeValue()
       childrenVar.set( old :+ tup )
       old.isEmpty
    }
 
-   final private[event] def remove( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
-      val tup  = (outlet, sel)
+   final private[event] def remove( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
+      val tup  = (slot, sel)
       val xs   = childrenVar.get
       val i    = xs.indexOf( tup )
       if( i >= 0 ) {
@@ -158,15 +158,15 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 
    final private[event] def children( implicit tx: S#Tx ) = targets.children
 
-   private[event] def select( inlet: Int ) : NodeSelector[ S ]
+   private[event] def select( slot: Int ) : NodeSelector[ S, A ]
 
    protected def connectNode()(    implicit tx: S#Tx ) : Unit
    protected def disconnectNode()( implicit tx: S#Tx ) : Unit
 
-   private[event] def addTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
-   private[event] def removeTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
+   private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
+   private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
 
-   private[event] def getEvent( key: Int ) : Event[ S, _ <: A, _ ]
+   private[event] def getEvent( slot: Int ) : Event[ S, _ <: A, _ ]
 
    final def id: S#ID = targets.id
 
@@ -211,16 +211,16 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
    protected def targets: Targets[ S ]
 
-   final def select( key: Int ) : NodeSelector[ S ] = Selector( key, this )
+//   final def select( slot: Int ) : NodeSelector[ S, A ] = Selector( slot, this )
 
-   final private[event] def addTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      if( targets.add( outlet, sel )) {
+   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+      if( targets.add( slot, sel )) {
          connectNode()
       }
    }
 
-   final private[event] def removeTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      if( targets.remove( outlet, sel )) {
+   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+      if( targets.remove( slot, sel )) {
          disconnectNode()
       }
    }
@@ -291,7 +291,7 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 //            invalid.dispose()
 //         }
 //
-//         def select( key: Int ) : ReactorSelector[ S ] = Selector( key, this )
+//         def select( slot: Int ) : ReactorSelector[ S ] = Selector( slot, this )
 //      }
 //   }
 //
@@ -333,14 +333,14 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 //trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 //   protected def targets: Mutating.Targets[ S ]
 //
-//   final def select( key: Int ) : NodeSelector[ S ] = Selector( key, this )
+//   final def select( slot: Int ) : NodeSelector[ S ] = Selector( slot, this )
 //
-//   final private[event] def addTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-//      targets.add( outlet, sel )
+//   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+//      targets.add( slot, sel )
 //   }
 //
-//   final private[event] def removeTarget( outlet: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-//      targets.remove( outlet, sel )
+//   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+//      targets.remove( slot, sel )
 //   }
 //
 //   final def dispose()( implicit tx: S#Tx ) {
@@ -359,7 +359,7 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disposable[ S#Tx ] {
    def id: S#ID
 
-   private[event] def select( inlet: Int ) : ReactorSelector[ S ]
+   private[event] def select( slot: Int ) : ReactorSelector[ S ]
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
    override def equals( that: Any ) : Boolean = {

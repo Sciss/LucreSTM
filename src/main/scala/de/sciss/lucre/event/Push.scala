@@ -30,9 +30,9 @@ import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
 
 object Push {
-   private[event] def apply[ S <: Sys[ S ], A ]( source: NodeSelector[ S ], update: Any )( implicit tx: S#Tx ) {
+   private[event] def apply[ S <: Sys[ S ], A ]( source: NodeSelector[ S, A ], update: A )( implicit tx: S#Tx ) {
       val push    = new Impl( source, update )
-      val inlet   = source.inlet
+      val inlet   = source.slot
       source.reactor.children.foreach { tup =>
          val inlet2 = tup._1
          if( inlet2 == inlet ) {
@@ -65,7 +65,7 @@ object Push {
       }
 
       private def visitChildren( sel: ReactorSelector[ S ]) {
-         val inlet   = sel.inlet
+         val inlet   = sel.slot
          sel.reactor.children.foreach { tup =>
             val inlet2 = tup._1
             if( inlet2 == inlet ) {

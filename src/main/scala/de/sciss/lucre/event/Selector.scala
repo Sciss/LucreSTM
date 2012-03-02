@@ -26,27 +26,20 @@
 package de.sciss.lucre
 package event
 
-import stm.{TxnSerializer, Writer, Sys}
+import stm.{TxnSerializer, Sys}
 import annotation.switch
 import scala.util.MurmurHash
 
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
-   implicit def event[ S <: Sys[ S ]]( ev: Event[ S, _, _ ])( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = ev.select()
+//   implicit def event[ S <: Sys[ S ]]( ev: Event[ S, _, _ ])( implicit tx: S#Tx ) : ReactorSelector[ S ] with ExpandedSelector[ S ] = ev.select()
 
    def apply[ S <: Sys[ S ]]( key: Int, targets: Targets[ S ]) : ReactorSelector[ S ] =
       new TargetsSelector[ S ]( key, targets )
 
-   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Invariant[ S, _ /* A */]) : NodeSelector[ S ] = {
-      new InvariantNodeSelector[ S /*, A, Invariant[ S, A ] */]( key, node )
-   }
-
-//   def apply[ S <: Sys[ S ]]( key: Int, targets: Mutating.Targets[ S ]) : ReactorSelector[ S ] =
-//      new MutatingTargetsSelector[ S ]( key, targets )
-
-//   def apply[ S <: Sys[ S ] /*, A */]( key: Int, node: Mutating[ S, _ /* A */]) : NodeSelector[ S ] = {
-//      new MutatingNodeSelector[ S /*, A, Mutating[ S, A ] */]( key, node )
+//   def apply[ S <: Sys[ S ], A ]( key: Int, node: Invariant[ S, A ]) : NodeSelector[ S, A ] = {
+//      new InvariantNodeSelector[ S, A ]( key, node )
 //   }
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
@@ -61,12 +54,12 @@ object Selector {
                val inlet   = in.readInt()
                val targets = /* Invariant. */ Targets.readAndExpand[ S ]( in, access )
                targets.select( inlet )
-//               Selector( inlet, targets )
+//               Selector( slot, targets )
 //            case 1 =>
-//               val inlet   = in.readInt()
+//               val slot   = in.readInt()
 //               val targets = Mutating.Targets.readAndExpand[ S ]( in, access )
-//               targets.select( inlet )
-////               Selector( inlet, targets )
+//               targets.select( slot )
+////               Selector( slot, targets )
             case 2 =>
                val id = in.readInt()
                new ObserverKey[ S ]( id )
@@ -80,18 +73,22 @@ object Selector {
 //      final def nodeOption: Option[ NodeSelector[ S ]] = None
 //   }
 
-   private final case class InvariantNodeSelector[ S <: Sys[ S ] /*, A, Repr <: Invariant[ S, A ] */]( inlet: Int, reactor: Invariant[ S, _ ] /* Repr */)
-   extends NodeSelector[ S /*, A, Repr */ ] with InvariantSelector[ S ]
+//   private final case class InvariantNodeSelector[ S <: Sys[ S ], A ]( slot: Int, reactor: Invariant[ S, A ] /* Repr */)
+//   extends NodeSelector[ S, A ] with InvariantSelector[ S ] {
+//      private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = {
+//         reactor.getEvent( slot ).pullUpdate( pull )
+//      }
+//   }
 
-   private final case class TargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Targets[ S ])
+   private final case class TargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
    extends ReactorSelector[ S ] with InvariantSelector[ S ] {
-      def nodeOption: Option[ NodeSelector[ S ]] = None
+      def nodeOption: Option[ NodeSelector[ S, _ ]] = None
    }
 
-//   private final case class MutatingNodeSelector[ S <: Sys[ S ] /*, A, Repr <: Mutating[ S, A ] */]( inlet: Int, reactor: Mutating[ S, _ ] /* Repr */)
+//   private final case class MutatingNodeSelector[ S <: Sys[ S ] /*, A, Repr <: Mutating[ S, A ] */]( slot: Int, reactor: Mutating[ S, _ ] /* Repr */)
 //   extends NodeSelector[ S /*, A, Repr */] with MutatingSelector[ S ]
 
-//   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( inlet: Int, reactor: Mutating.Targets[ S ])
+//   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Mutating.Targets[ S ])
 //   extends TargetsSelector[ S ] with MutatingSelector[ S ]
 }
 
@@ -110,13 +107,13 @@ sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {
 }
 
 sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
-   def reactor: Reactor[ S ]
-   def inlet: Int
+   private[event] def reactor: Reactor[ S ]
+   private[event] def slot: Int
 
-   def nodeOption: Option[ NodeSelector[ S ]]
+   private[event] def nodeOption: Option[ NodeSelector[ S, _ ]]
 
    final protected def writeSelectorData( out: DataOutput ) {
-      out.writeInt( inlet )
+      out.writeInt( slot )
       reactor.id.write( out )
    }
 
@@ -125,7 +122,7 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
       var h = startHash( 2 )
       val c = startMagicA
       val k = startMagicB
-      h = extendHash( h, inlet, c, k )
+      h = extendHash( h, slot, c, k )
       h = extendHash( h, reactor.id.##, nextMagicA( c ), nextMagicB( k ))
       finalizeHash( h )
    }
@@ -133,20 +130,20 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    override def equals( that: Any ) : Boolean = {
       (if( that.isInstanceOf[ ReactorSelector[ _ ]]) {
          val thatSel = that.asInstanceOf[ ReactorSelector[ _ ]]
-         (inlet == thatSel.inlet && reactor.id == thatSel.reactor.id)
+         (slot == thatSel.slot && reactor.id == thatSel.reactor.id)
       } else super.equals( that ))
    }
 
    final private[event] def toObserverKey : Option[ ObserverKey[ S ]] = None
 
-   override def toString = reactor.toString + ".select(" + inlet + ")"
+   override def toString = reactor.toString + ".select(" + slot + ")"
 }
 
 sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writer */ {
    private[event] def writeValue()( implicit tx: S#Tx ) : Unit
 }
 
-sealed trait InvariantSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+/* sealed */ trait InvariantSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
    protected def cookie: Int = 0
    final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { // ( implicit tx: S#Tx ) {
       push.visit( this, parent )
@@ -160,14 +157,16 @@ sealed trait MutatingSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
    }
 }
 
-sealed trait NodeSelector[ S <: Sys[ S ] /*, A, Repr <: Node[ S, A ] */] extends ReactorSelector[ S ] with ExpandedSelector[ S ] {
-   def reactor: Node[ S, _ ]
+/* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends ReactorSelector[ S ] with ExpandedSelector[ S ] {
+   private[event] def reactor: Node[ S, _ ]
 
-   final def nodeOption: Option[ NodeSelector[ S ]] = Some( this )
+   final private[event] def nodeOption: Option[ NodeSelector[ S, _ ]] = Some( this )
 
-   final private[event] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ Any ] = {
-      reactor.getEvent( inlet ).pullUpdate( pull )
-   }
+   private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
+
+//   final private[event] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ Any ] = {
+//      reactor.getEvent( slot ).pullUpdate( pull )
+//   }
 
    final private[event] def writeValue()( implicit tx: S#Tx ) {
       tx.writeVal( reactor.id, reactor )
@@ -176,7 +175,7 @@ sealed trait NodeSelector[ S <: Sys[ S ] /*, A, Repr <: Node[ S, A ] */] extends
 
 /**
  * Instances of `ObserverKey` are provided by methods in `Txn`, when a live `Observer` is registered. Since
- * the observing function is not persisted, the key will be used for lookup (again through the transaction)
+ * the observing function is not persisted, the slot will be used for lookup (again through the transaction)
  * of the reacting function during the first reaction gathering phase of event propagation.
  */
 final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends ExpandedSelector[ S ] {

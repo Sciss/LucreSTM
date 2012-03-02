@@ -49,13 +49,20 @@ object Compound {
    }
 
    final class Or[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B <: D#Update ] private[Compound](
-      d: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, _ <: B, Repr ]])
+      private[event] val reactor: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, _ <: B, Repr ]])
    extends Event[ S, B, Repr ] {
+
+// XXX
+protected def cookie = opNotSupported
+private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { opNotSupported }
+private[event] def slot = opNotSupported
+
+
       def react( fun: B => Unit )( implicit tx: S#Tx ) : Observer[ S, B, Repr ] =
          reactTx( _ => fun )
 
       def reactTx( fun: S#Tx => B => Unit )( implicit tx: S#Tx ) : Observer[ S, B, Repr ] = {
-         val obs = Observer( d.decl.serializer, fun )
+         val obs = Observer( reactor.decl.serializer, fun )
          elems.foreach( obs add _ )
          obs
       }
@@ -66,7 +73,7 @@ object Compound {
 
       private[lucre] def isSource( pull: Pull[ S ]) : Boolean = opNotSupported
 
-      private[lucre] def select() = opNotSupported
+//      private[lucre] def select() = opNotSupported
 
       private[lucre] def connect()( implicit tx: S#Tx ) {}
       private[lucre] def disconnect()( implicit tx: S#Tx ) {}
@@ -79,7 +86,7 @@ object Compound {
       }
 
       def |[ Up >: B <: D#Update, C <: Up ]( that: Event[ S, C, Repr ]) : Or[ S, Repr, D, Up ] =
-         new Or[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, Repr ]]( elems: _* ) :+ that )
+         new Or[ S, Repr, D, Up ]( reactor, IIdxSeq[ Event[ S, _ <: Up, Repr ]]( elems: _* ) :+ that )
 
       override def toString = elems.mkString( " | " )
    }
@@ -92,12 +99,12 @@ object Compound {
    }
 
    final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S, _ ], B, A1 <: D#Update ] private[Compound](
-      protected val node: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, Elem ], fun: IIdxSeq[ B ] => A1,
-      protected val outlet: Int )( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ], m: ClassManifest[ A1 ])
+      private[event] val reactor: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, Elem ], fun: IIdxSeq[ B ] => A1,
+      private[event] val slot: Int )( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ], m: ClassManifest[ A1 ])
    extends event.Impl[ S, D#Update, A1, Repr ] {
-      protected def reader: Reader[ S, Repr ] = node.decl.serializer // [ S ]
+      protected def reader: Reader[ S, Repr ] = reactor.decl.serializer // [ S ]
 
-      override def toString = node.toString + ".collection[" + {
+      override def toString = reactor.toString + ".collection[" + {
          val mn = m.toString
          val i  = math.max( mn.lastIndexOf( '$' ), mn.lastIndexOf( '.' )) + 1
          mn.substring( i )
@@ -108,7 +115,7 @@ object Compound {
 
       def +=( elem: Elem )( implicit tx: S#Tx ) {
          elemEvt( elem ) ---> this
-         tx._writeUgly( node.id, elem.id, elem )
+         tx._writeUgly( reactor.id, elem.id, elem )
       }
 
       def -=( elem: Elem )( implicit tx: S#Tx ) {
@@ -116,7 +123,7 @@ object Compound {
       }
 
       private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
-         val elems: IIdxSeq[ B ] = pull.parents( select() ).flatMap( sel =>
+         val elems: IIdxSeq[ B ] = pull.parents( this /* select() */).flatMap( sel =>
             sel.nodeOption match {
                case Some( nodeSel ) => // this happens for mem-cached and not persisting systems (e.g. `InMemory`)
                   nodeSel.pullUpdate( pull ).asInstanceOf[ Option[ B ]]
@@ -128,8 +135,8 @@ object Compound {
                   // at `sel.reactor.id` indeed an `Elem` is stored. Therefore, we
                   // may safely deserialize the element with the given reader, and
                   // can then apply `elemEvt` to get the event/selector.
-                  val elem = tx._readUgly[ Elem ]( node.id, sel.reactor.id )
-                  elemEvt( elem ).pullUpdate( pull ) // we could also do elem.select( sel.inlet ) but would need an additional cast
+                  val elem = tx._readUgly[ Elem ]( reactor.id, sel.reactor.id )
+                  elemEvt( elem ).pullUpdate( pull ) // we could also do elem.select( sel.slot ) but would need an additional cast
             }
          )( breakOut )
 
@@ -138,11 +145,11 @@ object Compound {
    }
 
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
-      protected val node: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ])
+      private[event] val reactor: Compound[ S, Repr, D ], e: Event[ S, B, _ ], fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ])
    extends event.Impl[ S, D#Update, A1, Repr ] {
-      protected def reader: Reader[ S, Repr ] = node.decl.serializer // [ S ]
+      protected def reader: Reader[ S, Repr ] = reactor.decl.serializer // [ S ]
 
-      protected def outlet = node.decl.eventID[ A1 ]
+      private[event] def slot = reactor.decl.eventID[ A1 ]
 
       private[lucre] def connect()(    implicit tx: S#Tx ) { e ---> this }
       private[lucre] def disconnect()( implicit tx: S#Tx ) { e -/-> this }
@@ -159,13 +166,13 @@ object Compound {
    }
 
    private final class Trigger[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ](
-      protected val node: Compound[ S, Repr, D ])( implicit m: ClassManifest[ A1 ])
+      private[event] val reactor: Compound[ S, Repr, D ])( implicit m: ClassManifest[ A1 ])
    extends event.Trigger.Impl[ S, D#Update, A1, Repr ] with Root[ S, A1 ] {
-      protected def reader: Reader[ S, Repr ] = node.decl.serializer // [ S ]
+      protected def reader: Reader[ S, Repr ] = reactor.decl.serializer // [ S ]
 
-      protected def outlet = node.decl.eventID[ A1 ]
+      private[event] def slot = reactor.decl.eventID[ A1 ]
 
-      override def toString = node.toString + ".event[" + {
+      override def toString = reactor.toString + ".event[" + {
          val mn = m.toString
          val i  = math.max( mn.lastIndexOf( '$' ), mn.lastIndexOf( '.' )) + 1
          mn.substring( i )
@@ -194,7 +201,8 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
                                       ( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
-   final private[lucre] def getEvent( key: Int ) : Event[ S, _ <: D#Update, _ ] = decl.getEvent( this, key ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
+   final private[lucre] def getEvent( slot: Int ) : Event[ S, _ <: D#Update, _ ] = decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
+   final private[event] def select( slot: Int ) : NodeSelector[ S, D#Update ] = decl.getEvent( this, slot )
 
    final protected def connectNode()( implicit tx: S#Tx ) {
       decl.events( this ).foreach( _.connect() )

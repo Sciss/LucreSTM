@@ -58,7 +58,7 @@ import de.sciss.lucre.util.UtfOps;
  *
  * <p>Floats and doubles are stored using two different representations: sorted
  * representation and integer-bit (IEEE 754) representation.  If you use
- * negative floating point numbers in a key, you should use sorted
+ * negative floating point numbers in a slot, you should use sorted
  * representation; alternatively you may use integer-bit representation but you
  * will need to implement and configure a custom comparator to get correct
  * numeric ordering for negative numbers.</p>

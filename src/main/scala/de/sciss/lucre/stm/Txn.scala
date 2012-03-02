@@ -41,8 +41,8 @@ trait Txn[ S <: Sys[ S ]] {
 //   def addStateReaction[ A, Repr <: State[ S, A ]]( reader: State.Reader[ S, Repr ],
 //                                                    fun: (S#Tx, A) => Unit ) : State.ReactorKey[ S ]
 //   def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], keys: IIdxSeq[ Int ]) : State.Reactor[ S ]
-//   def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions
-//   def removeStateReaction( key: State.ReactorKey[ S ]) : Unit
+//   def propagateState( slot: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions
+//   def removeStateReaction( slot: State.ReactorKey[ S ]) : Unit
 
    def reactionMap : ReactionMap[ S ]
 
@@ -52,7 +52,7 @@ trait Txn[ S <: Sys[ S ]] {
 //   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
 //                        observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ]
 //   def processEvent( leaf: ObserverKey[ S ], parent: NodeSelector[ S ], push: Push[ S ]) : Unit
-//   def removeEventReaction( key: ObserverKey[ S ]) : Unit
+//   def removeEventReaction( slot: ObserverKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]

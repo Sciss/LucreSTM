@@ -29,9 +29,9 @@ package event
 import stm.Sys
 
 trait Generator[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
-   protected def outlet: Int
-   protected def node: Node[ S, A ]
+//   protected def slot: Int
+//   protected def reactor: Node[ S, A ]
 
-   final protected def fire( update: A1 )( implicit tx: S#Tx ) { Push( select(), update )}
+   final protected def fire( update: A1 )( implicit tx: S#Tx ) { Push( this /* select() */, update )}
 }
 

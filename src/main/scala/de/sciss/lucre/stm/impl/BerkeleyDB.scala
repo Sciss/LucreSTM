@@ -72,13 +72,13 @@ object BerkeleyDB {
          txn.setName( "Open '" + name + "'" )
          val db      = env.openDatabase( txn, name, dbCfg )
          val kea     = Array[ Byte ]( 0, 0, 0, 0 )
-         val ke      = new DatabaseEntry( kea )  // key for last-key
+         val ke      = new DatabaseEntry( kea )  // slot for last-slot
          val ve      = new DatabaseEntry()
          val idCnt   = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
             val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
             in.readInt()
          } else 1
-         kea( 3 )    = 1.toByte   // key for react-last-key
+         kea( 3 )    = 1.toByte   // slot for react-last-slot
          val reactCnt = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
             val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
             in.readInt()
@@ -493,10 +493,10 @@ object BerkeleyDB {
 //                           keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
 //         system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
 //
-//      def propagateState( key: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions =
-//         system.reactionMap.propagateState( key, state, reactions )( this )
+//      def propagateState( slot: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions =
+//         system.reactionMap.propagateState( slot, state, reactions )( this )
 //
-//      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
+//      def removeStateReaction( slot: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( slot )( this )}
 
       def reactionMap : ReactionMap[ S ] = system.reactionMap
 
@@ -512,7 +512,7 @@ object BerkeleyDB {
 //         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
 //      }
 //
-//      def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+//      def removeEventReaction( slot: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( slot )( this )}
 
       override def toString = "Txn<" + id + ">"
 

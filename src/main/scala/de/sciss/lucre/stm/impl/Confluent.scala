@@ -209,11 +209,11 @@ object Confluent {
 //                                               keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
 //         system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
 //
-//      def propagateState( key: Int, state: State[ S, _ ],
+//      def propagateState( slot: Int, state: State[ S, _ ],
 //                                            reactions: State.Reactions ) : State.Reactions =
-//         system.reactionMap.propagateState( key, state, reactions )( this )
+//         system.reactionMap.propagateState( slot, state, reactions )( this )
 //
-//      def removeStateReaction( key: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( key )( this )}
+//      def removeStateReaction( slot: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( slot )( this )}
 
       def reactionMap : ReactionMap[ S ] = system.reactionMap
 
@@ -229,7 +229,7 @@ object Confluent {
 //         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
 //      }
 //
-//      def removeEventReaction( key: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( key )( this )}
+//      def removeEventReaction( slot: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( slot )( this )}
 
       def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
 
