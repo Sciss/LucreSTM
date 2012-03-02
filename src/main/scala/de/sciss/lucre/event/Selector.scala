@@ -47,7 +47,8 @@ object Selector {
             case 0 =>
                val slot   = in.readInt()
                val targets = /* Invariant. */ Targets.readAndExpand[ S ]( in, access )
-               targets.select( slot )
+//               targets.select( slot )
+               sys.error( "TODO" )
             case 2 =>
                val id = in.readInt()
                new ObserverKey[ S ]( id )

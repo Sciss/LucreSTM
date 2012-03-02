@@ -203,7 +203,8 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
 //   final private[lucre] def getEvent( slot: Int ) : Event[ S, _ <: D#Update, _ ] = decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
-   final private[event] def select( slot: Int ) : NodeSelector[ S, D#Update ] = decl.getEvent( this, slot )
+
+//   final private[event] def select( slot: Int ) : NodeSelector[ S, D#Update ] = decl.getEvent( this, slot )
 
 //   final protected def connectNode()( implicit tx: S#Tx ) {
 //      decl.events( this ).foreach( _.connect() )

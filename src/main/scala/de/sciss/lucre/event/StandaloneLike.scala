@@ -47,8 +47,8 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Invariant[ S, A ] with Im
 
 //   final private[lucre] def getEvent( key: Int ) : Event[ S, _ <: A, _ ] = this
 
-   final private[event] def select( slot: Int ) : NodeSelector[ S, A ] = {
-      require( slot == 1, "Invalid slot " + slot )
-      this
-   }
+//   final private[event] def select( slot: Int ) : NodeSelector[ S, A ] = {
+//      require( slot == 1, "Invalid slot " + slot )
+//      this
+//   }
 }
