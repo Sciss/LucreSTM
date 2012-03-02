@@ -334,13 +334,6 @@ trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Impl[ S, A, A, Repr ] wit
    final private[lucre] def getEvent( key: Int ) : Event[ S, _ <: A, _ ] = this
 }
 
-trait Generator[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
-   protected def outlet: Int
-   protected def node: Node[ S, A ]
-
-   final protected def fire( update: A1 )( implicit tx: S#Tx ) { Push( select(), update )}
-}
-
 object Mutating {
    object Targets {
       def apply[ S <: Sys[ S ]]( invalid: Boolean )( implicit tx: S#Tx ) : Targets[ S ] = {
