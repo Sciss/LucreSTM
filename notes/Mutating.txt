@@ -200,3 +200,53 @@ A simpler first solution without the need to refactor Event/Selector could be to
 
 ... still we need to figure out how to restrict the addMutating call to collectionChanged and not just any selector from the node ...
 
+:::::::::::::::::::::::
+
+refactoring strategy
+
+- invalid should be a bit mask instead of a boolean
+- then each event can be either invariant or mutating
+- would be good to make event generally extend from nodeselector
+- but what happens with standalone nodes? they would have conflicting write methods,
+  unless we say that selector doesn't extend writer but instead has a method writeSelector...
+
+event:
+def --->( r: ExpandedSelector[ S ])
+def -/->( r: ExpandedSelector[ S ])
+def react( fun: A => Unit )
+def reactTx( fun: S#Tx => A => Unit )
+def pullUpdate( pull: Pull[ S ])
+def select()
+def isSource( pull: Pull[ S ])
+def connect()
+def disconnect()
+
+selector:
+protected def cookie: Int
+def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ])
+def toObserverKey
+
+reactor-selector:
+def reactor: Reactor[ S ]
+def inlet: Int
+hash/equals
+
+expanded-selector
+writeValue
+
+node-selector
+def reactor: Node[ S, _ ]
+def pullUpdate( pull: Pull[ S ])
+
+stuff which would not be supported by Dummy
+- pullUpdate
+- pushUpdate
+- select
+
+so Expr.changed would be EventLike which is all that dummy supports
+
+and we'd have
+
+EventStub = TargetsSelector
+Event     = NodeSelector
+
