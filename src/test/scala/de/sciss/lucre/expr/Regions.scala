@@ -4,7 +4,7 @@ package expr
 import stm.{TxnSerializer, Mutable, Sys}
 import annotation.tailrec
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import event.{Targets, NodeSerializer, Event, Compound, Invariant, Decl}
+import event.{Targets, NodeSerializer, Event, Compound, InvariantNode, Decl}
 
 class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ], val spans: Spans[ S ]) {
    type Tx  = S#Tx
@@ -134,7 +134,7 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
             new Read( in, access, targets, tx )
       }
    }
-   trait EventRegion extends RegionLike with Invariant[ S, EventRegion.Update ]
+   trait EventRegion extends RegionLike with InvariantNode[ S, EventRegion.Update ]
    with Compound[ S, EventRegion, EventRegion.type ] {
       import EventRegion._
 
@@ -287,7 +287,7 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
       }
    }
 
-   trait RegionList extends Invariant[ S, RegionList.Update ]
+   trait RegionList extends InvariantNode[ S, RegionList.Update ]
    with Compound[ S, RegionList, RegionList.type ] {
       import RegionList._
 

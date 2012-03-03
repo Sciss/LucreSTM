@@ -28,7 +28,7 @@ package expr
 
 import stm.Sys
 import annotation.switch
-import event.{Targets, Invariant}
+import event.{Targets, InvariantNode}
 
 //final case class Span[ S <: Sys[ S ]]( start: Expr[ S, Long ], stop: Expr[ S, Long ])
 final case class Span( start: Long, stop: Long ) {

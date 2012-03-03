@@ -2,7 +2,7 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import event.Invariant
+import event.InvariantNode
 import concurrent.stm.{InTxn, TMap}
 
 //object Extensions {

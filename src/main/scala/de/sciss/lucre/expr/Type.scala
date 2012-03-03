@@ -27,7 +27,7 @@ package de.sciss.lucre
 package expr
 
 import stm.Sys
-import event.{EventLikeSerializer, Targets, Pull, Observer, Invariant}
+import event.{EventLikeSerializer, Targets, Pull, Observer, InvariantNode}
 
 /**
  * IDs:

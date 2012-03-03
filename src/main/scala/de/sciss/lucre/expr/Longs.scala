@@ -29,7 +29,7 @@ package expr
 import stm.Sys
 import annotation.switch
 import stm.impl.InMemory
-import event.{Targets, Invariant}
+import event.{Targets, InvariantNode}
 
 object Longs {
    def apply[ S <: Sys[ S ]] : Longs[ S ] = new Longs[ S ]

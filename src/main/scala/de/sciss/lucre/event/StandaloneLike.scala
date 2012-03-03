@@ -38,7 +38,7 @@ import stm.Sys
  *
  * I don't know if `Reactor` still needs the `equals` implementation?
  */
-trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Invariant[ S, A ] with Impl[ S, A, A, Repr ] {
+trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends InvariantNode[ S, A ] with Impl[ S, A, A, Repr ] {
    final private[event] def slot = 1
    final private[event] def reactor: Node[ S, A ] = this
 

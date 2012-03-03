@@ -36,7 +36,7 @@ import stm.{TxnReader, TxnSerializer, Sys, Writer, Disposable}
    def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
 }
 
-trait NodeSerializer[ S <: Sys[ S ], Repr <: /* Writer */ Invariant[ S, _ ]]
+trait NodeSerializer[ S <: Sys[ S ], Repr <: /* Writer */ Node[ S, _ ]]
 extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -213,7 +213,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
  * Most event nodes should be invariant, including combinators in expression systems, or
  * mapping, filtering and forwarding nodes.
  */
-trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
+trait InvariantNode[ S <: Sys[ S ], A ] extends Node[ S, A ] {
    final def dispose()( implicit tx: S#Tx ) {
       targets.dispose()
       disposeData()
