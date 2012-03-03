@@ -68,7 +68,7 @@
 //      }
 //
 //      object ExprVar {
-//         sealed trait Impl[ A, Ex <: Expr[ A ]] extends ExprVar[ A, Ex ] {
+//         sealed trait EventImpl[ A, Ex <: Expr[ A ]] extends ExprVar[ A, Ex ] {
 //            me: Ex =>
 //
 //            protected def reader: State.Reader[ S, Ex ]
@@ -122,7 +122,7 @@
 //         // pimp Expr[ String ] to StringExprOps, etc.
 //         abstract class New[ A, Ex <: Expr[ A ]]( init: Ex, tx0: Tx )(
 //            implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
-//         extends Impl[ A, Ex ] {
+//         extends EventImpl[ A, Ex ] {
 //            me: Ex =>
 //
 //            protected val targets   = State.Targets[ S ]( tx0 )
@@ -131,7 +131,7 @@
 //
 //         abstract class Read[ A, Ex <: Expr[ A ]]( protected val targets: Targets, in: DataInput, tx0: Tx )(
 //            implicit protected val peerSer: TxnSerializer[ Tx, Acc, Ex ])
-//         extends Impl[ A, Ex ] {
+//         extends EventImpl[ A, Ex ] {
 //            me: Ex =>
 //
 //            protected val v = tx0.readVar[ Ex ]( id, in )
@@ -402,9 +402,9 @@
 ////      }
 //
 //   //   object RegionList {
-//   //      def empty( implicit tx: Tx ) : RegionList = new Impl( tx )
+//   //      def empty( implicit tx: Tx ) : RegionList = new EventImpl( tx )
 //   //
-//   //      private final class Impl( tx0: Tx ) extends RegionList {
+//   //      private final class EventImpl( tx0: Tx ) extends RegionList {
 //   ////         protected val reactor = StateNode[ S ]( StateSources.none )( tx0 )
 //   //         def value( implicit tx: Tx ): IIdxSeq[ Change ] = sys.error( "TODO" )
 //   //         def write( out: DataOutput ) { sys.error( "TODO" )}

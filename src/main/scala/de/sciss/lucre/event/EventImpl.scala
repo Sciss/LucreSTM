@@ -1,5 +1,5 @@
 /*
- *  Impl.scala
+ *  EventImpl.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -28,18 +28,18 @@ package event
 
 import stm.Sys
 
-trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] /* with InvariantSelector[ S ] */ {
+trait EventImpl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] /* with InvariantSelector[ S ] */ {
    final private[lucre] def isSource( pull: Pull[ S ]) : Boolean = pull.hasVisited( this /* select() */)
 
    protected def reader: Reader[ S, Repr ]
 
-   final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      if( reactor._targets.add( slot, r )) connect()
-   }
-
-   final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      if( reactor._targets.remove( slot, r )) disconnect()
-   }
+//   final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+//      if( reactor._targets.add( slot, r )) connect()
+//   }
+//
+//   final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+//      if( reactor._targets.remove( slot, r )) disconnect()
+//   }
 
    final def react( fun: A1 => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] =
       reactTx( _ => fun )

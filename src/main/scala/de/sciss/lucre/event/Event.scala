@@ -134,21 +134,24 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
  */
 trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] with NodeSelector[ S, A ]
 
-//trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
-//   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
-//      push.visit( this, parent )
-//   }
-//}
+trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with InvariantSelector[ S ] {
+   final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+      if( reactor._targets.add( slot, r )) connect()
+   }
+
+   final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+      if( reactor._targets.remove( slot, r )) disconnect()
+   }
+}
 
 trait MutatingEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with MutatingSelector[ S ] {
-//   final private[event] def invalidate()( implicit tx: S#Tx ) {
-//      reactor.targets.invalidate( slot )
-//   }
+   final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+      reactor._targets.add( slot, r )
+   }
 
-//   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
-//      push.markInvalid( this )
-//      push.visit( this, parent )
-//   }
+   final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+      reactor._targets.remove( slot, r )
+   }
 
    final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = {
       pull.clearInvalid( this )

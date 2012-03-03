@@ -81,7 +81,7 @@ object Targets {
    }
 
 //   private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]]) : Targets[ S ] =
-//      new Impl( id, children )
+//      new EventImpl( id, children )
 
    private final class Impl[ S <: Sys[ S ]](
       val id: S#ID, childrenVar: S#Var[ Children[ S ]], invalidVar: S#Var[ Int ])
@@ -233,8 +233,8 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    }
 
    final def dispose()( implicit tx: S#Tx ) {
+      disposeData()     // call this first, as it may release events
       targets.dispose()
-      disposeData()
    }
 }
 
@@ -263,7 +263,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 //         val id         = tx.newID()
 //         val children   = tx.newVar[ Children[ S ]]( id, IIdxSeq.empty )
 //         val invalidVar = tx.newBooleanVar( id, invalid )
-//         new Impl( id, children, invalidVar )
+//         new EventImpl( id, children, invalidVar )
 //      }
 //
 //      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
@@ -289,14 +289,14 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 //         val id            = tx.readID( in, access )
 //         val children      = tx.readVar[ Children[ S ]]( id, in )
 //         val invalid       = tx.readBooleanVar( id, in )
-//         new Impl[ S ]( id, children, invalid )
+//         new EventImpl[ S ]( id, children, invalid )
 //      }
 //
 //      private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]],
 //                                                invalid: S#Var[ Boolean ]) : Targets[ S ] =
-//         new Impl( id, children, invalid )
+//         new EventImpl( id, children, invalid )
 //
-//      private final class Impl[ S <: Sys[ S ]](
+//      private final class EventImpl[ S <: Sys[ S ]](
 //         val id: S#ID, protected val childrenVar: S#Var[ Children[ S ]], invalid: S#Var[ Boolean ])
 //      extends Targets[ S ] {
 //         def isInvalid( implicit tx: S#Tx ) : Boolean = invalid.get

@@ -102,7 +102,7 @@ private[event] def slot = opNotSupported
    }
 
    sealed trait EventImpl[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ]
-   extends event.Impl[ S, D#Update, A1, Repr ] {
+   extends event.EventImpl[ S, D#Update, A1, Repr ] {
       private[event] def reactor: Compound[ S, Repr, D ]
       protected def prefix : String
       implicit protected def m: ClassManifest[ A1 ]
@@ -121,7 +121,7 @@ private[event] def slot = opNotSupported
    final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S, _ ], B, A1 <: D#Update ] private[Compound](
       private[event] val reactor: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, Elem ], fun: IIdxSeq[ B ] => A1 )
    ( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ], protected val m: ClassManifest[ A1 ])
-   extends EventImpl[ S, Repr, D, A1 ] with InvariantSelector[ S ] {
+   extends EventImpl[ S, Repr, D, A1 ] with InvariantEvent[ S, A1, Repr ] {
 
       private[lucre] def connect()( implicit tx: S#Tx ) {}
       private[lucre] def disconnect()( implicit tx: S#Tx ) {}
@@ -170,7 +170,7 @@ private[event] def slot = opNotSupported
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
       private[event] val reactor: Compound[ S, Repr, D ], protected val e: Event[ S, B, _ ], fun: S#Tx => B => A1 )
    ( implicit protected val m: ClassManifest[ A1 ])
-   extends MapLike[ S, Repr, D, B, A1 ] with InvariantSelector[ S ] {
+   extends MapLike[ S, Repr, D, B, A1 ] with InvariantEvent[ S, A1, Repr ] {
       private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
          e.pullUpdate( pull ).map( fun( tx )( _ ))
       }
@@ -190,7 +190,7 @@ private[event] def slot = opNotSupported
    private final class Trigger[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ](
       private[event] val reactor: Compound[ S, Repr, D ])( implicit protected val m: ClassManifest[ A1 ])
    extends EventImpl[ S, Repr, D, A1 ] with event.Trigger.Impl[ S, D#Update, A1, Repr ] with Root[ S, A1 ]
-   with InvariantSelector[ S ] {
+   with InvariantEvent[ S, A1, Repr ] {
       protected def prefix = reactor.toString + ".event"
    }
 }

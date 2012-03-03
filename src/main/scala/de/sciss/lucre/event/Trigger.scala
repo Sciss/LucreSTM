@@ -29,7 +29,7 @@ package event
 import stm.Sys
 
 object Trigger {
-   trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Trigger[ S, A1, Repr ] with event.Impl[ S, A, A1, Repr ]
+   trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Trigger[ S, A1, Repr ] with event.EventImpl[ S, A, A1, Repr ]
    with Generator[ S, A, A1, Repr ] {
       final def apply( update: A1 )( implicit tx: S#Tx ) { fire( update )}
    }

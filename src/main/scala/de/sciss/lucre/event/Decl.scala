@@ -49,19 +49,19 @@ trait Decl[ S <: Sys[ S ], Impl ] {
 
 //   def id[ U <: Update ]( clz: Class[ U ]): Int = keyMap( clz )
    private[event] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
-//   private[event] def route[ S <: Sys[ S ]]( impl: Impl[ S ], id: Int ) : Event[ S, Update, _ ] = idMap( id ).apply( impl )
+//   private[event] def route[ S <: Sys[ S ]]( impl: EventImpl[ S ], id: Int ) : Event[ S, Update, _ ] = idMap( id ).apply( impl )
 
-//   private[event] def pull( impl: Impl, id: Int, source: Event[ S, _, _ ],
+//   private[event] def pull( impl: EventImpl, id: Int, source: Event[ S, _, _ ],
 //                            update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
 //      idMap( id ).apply( impl ).pull( source, update )
 
    private[event] def getEvent( impl: Impl, id: Int ) : Event[ S, _ <: Update, _ ] = idMap( id ).apply( impl )
 
-//   private[event] def connectSources( impl: Impl )( implicit tx: S#Tx ) {
+//   private[event] def connectSources( impl: EventImpl )( implicit tx: S#Tx ) {
 //      sys.error( "TODO" )
 //   }
 
-//   private[event] def events( impl: Impl ) : IIdxSeq[ (Int, Event[ S, _ <: Update, _ ])] = {
+//   private[event] def events( impl: EventImpl ) : IIdxSeq[ (Int, Event[ S, _ <: Update, _ ])] = {
 //      type Elem = (Int, Event[ S, _ <: Update, _ ])
 //      idMap.map[ Elem, IIdxSeq[ Elem ]]( tup => {
 //         val id   = tup._1
@@ -81,7 +81,7 @@ trait Decl[ S <: Sys[ S ], Impl ] {
 
 //   private sealed trait Key[ U ] {
 //      def id: Int
-//      def apply[ S <: Sys[ S ]]( disp: Impl[ S ]) : Event[ S, U, _ ]
+//      def apply[ S <: Sys[ S ]]( disp: EventImpl[ S ]) : Event[ S, U, _ ]
 //   }
 
    protected def declare[ U <: Update ]( fun: Impl => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) : Unit =
