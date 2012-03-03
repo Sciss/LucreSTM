@@ -109,10 +109,10 @@ object BerkeleyDB {
       })( ctx => inMem.wrap( ctx.peer ))
 
       def root[ A ]( init: => A )( implicit tx: Txn, ser: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
-         val rootID = 1
+         val rootID = 2  // 1 == reaction map!!!
          tryRead[ A ]( rootID )( ser.read( _, () )).getOrElse {
             val id   = newIDValue()
-            require( id == rootID, "Root can only be initialized on an empty database" )
+            require( id == rootID, "Root can only be initialized on an empty database (expected id count is " + rootID + " but found " + id + ")" )
             val res  = init
             write( id )( ser.write( res, _ ))
             res
