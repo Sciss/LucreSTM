@@ -163,6 +163,9 @@ println( "ADD" )
          }
 
          final protected def disposeData()( implicit tx: S#Tx ) {
+            // XXX not so nice having to handle this explicitly
+            collectionChanged.disconnect()
+            elementChanged.disconnect()
             seq.dispose()
          }
 
@@ -177,7 +180,10 @@ println( "ADD" )
          protected val seq       = tx0.newVar[ RegionSeq ]( id, IIdxSeq.empty )
 
 //         // ---- constructor ----
+         // XXX not so nice having to handle this explicitly
          invalidate()( tx0 )
+         collectionChanged.connect()( tx0 )
+         elementChanged.connect()( tx0 )
 //         collectionChanged.invalidate()( tx0 )
 //         connectNode()( tx0 )
 //         ensureValidity()( tx0 )
