@@ -115,7 +115,7 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
          protected def unsorted: RegionList
 
 //         final lazy val collectionChanged = event[ Collection ]
-         final lazy val collectionChanged = unsorted.collectionChanged.mapTx[ Collection ] { implicit tx => {
+         final lazy val collectionChanged = unsorted.collectionChanged.mapAndMutate[ Collection ] { implicit tx => {
             case RegionList.Added(   _, _, region ) => add(    region ); Added(   this, region )
             case RegionList.Removed( _, _, region ) => remove( region ); Removed( this, region )
          }}
