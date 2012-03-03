@@ -34,9 +34,6 @@ object Expr {
    with StandaloneLike[ S, Change[ A ], Expr[ S, A ]] with InvariantSelector[ S ] {
       final def changed: Event[ S, Change[ A ], Expr[ S, A ]] = this
 
-//      final private[lucre] def pull( slot: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] =
-//         pull( source, update )
-
       final def disposeData()( implicit tx: S#Tx ) {}
 
       override def toString = "Expr" + id
@@ -51,13 +48,6 @@ object Expr {
       import de.sciss.lucre.{event => evt}
 
       private type Ex = Expr[ S, A ]
-
-//      private val changedImp = new Trigger.Impl[ S, Change[ A ], Change[ A ], Expr[ S, A ]] {
-//         def node: evt.Node[ S, Change[ A ]] = expr
-//         def selector: Int = 1
-//         protected def reader: evt.Reader[ S, Expr[ S, A ], _ ] = expr.reader
-//      }
-//
 
       final def changed: Event[ S, Change[ A ], Expr[ S, A ]] = this // changedImp
 
@@ -80,8 +70,6 @@ object Expr {
       final private[lucre] def disconnect()( implicit tx: S#Tx ) {
          ref.get.changed -/-> this
       }
-
-//      final private[lucre] def lazySources( implicit tx: S#Tx ) : Sources[ S ] = IIdxSeq( ref.get.changed )
 
       final def get( implicit tx: S#Tx ) : Ex = ref.get
       final def set( expr: Ex )( implicit tx: S#Tx ) {
@@ -112,24 +100,11 @@ object Expr {
       }
 
       override def toString = "Expr.Var" + id
-
-//      final private[lucre] def pull( slot: Int, source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] =
-//         pull( source, update )
    }
    trait Const[ S <: Sys[ S ], A ] extends Expr[ S, A ] with event.Constant[ S ] {
       final def changed = Dummy[ S, Change[ A ], Expr[ S, A ]]
       protected def constValue : A
       final def value( implicit tx: S#Tx ) : A = constValue
-//      final def pull( source: Event[ S, _, _ ], update: Any )( implicit tx: S#Tx ) : Option[ Change[ A ]] = None
-
-//      final def observe( fun: (S#Tx, Event.Change[ A ]) => Unit )
-//                       ( implicit tx: S#Tx ) : Event.Observer[ S, Event.Change[ A ], Expr[ S, A ]] = {
-//         Event.Observer[ S, Event.Change[ A ], Expr[ S, A ]]( reader, fun )
-//      }
-
-//      final def +=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
-//      final def -=( r: Reactor[ S ])( implicit tx: S#Tx ) {}
-
       override def toString = constValue.toString
    }
 }

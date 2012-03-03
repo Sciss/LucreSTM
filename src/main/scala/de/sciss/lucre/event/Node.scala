@@ -142,10 +142,6 @@ object Targets {
 sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with Disposable[ S#Tx ] */ {
    /* private[event] */ def id: S#ID
 
-//   protected def childrenVar: S#Var[ Children[ S ]]
-
-//   override def toString = "Targets" + id
-
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
    /**
@@ -197,24 +193,6 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 
    final private[event] def children( implicit tx: S#Tx ) = targets.children
 
-//   private[event] def select( slot: Int ) : NodeSelector[ S, A ]
-
-//   private[event] def select( slot: Int ) : Event[ S, _ <: A, _ ]
-
-//   final private[event] def nodeOption : Option[ Node[ S, _ ]] = Some( this )
-
-//   protected def connectNode()(    implicit tx: S#Tx ) : Unit
-//   protected def disconnectNode()( implicit tx: S#Tx ) : Unit
-
-//   private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
-//   private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
-
-//   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
-//      targets.add( slot, sel )
-//
-//   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
-//      targets.remove( slot, sel )
-
    final def id: S#ID = targets.id
 
    final def write( out: DataOutput ) {
@@ -236,16 +214,6 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
  * mapping, filtering and forwarding nodes.
  */
 trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-//   protected def targets: Targets[ S ]
-
-//   final def select( slot: Int ) : NodeSelector[ S, A ] = Selector( slot, this )
-
-//   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
-//      targets.add( slot, sel )
-//
-//   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean =
-//      targets.remove( slot, sel )
-
    final def dispose()( implicit tx: S#Tx ) {
       targets.dispose()
       disposeData()
@@ -321,23 +289,6 @@ trait Invariant[ S <: Sys[ S ], A ] extends Node[ S, A ] {
 //      def invalidate()( implicit tx: S#Tx ) : Unit
 //      def validated()( implicit tx: S#Tx ) : Unit
 //   }
-//
-//   trait Reader[ S <: Sys[ S ], +Repr ] extends event.Reader[ S, Repr, Targets[ S ]]
-//
-//   /**
-//    * A trait to serialize events which are mutable nodes.
-//    * An implementation mixing in this trait just needs to implement
-//    * `read` with the `Event.Mutating.Targets` argument to return the node instance.
-//    */
-//   trait Serializer[ S <: Sys[ S ], Repr <: Mutating[ S, _ ]]
-//   extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
-//      final def write( v: Repr, out: DataOutput ) { v.write( out )}
-//
-//      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
-//         val targets = Targets.read[ S ]( in, access )
-//         read( in, access, targets /*, invalid */)
-//      }
-//   }
 //}
 
 ///**
@@ -385,7 +336,6 @@ sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disp
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
    private[event] def _targets : Targets[ S ]
-//   private[event] def nodeOption: Option[ Node[ S, _ ]]
 
    override def equals( that: Any ) : Boolean = {
       (if( that.isInstanceOf[ Reactor[ _ ]]) {
