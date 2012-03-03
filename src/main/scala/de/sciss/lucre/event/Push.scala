@@ -102,8 +102,10 @@ object Push {
       /* val secondPass = */ firstPass.foreach( _.apply() )
 
          if( mutating.nonEmpty ) {
-            println( "INVALIDATED: " + mutating.mkString( ", " ))
-
+            mutating.foreach { sel =>
+               println( "INVALIDATED: " + mutating.mkString( ", " ))
+               sel._invalidate()
+            }
          }
       }
 

@@ -50,7 +50,8 @@ object Targets {
    def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
       val id         = tx.newID()
       val children   = tx.newVar[ Children[ S ]]( id, NoChildren )
-      new Impl( id, children )
+      val invalid    = tx.newIntVar( id, 0 )
+      new Impl( id, children, invalid )
    }
 
    private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
@@ -75,25 +76,28 @@ object Targets {
    private[event] def readIdentified[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
       val id            = tx.readID( in, access )
       val children      = tx.readVar[ Children[ S ]]( id, in )
-      new Impl[ S ]( id, children )
+      val invalid       = tx.readIntVar( id, in )
+      new Impl[ S ]( id, children, invalid )
    }
 
-   private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]]) : Targets[ S ] =
-      new Impl( id, children )
+//   private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]]) : Targets[ S ] =
+//      new Impl( id, children )
 
    private final class Impl[ S <: Sys[ S ]](
-      val id: S#ID, protected val childrenVar: S#Var[ Children[ S ]])
+      val id: S#ID, childrenVar: S#Var[ Children[ S ]], invalidVar: S#Var[ Int ])
    extends Targets[ S ] {
       def write( out: DataOutput ) {
          out.writeUnsignedByte( 0 )
          id.write( out )
          childrenVar.write( out )
+         invalidVar.write( out )
       }
 
       def dispose()( implicit tx: S#Tx ) {
          require( children.isEmpty, "Disposing a event reactor which is still being observed" )
          id.dispose()
          childrenVar.dispose()
+         invalidVar.dispose()
       }
 
       def select( slot: Int, invariant: Boolean ) : ReactorSelector[ S ] = Selector( slot, this, invariant )
@@ -130,6 +134,14 @@ object Targets {
 
 //      private[event] def nodeOption : Option[ Node[ S, _ ]] = None
       private[event] def _targets : Targets[ S ] = this
+
+      private[event] def isInvalid( slot: Int  )( implicit tx: S#Tx ) : Boolean = (invalidVar.get & slot) != 0
+      private[event] def validated( slot: Int )( implicit tx: S#Tx ) {
+         invalidVar.transform( _ & ~slot )
+      }
+      private[event] def invalidate( slot: Int )( implicit tx: S#Tx ) {
+         invalidVar.transform( _ | slot )
+      }
    }
 }
 
@@ -168,6 +180,10 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    private[event] def remove( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
 
    private[event] def observers( implicit tx: S#Tx ): IIdxSeq[ ObserverKey[ S ]]
+
+   private[event] def isInvalid( slot: Int  )( implicit tx: S#Tx ) : Boolean
+   private[event] def validated( slot: Int )( implicit tx: S#Tx ) : Unit
+   private[event] def invalidate( slot: Int )( implicit tx: S#Tx ) : Unit
 }
 
 /**
