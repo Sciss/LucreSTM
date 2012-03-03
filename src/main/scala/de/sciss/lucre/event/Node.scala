@@ -199,26 +199,31 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
       targets.write( out )
       writeData( out )
    }
-}
 
-/**
- * An event which is `Invariant` designates a `Node` which does not mutate any internal state
- * as a result of events bubbling up from its sources. As a consequence, if an event is
- * propagated through this invariant event, and there are no live reactions currently hanging
- * off its target tree, the event can simply be swallowed without damage. If this event was
- * changing internal state, a loss of incoming events would be disastrous, as no live reactions
- * mean that the node's `Targets` are not fully deserialized into the outer `Node` object!
- * For such a situation, the invalidating `Mutating` node must be used.
- *
- * Most event nodes should be invariant, including combinators in expression systems, or
- * mapping, filtering and forwarding nodes.
- */
-trait InvariantNode[ S <: Sys[ S ], A ] extends Node[ S, A ] {
    final def dispose()( implicit tx: S#Tx ) {
       targets.dispose()
       disposeData()
    }
 }
+
+///**
+// * An event which is `Invariant` designates a `Node` which does not mutate any internal state
+// * as a result of events bubbling up from its sources. As a consequence, if an event is
+// * propagated through this invariant event, and there are no live reactions currently hanging
+// * off its target tree, the event can simply be swallowed without damage. If this event was
+// * changing internal state, a loss of incoming events would be disastrous, as no live reactions
+// * mean that the node's `Targets` are not fully deserialized into the outer `Node` object!
+// * For such a situation, the invalidating `Mutating` node must be used.
+// *
+// * Most event nodes should be invariant, including combinators in expression systems, or
+// * mapping, filtering and forwarding nodes.
+// */
+//trait InvariantNode[ S <: Sys[ S ], A ] extends Node[ S, A ] {
+////   final def dispose()( implicit tx: S#Tx ) {
+////      targets.dispose()
+////      disposeData()
+////   }
+//}
 
 //object Mutating {
 //   object Targets {
