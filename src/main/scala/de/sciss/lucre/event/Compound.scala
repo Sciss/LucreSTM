@@ -41,7 +41,7 @@ object Compound {
       def mapTx[ A1 <: D#Update ]( fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
          new Map[ S, Repr, D, B, A1 ]( d, e, fun )
 
-      def mapAndMutate[ A1 <: D#Update ]( fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
+      def mapAndMutate[ A1 <: D#Update ]( fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ]) : MutatingEvent[ S, A1, Repr ] =
          new MutatingMap[ S, Repr, D, B, A1 ]( d, e, fun )
    }
 

@@ -143,13 +143,16 @@ trait InvariantSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
 trait MutatingSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
    final protected def cookie: Int = 1
 
-   final private[event] def _invalidate()( implicit tx: S#Tx ) {
-      reactor._targets.invalidate( slot )
-   }
+//   final private[event] def _invalidate()( implicit tx: S#Tx ) {
+//      reactor._targets.invalidate( slot )
+//   }
 
-   final protected def invalidate()( implicit tx: S#Tx ) { _invalidate() }
-   final protected def isInvalid( implicit tx: S#Tx ) : Boolean = reactor._targets.isInvalid( slot )
-   final protected def validated()( implicit tx: S#Tx ) { reactor._targets.validated( slot )}
+//   final /* protected */ def invalidate()( implicit tx: S#Tx ) {
+////      _invalidate()
+//      reactor._targets.invalidate( slot )
+//   }
+//   final /* protected */ def isInvalid( implicit tx: S#Tx ) : Boolean = reactor._targets.isInvalid( slot )
+//   final /* protected */ def validated()( implicit tx: S#Tx ) { reactor._targets.validated( slot )}
 
    final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
       push.markInvalid( this )

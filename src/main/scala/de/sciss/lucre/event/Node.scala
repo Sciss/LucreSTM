@@ -135,12 +135,20 @@ object Targets {
 //      private[event] def nodeOption : Option[ Node[ S, _ ]] = None
       private[event] def _targets : Targets[ S ] = this
 
+      private[event] def isInvalid( implicit tx: S#Tx ) : Boolean = invalidVar.get != 0
+
       private[event] def isInvalid( slot: Int  )( implicit tx: S#Tx ) : Boolean = (invalidVar.get & slot) != 0
       private[event] def validated( slot: Int )( implicit tx: S#Tx ) {
          invalidVar.transform( _ & ~slot )
       }
       private[event] def invalidate( slot: Int )( implicit tx: S#Tx ) {
          invalidVar.transform( _ | slot )
+      }
+      private[event] def validated()( implicit tx: S#Tx ) {
+         invalidVar.set( 0 )
+      }
+      private[event] def invalidate()( implicit tx: S#Tx ) {
+         invalidVar.set( 0xFFFFFFFF )
       }
    }
 }
@@ -181,6 +189,10 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 
    private[event] def observers( implicit tx: S#Tx ): IIdxSeq[ ObserverKey[ S ]]
 
+   private[event] def isInvalid( implicit tx: S#Tx ) : Boolean
+   private[event] def validated()( implicit tx: S#Tx ) : Unit
+   private[event] def invalidate()( implicit tx: S#Tx ) : Unit
+
    private[event] def isInvalid( slot: Int  )( implicit tx: S#Tx ) : Boolean
    private[event] def validated( slot: Int )( implicit tx: S#Tx ) : Unit
    private[event] def invalidate( slot: Int )( implicit tx: S#Tx ) : Unit
@@ -204,6 +216,10 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    protected def targets: Targets[ S ]
    protected def writeData( out: DataOutput ) : Unit
    protected def disposeData()( implicit tx: S#Tx ) : Unit
+
+   final protected def validated()( implicit tx: S#Tx ) { targets.validated() }
+   final protected def isInvalid( implicit tx: S#Tx ) : Boolean = targets.isInvalid
+   final protected def invalidate()( implicit tx: S#Tx ) { targets.invalidate() }
 
    final private[event] def _targets : Targets[ S ] = targets
 

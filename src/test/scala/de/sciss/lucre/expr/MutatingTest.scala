@@ -130,14 +130,14 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
          }
 
          final protected def ensureValidity()( implicit tx: S#Tx ) {
-//            if( targets.isInvalid ) {
-//println( "VALIDATING" )
-//               val sz = unsorted.size
-//               var idx = 0; while( idx < sz ) {
-//                  add( unsorted( idx ))
-//               idx += 1 }
-//               targets.validated()
-//            }
+            if( isInvalid ) {
+println( "VALIDATING" )
+               val sz = unsorted.size
+               var idx = 0; while( idx < sz ) {
+                  add( unsorted( idx ))
+               idx += 1 }
+               validated()
+            }
          }
 
          override def toString = "Sorted" + id
@@ -177,6 +177,8 @@ println( "ADD" )
          protected val seq       = tx0.newVar[ RegionSeq ]( id, IIdxSeq.empty )
 
 //         // ---- constructor ----
+         invalidate()( tx0 )
+//         collectionChanged.invalidate()( tx0 )
 //         connectNode()( tx0 )
 //         ensureValidity()( tx0 )
       }

@@ -104,7 +104,7 @@ object Push {
          if( mutating.nonEmpty ) {
             mutating.foreach { sel =>
                println( "INVALIDATED: " + mutating.mkString( ", " ))
-               sel._invalidate()
+               sel.reactor._targets.invalidate( sel.slot )
             }
          }
       }
