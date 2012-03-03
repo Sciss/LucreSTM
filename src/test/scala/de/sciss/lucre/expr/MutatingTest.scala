@@ -120,6 +120,16 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
             case RegionList.Removed( _, _, region ) => remove( region ); Removed( this, region )
          }}
          final lazy val elementChanged    = unsorted.elementChanged.map( e => Element( this, e.changes ))
+
+//         final lazy val elementChanged    = unsorted.elementChanged.mapAndMutate[ Element ] { implicit tx => { e =>
+//            e.changes.foreach {
+//               case ... =>
+//            }
+//            Element( this, e.changes )
+//         }}
+
+//            ( e => Element( this, e.changes ))
+
          final lazy val changed           = collectionChanged | elementChanged
 
          final protected def decl = Sorted

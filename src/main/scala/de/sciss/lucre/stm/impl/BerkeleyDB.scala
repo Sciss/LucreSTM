@@ -108,9 +108,9 @@ object BerkeleyDB {
          tx.newIntVar( tx.newID(), 0 )
       })( ctx => inMem.wrap( ctx.peer ))
 
-      def root[ A ]( init: => A )( implicit tx: Txn, ser: Serializer[ A ]) : A = {
+      def root[ A ]( init: => A )( implicit tx: Txn, ser: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
          val rootID = 1
-         tryRead[ A ]( rootID )( ser.read( _ )).getOrElse {
+         tryRead[ A ]( rootID )( ser.read( _, () )).getOrElse {
             val id   = newIDValue()
             require( id == rootID, "Root can only be initialized on an empty database" )
             val res  = init
@@ -677,7 +677,7 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
     * or provides a newly initialized one via the `init` argument,
     * if no root has been stored yet.
     */
-   def root[ A ]( init: => A )( implicit tx: Tx, ser: Serializer[ A ]) : A
+   def root[ A ]( init: => A )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, A ]) : A
 
    private[impl] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: BerkeleyDB#Tx ) : A
    private[impl] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: BerkeleyDB#Tx ) : Unit
