@@ -26,6 +26,6 @@
 package de.sciss.lucre
 package stm
 
-trait TxnWriter[ @specialized A ] {
+trait TxnWriter[ @specialized -A ] {
    def write( v: A, out: DataOutput ) : Unit
 }
