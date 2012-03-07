@@ -574,8 +574,8 @@ object BerkeleyDB {
          system.read( id.id )( in => reader.read( in, () )( this ))( this )
       }
 
-      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
-         system.write( id.id )( out => ser.write( value, out ))( this )
+      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit writer: TxnWriter[ A ]) {
+         system.write( id.id )( out => writer.write( value, out ))( this )
       }
 
       def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {

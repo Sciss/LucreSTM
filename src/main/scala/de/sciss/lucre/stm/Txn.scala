@@ -75,7 +75,7 @@ trait Txn[ S <: Sys[ S ]] {
     * A raw write. If the underlying system doesn't persist objects, the implementation
     * should provide a no-op stub, but must not throw an exception.
     */
-   def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : Unit
+   def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit writer: TxnWriter[ A ]) : Unit
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
 

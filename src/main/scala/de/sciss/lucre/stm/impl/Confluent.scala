@@ -256,9 +256,9 @@ object Confluent {
          reader.read( in, acc )( this )
       }
 
-      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) {
+      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit writer: TxnWriter[ A ]) {
          val out = new DataOutput()
-         ser.write( value, out )
+         writer.write( value, out )
          val bytes = out.toByteArray
          system.storage += id.id -> (system.storage.getOrElse( id.id,
             Map.empty[ Acc, Array[ Byte ]]) + (parent.path -> bytes))

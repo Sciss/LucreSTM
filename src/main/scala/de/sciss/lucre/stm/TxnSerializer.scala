@@ -193,6 +193,5 @@ object TxnSerializer {
    }
 }
 
-trait TxnSerializer[ -Txn, @specialized( Unit ) -Access, @specialized A ] extends TxnReader[ Txn, Access, A ] {
-   def write( v: A, out: DataOutput ) : Unit
-}
+trait TxnSerializer[ -Txn, @specialized( Unit ) -Access, @specialized A ]
+extends TxnReader[ Txn, Access, A ] with TxnWriter[ A ]
