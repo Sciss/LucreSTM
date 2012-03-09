@@ -122,7 +122,7 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
        println( "Say hi to " + p.name + ". He's friend of " + friends.map( _.name ).mkString( " and " ))
     }
 
-    // now re-run the program to verify the persons have been persisted
+Now re-run the program to verify the persons have been persisted.
 
 ### Events
 
