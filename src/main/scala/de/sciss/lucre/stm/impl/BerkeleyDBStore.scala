@@ -27,14 +27,18 @@ package de.sciss.lucre
 package stm
 package impl
 
-import de.sciss.lucre.stm.TxnStore
-import java.io.{File, FileNotFoundException}
-import com.sleepycat.je.{Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
+import de.sciss.lucre.stm.PersistentStore
+import stm.PersistentStore.KeyWriter
+import java.util.concurrent.ConcurrentLinkedQueue
+import LucreSTM.logConfig
+import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
+import com.sleepycat.je.{OperationStatus, LockMode, DatabaseEntry, Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
+import java.io.{IOException, File, FileNotFoundException}
 
 object BerkeleyDBStore {
    private val DB_CONSOLE_LOG_LEVEL = "OFF"   // XXX TODO
 
-   def open[ Txn ]( file: File, createIfNecessary: Boolean = true ) : BerkeleyDBStore[ Txn ] = {
+   def open[ Txn <: stm.Txn[ _ ]]( file: File, createIfNecessary: Boolean = true ) : BerkeleyDBStore[ Txn ] = {
       val exists = file.isFile
       if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
 
@@ -79,19 +83,108 @@ object BerkeleyDBStore {
       }
    }
 
-   private final class Impl[ Txn ]( env: Environment, db: Database, txnCfg: TransactionConfig )
-   extends BerkeleyDBStore[ Txn ] {
+   private final class Impl[ Txn <: stm.Txn[ _ ]]( env: Environment, db: Database, txnCfg: TransactionConfig )
+   extends BerkeleyDBStore[ Txn ] with ScalaTxn.ExternalDecider {
+      private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
+      private val dbTxnRef    = TxnLocal( initialValue = { implicit tx =>
+         ScalaTxn.setExternalDecider( this )
+         val res  = env.beginTransaction( null, txnCfg )
+         val id   = res.getId
+         logConfig( "txn begin  <" + id + ">" )
+         ScalaTxn.afterRollback({ status =>
+            try {
+               logConfig( "txn rollback <" + id + ">" )
+               res.abort()
+            } catch {
+               case _ =>
+            }
+         })
+         res
+      })
+
+      // ---- ExternalDecider ----
+      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
+         val dbTxn = dbTxnRef()
+         try {
+            logConfig( "txn commit <" + dbTxn.getId + ">" )
+            dbTxn.commit()
+            true
+         } catch {
+            case e =>
+               try {
+                  logConfig( "txn abort <" + dbTxn.getId + ">" )
+                  dbTxn.abort()
+               } catch {
+                  case _ =>
+               }
+               false
+         }
+      }
+
       private def todo() = sys.error( "TODO" )
 
-      def put( key: Array[ Byte ])( writer: (DataOutput) => Unit )( implicit tx: Txn ) {
+      private def withIO[ A ]( fun: IO => A ) : A = {
+         val ioOld   = ioQueue.poll()
+         val io      = if( ioOld != null ) ioOld else new IO
+         try {
+            fun( io )
+         } finally {
+            ioQueue.offer( io )
+         }
+      }
+
+      def put[ K, V, Ser[ _ ]]( key: K, value: V )( implicit tx: Txn, ser: Ser[ V ],
+                                                    writer: PersistentStore.Put[ K, V, Ser ]) {
+         withIO { io =>
+            val out        = io.out
+            val keyE       = io.keyE
+            val valueE     = io.valueE
+
+            out.reset()
+            writer.writeKey( key, out )
+            val keySize    = out.getBufferLength
+            writer.writeValue( value, ser, out )
+            val valueSize  = out.getBufferLength - keySize
+            val data       = out.getBufferBytes
+            keyE.setData(   data, 0,       keySize   )
+            valueE.setData( data, keySize, valueSize )
+            if( db.put( dbTxnRef()( tx.peer ), keyE, valueE ) != OperationStatus.SUCCESS ) {
+               throw new IOException( "put failed" )
+            }
+         }
+      }
+
+      def get[ K, V, Ser[ _ ]]( key: K )( implicit tx: Txn, writer: PersistentStore.Get[ K, V, Ser ]) : Option[ V ] = {
          todo()
       }
 
-      def get[ A ]( key: Array[ Byte ])( reader: (DataInput) => A )( implicit tx: Txn ) = todo()
+      def contains[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean = {
+         withIO { io =>
+            val out        = io.out
+            val keyE       = io.keyE
+            val partialE   = io.partialE
 
-      def contains( key: Array[ Byte ])( implicit tx: Txn ) = todo()
+            out.reset()
+            writer.writeKey( key, out )
+            val keySize    = out.getBufferLength
+            val data       = out.getBufferBytes
+            keyE.setData( data, 0, keySize )
+            db.get( dbTxnRef()( tx.peer ), keyE, partialE, LockMode.READ_UNCOMMITTED ) == OperationStatus.SUCCESS
+         }
+      }
 
-      def remove( key: Array[ Byte ])( implicit tx: Txn ) { todo() }
+      def remove[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean = {
+         todo()
+      }
+   }
+
+   private[BerkeleyDBStore] final class IO {
+      val keyE     = new DatabaseEntry()
+      val valueE   = new DatabaseEntry()
+      val partialE = new DatabaseEntry()
+      val out      = new DataOutput()
+
+      partialE.setPartial( 0, 0, true )
    }
 }
-trait BerkeleyDBStore[ Txn ] extends TxnStore[ Txn ]
+trait BerkeleyDBStore[ Txn ] extends PersistentStore[ Txn ]
