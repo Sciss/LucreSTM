@@ -1,5 +1,5 @@
 /*
- *  BerkeleyDB.scala
+ *  PersistentSys.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -36,68 +36,45 @@ import annotation.elidable
 import elidable.CONFIG
 import event.ReactionMap
 
-object BerkeleyDB {
+object PersistentSys {
    import LucreSTM.logConfig
 
-   private type S = BerkeleyDB
+   private type S = PersistentSys
 
    /* private val */ var DB_CONSOLE_LOG_LEVEL   = "OFF" // "ALL"
 
    sealed trait ID extends Identifier[ Txn ] {
-      private[BerkeleyDB] def id: Int
+      private[PersistentSys] def id: Int
    }
 
-   def open( file: File, createIfNecessary: Boolean = true ) : S = {
-      val exists = file.isFile
-      if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
-
-      val envCfg  = new EnvironmentConfig()
-      val txnCfg  = new TransactionConfig()
-      val dbCfg   = new DatabaseConfig()
-
-      envCfg.setTransactional( true )
-      envCfg.setAllowCreate( createIfNecessary )
-      dbCfg.setTransactional( true )
-      dbCfg.setAllowCreate( createIfNecessary )
-
-      val dir     = file.getParentFile
-      val name    = file.getName
-      if( !exists ) dir.mkdirs()
-
-//    envCfg.setConfigParam( EnvironmentConfig.FILE_LOGGING_LEVEL, "ALL" )
-      envCfg.setConfigParam( EnvironmentConfig.CONSOLE_LOGGING_LEVEL, DB_CONSOLE_LOG_LEVEL )
-      val env     = new Environment( dir, envCfg )
-      val txn     = env.beginTransaction( null, txnCfg )
-      try {
-         txn.setName( "Open '" + name + "'" )
-         val db      = env.openDatabase( txn, name, dbCfg )
-         val kea     = Array[ Byte ]( 0, 0, 0, 0 )
-         val ke      = new DatabaseEntry( kea )  // slot for last-slot
-         val ve      = new DatabaseEntry()
-         val idCnt   = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
-            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
-            in.readInt()
-         } else 1
-         kea( 3 )    = 1.toByte   // slot for react-last-slot
-         val reactCnt = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
-            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
-            in.readInt()
-         } else 0
-         txn.commit()
-         new System( env, db, txnCfg, ScalaRef( idCnt ), ScalaRef( reactCnt ))
-      } catch {
-         case e =>
-            txn.abort()
-            throw e
-      }
+   def apply( store: PersistentStore[ S#Tx ]) : S = {
+//         val idCnt   = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
+//            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
+//            in.readInt()
+//         } else 1
+//         kea( 3 )    = 1.toByte   // slot for react-last-slot
+//         val reactCnt = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
+//            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
+//            in.readInt()
+//         } else 0
+//         txn.commit()
+//         new System( env, db, txnCfg, ScalaRef( idCnt ), ScalaRef( reactCnt ))
+//      } catch {
+//         case e =>
+//            txn.abort()
+//            throw e
+//      }
+      new System( store, 1, 0 )
    }
 
-   private final class System( val env: Environment, db: Database, val txnCfg: TransactionConfig,
-                               idCnt: ScalaRef[ Int ], reactCnt: ScalaRef[ Int ])
-   extends BerkeleyDB /* with ScalaTxn.ExternalDecider */ {
+   private final class System( store: PersistentStore[ S#Tx ], idCnt0: Int, reactCnt0: Int )
+   extends PersistentSys /* with ScalaTxn.ExternalDecider */ {
       system =>
 
-      def manifest: Manifest[ S ] = Manifest.classType( classOf[ BerkeleyDB ])
+      private val idCnt    = ScalaRef( idCnt0 )
+      private val reactCnt = ScalaRef( reactCnt0 )
+
+      def manifest: Manifest[ S ] = Manifest.classType( classOf[ PersistentSys ])
 
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
       private val idCntVar    = new CachedIntVar( 0, idCnt )
@@ -138,10 +115,10 @@ object BerkeleyDB {
          b.result()
       }
 
-      def close() { db.close() }
+      def close() { store.close() }
 
-      def numRecords : Long = db.count()
-      def numUserRecords : Long = math.max( 0L, db.count() - 1 )
+      def numRecords(     implicit tx: S#Tx ) : Int = store.numEntries
+      def numUserRecords( implicit tx: S#Tx ) : Int = math.max( 0, numRecords - 1 )
 
       def newIDValue()( implicit tx: Txn ) : Int = {
          val id = idCntVar.get( tx ) + 1
@@ -225,28 +202,31 @@ object BerkeleyDB {
          }
 
          def read( key: Int )( implicit tx: Txn ) : DataInput = {
-            val h    = tx.dbTxn
-            keyToArray( key )
-            val ve   = valueE
-            if( db.get( h, keyE, ve, null ) == OperationStatus.SUCCESS ) {
-               new DataInput( ve.getData, ve.getOffset, ve.getSize )
-            } else {
-               null
-            }
+            sys.error( "TODO" )
+//            val h    = tx.dbTxn
+//            keyToArray( key )
+//            val ve   = valueE
+//            if( db.get( h, keyE, ve, null ) == OperationStatus.SUCCESS ) {
+//               new DataInput( ve.getData, ve.getOffset, ve.getSize )
+//            } else {
+//               null
+//            }
          }
 
          def remove( key: Int )( implicit tx: Txn ) {
-            val h    = tx.dbTxn
-            keyToArray( key )
-            db.delete( h, keyE )
+            sys.error( "TODO" )
+//            val h    = tx.dbTxn
+//            keyToArray( key )
+//            db.delete( h, keyE )
          }
 
          def endWrite( key: Int )( implicit tx: Txn ) {
-            val h    = tx.dbTxn
-            keyToArray( key )
-            out.flush()
-            valueE.setData( out.toByteArray )
-            db.put( h, keyE, valueE )
+            sys.error( "TODO" )
+//            val h    = tx.dbTxn
+//            keyToArray( key )
+//            out.flush()
+//            valueE.setData( out.toByteArray )
+//            db.put( h, keyE, valueE )
          }
       }
    }
@@ -476,12 +456,12 @@ object BerkeleyDB {
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
 
    sealed trait Txn extends _Txn[ S ] {
-      private[BerkeleyDB] def dbTxn: Transaction
+//      private[PersistentSys] def dbTxn: Transaction
    }
 
    private final class TxnImpl( val system: System, val peer: InTxn )
-   extends Txn with ScalaTxn.ExternalDecider {
-      private var id = -1L
+   extends Txn /* with ScalaTxn.ExternalDecider */ {
+//      private var id = -1L
 
       def newID() : ID = new IDImpl( system.newIDValue()( this ))
 
@@ -514,23 +494,7 @@ object BerkeleyDB {
 //
 //      def removeEventReaction( slot: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( slot )( this )}
 
-      override def toString = "Txn<" + id + ">"
-
-      lazy val dbTxn: Transaction = {
-         ScalaTxn.setExternalDecider( this )( peer )
-         val res = system.env.beginTransaction( null, system.txnCfg )
-         id = res.getId
-         logConfig( "txn begin  <" + id + ">" )
-         ScalaTxn.afterRollback({ status =>
-            try {
-               logConfig( "txn rollback <" + id + ">" )
-               res.abort()
-            } catch {
-               case _ =>
-            }
-         })( peer )
-         res
-      }
+      override def toString = "Txn" // <" + id + ">"
 
       def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val res = new VarImpl[ A ]( system.newIDValue()( this ), ser )
@@ -627,30 +591,30 @@ object BerkeleyDB {
 //         }
 //      }
 
-      // ---- ExternalDecider ----
-      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
-         try {
-            logConfig( "txn commit <" + dbTxn.getId + ">" )
-            dbTxn.commit()
-            true
-         } catch {
-            case e =>
-               try {
-                  logConfig( "txn abort <" + dbTxn.getId + ">" )
-                  dbTxn.abort()
-               } catch {
-                  case _ =>
-               }
-               false
-         }
-      }
+//      // ---- ExternalDecider ----
+//      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
+//         try {
+//            logConfig( "txn commit <" + dbTxn.getId + ">" )
+//            dbTxn.commit()
+//            true
+//         } catch {
+//            case e =>
+//               try {
+//                  logConfig( "txn abort <" + dbTxn.getId + ">" )
+//                  dbTxn.abort()
+//               } catch {
+//                  case _ =>
+//               }
+//               false
+//         }
+//      }
    }
 }
 
-sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
-   type Var[ @specialized A ] = BerkeleyDB.Var[ A ]
-   type ID                    = BerkeleyDB.ID
-   type Tx                    = BerkeleyDB.Txn
+sealed trait PersistentSys extends Sys[ PersistentSys ] {
+   type Var[ @specialized A ] = PersistentSys.Var[ A ]
+   type ID                    = PersistentSys.ID
+   type Tx                    = PersistentSys.Txn
    type Acc                   = Unit
 
    /**
@@ -661,14 +625,14 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
    /**
     * Reports the current number of records stored in the database.
     */
-   def numRecords: Long
+   def numRecords( implicit tx: Tx ): Int
 
    /**
     * Reports the current number of user records stored in the database.
     * That is the number of records minus those records used for
     * database maintenance.
     */
-   def numUserRecords : Long
+   def numUserRecords( implicit tx: Tx ) : Int
 
    def debugListUserRecords()( implicit tx: Tx ) : Seq[ ID ]
 
@@ -679,9 +643,9 @@ sealed trait BerkeleyDB extends Sys[ BerkeleyDB ] {
     */
    def root[ A ]( init: => A )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, A ]) : A
 
-   private[impl] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: BerkeleyDB#Tx ) : A
-   private[impl] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: BerkeleyDB#Tx ) : Unit
-   private[impl] def remove( id: Int )( implicit tx: BerkeleyDB#Tx ) : Unit
-   private[impl] def exists( id: Int )( implicit tx: BerkeleyDB#Tx ) : Boolean
-   private[impl] def newIDValue()( implicit tx: BerkeleyDB#Tx ) : Int
+   private[impl] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: PersistentSys#Tx ) : A
+   private[impl] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: PersistentSys#Tx ) : Unit
+   private[impl] def remove( id: Int )( implicit tx: PersistentSys#Tx ) : Unit
+   private[impl] def exists( id: Int )( implicit tx: PersistentSys#Tx ) : Boolean
+   private[impl] def newIDValue()( implicit tx: PersistentSys#Tx ) : Int
 }

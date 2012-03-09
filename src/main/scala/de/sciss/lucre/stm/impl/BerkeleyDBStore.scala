@@ -40,24 +40,23 @@ object BerkeleyDBStore {
    sealed trait LogLevel
    case object LogOff extends LogLevel { override def toString = "OFF" }
    case object LogAll extends LogLevel { override def toString = "ALL" }
-//   private val DB_CONSOLE_LOG_LEVEL = "OFF"   // XXX TODO
 
-   def open[ Txn <: stm.Txn[ _ ]]( file: File, createIfNecessary: Boolean = true,
+   def open[ Txn <: stm.Txn[ _ ]]( dir: File, name: String, createIfNecessary: Boolean = true,
                                    logLevel: LogLevel = LogOff ) : BerkeleyDBStore[ Txn ] = {
-      val exists = file.isFile
-      if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
+//      val exists = file.isFile
+//      if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
+      val exists = dir.isDirectory
+      if( !exists && !createIfNecessary ) throw new FileNotFoundException( dir.toString )
 
       val envCfg  = new EnvironmentConfig()
       val txnCfg  = new TransactionConfig()
       val dbCfg   = new DatabaseConfig()
 
       envCfg.setTransactional( true )
-      envCfg.setAllowCreate( createIfNecessary )
-      dbCfg.setTransactional( true )
-      dbCfg.setAllowCreate( createIfNecessary )
+      envCfg.setAllowCreate(   createIfNecessary )
+      dbCfg.setTransactional(  true )
+      dbCfg.setAllowCreate(    createIfNecessary )
 
-      val dir     = file.getParentFile
-      val name    = file.getName
       if( !exists ) dir.mkdirs()
 
 //    envCfg.setConfigParam( EnvironmentConfig.FILE_LOGGING_LEVEL, "ALL" )
@@ -136,6 +135,8 @@ object BerkeleyDBStore {
          }
       }
 
+      def close() { db.close() }
+
       def put[ K, V, Ser[ _ ]]( key: K, value: V )( implicit tx: Txn, ser: Ser[ V ],
                                                     writer: PersistentStore.Put[ K, V, Ser ]) {
          withIO { io =>
@@ -204,6 +205,8 @@ object BerkeleyDBStore {
             db.delete( dbTxnRef()( tx.peer ), keyE ) == SUCCESS
          }
       }
+
+      def numEntries( implicit tx: Txn ) : Int = db.count().toInt
    }
 
    private[BerkeleyDBStore] final class IO {

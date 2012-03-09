@@ -28,7 +28,7 @@
 //
 //import collection.immutable.{IndexedSeq => IIdxSeq}
 //import annotation.switch
-//import impl.{Confluent, InMemory, BerkeleyDB}
+//import impl.{Confluent, InMemory, PersistentSys}
 //import javax.swing.{JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 //import java.io.File
 //import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
@@ -40,7 +40,7 @@
 //      case Seq( "--confluent" ) => test1( Confluent() )()
 //      case Seq( "--database" )  =>
 //         val file = new File( new File( new File( sys.props( "user.home" ), "Desktop" ), "reaction" ), "data" )
-//         val db   = BerkeleyDB.open( file )
+//         val db   = PersistentSys.open( file )
 //         test1( db )( db.close() )
 //      case _  => test1( InMemory() )()
 //   })
