@@ -1,0 +1,26 @@
+
+{
+ "organization":"de.sciss",
+ "name":"LucreSTM",
+ "version":"0.20",
+ "description":"Combination of Scala-STM, a persistent key-value store, and observer-pattern based reactors",
+ "site":"https://github.com/Sciss/LucreSTM",
+ "tags":["stm","software-transactional-memory","reactive","event","persistent"],
+ "docs":"",
+ "licenses": [{
+   "name": "GPL v2+",
+   "url": "http://www.gnu.org/licenses/gpl-2.0.txt"
+  }],
+ "resolvers": ["http://scala-tools.org/repo-releases"],
+ "dependencies": [{
+   "organization":"org.scala-tools",
+   "name": "scala-stm",
+   "version": "0.5"
+  },{
+   "organization":"com.sleepycat",
+   "name": "je",
+   "version": "5.0.34"
+  }],
+ "scalas": ["2.9.1"],
+ "sbt": false
+}

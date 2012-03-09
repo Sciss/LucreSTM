@@ -35,8 +35,8 @@ object LucreSTM {
 
    val name          = "LucreSTM"
    val version       = 0.20
-   val copyright     = "(C)opyright 2011 Hanns Holger Rutz"
-   val isSnapshot    = true
+   val copyright     = "(C)opyright 2011-2012 Hanns Holger Rutz"
+   val isSnapshot    = false
 
    def versionString = {
       val s = (version + 0.001).toString.substring( 0, 4 )
