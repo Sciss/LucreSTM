@@ -1,5 +1,7 @@
 # LucreSTM
 
+__Note__ this is 0.21-SNAPSHOT. See tag v0.20 for the latest release.
+
 ## statement
 
 LucreSTM is provides a software transactional memory with persistent backend, as well as reactive observer system. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project. The reactive system implements event graphs which also can be persistent, along with live observers.
