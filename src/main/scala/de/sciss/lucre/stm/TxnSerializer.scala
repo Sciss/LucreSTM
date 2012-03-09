@@ -43,18 +43,18 @@ object TxnSerializer {
 
    // ---- higher-kinded ----
 
-   implicit def fromReader[ S <: Sys[ S ], A <: Mutable[ S ]]( implicit reader: MutableReader[ S#ID, S#Tx, A ]) : TxnSerializer[ S#Tx, S#Acc, A ] =
-      new ReaderWrapper[ S, A ]( reader )
-
-   private final class ReaderWrapper[ S <: Sys[ S ], A <: Mutable[ S ]]( reader: MutableReader[ S#ID, S#Tx, A ])
-   extends TxnSerializer[ S#Tx, S#Acc, A ] {
-      def write( v: A, out: DataOutput ) { v.write( out )}
-
-      def read( in: DataInput, acc: S#Acc )( implicit tx: S#Tx ) : A = {
-         val id = tx.readID( in, acc )
-         reader.readData( in, id )
-      }
-   }
+//   implicit def fromReader[ S <: Sys[ S ], A <: Mutable[ S ]]( implicit reader: MutableReader[ S#ID, S#Tx, A ]) : TxnSerializer[ S#Tx, S#Acc, A ] =
+//      new ReaderWrapper[ S, A ]( reader )
+//
+//   private final class ReaderWrapper[ S <: Sys[ S ], A <: Mutable[ S ]]( reader: MutableReader[ S#ID, S#Tx, A ])
+//   extends TxnSerializer[ S#Tx, S#Acc, A ] {
+//      def write( v: A, out: DataOutput ) { v.write( out )}
+//
+//      def read( in: DataInput, acc: S#Acc )( implicit tx: S#Tx ) : A = {
+//         val id = tx.readID( in, acc )
+//         reader.readData( in, id )
+//      }
+//   }
 
    implicit def option[ Tx, Acc, A ]( implicit peer: TxnSerializer[ Tx, Acc, A ]) : TxnSerializer[ Tx, Acc, Option[ A ]] =
       new OptionWrapper[ Tx, Acc, A ]( peer )
@@ -195,3 +195,12 @@ object TxnSerializer {
 
 trait TxnSerializer[ -Txn, @specialized( Unit ) -Access, @specialized A ]
 extends TxnReader[ Txn, Access, A ] with TxnWriter[ A ]
+
+trait MutableSerializer[ S <: Sys[ S ], M <: Mutable[ S ]]
+extends TxnSerializer[ S#Tx, S#Acc, M ] with MutableReader[ S#ID, S#Tx, M ] {
+   final def write( m: M, out: DataOutput ) { m.write( out )}
+   final def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : M = {
+      val id = tx.readID( in, access )
+      readData( in, id )
+   }
+}

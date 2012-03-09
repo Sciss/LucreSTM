@@ -47,8 +47,8 @@ object ConfluentTest extends App {
       override def toString = "w" + num + id
    }
 
-   implicit val reader = new MutableReader[ ID, Tx, ListElem[ Int ]] {
-      implicit def ser = TxnSerializer.fromReader[ Confluent, ListElem[ Int ]]( this )
+   implicit val reader = new MutableSerializer[ Confluent, ListElem[ Int ]] {
+      implicit def ser = this
 
       def readData( in: DataInput, _id: Confluent#ID )( implicit tx: Tx ) : ListElem[ Int ] = new ListElem[ Int ] {
          import tx._
@@ -60,7 +60,7 @@ object ConfluentTest extends App {
       }
    }
 
-   import reader.ser
+//   import reader.ser
 
    object Access {
       implicit val Reader : MutableReader[ ID, Tx, Access ] = new MutableReader[ ID, Tx, Access ] {
