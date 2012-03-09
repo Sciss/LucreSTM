@@ -35,10 +35,12 @@ The __life cycle__ of a reference, in following just called Var, is as follows: 
 
 The serializer has a non-transactional `write` method, and a transactional `read` method:
 
+```scala
     trait TxnSerializer[ -Txn, -Access, A ]
        def write( v: A, out: DataOutput ) : Unit
        def read( in: DataInput, access: Access )( implicit tx: Txn ) : A
     }
+```
 
 Again, the `Access` type (corresponding to `S#Acc`) is used by the confluent system, and you can treat it as an opaque entity given to you. As you can see, the `write` method does not have access to any transactional context, while the deserialization requires the implicit `tx` argument as you might be dealing with a composite object whose members will be restored by successive calls to `tx.readVar`. Standard serializers are provided for primitive types and common Scala types such as `Option`, `Either`, `Tuple2`, ..., and various collections from `scala.collection.immutable`.
 
@@ -121,6 +123,7 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
        }
        println( "Say hi to " + p.name + ". He's friend of " + friends.map( _.name ).mkString( " and " ))
     }
+```
 
 Now re-run the program to verify the persons have been persisted.
 
