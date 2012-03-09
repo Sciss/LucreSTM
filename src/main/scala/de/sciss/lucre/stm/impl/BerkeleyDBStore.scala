@@ -33,12 +33,17 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import LucreSTM.logConfig
 import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
 import com.sleepycat.je.{OperationStatus, LockMode, DatabaseEntry, Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
-import java.io.{IOException, File, FileNotFoundException}
+import java.io.{File, FileNotFoundException}
+import OperationStatus.SUCCESS
 
 object BerkeleyDBStore {
-   private val DB_CONSOLE_LOG_LEVEL = "OFF"   // XXX TODO
+   sealed trait LogLevel
+   case object LogOff extends LogLevel { override def toString = "OFF" }
+   case object LogAll extends LogLevel { override def toString = "ALL" }
+//   private val DB_CONSOLE_LOG_LEVEL = "OFF"   // XXX TODO
 
-   def open[ Txn <: stm.Txn[ _ ]]( file: File, createIfNecessary: Boolean = true ) : BerkeleyDBStore[ Txn ] = {
+   def open[ Txn <: stm.Txn[ _ ]]( file: File, createIfNecessary: Boolean = true,
+                                   logLevel: LogLevel = LogOff ) : BerkeleyDBStore[ Txn ] = {
       val exists = file.isFile
       if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
 
@@ -56,7 +61,7 @@ object BerkeleyDBStore {
       if( !exists ) dir.mkdirs()
 
 //    envCfg.setConfigParam( EnvironmentConfig.FILE_LOGGING_LEVEL, "ALL" )
-      envCfg.setConfigParam( EnvironmentConfig.CONSOLE_LOGGING_LEVEL, DB_CONSOLE_LOG_LEVEL )
+      envCfg.setConfigParam( EnvironmentConfig.CONSOLE_LOGGING_LEVEL, logLevel.toString )
       val env     = new Environment( dir, envCfg )
       val txn     = env.beginTransaction( null, txnCfg )
       try {
@@ -65,12 +70,12 @@ object BerkeleyDBStore {
 //         val kea     = Array[ Byte ]( 0, 0, 0, 0 )
 //         val ke      = new DatabaseEntry( kea )  // slot for last-slot
 //         val ve      = new DatabaseEntry()
-//         val idCnt   = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
+//         val idCnt   = if( db.get( txn, ke, ve, null ) == SUCCESS ) {
 //            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
 //            in.readInt()
 //         } else 1
 //         kea( 3 )    = 1.toByte   // slot for react-last-slot
-//         val reactCnt = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
+//         val reactCnt = if( db.get( txn, ke, ve, null ) == SUCCESS ) {
 //            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
 //            in.readInt()
 //         } else 0
@@ -121,8 +126,6 @@ object BerkeleyDBStore {
          }
       }
 
-      private def todo() = sys.error( "TODO" )
-
       private def withIO[ A ]( fun: IO => A ) : A = {
          val ioOld   = ioQueue.poll()
          val io      = if( ioOld != null ) ioOld else new IO
@@ -148,14 +151,29 @@ object BerkeleyDBStore {
             val data       = out.getBufferBytes
             keyE.setData(   data, 0,       keySize   )
             valueE.setData( data, keySize, valueSize )
-            if( db.put( dbTxnRef()( tx.peer ), keyE, valueE ) != OperationStatus.SUCCESS ) {
-               throw new IOException( "put failed" )
-            }
+            db.put( dbTxnRef()( tx.peer ), keyE, valueE )
          }
       }
 
-      def get[ K, V, Ser[ _ ]]( key: K )( implicit tx: Txn, writer: PersistentStore.Get[ K, V, Ser ]) : Option[ V ] = {
-         todo()
+      def get[ K, V, Ser[ _ ]]( key: K )( implicit tx: Txn, ser: Ser[ V ],
+                                          getter: PersistentStore.Get[ K, V, Ser ]) : Option[ V ] = {
+         withIO { io =>
+            val out        = io.out
+            val keyE       = io.keyE
+            val valueE     = io.valueE
+
+            out.reset()
+            getter.writeKey( key, out )
+            val keySize    = out.getBufferLength
+            val data       = out.getBufferBytes
+            keyE.setData( data, 0, keySize )
+            if( db.get( dbTxnRef()( tx.peer ), keyE, valueE, LockMode.DEFAULT ) == SUCCESS ) {
+               val in = new DataInput( valueE.getData, valueE.getOffset, valueE.getSize )
+               Some( getter.readValue( in, ser ))
+            } else {
+               None
+            }
+         }
       }
 
       def contains[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean = {
@@ -169,12 +187,22 @@ object BerkeleyDBStore {
             val keySize    = out.getBufferLength
             val data       = out.getBufferBytes
             keyE.setData( data, 0, keySize )
-            db.get( dbTxnRef()( tx.peer ), keyE, partialE, LockMode.READ_UNCOMMITTED ) == OperationStatus.SUCCESS
+            db.get( dbTxnRef()( tx.peer ), keyE, partialE, LockMode.READ_UNCOMMITTED ) == SUCCESS
          }
       }
 
       def remove[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean = {
-         todo()
+         withIO { io =>
+            val out        = io.out
+            val keyE       = io.keyE
+
+            out.reset()
+            writer.writeKey( key, out )
+            val keySize    = out.getBufferLength
+            val data       = out.getBufferBytes
+            keyE.setData( data, 0, keySize )
+            db.delete( dbTxnRef()( tx.peer ), keyE ) == SUCCESS
+         }
       }
    }
 

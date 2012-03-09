@@ -24,7 +24,7 @@ trait PersistentStore[ Txn ] {
 //   def remove(   key: Array[ Byte ])( implicit tx: Txn ) : Unit
 
    def put[ K, V, Ser[ _ ]]( key: K, value: V )( implicit tx: Txn, ser: Ser[ V ], writer: Put[ K, V, Ser ]) : Unit
-   def get[ K, V, Ser[ _ ]]( key: K )( implicit tx: Txn, writer: Get[ K, V, Ser ]) : Option[ V ]
+   def get[ K, V, Ser[ _ ]]( key: K )( implicit tx: Txn, ser: Ser[ V ], writer: Get[ K, V, Ser ]) : Option[ V ]
    def contains[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean
    def remove[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean
 }
