@@ -2,8 +2,8 @@ package de.sciss.lucre.stm
 
 object Example extends App {
    import de.sciss.lucre._
-   import stm._
-   import impl.{ BerkeleyDB => S }
+   import stm.{Durable => S, _}
+   import impl.BerkeleyDBStore
 
    object Person {
       implicit object ser extends MutableSerializer[ S, Person ] {
@@ -37,7 +37,7 @@ object Example extends App {
 
    val dir  = new java.io.File( sys.props( "user.home" ), "person_db" )
    dir.mkdirs()
-   val s    = S.open( new java.io.File( dir, "data" ))
+   val s    = S( BerkeleyDBStore.open( dir ))
    val root = s.atomic { implicit tx =>
       // read the root data set, or create a new one if the database does not exist
       s.root[ Person ]( newPerson() )

@@ -40,8 +40,8 @@ object BerkeleyDBStore {
    case object LogOff extends LogLevel { override def toString = "OFF" }
    case object LogAll extends LogLevel { override def toString = "ALL" }
 
-   def open[ Txn <: stm.Txn[ _ ]]( dir: File, name: String, createIfNecessary: Boolean = true,
-                                   logLevel: LogLevel = LogOff ) : BerkeleyDBStore[ Txn ] = {
+   def open( dir: File, name: String = "data", createIfNecessary: Boolean = true,
+             logLevel: LogLevel = LogOff ) : BerkeleyDBStore = {
 //      val exists = file.isFile
 //      if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
       val exists = dir.isDirectory
@@ -78,7 +78,7 @@ object BerkeleyDBStore {
 //            in.readInt()
 //         } else 0
          txn.commit()
-         new Impl[ Txn ]( env, db, txnCfg )
+         new Impl( env, db, txnCfg )
       } catch {
          case e =>
             txn.abort()
@@ -86,8 +86,8 @@ object BerkeleyDBStore {
       }
    }
 
-   private final class Impl[ Txn <: stm.Txn[ _ ]]( env: Environment, db: Database, txnCfg: TransactionConfig )
-   extends BerkeleyDBStore[ Txn ] with ScalaTxn.ExternalDecider {
+   private final class Impl( env: Environment, db: Database, txnCfg: TransactionConfig )
+   extends BerkeleyDBStore with ScalaTxn.ExternalDecider {
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
       private val dbTxnRef    = TxnLocal( initialValue = { implicit tx =>
          ScalaTxn.setExternalDecider( this )
@@ -136,7 +136,7 @@ object BerkeleyDBStore {
 
       def close() { db.close() }
 
-      def put( keyFun: DataOutput => Unit )( valueFun: DataOutput => Unit )( implicit tx: Txn ) {
+      def put( keyFun: DataOutput => Unit )( valueFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
@@ -154,7 +154,7 @@ object BerkeleyDBStore {
          }
       }
 
-      def get[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => A )( implicit tx: Txn ) : Option[ A ] = {
+      def get[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => A )( implicit tx: Txn[ _ ]) : Option[ A ] = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
@@ -174,7 +174,7 @@ object BerkeleyDBStore {
          }
       }
 
-      def contains( keyFun: DataOutput => Unit )( implicit tx: Txn ) : Boolean = {
+      def contains( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
@@ -189,7 +189,7 @@ object BerkeleyDBStore {
          }
       }
 
-      def remove( keyFun: DataOutput => Unit )( implicit tx: Txn ) : Boolean = {
+      def remove( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
@@ -203,7 +203,7 @@ object BerkeleyDBStore {
          }
       }
 
-      def numEntries( implicit tx: Txn ) : Int = db.count().toInt
+      def numEntries( implicit tx: Txn[ _ ]) : Int = db.count().toInt
    }
 
    private[BerkeleyDBStore] final class IO {
@@ -215,4 +215,4 @@ object BerkeleyDBStore {
       partialE.setPartial( 0, 0, true )
    }
 }
-trait BerkeleyDBStore[ Txn ] extends PersistentStore[ Txn ]
+trait BerkeleyDBStore extends PersistentStore[ Txn[ _ ]]

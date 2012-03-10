@@ -31,27 +31,28 @@ import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import collection.mutable.Buffer
-import stm.{InMemory, Sys}
-import stm.impl.{InMemory, Confluent, BerkeleyDB}
+import stm.impl.{BerkeleyDBStore, Confluent}
+import stm.{Durable, InMemory, Sys}
 
 //import expr.any2stringadd
 
 object ReactionTest2 extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
    private def confluentSys : (Confluent, () => Unit) = (Confluent(), () => ())
-   private def databaseSys  : (BerkeleyDB, () => Unit) = {
-      val file = new File( new File( new File( sys.props( "user.home" ), "Desktop" ), "reaction" ), "data" )
-      val db   = BerkeleyDB.open( file )
-      (db, () => db.close())
+   private def databaseSys( name: String )  : (Durable, () => Unit) = {
+      val dir  = new File( new File( sys.props( "user.home" ), "Desktop" ), "reaction" )
+      val db   = BerkeleyDBStore.open( dir, name )
+      val s    = Durable( db )
+      (s, () => s.close())
    }
 
    defer( args.toSeq.take( 2 ) match {
       case Seq( "--coll-memory" )      => collections( memorySys )
       case Seq( "--coll-confluent" )   => collections( confluentSys )
-      case Seq( "--coll-database" )    => collections( databaseSys )
+      case Seq( "--coll-database" )    => collections( databaseSys( "coll" ))
       case Seq( "--expr-memory" )      => expressions( memorySys )
       case Seq( "--expr-confluent" )   => expressions( confluentSys )
-      case Seq( "--expr-database" )    => expressions( databaseSys )
+      case Seq( "--expr-database" )    => expressions( databaseSys( "expr" ))
       case _  => println( """
 Usages:
    --coll-memory

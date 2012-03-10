@@ -2,18 +2,19 @@ package de.sciss.lucre
 package expr
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import stm.{InMemory, Sys}
-import stm.impl.{BerkeleyDB, InMemory, Confluent}
 import java.io.File
 import event._
+import stm.{Durable, InMemory, Sys}
+import stm.impl.{BerkeleyDBStore, Confluent}
 
 object MutatingTest extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
    private def confluentSys : (Confluent, () => Unit) = (Confluent(), () => ())
-   private def databaseSys  : (BerkeleyDB, () => Unit) = {
-      val file = new File( new File( new File( sys.props( "user.home" ), "Desktop" ), "mutating" ), "data" )
-      val db   = BerkeleyDB.open( file )
-      (db, () => db.close())
+   private def databaseSys  : (Durable, () => Unit) = {
+      val dir  = new File( new File( sys.props( "user.home" ), "Desktop" ), "mutating" )
+      val db   = BerkeleyDBStore.open( dir )
+      val s    = Durable( db )
+      (s, () => s.close())
    }
 
    args.toSeq.take( 2 ) match {
