@@ -38,7 +38,7 @@ The __life cycle__ of a reference, in following just called Var, is as follows: 
 The serializer has a non-transactional `write` method, and a transactional `read` method:
 
 ```scala
-    trait TxnSerializer[ -Txn, -Access, A ]
+    trait TxnSerializer[ -Txn, -Access, A ] {
        def write( v: A, out: DataOutput ) : Unit
        def read( in: DataInput, access: Access )( implicit tx: Txn ) : A
     }
