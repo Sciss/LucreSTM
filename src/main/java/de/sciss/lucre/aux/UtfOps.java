@@ -2,7 +2,7 @@
  * This file originally from Berkeley DB JE 4.10, licensed under BSD style license,
  * has been modified in the following way:
  *
- * - move to package de.sciss.lucrestm.util
+ * - move to package de.sciss.lucre.aux
  */
 
 /*-
@@ -12,7 +12,7 @@
  *
  */
 
-package de.sciss.lucre.util;
+package de.sciss.lucre.aux;
 
 /**
  * UTF operations with more flexibility than is provided by DataInput and

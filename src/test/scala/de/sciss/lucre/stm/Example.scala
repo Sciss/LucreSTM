@@ -25,7 +25,7 @@ object Example extends App {
 
    val pre  = IndexedSeq( "Adal", "Bern", "Chlod", "Diet", "Eg",   "Fried" )
    val post = IndexedSeq( "bert", "hard", "wig",   "mar",  "mund", "helm"  )
-   val rnd  = new scala.util.Random()
+   val rnd  = new util.Random()
 
    // create a person with random name and no friends
    def newPerson()( implicit tx: S#Tx ) = new Person {

@@ -2,9 +2,9 @@
  * This file originally from Berkeley DB JE 4.10, licensed under BSD style license,
  * has been modified in the following way:
  *
- * - move to package de.sciss.lucrestm
+ * - move to package de.sciss.lucre
  * - renamed from TupleOutput to DataOutput
- * - imports utilities from de.sciss.lucrestm.util
+ * - imports utilities from de.sciss.lucre.aux
  */
 
 /*-
@@ -18,9 +18,9 @@ package de.sciss.lucre;
 
 import java.math.BigInteger;
 
-import de.sciss.lucre.util.FastOutputStream;
-import de.sciss.lucre.util.PackedInteger;
-import de.sciss.lucre.util.UtfOps;
+import de.sciss.lucre.aux.FastOutputStream;
+import de.sciss.lucre.aux.PackedInteger;
+import de.sciss.lucre.aux.UtfOps;
 
 /**
  * An <code>OutputStream</code> with <code>DataOutput</code>-like methods for
