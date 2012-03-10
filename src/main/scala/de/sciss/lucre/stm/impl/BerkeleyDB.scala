@@ -1,5 +1,5 @@
 /*
- *  BerkeleyDBStore.scala
+ *  BerkeleyDB.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -35,13 +35,13 @@ import com.sleepycat.je.{OperationStatus, LockMode, DatabaseEntry, Database, Env
 import java.io.{File, FileNotFoundException}
 import OperationStatus.SUCCESS
 
-object BerkeleyDBStore {
+object BerkeleyDB {
    sealed trait LogLevel
    case object LogOff extends LogLevel { override def toString = "OFF" }
    case object LogAll extends LogLevel { override def toString = "ALL" }
 
    def open( dir: File, name: String = "data", createIfNecessary: Boolean = true,
-             logLevel: LogLevel = LogOff ) : BerkeleyDBStore = {
+             logLevel: LogLevel = LogOff ) : BerkeleyDB = {
 //      val exists = file.isFile
 //      if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
       val exists = dir.isDirectory
@@ -87,7 +87,7 @@ object BerkeleyDBStore {
    }
 
    private final class Impl( env: Environment, db: Database, txnCfg: TransactionConfig )
-   extends BerkeleyDBStore with ScalaTxn.ExternalDecider {
+   extends BerkeleyDB with ScalaTxn.ExternalDecider {
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
       private val dbTxnRef    = TxnLocal( initialValue = { implicit tx =>
          ScalaTxn.setExternalDecider( this )
@@ -206,7 +206,7 @@ object BerkeleyDBStore {
       def numEntries( implicit tx: Txn[ _ ]) : Int = db.count().toInt
    }
 
-   private[BerkeleyDBStore] final class IO {
+   private[BerkeleyDB] final class IO {
       val keyE     = new DatabaseEntry()
       val valueE   = new DatabaseEntry()
       val partialE = new DatabaseEntry()
@@ -215,4 +215,4 @@ object BerkeleyDBStore {
       partialE.setPartial( 0, 0, true )
    }
 }
-trait BerkeleyDBStore extends PersistentStore[ Txn[ _ ]]
+trait BerkeleyDB extends PersistentStore[ Txn[ _ ]]

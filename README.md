@@ -57,7 +57,6 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
 ```scala
     import de.sciss.lucre._
     import stm.{Durable => S, _}
-    import impl.BerkeleyDBStore
 
     object Person {
        implicit object ser extends TxnMutableSerializer[ S, Person ] {
@@ -91,7 +90,7 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
 
     val dir  = new java.io.File( sys.props( "user.home" ), "person_db" )
     dir.mkdirs()
-    val s    = S( BerkeleyDBStore.open( dir ))
+    val s    = S( impl.BerkeleyDB.open( dir ))
     val root = s.atomic { implicit tx =>
        // read the root data set, or create a new one if the database does not exist
        s.root[ Person ]( newPerson() )

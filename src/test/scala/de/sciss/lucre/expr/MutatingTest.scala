@@ -5,14 +5,14 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 import java.io.File
 import event._
 import stm.{Durable, InMemory, Sys}
-import stm.impl.{BerkeleyDBStore, Confluent}
+import stm.impl.{BerkeleyDB, Confluent}
 
 object MutatingTest extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
    private def confluentSys : (Confluent, () => Unit) = (Confluent(), () => ())
    private def databaseSys  : (Durable, () => Unit) = {
       val dir  = new File( new File( sys.props( "user.home" ), "Desktop" ), "mutating" )
-      val db   = BerkeleyDBStore.open( dir )
+      val db   = BerkeleyDB.open( dir )
       val s    = Durable( db )
       (s, () => s.close())
    }

@@ -31,7 +31,7 @@ import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import collection.mutable.Buffer
-import stm.impl.{BerkeleyDBStore, Confluent}
+import stm.impl.{BerkeleyDB, Confluent}
 import stm.{Durable, InMemory, Sys}
 
 //import expr.any2stringadd
@@ -41,7 +41,7 @@ object ReactionTest2 extends App {
    private def confluentSys : (Confluent, () => Unit) = (Confluent(), () => ())
    private def databaseSys( name: String )  : (Durable, () => Unit) = {
       val dir  = new File( new File( sys.props( "user.home" ), "Desktop" ), "reaction" )
-      val db   = BerkeleyDBStore.open( dir, name )
+      val db   = BerkeleyDB.open( dir, name )
       val s    = Durable( db )
       (s, () => s.close())
    }
