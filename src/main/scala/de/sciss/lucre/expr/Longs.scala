@@ -26,9 +26,8 @@
 package de.sciss.lucre
 package expr
 
-import stm.Sys
 import annotation.switch
-import stm.impl.InMemory
+import stm.{InMemory, Sys}
 import event.Targets
 
 object Longs {

@@ -1,8 +1,8 @@
 package de.sciss.lucre
 package expr
 
-import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
+import stm.{InMemory, Sys}
 import stm.impl.{BerkeleyDB, InMemory, Confluent}
 import java.io.File
 import event._

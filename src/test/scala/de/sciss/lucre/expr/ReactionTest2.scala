@@ -31,7 +31,7 @@ import java.awt.event.{WindowAdapter, WindowEvent, ActionListener, ActionEvent}
 import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayout, EventQueue}
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import collection.mutable.Buffer
-import stm.Sys
+import stm.{InMemory, Sys}
 import stm.impl.{InMemory, Confluent, BerkeleyDB}
 
 //import expr.any2stringadd

@@ -143,7 +143,7 @@ private[event] def slot = opNotSupported
                case Some( nodeSel ) => // this happens for mem-cached and not persisting systems (e.g. `InMemory`)
                   nodeSel.pullUpdate( pull ).asInstanceOf[ Option[ B ]]
                case _ =>
-                  // this happens for a persisting system (e.g. `PersistentSys`).
+                  // this happens for a persisting system (e.g. `Durable`).
                   // ; although this is not type enforced (yet), we know that
                   // `Event[ _, _, Elem ]` is represented by a `NodeSelector` with
                   // its node being _represented by_ `Elem`, and thus we know that

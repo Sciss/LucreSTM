@@ -5,15 +5,26 @@ object PersistentStore {
    trait KeyWriter[ K ] {
       def writeKey( key: K, out: DataOutput ) : Unit
    }
-   trait ValueWriter[ V, Ser[ _ ]] {
-      def writeValue( value: V, ser: Ser[ V ], out: DataOutput ) : Unit
+   trait ValueWriter[ Ser[ _ ]] {
+      def writeValue[ V ]( value: V, ser: Ser[ V ], out: DataOutput ) : Unit
    }
-   trait ValueReader[ V, Ser[ _ ]] {
-      def readValue( in: DataInput, ser: Ser[ V ]) : V
+   trait ValueReader[ Txn, Ser[ _ ]] {
+      def readValue[ V ]( in: DataInput, ser: Ser[ V ])( implicit tx: Txn ) : V
    }
-   type Put[ K, V, Ser[ _ ]] = KeyWriter[ K ] with ValueWriter[ V, Ser ]
-   type Get[ K, V, Ser[ _ ]] = KeyWriter[ K ] with ValueReader[ V, Ser ]
+   trait Put[      K, Ser[ _ ]]    extends KeyWriter[ K ] with ValueWriter[ Ser ]
+   trait Get[ Txn, K, Ser[ _ ]]    extends KeyWriter[ K ] with ValueReader[ Txn, Ser ]
+//   trait Client[ Txn, K, Ser[ _ ]] extends Put[ K, Ser ] with Get[ Txn, K, Ser ]
 
+   trait TxnClient[ S <: Sys[ S ], K ]
+   extends Put[ K, TxnWriter ]
+   with    Get[ S#Tx, K, ({ type λ[ ~ ] = TxnReader[ S#Tx, S#Acc, ~ ]})#λ ]
+
+// how the **** can we do this?
+
+//   /**
+//    * Useful partial type application for `TxnSerializer`
+//    */
+//   type Serializer[ Txn, Acc, ~ ] = ({ type λ[ ~ ] = TxnSerializer[ Txn, Acc, ~ ]})#λ
 }
 trait PersistentStore[ Txn ] {
    import PersistentStore._
@@ -23,8 +34,8 @@ trait PersistentStore[ Txn ] {
 //   def contains( key: Array[ Byte ])( implicit tx: Txn ) : Boolean
 //   def remove(   key: Array[ Byte ])( implicit tx: Txn ) : Unit
 
-   def put[ K, V, Ser[ _ ]]( key: K, value: V )( implicit tx: Txn, ser: Ser[ V ], writer: Put[ K, V, Ser ]) : Unit
-   def get[ K, V, Ser[ _ ]]( key: K )( implicit tx: Txn, ser: Ser[ V ], writer: Get[ K, V, Ser ]) : Option[ V ]
+   def put[ K, V, Ser[ _ ]]( key: K, value: V )( implicit tx: Txn, ser: Ser[ V ], writer: Put[ K, Ser ]) : Unit
+   def get[ K, V, Ser[ _ ]]( key: K )( implicit tx: Txn, ser: Ser[ V ], writer: Get[ Txn, K, Ser ]) : Option[ V ]
    def contains[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean
    def remove[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean
    def numEntries( implicit tx: Txn ) : Int
