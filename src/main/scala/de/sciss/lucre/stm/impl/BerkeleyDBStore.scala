@@ -28,7 +28,6 @@ package stm
 package impl
 
 import de.sciss.lucre.stm.PersistentStore
-import stm.PersistentStore.KeyWriter
 import java.util.concurrent.ConcurrentLinkedQueue
 import LucreSTM.logConfig
 import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
@@ -137,17 +136,16 @@ object BerkeleyDBStore {
 
       def close() { db.close() }
 
-      def put[ K, V, Ser[ _ ]]( key: K, value: V )( implicit tx: Txn, ser: Ser[ V ],
-                                                    writer: PersistentStore.Put[ K, V, Ser ]) {
+      def put( keyFun: DataOutput => Unit )( valueFun: DataOutput => Unit )( implicit tx: Txn ) {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
             val valueE     = io.valueE
 
             out.reset()
-            writer.writeKey( key, out )
+            keyFun( out )
             val keySize    = out.getBufferLength
-            writer.writeValue( value, ser, out )
+            valueFun( out )
             val valueSize  = out.getBufferLength - keySize
             val data       = out.getBufferBytes
             keyE.setData(   data, 0,       keySize   )
@@ -156,35 +154,34 @@ object BerkeleyDBStore {
          }
       }
 
-      def get[ K, V, Ser[ _ ]]( key: K )( implicit tx: Txn, ser: Ser[ V ],
-                                          getter: PersistentStore.Get[ K, V, Ser ]) : Option[ V ] = {
+      def get[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => A )( implicit tx: Txn ) : Option[ A ] = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
             val valueE     = io.valueE
 
             out.reset()
-            getter.writeKey( key, out )
+            keyFun( out )
             val keySize    = out.getBufferLength
             val data       = out.getBufferBytes
             keyE.setData( data, 0, keySize )
             if( db.get( dbTxnRef()( tx.peer ), keyE, valueE, LockMode.DEFAULT ) == SUCCESS ) {
                val in = new DataInput( valueE.getData, valueE.getOffset, valueE.getSize )
-               Some( getter.readValue( in, ser ))
+               Some( valueFun( in ))
             } else {
                None
             }
          }
       }
 
-      def contains[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean = {
+      def contains( keyFun: DataOutput => Unit )( implicit tx: Txn ) : Boolean = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
             val partialE   = io.partialE
 
             out.reset()
-            writer.writeKey( key, out )
+            keyFun( out )
             val keySize    = out.getBufferLength
             val data       = out.getBufferBytes
             keyE.setData( data, 0, keySize )
@@ -192,13 +189,13 @@ object BerkeleyDBStore {
          }
       }
 
-      def remove[ K ]( key: K )( implicit tx: Txn, writer: KeyWriter[ K ]) : Boolean = {
+      def remove( keyFun: DataOutput => Unit )( implicit tx: Txn ) : Boolean = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
 
             out.reset()
-            writer.writeKey( key, out )
+            keyFun( out )
             val keySize    = out.getBufferLength
             val data       = out.getBufferBytes
             keyE.setData( data, 0, keySize )

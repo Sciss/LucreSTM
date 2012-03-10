@@ -69,7 +69,7 @@ object Durable {
    }
 
    private final class System( store: PersistentStore[ S#Tx ], idCnt0: Int, reactCnt0: Int )
-   extends Durable with PersistentStore.TxnClient[ S, Int ] {
+   extends Durable {
       system =>
 
       private val idCnt    = ScalaRef( idCnt0 )
@@ -77,7 +77,6 @@ object Durable {
 
       def manifest: Manifest[ S ] = Manifest.classType(classOf[ Durable ])
 
-      private val ioQueue  = new ConcurrentLinkedQueue[ IO ]
       private val idCntVar = new CachedIntVar( 0, idCnt )
       //      private val reactCntVar = new CachedIntVar( 1, idCnt )
       private val inMem = InMemory()
@@ -88,7 +87,9 @@ object Durable {
 
       def root[ A ]( init: => A )( implicit tx: Txn, ser: TxnSerializer[ S#Tx, S#Acc, A ]): A = {
          val rootID = 2 // 1 == reaction map!!!
-         tryRead[ A ]( rootID )( ser.read( _, () )).getOrElse {
+         if( exists( rootID )) {
+            read( rootID )( ser.read( _, () ))
+         } else {
             val id = newIDValue()
             require( id == rootID, "Root can only be initialized on an empty database (expected id count is " + rootID + " but found " + id + ")")
             val res = init
@@ -97,13 +98,7 @@ object Durable {
          }
       }
 
-      // ---- PersistentStore.Client ----
-      def readValue[ V ]( in: DataInput, reader: TxnReader[ S#Tx, S#Acc, V ])( implicit tx: S#Tx ) : V =
-         reader.read( in, () )
-
-      def writeKey( key: Int, out: DataOutput ) { out.writeInt( key )}
-
-      def writeValue[ V ]( value: V, writer: TxnWriter[ V ], out: DataOutput ) { writer.write( value, out )}
+      def exists( id: Int )( implicit tx: S#Tx ) : Boolean = store.contains( _.writeInt( id ))
 
       def atomic[ A ]( fun: Txn => A ): A =
          TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx )))
@@ -115,12 +110,12 @@ object Durable {
       //         fun( tx, source.get( tx ))
       //      }
 
-      def debugListUserRecords()( implicit tx: Txn ): Seq[ ID ] = {
+      def debugListUserRecords()( implicit tx: S#Tx ): Seq[ ID ] = {
          val b    = Seq.newBuilder[ ID ]
          val cnt  = idCnt.get( tx.peer )
          var i    = 1;
          while( i <= cnt ) {
-            if( tryRead[ Unit ]( i )( _ => ()).isDefined ) b += new IDImpl( i )
+            if( exists( i )) b += new IDImpl( i )
             i += 1
          }
          b.result()
@@ -141,56 +136,27 @@ object Durable {
          id
       }
 
-      //      def newReactValue()( implicit tx: Txn ) : Int = {
-      //         val id = reactCntVar.get( tx ) + 1
-      //         logConfig( "new react " + id )
-      //         reactCntVar.set( id )
-      //         id
-      //      }
-
-      private def withIO[ A ](fun: IO => A): A = {
-         val ioOld   = ioQueue.poll()
-         val io      = if( ioOld != null ) ioOld else new IO
-         try {
-            fun( io )
-         } finally {
-            ioQueue.offer( io )
-         }
-      }
-
       def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: Txn ) {
          logConfig( "write <" + id + ">" )
-         withIO { io =>
-            val out = io.beginWrite()
-            valueFun( out )
-            io.endWrite( id )
-         }
+         store.put( _.writeInt( id ))( valueFun )
       }
 
       def remove( id: Int )( implicit tx: Txn ) {
          logConfig( "remov <" + id + ">" )
-         withIO( _.remove( id ))
+         store.remove( _.writeInt( id ))
       }
 
       def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Txn ) : A = {
          logConfig( "read  <" + id + ">" )
-         withIO { io =>
-            val in = io.read( id )
-            if( in != null ) {
-               valueFun( in )
-            } else throw new IOException()
-         }
+         store.get( _.writeInt( id ))( valueFun ).getOrElse( sys.error( "Key not found " + id ))
       }
 
-      // XXX this can be implemented more efficient, using the no-data reading strategy of BDB
-      def exists( id: Int )( implicit tx: Txn ) : Boolean = tryRead[ Unit ]( id )( _ => () ).isDefined
-
-      def tryRead[ A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Txn ) : Option[ A ] = {
-         withIO { io =>
-            val in = io.read( id )
-            if( in != null ) Some( valueFun( in )) else None
-         }
-      }
+//      def tryRead[ A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Txn ) : Option[ A ] = {
+//         withIO { io =>
+//            val in = io.read( id )
+//            if( in != null ) Some( valueFun( in )) else None
+//         }
+//      }
    }
 
    private final class IDImpl( val id: Int ) extends ID {
