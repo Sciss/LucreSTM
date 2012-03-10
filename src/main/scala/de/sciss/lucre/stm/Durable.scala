@@ -1,6 +1,3 @@
-package de.sciss.lucre
-package stm
-
 /*
  *  Durable.scala
  *  (LucreSTM)
@@ -26,11 +23,11 @@ package stm
  *  contact@sciss.de
  */
 
+package de.sciss.lucre
+package stm
+
 import stm.{Var => _Var, Txn => _Txn}
-import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
-import java.io.IOException
-import com.sleepycat.je.DatabaseEntry
 import annotation.elidable
 import elidable.CONFIG
 import event.ReactionMap
@@ -38,11 +35,6 @@ import LucreSTM.logConfig
 
 object Durable {
    private type S = Durable
-
-   /* private val */
-   var DB_CONSOLE_LOG_LEVEL = "OFF"
-
-   // "ALL"
 
    sealed trait ID extends Identifier[ Txn ] {
       private[ Durable ] def id: Int
@@ -200,400 +192,223 @@ object Durable {
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
       protected def ser: TxnSerializer[ Txn, Unit, A ]
 
-      def get(implicit tx: Txn): A = {
-         tx.system.read[ A ](id)(ser.read(_, ()))
-      }
+      def get( implicit tx: Txn ) : A = tx.system.read[ A ]( id )( ser.read( _, () ))
 
-      def setInit(v: A)(implicit tx: Txn) {
-         tx.system.write(id)(ser.write(v, _))
-      }
+      def setInit( v: A )( implicit tx: Txn ) { tx.system.write( id )( ser.write( v, _ ))}
    }
 
-   private final class VarImpl[ A ](protected val id: Int, protected val ser: TxnSerializer[ Txn, Unit, A ])
-      extends BasicVar[ A ] {
-      def set(v: A)(implicit tx: Txn) {
+   private final class VarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ Txn, Unit, A ])
+   extends BasicVar[ A ] {
+      def set( v: A )( implicit tx: Txn ) {
          assertExists()
-         tx.system.write(id)(ser.write(v, _))
+         tx.system.write( id )( ser.write( v, _ ))
       }
 
-      def transform(f: A => A)(implicit tx: Txn) {
-         set(f(get))
-      }
+      def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
 
       override def toString = "Var(" + id + ")"
    }
 
-   //   private sealed trait BasicObservable[ @specialized A ] extends BasicSource with State[ S, Change[ A ]] {
-   //      def addObserver( observer: Obs[ A ])( implicit tx: Txn ) {
-   //         sys.error( "TODO" )
-   //      }
-   //
-   //      def removeObserver( observer: Obs[ A ])( implicit tx: Txn ) {
-   //         sys.error( "TODO" )
-   //      }
-   //
-   //      protected def notifyObservers( change: Change[ A ])( implicit tx: Txn ) {
-   //         val system  = tx.system
-   //         val oid     = 0x80000000 | id
-   //         if( system.exists( oid )) {
-   //            system.read[ Unit ]( oid ) { in =>
-   //               val sz = in.readInt()
-   //               var i = 0; while( i < sz ) {
-   //                  sys.error( "TODO" )
-   //               i += 1 }
-   //            }
-   //         }
-   //      }
-   //
-   //      final override def dispose()( implicit tx: Txn ) {
-   //         super.dispose()
-   //         tx.system.remove( 0x80000000 | id )
-   //      }
-   //   }
-
-   //   private final class ObsVarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ Txn, Unit, A ])
-   //   extends BasicVar[ A ] with BasicObservable[ A ] {
-   //      def set( now: A )( implicit tx: Txn ) {
-   //         val before = get( tx )
-   //         if( before != now ) {
-   //            tx.system.write( id )( ser.write( now, _ ))
-   //            notifyObservers( new Change( before, now ))
-   //         }
-   //      }
-   //
-   //      def transform( f: A => A )( implicit tx: Txn ) {
-   //         val before  = get( tx )
-   //         val now     = f( before )
-   //         if( before != now ) {
-   //            tx.system.write( id )( ser.write( now, _ ))
-   //            notifyObservers( new Change( before, now ))
-   //         }
-   //      }
-   //
-   //      override def toString = "ObsVar(" + id + ")"
-   //   }
-
-   //   private final class ObsIntVar( protected val id: Int )
-   //   extends BasicIntVar with BasicObservable[ Int ] {
-   //      def set( now: Int )( implicit tx: Txn ) {
-   //         val before = get( tx )
-   //         if( before != now ) {
-   //            tx.system.write( id )( _.writeInt( now ))
-   //            notifyObservers( new Change( before, now ))
-   //         }
-   //      }
-   //
-   //      def transform( f: Int => Int )( implicit tx: Txn ) {
-   //         val before  = get( tx )
-   //         val now     = f( before )
-   //         if( before != now ) {
-   //            tx.system.write( id )( _.writeInt( now ))
-   //            notifyObservers( new Change( before, now ))
-   //         }
-   //      }
-   //
-   //      override def toString = "ObsVar[Int](" + id + ")"
-   //   }
-
-   private final class BooleanVar(protected val id: Int)
-      extends Var[ Boolean ] with BasicSource {
-      def get(implicit tx: Txn): Boolean = {
-         tx.system.read[ Boolean ](id)(_.readBoolean())
+   private final class BooleanVar( protected val id: Int )
+   extends Var[ Boolean ] with BasicSource {
+      def get( implicit tx: Txn ): Boolean = {
+         tx.system.read[ Boolean ]( id )( _.readBoolean() )
       }
 
-      def setInit(v: Boolean)(implicit tx: Txn) {
-         tx.system.write(id)(_.writeBoolean(v))
+      def setInit( v: Boolean )( implicit tx: Txn ) {
+         tx.system.write( id )( _.writeBoolean( v ))
       }
 
-      def set(v: Boolean)(implicit tx: Txn) {
+      def set( v: Boolean )( implicit tx: Txn ) {
          assertExists()
-         tx.system.write(id)(_.writeBoolean(v))
+         tx.system.write( id )( _.writeBoolean( v ))
       }
 
-      def transform(f: Boolean => Boolean)(implicit tx: Txn) {
-         set(f(get))
-      }
+      def transform( f: Boolean => Boolean )( implicit tx: Txn ) { set( f( get ))}
 
       override def toString = "Var[Boolean](" + id + ")"
    }
 
-   private final class IntVar(protected val id: Int)
-      extends Var[ Int ] with BasicSource {
-      def get(implicit tx: Txn): Int = {
-         tx.system.read[ Int ](id)(_.readInt())
+   private final class IntVar( protected val id: Int )
+   extends Var[ Int ] with BasicSource {
+      def get( implicit tx: Txn ) : Int = {
+         tx.system.read[ Int ]( id )( _.readInt() )
       }
 
-      def setInit(v: Int)(implicit tx: Txn) {
-         tx.system.write(id)(_.writeInt(v))
+      def setInit( v: Int )( implicit tx: Txn ) {
+         tx.system.write( id )( _.writeInt( v ))
       }
 
-      def set(v: Int)(implicit tx: Txn) {
+      def set( v: Int )( implicit tx: Txn ) {
          assertExists()
-         tx.system.write(id)(_.writeInt(v))
+         tx.system.write( id )( _.writeInt( v ))
       }
 
-      def transform(f: Int => Int)(implicit tx: Txn) {
-         set(f(get))
-      }
+      def transform( f: Int => Int )( implicit tx: Txn ) { set( f( get ))}
 
       override def toString = "Var[Int](" + id + ")"
    }
 
-   private final class CachedIntVar(protected val id: Int, peer: ScalaRef[ Int ])
-      extends Var[ Int ] with BasicSource {
-      def get(implicit tx: Txn): Int = peer.get(tx.peer)
+   private final class CachedIntVar( protected val id: Int, peer: ScalaRef[ Int ])
+   extends Var[ Int ] with BasicSource {
+      def get( implicit tx: Txn ) : Int = peer.get( tx.peer )
 
-      def setInit(v: Int)(implicit tx: Txn) {
-         set(v)
+      def setInit( v: Int )( implicit tx: Txn ) { set( v )}
+
+      def set( v: Int )( implicit tx: Txn ) {
+         peer.set( v )( tx.peer )
+         tx.system.write( id )( _.writeInt( v ))
       }
 
-      def set(v: Int)(implicit tx: Txn) {
-         peer.set(v)(tx.peer)
-         tx.system.write(id)(_.writeInt(v))
-      }
-
-      def transform(f: Int => Int)(implicit tx: Txn) {
-         set(f(get))
-      }
+      def transform( f: Int => Int )( implicit tx: Txn ) { set( f( get ))}
 
       override def toString = "Var[Int](" + id + ")"
    }
 
-   private final class LongVar(protected val id: Int)
-      extends Var[ Long ] with BasicSource {
-      def get(implicit tx: Txn): Long = {
-         tx.system.read[ Long ](id)(_.readLong())
+   private final class LongVar( protected val id: Int )
+   extends Var[ Long ] with BasicSource {
+      def get( implicit tx: Txn ) : Long = {
+         tx.system.read[ Long ]( id )( _.readLong() )
       }
 
-      def setInit(v: Long)(implicit tx: Txn) {
-         tx.system.write(id)(_.writeLong(v))
+      def setInit( v: Long )( implicit tx: Txn ) {
+         tx.system.write( id )( _.writeLong( v ))
       }
 
-      def set(v: Long)(implicit tx: Txn) {
+      def set( v: Long )( implicit tx: Txn ) {
          assertExists()
-         tx.system.write(id)(_.writeLong(v))
+         tx.system.write( id )( _.writeLong( v ))
       }
 
-      def transform(f: Long => Long)(implicit tx: Txn) {
-         set(f(get))
-      }
+      def transform( f: Long => Long )( implicit tx: Txn ) { set( f( get ))}
 
       override def toString = "Var[Long](" + id + ")"
    }
 
-   //   private final class CachedLongVar( protected val id: Int, peer: ScalaRef[ Long ])
-   //   extends Var[ Long ] with BasicSource {
-   //      def get( implicit tx: Txn ) : Long = peer.get( tx.peer )
-   //
-   //      def setInit( v: Long )( implicit tx: Txn ) { set( v )}
-   //
-   //      def set( v: Long )( implicit tx: Txn ) {
-   //         tx.system.write( id )( _.writeLong( v ))
-   //      }
-   //
-   //      def transform( f: Long => Long )( implicit tx: Txn ) { set( f( get ))}
-   //
-   //      override def toString = "Var[Long](" + id + ")"
-   //   }
-
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
 
-   sealed trait Txn extends _Txn[ S ] {
-      //      private[Durable] def dbTxn: Transaction
-   }
+   sealed trait Txn extends _Txn[ S ]
 
-   private final class TxnImpl(val system: System, val peer: InTxn)
-      extends Txn /* with ScalaTxn.ExternalDecider */ {
+   private final class TxnImpl( val system: System, val peer: InTxn )
+   extends Txn {
       //      private var id = -1L
 
-      def newID(): ID = new IDImpl(system.newIDValue()(this))
-
-      //      def addStateReaction[ A, Repr <: State[ S, A ]](
-      //         reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
-      //            system.reactionMap.addStateReaction( reader, fun )( this )
-      //
-      //      def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
-      //                           keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
-      //         system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
-      //
-      //      def propagateState( slot: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions =
-      //         system.reactionMap.propagateState( slot, state, reactions )( this )
-      //
-      //      def removeStateReaction( slot: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( slot )( this )}
+      def newID(): ID = new IDImpl( system.newIDValue()( this ))
 
       def reactionMap: ReactionMap[ S ] = system.reactionMap
 
-      //      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
-      //                                                       fun: S#Tx => A => Unit ) : ObserverKey[ S ] =
-      //         system.reactionMap.addEventReaction( reader, fun )( this )
-      //
-      //      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-      //                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
-      //         system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
-      //
-      //      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
-      //         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
-      //      }
-      //
-      //      def removeEventReaction( slot: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( slot )( this )}
-
       override def toString = "Txn" // <" + id + ">"
 
-      def newVar[ A ](id: ID, init: A)(implicit ser: TxnSerializer[ Txn, Unit, A ]): Var[ A ] = {
-         val res = new VarImpl[ A ](system.newIDValue()(this), ser)
-         res.setInit(init)(this)
+      def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]): Var[ A ] = {
+         val res = new VarImpl[ A ]( system.newIDValue()( this ), ser )
+         res.setInit( init )( this )
          res
       }
 
-      def newBooleanVar(id: ID, init: Boolean): Var[ Boolean ] = {
-         val res = new BooleanVar(system.newIDValue()(this))
-         res.setInit(init)(this)
+      def newBooleanVar( id: ID, init: Boolean ): Var[ Boolean ] = {
+         val res = new BooleanVar( system.newIDValue()( this ))
+         res.setInit( init )( this )
          res
       }
 
-      def newIntVar(id: ID, init: Int): Var[ Int ] = {
-         val res = new IntVar(system.newIDValue()(this))
-         res.setInit(init)(this)
+      def newIntVar( id: ID, init: Int ): Var[ Int ] = {
+         val res = new IntVar( system.newIDValue()( this ))
+         res.setInit( init )( this )
          res
       }
 
-      def newLongVar(id: ID, init: Long): Var[ Long ] = {
-         val res = new LongVar(system.newIDValue()(this))
-         res.setInit(init)(this)
+      def newLongVar( id: ID, init: Long ): Var[ Long ] = {
+         val res = new LongVar( system.newIDValue()( this ))
+         res.setInit( init )( this )
          res
       }
 
-      //      def newObservableVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : ObsVar[ A ] = {
-      //         val res = new ObsVarImpl[ A ]( system.newIDValue()( this ), ser )
-      //         res.setInit( init )( this )
-      //         res
-      //      }
-      //
-      //      def newObservableIntVar( id: ID, init: Int ) : ObsVar[ Int ] = {
-      //         val res = new ObsIntVar( system.newIDValue()( this ) )
-      //         res.setInit( init )( this )
-      //         res
-      //      }
+      def newVarArray[ A ]( size: Int ) : Array[ Var[ A ] ] = new Array[ Var[ A ]]( size )
 
-      def newVarArray[ A ](size: Int): Array[ Var[ A ] ] = new Array[ Var[ A ] ](size)
-
-      def _readUgly[ A ](parent: S#ID, id: S#ID)(implicit reader: TxnReader[ S#Tx, S#Acc, A ]): A = {
-         system.read(id.id)(in => reader.read(in, ())(this))(this)
+      def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]): A = {
+         system.read( id.id )( reader.read( _, () )( this ))( this )
       }
 
-      def _writeUgly[ A ](parent: S#ID, id: S#ID, value: A)(implicit writer: TxnWriter[ A ]) {
-         system.write(id.id)(out => writer.write(value, out))(this)
+      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit writer: TxnWriter[ A ]) {
+         system.write( id.id )( writer.write( value, _ ))( this )
       }
 
-      def readVal[ A ](id: S#ID)(implicit reader: TxnReader[ S#Tx, S#Acc, A ]): A = {
-         system.read(id.id)(in => reader.read(in, ())(this))(this)
+      def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+         system.read( id.id )( reader.read( _, () )( this ))( this )
       }
 
-      def writeVal(id: S#ID, value: Writer) {
+      def writeVal( id: S#ID, value: Writer ) {
          val idi = id.id
-         if( !system.exists(idi)(this) ) {
-            system.write(idi)(out => value.write(out))(this)
+         if( !system.exists( idi )( this )) {
+            system.write( idi )( value.write )( this )
          }
       }
 
-      def readVar[ A ](pid: ID, in: DataInput)(implicit ser: TxnSerializer[ Txn, Unit, A ]): Var[ A ] = {
+      def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
          val id = in.readInt()
-         new VarImpl[ A ](id, ser)
+         new VarImpl[ A ]( id, ser )
       }
 
-      def readBooleanVar(pid: ID, in: DataInput): Var[ Boolean ] = {
+      def readBooleanVar( pid: ID, in: DataInput ) : Var[ Boolean ] = {
          val id = in.readInt()
-         new BooleanVar(id)
+         new BooleanVar( id )
       }
 
-      def readIntVar(pid: ID, in: DataInput): Var[ Int ] = {
+      def readIntVar( pid: ID, in: DataInput ) : Var[ Int ] = {
          val id = in.readInt()
-         new IntVar(id)
+         new IntVar( id )
       }
 
-      def readLongVar(pid: ID, in: DataInput): Var[ Long ] = {
+      def readLongVar( pid: ID, in: DataInput ) : Var[ Long ] = {
          val id = in.readInt()
-         new LongVar(id)
+         new LongVar( id )
       }
 
-      def readID(in: DataInput, acc: Unit): ID = new IDImpl(in.readInt())
+      def readID( in: DataInput, acc: Unit ) : ID = new IDImpl( in.readInt() )
 
-      def access[ A ](source: S#Var[ A ]): A = source.get(this)
-
-      //      def readMut[ A <: Mutable[ S ]]( pid: ID, in: DataInput )
-      //                                              ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
-      //         val id = new IDImpl( in.readInt() )
-      //         reader.readData( in, id )( this )
-      //      }
-      //
-      //      def readOptionMut[ A <: MutableOption[ S ]]( pid: ID, in: DataInput )
-      //                                                          ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
-      //         val mid = in.readInt()
-      //         if( mid == -1 ) reader.empty else {
-      //            reader.readData( in, new IDImpl( mid ))( this )
-      //         }
-      //      }
-
-      //      // ---- ExternalDecider ----
-      //      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
-      //         try {
-      //            logConfig( "txn commit <" + dbTxn.getId + ">" )
-      //            dbTxn.commit()
-      //            true
-      //         } catch {
-      //            case e =>
-      //               try {
-      //                  logConfig( "txn abort <" + dbTxn.getId + ">" )
-      //                  dbTxn.abort()
-      //               } catch {
-      //                  case _ =>
-      //               }
-      //               false
-      //         }
-      //      }
+      def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
    }
-
 }
 
 sealed trait Durable extends Sys[ Durable ] {
    type Var[ @specialized A ] = Durable.Var[ A ]
-   type ID = Durable.ID
-   type Tx = Durable.Txn
+   type ID  = Durable.ID
+   type Tx  = Durable.Txn
    type Acc = Unit
 
    /**
     * Closes the underlying database. The STM cannot be used beyond this call.
     */
-   def close(): Unit
+   def close() : Unit
 
    /**
     * Reports the current number of records stored in the database.
     */
-   def numRecords(implicit tx: Tx): Int
+   def numRecords( implicit tx: Tx ) : Int
 
    /**
     * Reports the current number of user records stored in the database.
     * That is the number of records minus those records used for
     * database maintenance.
     */
-   def numUserRecords(implicit tx: Tx): Int
+   def numUserRecords( implicit tx: Tx ) : Int
 
-   def debugListUserRecords()(implicit tx: Tx): Seq[ ID ]
+   def debugListUserRecords()( implicit tx: Tx ) : Seq[ ID ]
 
    /**
     * Reads the root object representing the stored datastructure,
     * or provides a newly initialized one via the `init` argument,
     * if no root has been stored yet.
     */
-   def root[ A ](init: => A)(implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, A ]): A
+   def root[ A ]( init: => A )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, A ]) : A
 
-   private[stm] def read[ @specialized A ](id: Int)(valueFun: DataInput => A)(implicit tx: Durable#Tx): A
+   private[stm] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Durable#Tx ): A
 
-   private[stm] def write(id: Int)(valueFun: DataOutput => Unit)(implicit tx: Durable#Tx): Unit
+   private[stm] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: Durable#Tx ): Unit
 
-   private[stm] def remove(id: Int)(implicit tx: Durable#Tx): Unit
+   private[stm] def remove( id: Int )( implicit tx: Durable#Tx ) : Unit
 
-   private[stm] def exists(id: Int)(implicit tx: Durable#Tx): Boolean
+   private[stm] def exists( id: Int )( implicit tx: Durable#Tx ) : Boolean
 
-   private[stm] def newIDValue()(implicit tx: Durable#Tx): Int
+   private[stm] def newIDValue()( implicit tx: Durable#Tx ) : Int
 }
