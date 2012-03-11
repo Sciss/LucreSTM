@@ -32,6 +32,8 @@ trait PersistentStore[ -Txn ] {
    def contains( keyFun: DataOutput => Unit )( implicit tx: Txn ) : Boolean
    def remove(   keyFun: DataOutput => Unit )( implicit tx: Txn ) : Boolean
 
+   def flatGet[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => Option[ A ])( implicit tx: Txn ) : Option[ A ]
+
    def numEntries( implicit tx: Txn ) : Int
    def close() : Unit
 }

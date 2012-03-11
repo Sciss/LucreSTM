@@ -174,6 +174,26 @@ object BerkeleyDB {
          }
       }
 
+      def flatGet[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => Option[ A ])( implicit tx: Txn[ _ ]) : Option[ A ] = {
+         withIO { io =>
+            val out        = io.out
+            val keyE       = io.keyE
+            val valueE     = io.valueE
+
+            out.reset()
+            keyFun( out )
+            val keySize    = out.getBufferLength
+            val data       = out.getBufferBytes
+            keyE.setData( data, 0, keySize )
+            if( db.get( dbTxnRef()( tx.peer ), keyE, valueE, LockMode.DEFAULT ) == SUCCESS ) {
+               val in = new DataInput( valueE.getData, valueE.getOffset, valueE.getSize )
+               valueFun( in )
+            } else {
+               None
+            }
+         }
+      }
+
       def contains( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean = {
          withIO { io =>
             val out        = io.out
