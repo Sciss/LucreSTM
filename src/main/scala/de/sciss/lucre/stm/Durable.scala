@@ -40,7 +40,7 @@ object Durable {
       private[ Durable ] def id: Int
    }
 
-   def apply(store: PersistentStore[ S#Tx ]): S = {
+   def apply( store: PersistentStore[ S#Tx ]) : S = {
       //         val idCnt   = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
       //            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
       //            in.readInt()
@@ -57,8 +57,11 @@ object Durable {
       //            txn.abort()
       //            throw e
       //      }
-      new System(store, 1, 0)
+      new System( store, 1, 0 )
    }
+
+   def apply( factory: PersistentStoreFactory[ S#Tx, PersistentStore[ S#Tx ]], name: String = "data" ) : S =
+      apply( factory.open( name ))
 
    private final class System( store: PersistentStore[ S#Tx ], idCnt0: Int, reactCnt0: Int )
    extends Durable {
