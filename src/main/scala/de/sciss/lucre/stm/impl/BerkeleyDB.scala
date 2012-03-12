@@ -40,54 +40,89 @@ object BerkeleyDB {
    case object LogOff extends LogLevel { override def toString = "OFF" }
    case object LogAll extends LogLevel { override def toString = "ALL" }
 
-   def open( dir: File, name: String = "data", createIfNecessary: Boolean = true,
-             logLevel: LogLevel = LogOff ) : BerkeleyDB = {
-//      val exists = file.isFile
-//      if( !exists && !createIfNecessary ) throw new FileNotFoundException( file.toString )
-      val exists = dir.isDirectory
-      if( !exists && !createIfNecessary ) throw new FileNotFoundException( dir.toString )
+   def factory( dir: File, createIfNecessary: Boolean = true,
+                logLevel: LogLevel = LogOff ) : PersistentStoreFactory[ Txn[ _ ], BerkeleyDB ] =
+      new Factory( dir, createIfNecessary, logLevel )
 
-      val envCfg  = new EnvironmentConfig()
-      val txnCfg  = new TransactionConfig()
-      val dbCfg   = new DatabaseConfig()
+   private final class Factory( dir: File, createIfNecessary: Boolean, logLevel: LogLevel )
+   extends PersistentStoreFactory[ Txn[ _ ], BerkeleyDB ] {
+      private lazy val env = {
+         val envCfg  = new EnvironmentConfig()
+         val txnCfg  = new TransactionConfig()
 
-      envCfg.setTransactional( true )
-      envCfg.setAllowCreate(   createIfNecessary )
-      dbCfg.setTransactional(  true )
-      dbCfg.setAllowCreate(    createIfNecessary )
+         envCfg.setTransactional( true )
+         envCfg.setAllowCreate(   createIfNecessary )
 
-      if( !exists ) dir.mkdirs()
+   //    envCfg.setConfigParam( EnvironmentConfig.FILE_LOGGING_LEVEL, "ALL" )
+         envCfg.setConfigParam( EnvironmentConfig.CONSOLE_LOGGING_LEVEL, logLevel.toString )
+         val env = new Environment( dir, envCfg )
+         new Env( env, txnCfg )
+      }
 
-//    envCfg.setConfigParam( EnvironmentConfig.FILE_LOGGING_LEVEL, "ALL" )
-      envCfg.setConfigParam( EnvironmentConfig.CONSOLE_LOGGING_LEVEL, logLevel.toString )
-      val env     = new Environment( dir, envCfg )
-      val txn     = env.beginTransaction( null, txnCfg )
-      try {
-         txn.setName( "Open '" + name + "'" )
-         val db      = env.openDatabase( txn, name, dbCfg )
-//         val kea     = Array[ Byte ]( 0, 0, 0, 0 )
-//         val ke      = new DatabaseEntry( kea )  // slot for last-slot
-//         val ve      = new DatabaseEntry()
-//         val idCnt   = if( db.get( txn, ke, ve, null ) == SUCCESS ) {
-//            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
-//            in.readInt()
-//         } else 1
-//         kea( 3 )    = 1.toByte   // slot for react-last-slot
-//         val reactCnt = if( db.get( txn, ke, ve, null ) == SUCCESS ) {
-//            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
-//            in.readInt()
-//         } else 0
-         txn.commit()
-         new Impl( env, db, txnCfg )
-      } catch {
-         case e =>
-            txn.abort()
-            throw e
+      def open( name: String ) : BerkeleyDB = {
+         val exists = dir.isDirectory
+         if( !exists && !createIfNecessary ) throw new FileNotFoundException( dir.toString )
+         if( !exists ) dir.mkdirs()
+
+         val dbCfg   = new DatabaseConfig()
+         dbCfg.setTransactional( true )
+         dbCfg.setAllowCreate( createIfNecessary )
+
+         val txn = env.env.beginTransaction( null, env.txnCfg )
+         try {
+            txn.setName( "Open '" + name + "'" )
+            val db      = env.env.openDatabase( txn, name, dbCfg )
+   //         val kea     = Array[ Byte ]( 0, 0, 0, 0 )
+   //         val ke      = new DatabaseEntry( kea )  // slot for last-slot
+   //         val ve      = new DatabaseEntry()
+   //         val idCnt   = if( db.get( txn, ke, ve, null ) == SUCCESS ) {
+   //            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
+   //            in.readInt()
+   //         } else 1
+   //         kea( 3 )    = 1.toByte   // slot for react-last-slot
+   //         val reactCnt = if( db.get( txn, ke, ve, null ) == SUCCESS ) {
+   //            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
+   //            in.readInt()
+   //         } else 0
+            txn.commit()
+            new Impl( env, db )
+         } catch {
+            case e =>
+               txn.abort()
+               throw e
+         }
       }
    }
 
-   private final class Impl( env: Environment, db: Database, txnCfg: TransactionConfig )
-   extends BerkeleyDB with ScalaTxn.ExternalDecider {
+   def open( dir: File, name: String = "data", createIfNecessary: Boolean = true,
+             logLevel: LogLevel = LogOff ) : BerkeleyDB =
+      factory( dir, createIfNecessary, logLevel ).open( name )
+
+   private final class Impl( env: Env, db: Database )
+   extends BerkeleyDB {
+      def put( keyFun: DataOutput => Unit )( valueFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) {
+         env.put( keyFun, valueFun, db )
+      }
+
+      def get[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => A )( implicit tx: Txn[ _ ]) : Option[ A ] =
+         env.get[ A ]( keyFun, valueFun, db )
+
+      def flatGet[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => Option[ A ])( implicit tx: Txn[ _ ]) : Option[ A ] =
+         env.flatGet[ A ]( keyFun, valueFun, db )
+
+      def contains( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean =
+         env.contains( keyFun, db )
+
+      def remove( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean =
+         env.remove( keyFun, db )
+
+      def close() { db.close() }
+
+      def numEntries( implicit tx: Txn[ _ ]) : Int = db.count().toInt
+   }
+
+   private final class Env( val env: Environment, val txnCfg: TransactionConfig )
+   extends ScalaTxn.ExternalDecider {
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
       private val dbTxnRef    = TxnLocal( initialValue = { implicit tx =>
          ScalaTxn.setExternalDecider( this )
@@ -134,9 +169,7 @@ object BerkeleyDB {
          }
       }
 
-      def close() { db.close() }
-
-      def put( keyFun: DataOutput => Unit )( valueFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) {
+      def put( keyFun: DataOutput => Unit, valueFun: DataOutput => Unit, db: Database )( implicit tx: Txn[ _ ]) {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
@@ -154,7 +187,7 @@ object BerkeleyDB {
          }
       }
 
-      def get[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => A )( implicit tx: Txn[ _ ]) : Option[ A ] = {
+      def get[ A ]( keyFun: DataOutput => Unit, valueFun: DataInput => A, db: Database )( implicit tx: Txn[ _ ]) : Option[ A ] = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
@@ -174,7 +207,7 @@ object BerkeleyDB {
          }
       }
 
-      def flatGet[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => Option[ A ])( implicit tx: Txn[ _ ]) : Option[ A ] = {
+      def flatGet[ A ]( keyFun: DataOutput => Unit, valueFun: DataInput => Option[ A ], db: Database )( implicit tx: Txn[ _ ]) : Option[ A ] = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
@@ -194,7 +227,7 @@ object BerkeleyDB {
          }
       }
 
-      def contains( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean = {
+      def contains( keyFun: DataOutput => Unit, db: Database )( implicit tx: Txn[ _ ]) : Boolean = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
@@ -209,7 +242,7 @@ object BerkeleyDB {
          }
       }
 
-      def remove( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean = {
+      def remove( keyFun: DataOutput => Unit, db: Database )( implicit tx: Txn[ _ ]) : Boolean = {
          withIO { io =>
             val out        = io.out
             val keyE       = io.keyE
@@ -222,8 +255,6 @@ object BerkeleyDB {
             db.delete( dbTxnRef()( tx.peer ), keyE ) == SUCCESS
          }
       }
-
-      def numEntries( implicit tx: Txn[ _ ]) : Int = db.count().toInt
    }
 
    private[BerkeleyDB] final class IO {
