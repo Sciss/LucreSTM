@@ -41,11 +41,11 @@ object BerkeleyDB {
    case object LogAll extends LogLevel { override def toString = "ALL" }
 
    def factory( dir: File, createIfNecessary: Boolean = true,
-                logLevel: LogLevel = LogOff ) : PersistentStoreFactory[ Txn[ _ ], BerkeleyDB ] =
+                logLevel: LogLevel = LogOff ) : PersistentStoreFactory[ BerkeleyDB ] =
       new Factory( dir, createIfNecessary, logLevel )
 
    private final class Factory( dir: File, createIfNecessary: Boolean, logLevel: LogLevel )
-   extends PersistentStoreFactory[ Txn[ _ ], BerkeleyDB ] {
+   extends PersistentStoreFactory[ BerkeleyDB ] {
       private lazy val env = {
          val envCfg  = new EnvironmentConfig()
          val txnCfg  = new TransactionConfig()
@@ -266,4 +266,4 @@ object BerkeleyDB {
       partialE.setPartial( 0, 0, true )
    }
 }
-trait BerkeleyDB extends PersistentStore[ Txn[ _ ]]
+trait BerkeleyDB extends PersistentStore

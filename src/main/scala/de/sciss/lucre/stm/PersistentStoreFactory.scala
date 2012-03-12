@@ -1,5 +1,5 @@
 package de.sciss.lucre.stm
 
-trait PersistentStoreFactory[ Txn, +Repr <: PersistentStore[ Txn ]] {
+trait PersistentStoreFactory[ +Repr <: PersistentStore ] {
    def open( name: String ) : Repr
 }
