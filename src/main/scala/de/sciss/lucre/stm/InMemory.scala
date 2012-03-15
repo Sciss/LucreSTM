@@ -155,5 +155,5 @@ sealed trait InMemory extends Sys[ InMemory ] {
    type Tx = InMemory.Txn
    type Acc = Unit
 
-   def wrap( itx: InTxn ): Tx
+   def wrap( peer: InTxn ): Tx
 }

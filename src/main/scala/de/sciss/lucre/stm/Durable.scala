@@ -32,6 +32,7 @@ import annotation.elidable
 import elidable.CONFIG
 import event.ReactionMap
 import LucreSTM.logConfig
+import stm.Durable.TxnImpl
 
 object Durable {
    private type S = Durable
@@ -119,6 +120,8 @@ object Durable {
       def close() {
          store.close()
       }
+
+      def wrap( peer: InTxn ) : S#Tx = new TxnImpl( this, peer )
 
       def numRecords( implicit tx: S#Tx ): Int = store.numEntries
 
@@ -405,13 +408,15 @@ sealed trait Durable extends Sys[ Durable ] {
     */
    def root[ A ]( init: => A )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, A ]) : A
 
-   private[stm] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Durable#Tx ): A
+   private[stm] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Tx ): A
 
-   private[stm] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: Durable#Tx ): Unit
+   private[stm] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: Tx ): Unit
 
-   private[stm] def remove( id: Int )( implicit tx: Durable#Tx ) : Unit
+   private[stm] def remove( id: Int )( implicit tx: Tx ) : Unit
 
-   private[stm] def exists( id: Int )( implicit tx: Durable#Tx ) : Boolean
+   private[stm] def exists( id: Int )( implicit tx: Tx ) : Boolean
 
-   private[stm] def newIDValue()( implicit tx: Durable#Tx ) : Int
+   private[stm] def newIDValue()( implicit tx: Tx ) : Int
+
+   def wrap( peer: InTxn ) : Tx
 }
