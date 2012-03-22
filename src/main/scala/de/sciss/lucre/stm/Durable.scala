@@ -32,7 +32,6 @@ import annotation.elidable
 import elidable.CONFIG
 import event.ReactionMap
 import LucreSTM.logConfig
-import stm.Durable.TxnImpl
 
 object Durable {
    private type S = Durable
@@ -77,7 +76,7 @@ object Durable {
       //      private val reactCntVar = new CachedIntVar( 1, idCnt )
       private val inMem = InMemory()
 
-      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.atomic { implicit tx =>
+      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.step { implicit tx =>
          tx.newIntVar( tx.newID(), reactCnt0 )
       })( tx => inMem.wrap( tx.peer ))
 
@@ -96,8 +95,15 @@ object Durable {
 
       def exists( id: Int )( implicit tx: S#Tx ) : Boolean = store.contains( _.writeInt( id ))
 
-      def atomic[ A ]( fun: Txn => A ): A =
+      // ---- cursor ----
+
+      def step[ A ]( fun: S#Tx => A ): A = {
          TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx )))
+      }
+
+      def position( implicit tx: S#Tx ) : S#Acc = ()
+
+      def position_=( path: S#Acc )( implicit tx: S#Tx ) {}
 
       //      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A =
       //         TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx ), () ))
@@ -376,11 +382,11 @@ object Durable {
    }
 }
 
-sealed trait Durable extends Sys[ Durable ] {
-   type Var[ @specialized A ] = Durable.Var[ A ]
-   type ID  = Durable.ID
-   type Tx  = Durable.Txn
-   type Acc = Unit
+sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
+   final type Var[ @specialized A ] = Durable.Var[ A ]
+   final type ID  = Durable.ID
+   final type Tx  = Durable.Txn
+   final type Acc = Unit
 
    /**
     * Closes the underlying database. The STM cannot be used beyond this call.

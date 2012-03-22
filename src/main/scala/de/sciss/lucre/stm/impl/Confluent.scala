@@ -75,11 +75,11 @@ object Confluent {
       var storage = IntMap.empty[ M ]
       private val inMem = InMemory()
 
-      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.atomic { implicit tx =>
+      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.step { implicit tx =>
          tx.newIntVar( tx.newID(), 0 )
       })( ctx => inMem.wrap( ctx.peer ))
 
-      def path( implicit tx: Tx ) = pathVar
+//      def path( implicit tx: Tx ) = pathVar
 
       def inPath[ Z ]( path: Acc )( block: Tx => Z ) : Z = {
          TxnExecutor.defaultAtomic[ Z ] { itx =>
@@ -117,11 +117,19 @@ object Confluent {
          }
       }
 
-      def atomic[ A ]( fun: S#Tx => A ) : A = {
+      // ---- cursor ----
+
+      def step[ A ]( fun: S#Tx => A ) : A = {
          TxnExecutor.defaultAtomic[ A ] { itx =>
             pathVar :+= (pathVar.lastOption.getOrElse( -1 ) + 1)
             fun( new TxnImpl( this, itx ))
          }
+      }
+
+      def position( implicit tx: S#Tx ) : S#Acc = pathVar
+
+      def position_=( path: S#Acc )( implicit tx: S#Tx ) {
+         pathVar = path
       }
 
 //      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A = {
@@ -151,7 +159,7 @@ object Confluent {
          old.write( out )
          val in      = new DataInput( out.toByteArray )
          val mid     = in.readInt()
-         val newID   = IDImpl.readAndUpdate( mid, path, in )
+         val newID   = IDImpl.readAndUpdate( mid, position, in )
          reader.readData( in, newID )
       }
 
@@ -288,7 +296,7 @@ object Confluent {
 
       def readID( in: DataInput, acc: Acc ) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
 
-      def access[ A ]( source: S#Var[ A ]) : A = source.access( system.path( this ))( this )
+      def access[ A ]( source: S#Var[ A ]) : A = source.access( system.position( this ))( this )
 
 //      def readMut[ A <: Mutable[ S ]]( pid: ID, in: DataInput )
 //                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
@@ -361,7 +369,7 @@ object Confluent {
    }
 }
 
-sealed trait Confluent extends Sys[ Confluent ] {
+sealed trait Confluent extends Sys[ Confluent ] with Cursor[ Confluent ] {
    import Confluent._
 
    type Var[ @specialized A ] = Confluent.Var[ A ]
@@ -371,6 +379,6 @@ sealed trait Confluent extends Sys[ Confluent ] {
 
    def inPath[ A ]( _path: Acc )( fun: Tx => A ) : A
    def fromPath[ A ]( _path: Acc )( fun: Tx => A ) : A
-   def path( implicit tx: Tx ) : Acc
+//   def path( implicit tx: Tx ) : Acc
    def update[ A <: Mutable[ Confluent ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A
 }

@@ -1,7 +1,5 @@
 # LucreSTM
 
-__Note__ this is 0.21-SNAPSHOT. See tag v0.20 for the latest release.
-
 ## statement
 
 LucreSTM is provides a software transactional memory with persistent backend, as well as reactive observer system. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project. The reactive system implements event graphs which also can be persistent, along with live observers.
@@ -21,7 +19,7 @@ LucreSTM builds with sbt 0.11 against Scala 2.9.1. It depends on [Scala-STM](htt
 
 The following dependency is necessary:
 
-    "de.sciss" %% "lucrestm" % "0.20"
+    "de.sciss" %% "lucrestm" % "0.21"
 
 ## documentation
 
@@ -31,7 +29,7 @@ At the moment, there are only sparse scaladocs, I'm afraid (run `sbt doc`). The 
 
 An STM implementations uses the trait `Sys` which defines the actual transaction `Tx` and reference `Var` types, as well as identifiers `ID` which are used for persistence, and an access type `Acc` which is used by the confluent implementation. Actual implementations are in package `de.sciss.lucre.stm.impl`, they include a ephemeral but persisted database STM `BerkeleyDB`, an ephemeral in-memory implementation `InMemory`, and a confluent implementation `Confluent` which is not optimised or persisted to disk, but merely included as a proof of concept. (A fully fledged confluent STM is in project TemporalObjects).
 
-The `Sys` provides an `atomic` method to spawn a new transaction. Unlike Scala-STM, references can only be created within a transaction, thus their constructors are methods in `S#Tx` (which is a sub type of trait `Txn`). The underlying Scala-STM transaction can be read via `tx.peer`. LucreSTM currently does not implement any protocol system such as SBinary. It thus asks for readers and writers (both which combine into serializers) when constructing or reading in a reference.
+To spawn a transaction, you need a `Cursor`. All of the systems included here mixin the `Cursor` trait, which provides the `step` method to open a transaction. Unlike Scala-STM, references can only be created within a transaction, thus their constructors are methods in `S#Tx` (which is a sub type of trait `Txn`). The underlying Scala-STM transaction can be read via `tx.peer`. LucreSTM currently does not implement any protocol system such as SBinary. It thus asks for readers and writers (both which combine into serializers) when constructing or reading in a reference.
 
 The __life cycle__ of a reference, in following just called Var, is as follows: It comes into existance through `tx.newVar` (or one of the specialised methods such as `tx.newIntVar`). Apart from the initial value, this call requires to pass in an `S#ID` __parent_ identifier and a `TxnSerializer` for the type of Var. The parent ID is the ID of the mutable objects in which the Var will reside. You can think of the ID as an opaque object, behind the scenes this is used by the confluent system to retrieve the access path of the parent. When you instantiate a new mutable object with transactional semantics, you can get a new ID by calling `tx.newID()`.
 
@@ -91,7 +89,7 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
     val dir  = new java.io.File( sys.props( "user.home" ), "person_db" )
     dir.mkdirs()
     val s    = S( impl.BerkeleyDB.open( dir ))
-    val root = s.atomic { implicit tx =>
+    val root = s.step { implicit tx =>
        // read the root data set, or create a new one if the database does not exist
        s.root[ Person ]( newPerson() )
     }
@@ -104,8 +102,8 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
     }
 
     // see who is in the database so far
-    val found = s.atomic { implicit tx => gather( root, Set.empty )}
-    val infos = s.atomic { implicit tx => found.map { p =>
+    val found = s.step { implicit tx => gather( root, Set.empty )}
+    val infos = s.step { implicit tx => found.map { p =>
        "Remember " + p.name + "? He's " + (p.friends.get match {
           case Nil => "lonely"
           case fs  => fs.map( _.name ).mkString( "friend of ", " and ", "" )
@@ -114,7 +112,7 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
     infos.foreach( println )
 
     // create a new person and make it friend of half of the population
-    s.atomic { implicit tx =>
+    s.step { implicit tx =>
        val p = newPerson()
        val friends0 = found.filter( _ => rnd.nextBoolean() )
        val friends = if( friends0.isEmpty ) Seq( root ) else friends0

@@ -8,15 +8,15 @@ object EventTest extends App {
    val system  = Confluent()
    type S      = Confluent
 
-   val bang = system.atomic { implicit tx => Bang[ S ]}
+   val bang = system.step { implicit tx => Bang[ S ]}
 
-   system.atomic { implicit tx => bang.react { _ => println( "Bang!" )}}
+   system.step { implicit tx => bang.react { _ => println( "Bang!" )}}
 
-   system.atomic { implicit tx =>
+   system.step { implicit tx =>
       bang()
    }
 
-   val e2 = system.atomic { implicit tx => Trigger[ S, Int ]}
+   val e2 = system.step { implicit tx => Trigger[ S, Int ]}
 
 //   object FilterReader extends Event.Invariant.Serializer[ S, Filter ] {
 //      def read( in: DataInput, access: S#Acc, _targets: Event.Invariant.Targets[ S ])( implicit tx: S#Tx ) : Filter =
@@ -50,7 +50,7 @@ object EventTest extends App {
 //      }
 //   }
 
-   system.atomic { implicit tx =>
+   system.step { implicit tx =>
       e2(  4 )  // observed
       e2(  8 )  // observed
       e2( 12 )  // filtered out, not observed

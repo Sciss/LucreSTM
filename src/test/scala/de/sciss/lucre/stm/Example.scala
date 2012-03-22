@@ -37,7 +37,7 @@ object Example extends App {
    val dir  = new java.io.File( sys.props( "user.home" ), "person_db" )
    dir.mkdirs()
    val s    = S( impl.BerkeleyDB.open( dir ))
-   val root = s.atomic { implicit tx =>
+   val root = s.step { implicit tx =>
       // read the root data set, or create a new one if the database does not exist
       s.root[ Person ]( newPerson() )
    }
@@ -50,8 +50,8 @@ object Example extends App {
    }
 
    // see who is in the database so far
-   val found = s.atomic { implicit tx => gather( root, Set.empty )}
-   val infos = s.atomic { implicit tx => found.map { p =>
+   val found = s.step { implicit tx => gather( root, Set.empty )}
+   val infos = s.step { implicit tx => found.map { p =>
       "Remember " + p.name + "? He's " + (p.friends.get match {
          case Nil => "lonely"
          case fs  => fs.map( _.name ).mkString( "friend of ", " and ", "" )
@@ -60,7 +60,7 @@ object Example extends App {
    infos.foreach( println )
 
    // create a new person and make it friend of half of the population
-   s.atomic { implicit tx =>
+   s.step { implicit tx =>
       val p = newPerson()
       val friends0 = found.filter( _ => rnd.nextBoolean() )
       val friends = if( friends0.isEmpty ) Seq( root ) else friends0

@@ -27,8 +27,8 @@ package de.sciss.lucre
 package expr
 
 import annotation.switch
-import stm.{InMemory, Sys}
 import event.Targets
+import stm.{Cursor, InMemory, Sys}
 
 object Strings {
    def apply[ S <: Sys[ S ]] : Strings[ S ] = new Strings[ S ]
@@ -134,10 +134,10 @@ object StringsTests extends App {
    new StringTests( InMemory() )
 }
 
-class StringTests[ S <: Sys[ S ]]( system: S ) {
+class StringTests[ S <: Sys[ S ] with Cursor[ S ]]( system: S ) {
    val strings = Strings[ S ]
    import strings._
-   import system.{ atomic => ◊ }
+   import system.{ step => ◊ }
 
    val s    = ◊ { implicit tx => Var( "hallo" )}
    val s1   = ◊ { implicit tx => s.append( "-welt" )}

@@ -4,8 +4,8 @@ package expr
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import java.io.File
 import event._
-import stm.{Durable, InMemory, Sys}
 import stm.impl.{BerkeleyDB, Confluent}
+import stm.{Cursor, Durable, InMemory, Sys}
 
 object MutatingTest extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
@@ -29,10 +29,10 @@ Usage:
 """ )
    }
 
-   def run[ S <: Sys[ S ]]( setup: (S, () => Unit) ) {
+   def run[ S <: Sys[ S ] with Cursor[ S ]]( setup: (S, () => Unit) ) {
       val (system, cleanUp) = setup
       try {
-         system.atomic { implicit tx =>
+         system.step { implicit tx =>
             val m = apply( tx )
             import m._
             import regions._

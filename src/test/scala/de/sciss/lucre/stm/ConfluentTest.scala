@@ -141,7 +141,7 @@ object ConfluentTest extends App {
       val nextRef    = newVar[ E[ Int ]]( id, empty )
    }
 
-   val (acc0, path0) = sys.atomic { implicit tx =>
+   val (acc0, path0) = sys.step { implicit tx =>
       val _acc0 = new Access {
          import tx._
          val id      = tx.newID()
@@ -155,10 +155,10 @@ object ConfluentTest extends App {
       val seq     = _acc0.seq
       _acc0.printSeq( seq )
       assert( seq == IIdxSeq( (0,2), (1,1) ))
-      (_acc0, sys.path)
+      (_acc0, sys.position)
    }
 
-   val (acc1, path1) = sys.atomic { implicit tx =>
+   val (acc1, path1) = sys.step { implicit tx =>
       val _acc1   = sys.update( acc0 )
       val _w0     = _acc1.head.get
       val _w1     = _w0.next.get
@@ -168,7 +168,7 @@ object ConfluentTest extends App {
       val seq     = _acc1.seq
       _acc1.printSeq( seq )
       assert( seq == IIdxSeq( (1,1), (0,2) ))
-      (_acc1, sys.path)
+      (_acc1, sys.position)
    }
 
    val (acc2, path2) = sys.fromPath( path0 ) { implicit tx =>
@@ -181,7 +181,7 @@ object ConfluentTest extends App {
       val seq     = _acc2.seq
       _acc2.printSeq( seq )
       assert( seq == IIdxSeq( (1,1), (2,1) ))
-      (_acc2, sys.path)
+      (_acc2, sys.position)
    }
 
    val (acc3, path3) = sys.fromPath( path1 ) { implicit tx =>
@@ -197,7 +197,7 @@ object ConfluentTest extends App {
       val seq     = _acc3.seq
       _acc3.printSeq( seq )
       assert( seq == IIdxSeq( (1,1), (0,2), (1,3), (2,3) ))
-      (_acc3, sys.path)
+      (_acc3, sys.position)
    }
 
    sys.fromPath( path3 ) { implicit tx =>

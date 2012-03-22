@@ -1,5 +1,5 @@
 /*
- *  Sys.scala
+ *  Cursor.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -23,32 +23,10 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
-package stm
+package de.sciss.lucre.stm
 
-import stm.{Var => _Var}
-
-object Sys {
-// this produces 'diverging fuckyourself' messages
-//   implicit def fromTxn[ S <: Sys[ S ]]( implicit tx: S#Tx ) : S = tx.system
-   implicit def manifest[ S <: Sys[ S ]]( implicit system: S ) : Manifest[ S ] = system.manifest
-}
-
-trait Sys[ S <: Sys[ S ]] {
-   type Var[ @specialized A ] <: _Var[ S#Tx, A ]
-   type Tx <: Txn[ S ]
-   type ID <: Identifier[ S#Tx ]
-   type Acc
-
-//   final type ObsVar[ A ] = S#Var[ A ] with State[ S, Change[ A ]]
-
-   // should get rid of this in Sys, too
-//   def atomic[ A ]( fun: S#Tx => A ) : A
-//   def atomicRead[ A, B ]( read: TxnReader[ S#Tx, S#Acc, A ])( fun: (S#Tx, A) => B ) : B
-
-//   def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A
-
-//   def atomicAccess[ A, B ]( source: S#Var[ A ])( fun: (S#Tx, A) => B ) : B
-
-   def manifest: Manifest[ S ]
+trait Cursor[ S <: Sys[ S ]] {
+   def step[ A ]( fun: S#Tx => A ) : A
+   def position( implicit tx: S#Tx ) : S#Acc
+   def position_=( path: S#Acc )( implicit tx: S#Tx ) : Unit
 }

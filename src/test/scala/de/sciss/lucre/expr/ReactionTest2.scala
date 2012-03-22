@@ -32,7 +32,7 @@ import java.awt.{BorderLayout, Color, Dimension, Graphics2D, Graphics, GridLayou
 import javax.swing.{AbstractAction, JButton, Box, JComponent, JTextField, BorderFactory, JLabel, GroupLayout, JPanel, WindowConstants, JFrame}
 import collection.mutable.Buffer
 import stm.impl.{BerkeleyDB, Confluent}
-import stm.{Durable, InMemory, Sys}
+import stm.{Cursor, Durable, InMemory, Sys}
 
 //import expr.any2stringadd
 
@@ -66,7 +66,7 @@ Usages:
    })
 
    object System {
-      def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : System[ S ] = {
+      def apply[ S <: Sys[ S ] with Cursor[ S ]]( implicit tx: S#Tx ) : System[ S ] = {
          val strings = Strings[ S ]
          val longs   = Longs[ S ]
          val spans   = Spans[ S ]( longs )
@@ -75,7 +75,7 @@ Usages:
       }
    }
 
-   class System[ S <: Sys[ S ]] private( val regions: Regions[ S ]) {
+   class System[ S <: Sys[ S ] with Cursor[ S ]] private( val regions: Regions[ S ]) {
       import regions._
       import spans.spanOps
 
@@ -125,13 +125,13 @@ Usages:
 //            system.atomic { implicit tx =>
 //               model( tx, s )
 //            }
-            system.atomic { tx =>
+            system.step { tx =>
                model( tx, tx.access( rv ), s )
             }
          }
 
          private def longToModel( n: Long, model: (Tx, Long) => Unit )( implicit system: S ) {
-            system.atomic { implicit tx => model( tx, n )}
+            system.step { implicit tx => model( tx, n )}
          }
 
          def connect()( implicit tx: Tx ) {
@@ -179,9 +179,9 @@ Usages:
 
    def defer( thunk: => Unit ) { EventQueue.invokeLater( new Runnable { def run() { thunk }})}
 
-   def expressions[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
+   def expressions[ S <: Sys[ S ] with Cursor[ S ]]( tup: (S, () => Unit) ) {
       val (system, cleanUp) = tup
-      val (infra, vs, r3v) = system.atomic { implicit tx =>
+      val (infra, vs, r3v) = system.step { implicit tx =>
          val _infra = System[ S ]
          import _infra._
          import regions._
@@ -216,7 +216,7 @@ Usages:
 
       cp.setLayout( new GridLayout( 3, 1 ))
 
-      system.atomic { implicit tx =>
+      system.step { implicit tx =>
          vs.foreach( _.connect() )
          val _r3 = tx.access( r3v )
 //         _r3.renamed.react { case (_, EventRegion.Renamed( _, Change( _, newName ))) =>
@@ -351,7 +351,7 @@ Usages:
       f.setVisible( true )
    }
 
-   def collections[ S <: Sys[ S ]]( tup: (S, () => Unit) ) {
+   def collections[ S <: Sys[ S ] with Cursor[ S ]]( tup: (S, () => Unit) ) {
       val (system, cleanUp) = tup
 
 //      val id = system.atomic { implicit tx => tx.newID() }
@@ -369,7 +369,7 @@ Usages:
 
       val tr   = new TrackView
 
-      val (infra, cnt, cv) = system.atomic { implicit tx =>
+      val (infra, cnt, cv) = system.step { implicit tx =>
          val _infra = System[ S ]
          import _infra._
          import regions._
@@ -421,19 +421,19 @@ Usages:
       val cp   = f.getContentPane
       val actionPane = Box.createHorizontalBox()
       actionPane.add( button( "Add last" ) {
-         system.atomic { implicit tx =>
+         system.step { implicit tx =>
             val coll = tx.access( cv )
             coll.add( newRegion() )
          }
       })
       actionPane.add( button( "Remove first" ) {
-         system.atomic { implicit tx =>
+         system.step { implicit tx =>
             val coll = tx.access( cv )
             if( coll.size > 0 ) coll.removeAt( 0 )
          }
       })
       actionPane.add( button( "Random rename" ) {
-         system.atomic { implicit tx =>
+         system.step { implicit tx =>
             val coll = tx.access( cv )
             if( coll.size > 0 ) {
                val r    = coll.apply( rnd.nextInt( coll.size ))
@@ -442,7 +442,7 @@ Usages:
          }
       })
       actionPane.add( button( "Random move" ) {
-         system.atomic { implicit tx =>
+         system.step { implicit tx =>
             val coll = tx.access( cv )
             if( coll.size > 0 ) {
                val r       = coll.apply( rnd.nextInt( coll.size ))
