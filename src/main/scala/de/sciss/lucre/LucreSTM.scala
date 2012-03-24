@@ -34,9 +34,9 @@ object LucreSTM {
    private lazy val logHeader = new SimpleDateFormat( "[d MMM yyyy, HH:mm''ss.SSS] 'Lucre' - ", Locale.US )
 
    val name          = "LucreSTM"
-   val version       = 0.21
+   val version       = 0.22
    val copyright     = "(C)opyright 2011-2012 Hanns Holger Rutz"
-   val isSnapshot    = false
+   val isSnapshot    = true
 
    def versionString = {
       val s = (version + 0.001).toString.substring( 0, 4 )

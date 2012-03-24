@@ -33,6 +33,11 @@ import collection.mutable.Builder
 object Serializer {
    // ---- primitives ----
 
+   implicit object Unit extends Serializer[ scala.Unit ] {
+      def write( v: scala.Unit, out: DataOutput ) {}
+      def read( in: DataInput ) {}
+   }
+
    implicit object Boolean extends Serializer[ scala.Boolean ] {
       def write( v: scala.Boolean, out: DataOutput ) {
          out.writeBoolean( v )

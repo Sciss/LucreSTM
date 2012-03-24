@@ -31,6 +31,7 @@ import collection.mutable.Builder
 import annotation.switch
 
 object TxnSerializer {
+   implicit val Unit    = Serializer.Unit
    implicit val Boolean = Serializer.Boolean
    implicit val Char    = Serializer.Char
    implicit val Int     = Serializer.Int
