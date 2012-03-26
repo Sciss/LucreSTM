@@ -86,7 +86,7 @@ trait Txn[ S <: Sys[ S ]] {
    /**
     * XXX TODO: this is called from Targets.readAndExpand
     */
-   def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A
+   def readVal[ A ]( id: S#ID )( implicit reader: TxnSerializer[ S#Tx, S#Acc, A ]) : A
 
    /**
     * XXX TODO: this is called from NodeSelector.writeValue which is turn is called from Targets

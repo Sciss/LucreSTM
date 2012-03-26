@@ -56,13 +56,14 @@ object Targets {
 
    private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
       val id         = tx.readID( in, access )
-      tx.readVal( id )( new ExpanderReader[ S ])
+      tx.readVal( id )( new ExpanderSerializer[ S ])
    }
 
-   private class ExpanderReader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Reactor[ S ]] {
+   private class ExpanderSerializer[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
+      def write( v: Reactor[ S ], out: DataOutput ) { v.write( out )}
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
          val targets    = Targets.read( in, access )
-         val observers  = targets.observers //
+         val observers  = targets.observers
          tx.reactionMap.mapEventTargets( in, access, targets, observers )
       }
    }

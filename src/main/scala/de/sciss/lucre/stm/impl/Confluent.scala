@@ -272,7 +272,7 @@ object Confluent {
             Map.empty[ Acc, Array[ Byte ]]) + (parent.path -> bytes))
       }
 
-      def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+      def readVal[ A ]( id: S#ID )( implicit reader: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
          val (in, acc) = system.access( id.id, id.path )( this )
          reader.read( in, acc )( this )
       }

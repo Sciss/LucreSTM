@@ -106,7 +106,7 @@ object InMemory {
 
       def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit writer: TxnWriter[ A ]) {}
 
-      def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = opNotSupported( "readVal" )
+      def readVal[ A ]( id: S#ID )( implicit reader: TxnSerializer[ S#Tx, S#Acc, A ]) : A = opNotSupported( "readVal" )
 
       def writeVal( id: S#ID, value: Writer ) {}
 

@@ -345,7 +345,7 @@ object Durable {
          system.write( id.id )( writer.write( value, _ ))( this )
       }
 
-      def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+      def readVal[ A ]( id: S#ID )( implicit reader: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
          system.read( id.id )( reader.read( _, () )( this ))( this )
       }
 
