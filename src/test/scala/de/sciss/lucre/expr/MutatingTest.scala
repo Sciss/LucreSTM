@@ -4,12 +4,12 @@ package expr
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import java.io.File
 import event._
-import stm.impl.{BerkeleyDB, Confluent}
-import stm.{Cursor, Durable, InMemory, Sys}
+import stm.impl.BerkeleyDB
+import stm.{Cursor, Durable, InMemory, Sys, test}
 
 object MutatingTest extends App {
    private def memorySys    : (InMemory, () => Unit) = (InMemory(), () => ())
-   private def confluentSys : (Confluent, () => Unit) = (Confluent(), () => ())
+   private def confluentSys : (test.Confluent, () => Unit) = (test.Confluent(), () => ())
    private def databaseSys  : (Durable, () => Unit) = {
       val dir  = new File( new File( sys.props( "user.home" ), "Desktop" ), "mutating" )
       val db   = BerkeleyDB.open( dir )

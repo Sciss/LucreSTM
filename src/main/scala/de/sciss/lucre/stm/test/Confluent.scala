@@ -25,7 +25,7 @@
 
 package de.sciss.lucre
 package stm
-package impl
+package test
 
 import stm.{ Txn => _Txn, Var => _Var }
 import concurrent.stm.{InTxn, TxnExecutor}

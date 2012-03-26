@@ -2,11 +2,11 @@ package de.sciss.lucre
 package event
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import stm.impl.Confluent
+import stm.test
 
 object EventTest extends App {
-   val system  = Confluent()
-   type S      = Confluent
+   val system  = test.Confluent()
+   type S      = test.Confluent
 
    val bang = system.step { implicit tx => Bang[ S ]}
 
