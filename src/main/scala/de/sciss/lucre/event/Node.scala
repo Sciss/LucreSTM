@@ -47,6 +47,15 @@ extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
 }
 
 object Targets {
+   private[event] final class ExpanderSerializer[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
+      def write( v: Reactor[ S ], out: DataOutput ) { v.write( out )}
+      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+         val targets    = Targets.read( in, access )
+         val observers  = targets.observers
+         tx.reactionMap.mapEventTargets( in, access, targets, observers )
+      }
+   }
+
    def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
       val id         = tx.newID()
       val children   = tx.newVar[ Children[ S ]]( id, NoChildren )
@@ -57,15 +66,6 @@ object Targets {
    private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
       val id         = tx.readID( in, access )
       tx.readVal( id )( new ExpanderSerializer[ S ])
-   }
-
-   private class ExpanderSerializer[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
-      def write( v: Reactor[ S ], out: DataOutput ) { v.write( out )}
-      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-         val targets    = Targets.read( in, access )
-         val observers  = targets.observers
-         tx.reactionMap.mapEventTargets( in, access, targets, observers )
-      }
    }
 
    private[lucre] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {

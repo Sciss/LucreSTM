@@ -345,14 +345,14 @@ object Durable {
          system.write( id.id )( writer.write( value, _ ))( this )
       }
 
-      def readVal[ A ]( id: S#ID )( implicit reader: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
-         system.read( id.id )( reader.read( _, () )( this ))( this )
+      def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
+         system.read( id.id )( serializer.read( _, () )( this ))( this )
       }
 
-      def writeVal( id: S#ID, value: Writer ) {
+      def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {
          val idi = id.id
          if( !system.exists( idi )( this )) {
-            system.write( idi )( value.write )( this )
+            system.write( idi )( serializer.write( value, _ ))( this )
          }
       }
 

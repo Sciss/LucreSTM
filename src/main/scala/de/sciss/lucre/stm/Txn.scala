@@ -86,12 +86,12 @@ trait Txn[ S <: Sys[ S ]] {
    /**
     * XXX TODO: this is called from Targets.readAndExpand
     */
-   def readVal[ A ]( id: S#ID )( implicit reader: TxnSerializer[ S#Tx, S#Acc, A ]) : A
+   def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A
 
    /**
     * XXX TODO: this is called from NodeSelector.writeValue which is turn is called from Targets
     */
-   def writeVal( id: S#ID, value: Writer ) : Unit
+   def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : Unit
 
    // XXX TODO: this merely used by ReactionTest2
    // it should be replaced by a general mechanism to turn any S#Var into a read access

@@ -128,7 +128,7 @@ sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writ
    private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
 
    final private[event] def writeValue()( implicit tx: S#Tx ) {
-      tx.writeVal( reactor.id, reactor )
+      tx.writeVal[ Reactor[ S ]]( reactor.id, reactor )( new Targets.ExpanderSerializer[ S ])
    }
 }
 
