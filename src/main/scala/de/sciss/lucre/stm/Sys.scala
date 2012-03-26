@@ -39,7 +39,7 @@ trait Sys[ S <: Sys[ S ]] {
    type Tx <: Txn[ S ]
    type ID <: Identifier[ S#Tx ]
    type Acc
-   type Entry[ A ] <: Var[ A ]
+   type Entry[ A ] <: _Var[ S#Tx, A ] // Var[ A ]
 
    def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ]
 
