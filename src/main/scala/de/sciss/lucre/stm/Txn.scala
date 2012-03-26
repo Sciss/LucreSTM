@@ -54,14 +54,14 @@ trait Txn[ S <: Sys[ S ]] {
 //   def processEvent( leaf: ObserverKey[ S ], parent: NodeSelector[ S ], push: Push[ S ]) : Unit
 //   def removeEventReaction( slot: ObserverKey[ S ]) : Unit
 
-   def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+   def newVar[ A ]( id: S#ID, init: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]
    def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]
    def newLongVar( id: S#ID, init: Long ) : S#Var[ Long ]
 
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
-   def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+   def readVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ]
    def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
    def readLongVar( id: S#ID, in: DataInput ) : S#Var[ Long ]
@@ -72,14 +72,14 @@ trait Txn[ S <: Sys[ S ]] {
     *
     * XXX TODO this is used by Compound
     */
-   def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A
+   def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A
    /**
     * A raw write. If the underlying system doesn't persist objects, the implementation
     * should provide a no-op stub, but must not throw an exception.
     *
     * XXX TODO this is used by Compound
     */
-   def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit writer: TxnWriter[ A ]) : Unit
+   def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : Unit
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
 

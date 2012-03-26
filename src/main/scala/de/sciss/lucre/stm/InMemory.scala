@@ -101,10 +101,10 @@ object InMemory {
 
       def newVarArray[ A ]( size: Int ) = new Array[ S#Var[ A ] ]( size )
 
-      def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit ser: TxnReader[ S#Tx, S#Acc, A ]) : A =
+      def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A =
          opNotSupported( "_readUgly" )
 
-      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit writer: TxnWriter[ A ]) {}
+      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {}
 
       def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = opNotSupported( "readVal" )
 

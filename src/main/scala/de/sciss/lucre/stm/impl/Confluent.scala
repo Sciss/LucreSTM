@@ -259,14 +259,14 @@ object Confluent {
          new IDImpl( id, pid.path )
       }
 
-      def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A = {
+      def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
          val (in, acc) = system.access( id.id, parent.path )( this )
-         reader.read( in, acc )( this )
+         serializer.read( in, acc )( this )
       }
 
-      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit writer: TxnWriter[ A ]) {
+      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {
          val out = new DataOutput()
-         writer.write( value, out )
+         serializer.write( value, out )
          val bytes = out.toByteArray
          system.storage += id.id -> (system.storage.getOrElse( id.id,
             Map.empty[ Acc, Array[ Byte ]]) + (parent.path -> bytes))
