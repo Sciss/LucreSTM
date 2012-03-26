@@ -29,19 +29,19 @@ package event
 import stm.Sys
 
 object Bang {
-   def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Bang[ S ] = new Impl[ S ] {
-      protected val targets = Targets[ S ]
-   }
+   def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Bang[ S ] = new Impl[ S ]( Targets[ S ])
 
-   private sealed trait Impl[ S <: Sys[ S ]] extends Bang[ S ] with Singleton[ S, Unit, Bang[ S ]] with Root[ S, Unit /*, Bang[ S ] */] {
+   private final class Impl[ S <: Sys[ S ]]( protected val targets: Targets[ S ])
+   extends Bang[ S ] with Singleton[ S, Unit, Bang[ S ]] with Root[ S, Unit /*, Bang[ S ] */] {
       protected def reader = Bang.serializer[ S ]
    }
 
-   def serializer[ S <: Sys[ S ]] : NodeSerializer[ S, Bang[ S ]] = new NodeSerializer[ S, Bang[ S ]] {
+   implicit def serializer[ S <: Sys[ S ]] : NodeSerializer[ S, Bang[ S ]] = new NodeSerializer[ S, Bang[ S ]] {
+      // note: there was a strange runtime error when using an anonymous class instead. It seems that
+      // scala somehow missed to execute the body, leaving targets unassigned. Perhaps a bug
+      // of scalac getting confused with the apply method?
       def read( in: DataInput, access: S#Acc, _targets: Targets[ S ])( implicit tx: S#Tx ) : Bang[ S ] =
-         new Impl[ S ] {
-            protected val targets = _targets
-         }
+         new Impl[ S ]( _targets )
    }
 }
 
