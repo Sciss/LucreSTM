@@ -81,6 +81,8 @@ object Confluent {
 
 //      def path( implicit tx: Tx ) = pathVar
 
+      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
+
       def inPath[ Z ]( path: Acc )( block: Tx => Z ) : Z = {
          TxnExecutor.defaultAtomic[ Z ] { itx =>
             val oldPath = pathVar
@@ -372,10 +374,11 @@ object Confluent {
 sealed trait Confluent extends Sys[ Confluent ] with Cursor[ Confluent ] {
    import Confluent._
 
-   type Var[ @specialized A ] = Confluent.Var[ A ]
-   type ID                    = Confluent.ID
-   type Tx                    = Confluent.Txn
-   type Acc                   = IIdxSeq[ Int ]
+   final type Var[ @specialized A ] = Confluent.Var[ A ]
+   final type ID                    = Confluent.ID
+   final type Tx                    = Confluent.Txn
+   final type Acc                   = IIdxSeq[ Int ]
+   final type Entry[ A ]            = Confluent.Var[ A ]
 
    def inPath[ A ]( _path: Acc )( fun: Tx => A ) : A
    def fromPath[ A ]( _path: Acc )( fun: Tx => A ) : A

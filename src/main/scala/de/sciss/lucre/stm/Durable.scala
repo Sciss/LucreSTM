@@ -80,6 +80,8 @@ object Durable {
          tx.newIntVar( tx.newID(), reactCnt0 )
       })( tx => inMem.wrap( tx.peer ))
 
+      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
+
       def root[ A ]( init: => A )( implicit tx: Txn, ser: TxnSerializer[ S#Tx, S#Acc, A ]): A = {
          val rootID = 2 // 1 == reaction map!!!
          if( exists( rootID )) {
@@ -387,6 +389,7 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
    final type ID  = Durable.ID
    final type Tx  = Durable.Txn
    final type Acc = Unit
+   final type Entry[ A ] = Durable.Var[ A ]
 
    /**
     * Closes the underlying database. The STM cannot be used beyond this call.

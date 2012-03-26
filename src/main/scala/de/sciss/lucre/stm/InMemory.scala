@@ -136,6 +136,8 @@ object InMemory {
 
       val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
 
+      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
+
       // ---- cursor ----
 
       def step[ A ]( fun: S#Tx => A ): A = {
@@ -160,6 +162,7 @@ sealed trait InMemory extends Sys[ InMemory ] with Cursor[ InMemory ] {
    final type ID = Identifier[ Tx ]
    final type Tx = Txn[ InMemory ]
    final type Acc = Unit
+   final type Entry[ A ] = InMemory.Var[ A ]
 
    def wrap( peer: InTxn ): Tx
 }

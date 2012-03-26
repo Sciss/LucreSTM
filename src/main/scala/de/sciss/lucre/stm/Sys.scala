@@ -29,7 +29,7 @@ package stm
 import stm.{Var => _Var}
 
 object Sys {
-// this produces 'diverging fuckyourself' messages
+// this produces 'diverging ...' messages
 //   implicit def fromTxn[ S <: Sys[ S ]]( implicit tx: S#Tx ) : S = tx.system
    implicit def manifest[ S <: Sys[ S ]]( implicit system: S ) : Manifest[ S ] = system.manifest
 }
@@ -39,16 +39,9 @@ trait Sys[ S <: Sys[ S ]] {
    type Tx <: Txn[ S ]
    type ID <: Identifier[ S#Tx ]
    type Acc
+   type Entry[ A ] <: Var[ A ]
 
-//   final type ObsVar[ A ] = S#Var[ A ] with State[ S, Change[ A ]]
-
-   // should get rid of this in Sys, too
-//   def atomic[ A ]( fun: S#Tx => A ) : A
-//   def atomicRead[ A, B ]( read: TxnReader[ S#Tx, S#Acc, A ])( fun: (S#Tx, A) => B ) : B
-
-//   def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A
-
-//   def atomicAccess[ A, B ]( source: S#Var[ A ])( fun: (S#Tx, A) => B ) : B
+   def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ]
 
    def manifest: Manifest[ S ]
 }
