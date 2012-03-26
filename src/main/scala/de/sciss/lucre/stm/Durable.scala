@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package stm
 
-import stm.{Var => _Var, Txn => _Txn}
+import stm.{Var => _Var}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import annotation.elidable
 import elidable.CONFIG
@@ -36,7 +36,7 @@ import LucreSTM.logConfig
 object Durable {
    private type S = Durable
 
-   sealed trait ID extends Identifier[ Txn ] {
+   sealed trait ID extends Identifier[ S#Tx ] {
       private[ Durable ] def id: Int
    }
 
@@ -82,16 +82,21 @@ object Durable {
 
       def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
-      def root[ A ]( init: => A )( implicit tx: Txn, ser: TxnSerializer[ S#Tx, S#Acc, A ]): A = {
+      def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
          val rootID = 2 // 1 == reaction map!!!
-         if( exists( rootID )) {
-            read( rootID )( ser.read( _, () ))
-         } else {
-            val id = newIDValue()
-            require( id == rootID, "Root can only be initialized on an empty database (expected id count is " + rootID + " but found " + id + ")")
-            val res = init
-            write( id )( ser.write( res, _ ))
-            res
+         step { implicit tx =>
+            if( exists( rootID )) {
+//               read( rootID )( ser.read( _, () ))
+               new VarImpl[ A ]( rootID, serializer )
+
+            } else {
+               val id = newIDValue()
+               require( id == rootID, "Root can only be initialized on an empty database (expected id count is " + rootID + " but found " + id + ")")
+               val res = new VarImpl[ A ]( id, serializer )
+               res.setInit( init( tx ))
+//               write( id )( ser.write( res, _ ))
+               res
+            }
          }
       }
 
@@ -135,24 +140,24 @@ object Durable {
 
       def numUserRecords( implicit tx: S#Tx ): Int = math.max( 0, numRecords - 1 )
 
-      def newIDValue()( implicit tx: Txn ) : Int = {
+      def newIDValue()( implicit tx: S#Tx ) : Int = {
          val id = idCntVar.get( tx ) + 1
          logConfig( "new   <" + id + ">" )
          idCntVar.set( id )
          id
       }
 
-      def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: Txn ) {
+      def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
          logConfig( "write <" + id + ">" )
          store.put( _.writeInt( id ))( valueFun )
       }
 
-      def remove( id: Int )( implicit tx: Txn ) {
+      def remove( id: Int )( implicit tx: S#Tx ) {
          logConfig( "remov <" + id + ">" )
          store.remove( _.writeInt( id ))
       }
 
-      def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Txn ) : A = {
+      def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: S#Tx ) : A = {
          logConfig( "read  <" + id + ">" )
          store.get( _.writeInt( id ))( valueFun ).getOrElse( sys.error( "Key not found " + id ))
       }
@@ -176,7 +181,7 @@ object Durable {
          that.isInstanceOf[ IDImpl ] && (id == that.asInstanceOf[ IDImpl ].id)
       }
 
-      def dispose()( implicit tx: Txn ) {
+      def dispose()( implicit tx: S#Tx ) {
          tx.system.remove( id )
       }
 
@@ -191,12 +196,12 @@ object Durable {
       }
 
       /* final */
-      def dispose()( implicit tx: Txn ) {
+      def dispose()( implicit tx: S#Tx ) {
          tx.system.remove( id )
       }
 
-      @elidable(CONFIG) protected final def assertExists()(implicit tx: Txn) {
-         require(tx.system.exists(id), "trying to write disposed ref " + id)
+      @elidable(CONFIG) protected final def assertExists()( implicit tx: S#Tx ) {
+         require( tx.system.exists( id ), "trying to write disposed ref " + id )
       }
    }
 
@@ -204,140 +209,140 @@ object Durable {
    //   private type ObsVar[ A ] = Var[ A ] with State[ S, Change[ A ]]
 
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
-      protected def ser: TxnSerializer[ Txn, Unit, A ]
+      protected def ser: TxnSerializer[ S#Tx, S#Acc, A ]
 
-      def get( implicit tx: Txn ) : A = tx.system.read[ A ]( id )( ser.read( _, () ))
+      def get( implicit tx: S#Tx ) : A = tx.system.read[ A ]( id )( ser.read( _, () ))
 
-      def setInit( v: A )( implicit tx: Txn ) { tx.system.write( id )( ser.write( v, _ ))}
+      def setInit( v: A )( implicit tx: S#Tx ) { tx.system.write( id )( ser.write( v, _ ))}
    }
 
-   private final class VarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ Txn, Unit, A ])
+   private final class VarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ S#Tx, S#Acc, A ])
    extends BasicVar[ A ] {
-      def set( v: A )( implicit tx: Txn ) {
+      def set( v: A )( implicit tx: S#Tx ) {
          assertExists()
          tx.system.write( id )( ser.write( v, _ ))
       }
 
-      def transform( f: A => A )( implicit tx: Txn ) { set( f( get ))}
+      def transform( f: A => A )( implicit tx: S#Tx ) { set( f( get ))}
 
       override def toString = "Var(" + id + ")"
    }
 
    private final class BooleanVar( protected val id: Int )
    extends Var[ Boolean ] with BasicSource {
-      def get( implicit tx: Txn ): Boolean = {
+      def get( implicit tx: S#Tx ): Boolean = {
          tx.system.read[ Boolean ]( id )( _.readBoolean() )
       }
 
-      def setInit( v: Boolean )( implicit tx: Txn ) {
+      def setInit( v: Boolean )( implicit tx: S#Tx ) {
          tx.system.write( id )( _.writeBoolean( v ))
       }
 
-      def set( v: Boolean )( implicit tx: Txn ) {
+      def set( v: Boolean )( implicit tx: S#Tx ) {
          assertExists()
          tx.system.write( id )( _.writeBoolean( v ))
       }
 
-      def transform( f: Boolean => Boolean )( implicit tx: Txn ) { set( f( get ))}
+      def transform( f: Boolean => Boolean )( implicit tx: S#Tx ) { set( f( get ))}
 
       override def toString = "Var[Boolean](" + id + ")"
    }
 
    private final class IntVar( protected val id: Int )
    extends Var[ Int ] with BasicSource {
-      def get( implicit tx: Txn ) : Int = {
+      def get( implicit tx: S#Tx ) : Int = {
          tx.system.read[ Int ]( id )( _.readInt() )
       }
 
-      def setInit( v: Int )( implicit tx: Txn ) {
+      def setInit( v: Int )( implicit tx: S#Tx ) {
          tx.system.write( id )( _.writeInt( v ))
       }
 
-      def set( v: Int )( implicit tx: Txn ) {
+      def set( v: Int )( implicit tx: S#Tx ) {
          assertExists()
          tx.system.write( id )( _.writeInt( v ))
       }
 
-      def transform( f: Int => Int )( implicit tx: Txn ) { set( f( get ))}
+      def transform( f: Int => Int )( implicit tx: S#Tx ) { set( f( get ))}
 
       override def toString = "Var[Int](" + id + ")"
    }
 
    private final class CachedIntVar( protected val id: Int, peer: ScalaRef[ Int ])
    extends Var[ Int ] with BasicSource {
-      def get( implicit tx: Txn ) : Int = peer.get( tx.peer )
+      def get( implicit tx: S#Tx ) : Int = peer.get( tx.peer )
 
-      def setInit( v: Int )( implicit tx: Txn ) { set( v )}
+      def setInit( v: Int )( implicit tx: S#Tx ) { set( v )}
 
-      def set( v: Int )( implicit tx: Txn ) {
+      def set( v: Int )( implicit tx: S#Tx ) {
          peer.set( v )( tx.peer )
          tx.system.write( id )( _.writeInt( v ))
       }
 
-      def transform( f: Int => Int )( implicit tx: Txn ) { set( f( get ))}
+      def transform( f: Int => Int )( implicit tx: S#Tx ) { set( f( get ))}
 
       override def toString = "Var[Int](" + id + ")"
    }
 
    private final class LongVar( protected val id: Int )
    extends Var[ Long ] with BasicSource {
-      def get( implicit tx: Txn ) : Long = {
+      def get( implicit tx: S#Tx ) : Long = {
          tx.system.read[ Long ]( id )( _.readLong() )
       }
 
-      def setInit( v: Long )( implicit tx: Txn ) {
+      def setInit( v: Long )( implicit tx: S#Tx ) {
          tx.system.write( id )( _.writeLong( v ))
       }
 
-      def set( v: Long )( implicit tx: Txn ) {
+      def set( v: Long )( implicit tx: S#Tx ) {
          assertExists()
          tx.system.write( id )( _.writeLong( v ))
       }
 
-      def transform( f: Long => Long )( implicit tx: Txn ) { set( f( get ))}
+      def transform( f: Long => Long )( implicit tx: S#Tx ) { set( f( get ))}
 
       override def toString = "Var[Long](" + id + ")"
    }
 
-   sealed trait Var[ @specialized A ] extends _Var[ Txn, A ]
+   sealed trait Var[ @specialized A ] extends _Var[ S#Tx, A ]
 
-   sealed trait Txn extends _Txn[ S ]
+//   sealed trait Txn extends _Txn[ S ]
 
    private final class TxnImpl( val system: System, val peer: InTxn )
-   extends Txn {
+   extends Txn[ S ] {
       //      private var id = -1L
 
-      def newID(): ID = new IDImpl( system.newIDValue()( this ))
+      def newID(): S#ID = new IDImpl( system.newIDValue()( this ))
 
       def reactionMap: ReactionMap[ S ] = system.reactionMap
 
       override def toString = "Txn" // <" + id + ">"
 
-      def newVar[ A ]( id: ID, init: A )( implicit ser: TxnSerializer[ Txn, Unit, A ]): Var[ A ] = {
+      def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] = {
          val res = new VarImpl[ A ]( system.newIDValue()( this ), ser )
          res.setInit( init )( this )
          res
       }
 
-      def newBooleanVar( id: ID, init: Boolean ): Var[ Boolean ] = {
+      def newBooleanVar( id: S#ID, init: Boolean ): S#Var[ Boolean ] = {
          val res = new BooleanVar( system.newIDValue()( this ))
          res.setInit( init )( this )
          res
       }
 
-      def newIntVar( id: ID, init: Int ): Var[ Int ] = {
+      def newIntVar( id: S#ID, init: Int ): S#Var[ Int ] = {
          val res = new IntVar( system.newIDValue()( this ))
          res.setInit( init )( this )
          res
       }
 
-      def newLongVar( id: ID, init: Long ): Var[ Long ] = {
+      def newLongVar( id: S#ID, init: Long ): S#Var[ Long ] = {
          val res = new LongVar( system.newIDValue()( this ))
          res.setInit( init )( this )
          res
       }
 
-      def newVarArray[ A ]( size: Int ) : Array[ Var[ A ] ] = new Array[ Var[ A ]]( size )
+      def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ] ] = new Array[ Var[ A ]]( size )
 
       def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
          system.read( id.id )( serializer.read( _, () )( this ))( this )
@@ -358,27 +363,27 @@ object Durable {
          }
       }
 
-      def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Unit, A ]) : Var[ A ] = {
+      def readVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val id = in.readInt()
          new VarImpl[ A ]( id, ser )
       }
 
-      def readBooleanVar( pid: ID, in: DataInput ) : Var[ Boolean ] = {
+      def readBooleanVar( pid: S#ID, in: DataInput ) : S#Var[ Boolean ] = {
          val id = in.readInt()
          new BooleanVar( id )
       }
 
-      def readIntVar( pid: ID, in: DataInput ) : Var[ Int ] = {
+      def readIntVar( pid: S#ID, in: DataInput ) : S#Var[ Int ] = {
          val id = in.readInt()
          new IntVar( id )
       }
 
-      def readLongVar( pid: ID, in: DataInput ) : Var[ Long ] = {
+      def readLongVar( pid: S#ID, in: DataInput ) : S#Var[ Long ] = {
          val id = in.readInt()
          new LongVar( id )
       }
 
-      def readID( in: DataInput, acc: Unit ) : ID = new IDImpl( in.readInt() )
+      def readID( in: DataInput, acc: S#Acc ) : S#ID = new IDImpl( in.readInt() )
 
       def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
    }
@@ -386,15 +391,10 @@ object Durable {
 
 sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
    final type Var[ @specialized A ] = Durable.Var[ A ]
-   final type ID  = Durable.ID
-   final type Tx  = Durable.Txn
-   final type Acc = Unit
-   final type Entry[ A ] = Durable.Var[ A ]
-
-   /**
-    * Closes the underlying database. The STM cannot be used beyond this call.
-    */
-   def close() : Unit
+   final type ID                    = Durable.ID
+   final type Tx                    = Txn[ Durable ]
+   final type Acc                   = Unit
+   final type Entry[ A ]            = Durable.Var[ A ]
 
    /**
     * Reports the current number of records stored in the database.
@@ -410,13 +410,6 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
 
    def debugListUserRecords()( implicit tx: Tx ) : Seq[ ID ]
 
-   /**
-    * Reads the root object representing the stored datastructure,
-    * or provides a newly initialized one via the `init` argument,
-    * if no root has been stored yet.
-    */
-   def root[ A ]( init: => A )( implicit tx: Tx, ser: TxnSerializer[ Tx, Acc, A ]) : A
-
    private[stm] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Tx ): A
 
    private[stm] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: Tx ): Unit
@@ -427,5 +420,5 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
 
    private[stm] def newIDValue()( implicit tx: Tx ) : Int
 
-   def wrap( peer: InTxn ) : Tx
+   def wrap( peer: InTxn ) : Tx  // XXX TODO this might go in Cursor?
 }

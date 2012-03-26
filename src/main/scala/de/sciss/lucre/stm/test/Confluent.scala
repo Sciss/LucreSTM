@@ -83,6 +83,14 @@ object Confluent {
 
       def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
+      def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
+         step { implicit tx =>
+            tx.newVar[ A ]( tx.newID(), init( tx ))
+         }
+      }
+
+      def close() {}
+
       def inPath[ Z ]( path: Acc )( block: Tx => Z ) : Z = {
          TxnExecutor.defaultAtomic[ Z ] { itx =>
             val oldPath = pathVar

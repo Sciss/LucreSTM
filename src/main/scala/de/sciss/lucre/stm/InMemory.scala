@@ -138,6 +138,14 @@ object InMemory {
 
       def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
+      def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
+         step { implicit tx =>
+            tx.newVar[ A ]( tx.newID(), init( tx ))
+         }
+      }
+
+      def close() {}
+
       // ---- cursor ----
 
       def step[ A ]( fun: S#Tx => A ): A = {

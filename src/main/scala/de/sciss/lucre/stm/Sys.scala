@@ -44,4 +44,16 @@ trait Sys[ S <: Sys[ S ]] {
    def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ]
 
    def manifest: Manifest[ S ]
+
+   /**
+    * Reads the root object representing the stored data structure,
+    * or provides a newly initialized one via the `init` argument,
+    * if no root has been stored yet.
+    */
+   def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ]
+
+   /**
+    * Closes the underlying database (if the system is durable). The STM cannot be used beyond this call.
+    */
+   def close() : Unit
 }

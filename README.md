@@ -89,10 +89,8 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
     val dir  = new java.io.File( sys.props( "user.home" ), "person_db" )
     dir.mkdirs()
     val s    = S( impl.BerkeleyDB.open( dir ))
-    val root = s.step { implicit tx =>
-       // read the root data set, or create a new one if the database does not exist
-       s.root[ Person ]( newPerson() )
-    }
+    // read the root data set, or create a new one if the database does not exist
+    val root = s.root { implicit tx => newPerson() }
 
     def gather( p: Person, set: Set[ Person ])( implicit tx: S#Tx ) : Set[ Person ] = {
        if( !set.contains( p )) {
@@ -102,7 +100,7 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
     }
 
     // see who is in the database so far
-    val found = s.step { implicit tx => gather( root, Set.empty )}
+    val found = s.step { implicit tx => gather( root.get, Set.empty )}
     val infos = s.step { implicit tx => found.map { p =>
        "Remember " + p.name + "? He's " + (p.friends.get match {
           case Nil => "lonely"
@@ -115,7 +113,7 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
     s.step { implicit tx =>
        val p = newPerson()
        val friends0 = found.filter( _ => rnd.nextBoolean() )
-       val friends = if( friends0.isEmpty ) Seq( root ) else friends0
+       val friends = if( friends0.isEmpty ) Seq( root.get ) else friends0
        friends.foreach { f =>
           p.friends.transform( f :: _ )
           f.friends.transform( p :: _ )
