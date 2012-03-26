@@ -69,19 +69,31 @@ trait Txn[ S <: Sys[ S ]] {
    /**
     * A raw read. If the underlying system doesn't persist objects, an implementation may
     * throw an exception.
+    *
+    * XXX TODO this is used by Compound
     */
    def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A
    /**
     * A raw write. If the underlying system doesn't persist objects, the implementation
     * should provide a no-op stub, but must not throw an exception.
+    *
+    * XXX TODO this is used by Compound
     */
    def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit writer: TxnWriter[ A ]) : Unit
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
 
+   /**
+    * XXX TODO: this is called from Targets.readAndExpand
+    */
    def readVal[ A ]( id: S#ID )( implicit reader: TxnReader[ S#Tx, S#Acc, A ]) : A
+
+   /**
+    * XXX TODO: this is called from NodeSelector.writeValue which is turn is called from Targets
+    */
    def writeVal( id: S#ID, value: Writer ) : Unit
 
-   // suckaz
+   // XXX TODO: this merely used by ReactionTest2
+   // it should be replaced by a general mechanism to turn any S#Var into a read access
    def access[ A ]( source: S#Var[ A ]) : A
 }

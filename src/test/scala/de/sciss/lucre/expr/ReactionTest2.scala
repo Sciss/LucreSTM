@@ -70,6 +70,7 @@ Usages:
          val strings = Strings[ S ]
          val longs   = Longs[ S ]
          val spans   = Spans[ S ]( longs )
+         spans.init()
          val regions = new Regions[ S ]( strings, longs, spans )
          new System[ S ]( regions )
       }

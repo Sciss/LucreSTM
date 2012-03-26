@@ -103,13 +103,8 @@ final case class Span( start: Long, stop: Long ) {
 }
 
 object Spans {
-   def apply[ S <: Sys[ S ]]( longs: Longs[ S ])( implicit tx: S#Tx ) : Spans[ S ] = {
-      implicit val itx = tx.peer
-      val spans = new Spans[ S ]( longs )
-      // 'Span'
-      longs.addExtension( spans, spans.LongExtensions )
-      spans
-   }
+   def apply[ S <: Sys[ S ]]( longs: Longs[ S ]) /* ( implicit tx: S#Tx ) */ : Spans[ S ] =
+      new Spans[ S ]( longs )
 }
 
 final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, Span ] {
@@ -118,6 +113,12 @@ final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, S
    val id = 100
 
    private type LongEx = Expr[ S, Long ]
+
+   def init()( implicit tx: S#Tx ) {
+      implicit val itx = tx.peer
+      // 'Span'
+      longs.addExtension( this, LongExtensions )
+   }
 
    private object LongExtensions extends TupleReader[ S, Long ] {
       def readTuple( arity: Int, opID: Int, in: DataInput, access: S#Acc, targets: Targets[ S ])
