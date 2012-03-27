@@ -92,60 +92,10 @@ object ReactionMap {
       def removeEventReaction( key: ObserverKey[ S ])( implicit tx: S#Tx ) {
          eventMap.-=( key.id )( tx.peer )
       }
-
-//      def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], observerKeys: IIdxSeq[ Int ])
-//                         ( implicit tx: S#Tx ) : State.Reactor[ S ] = {
-//         val itx = tx.peer
-//         val observations = observerKeys.flatMap( stateMap.get( _ )( itx ))
-//         observations.headOption match {
-//            case Some( obs ) => obs.reader.read( in, access, targets ).asInstanceOf[ State.Reactor[ S ]] // ugly XXX
-//            case None => targets
-//         }
-//      }
-//
-//      def propagateState( slot: Int, state: State[ S, _ ], reactions: State.Reactions )
-//                  ( implicit tx: S#Tx ) : State.Reactions = {
-//         val itx = tx.peer
-//         stateMap.get( slot )( itx ) match {
-//            case Some( obs ) =>
-//               val react: Reaction = () => {
-//                  val eval = state.value.asInstanceOf[ AnyRef ]
-//                  () => obs.fun.asInstanceOf[ AnyObsFun[ S ]]( tx, eval )
-//               }
-//               reactions :+ react
-//
-//            case None => reactions
-//         }
-//      }
-//
-//      def addStateReaction[ A, Repr <: State[ S, A ]]( reader: State.Reader[ S, Repr ],
-//                                                       fun: (S#Tx, A) => Unit )
-//                                                     ( implicit tx: S#Tx ) : State.ReactorKey[ S ] = {
-//         val ttx = sysConv( tx )
-//         val slot = cnt.get( ttx )
-//         cnt.set( slot + 1 )( ttx )
-//         stateMap.+=( (slot, new StateObservation[ S, A, Repr ]( reader, fun )) )( tx.peer )
-//         new State.ReactorKey[ S ]( slot )
-//      }
-//
-//      def removeStateReaction( slot: State.ReactorKey[ S ])( implicit tx: S#Tx ) {
-//         stateMap.-=( slot.slot )( tx.peer )
-//      }
    }
 }
 
 trait ReactionMap[ S <: Sys[ S ]] {
-//   def addStateReaction[ A, Repr <: State[ S, A ]]( reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
-//                                                  ( implicit tx: S#Tx ) : State.ReactorKey[ S ]
-//
-//   def removeStateReaction( slot: State.ReactorKey[ S ])( implicit tx: S#Tx ) : Unit
-//
-//   def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], observerKeys: IIdxSeq[ Int ])
-//               ( implicit tx: S#Tx ) : State.Reactor[ S ]
-//
-//   def propagateState( slot: Int, state: State[ S, _ ], reactions: State.Reactions )
-//                     ( implicit tx: S#Tx ) : State.Reactions
-
    def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
                                                   ( implicit tx: S#Tx ) : ObserverKey[ S ]
 
@@ -153,9 +103,6 @@ trait ReactionMap[ S <: Sys[ S ]] {
 
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], observer: IIdxSeq[ ObserverKey[ S ]])
                       ( implicit tx: S#Tx ) : Reactor[ S ]
-
-//   def propagateEvent( observer: ObserverKey[ S ], visited: Event.Visited[ S ], leaf: Node[ S, _ ], reactions: Reactions )
-//                     ( implicit tx: S#Tx ) : Reactions
 
    def processEvent( leaf: ObserverKey[ S ], parent: NodeSelector[ S, _ ], push: Push[ S ])( implicit tx: S#Tx ) : Unit
 }

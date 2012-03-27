@@ -68,17 +68,19 @@ object Durable {
       system =>
 
       private val idCnt    = ScalaRef( idCnt0 )
-//      private val reactCnt = ScalaRef(reactCnt0)
+      private val reactCnt = ScalaRef( reactCnt0 )
 
-      def manifest: Manifest[ S ] = Manifest.classType(classOf[ Durable ])
+      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
 
-      private val idCntVar = new CachedIntVar( 0, idCnt )
-      //      private val reactCntVar = new CachedIntVar( 1, idCnt )
-      private val inMem = InMemory()
+      private val idCntVar    = new CachedIntVar( 0, idCnt )
+      private val reactCntVar = new CachedIntVar( 1, reactCnt )
+//      private val inMem       = InMemory()
 
-      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.step { implicit tx =>
-         tx.newIntVar( tx.newID(), reactCnt0 )
-      })( tx => inMem.wrap( tx.peer ))
+//      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.step { implicit tx =>
+//         tx.newIntVar( tx.newID(), reactCnt0 )
+//      })( tx => inMem.wrap( tx.peer ))
+
+      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
 
       def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
