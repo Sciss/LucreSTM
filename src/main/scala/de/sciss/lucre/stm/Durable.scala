@@ -40,47 +40,38 @@ object Durable {
       private[ Durable ] def id: Int
    }
 
-   def apply( store: PersistentStore ) : S = {
-      //         val idCnt   = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
-      //            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
-      //            in.readInt()
-      //         } else 1
-      //         kea( 3 )    = 1.toByte   // slot for react-last-slot
-      //         val reactCnt = if( db.get( txn, ke, ve, null ) == OperationStatus.SUCCESS ) {
-      //            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
-      //            in.readInt()
-      //         } else 0
-      //         txn.commit()
-      //         new System( env, db, txnCfg, ScalaRef( idCnt ), ScalaRef( reactCnt ))
-      //      } catch {
-      //         case e =>
-      //            txn.abort()
-      //            throw e
-      //      }
-      new System( store, 1, 0 )
-   }
+   def apply( store: PersistentStore ) : S = new System( store )
 
    def apply( factory: PersistentStoreFactory[ PersistentStore ], name: String = "data" ) : S =
       apply( factory.open( name ))
 
-   private final class System( store: PersistentStore, idCnt0: Int, reactCnt0: Int )
+   private final class System( store: PersistentStore ) // , idCnt0: Int, reactCnt0: Int
    extends Durable {
       system =>
 
-      private val idCnt    = ScalaRef( idCnt0 )
-      private val reactCnt = ScalaRef( reactCnt0 )
+      private val (idCntVar, reactCntVar) = step { implicit tx =>
+         val _id        = store.get( _.writeInt( 0 ))( _.readInt() ).getOrElse( 1 )
+         val _react     = store.get( _.writeInt( 1 ))( _.readInt() ).getOrElse( 0 )
+         val _idCnt     = ScalaRef( _id )
+         val _reactCnt  = ScalaRef( _react )
+         (new CachedIntVar( 0, _idCnt ),
+          new CachedIntVar( 1, _reactCnt ))
+      }
 
-      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
+      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
 
-      private val idCntVar    = new CachedIntVar( 0, idCnt )
-      private val reactCntVar = new CachedIntVar( 1, reactCnt )
+//      private val idCnt    = ScalaRef( idCnt0 )
+//      private val reactCnt = ScalaRef( reactCnt0 )
+
+//      private val idCntVar    = new CachedIntVar( 0, idCnt )
+//      private val reactCntVar = new CachedIntVar( 1, reactCnt )
 //      private val inMem       = InMemory()
 
 //      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.step { implicit tx =>
 //         tx.newIntVar( tx.newID(), reactCnt0 )
 //      })( tx => inMem.wrap( tx.peer ))
 
-      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
+      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
 
       def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
@@ -114,16 +105,9 @@ object Durable {
 
       def position_=( path: S#Acc )( implicit tx: S#Tx ) {}
 
-      //      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A =
-      //         TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx ), () ))
-
-      //      def atomicAccess[ A, B ]( source: S#Var[ A ])( fun: (S#Tx, A) => B ) : B = atomic { tx =>
-      //         fun( tx, source.get( tx ))
-      //      }
-
       def debugListUserRecords()( implicit tx: S#Tx ): Seq[ ID ] = {
          val b    = Seq.newBuilder[ ID ]
-         val cnt  = idCnt.get( tx.peer )
+         val cnt  = idCntVar.get
          var i    = 1;
          while( i <= cnt ) {
             if( exists( i )) b += new IDImpl( i )
@@ -143,7 +127,7 @@ object Durable {
       def numUserRecords( implicit tx: S#Tx ): Int = math.max( 0, numRecords - 1 )
 
       def newIDValue()( implicit tx: S#Tx ) : Int = {
-         val id = idCntVar.get( tx ) + 1
+         val id = idCntVar.get + 1
          logConfig( "new   <" + id + ">" )
          idCntVar.set( id )
          id
