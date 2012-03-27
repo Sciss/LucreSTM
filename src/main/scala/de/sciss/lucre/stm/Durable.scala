@@ -214,6 +214,31 @@ object Durable {
       override def toString = "Var(" + id + ")"
    }
 
+   private final class CachedVarImpl[ A ]( protected val id: Int, peer: ScalaRef[ A ],
+                                           ser: TxnSerializer[ S#Tx, S#Acc, A ])
+   extends Var[ A ] with BasicSource {
+      def get( implicit tx: S#Tx ) : A = peer.get( tx.peer )
+
+      def setInit( v: A )( implicit tx: S#Tx ) { set( v )}
+
+      def set( v: A )( implicit tx: S#Tx ) {
+         peer.set( v )( tx.peer )
+         tx.system.write( id )( ser.write( v, _ ))
+      }
+
+      def writeInit()( implicit tx: S#Tx ) {
+         tx.system.write( id )( ser.write( get, _ ))
+      }
+
+      def readInit()( implicit tx: S#Tx ) {
+         peer.set( tx.system.read( id )( ser.read( _, () )))( tx.peer )
+      }
+
+      def transform( f: A => A )( implicit tx: S#Tx ) { set( f( get ))}
+
+      override def toString = "Var(" + id + ")"
+   }
+
    private final class BooleanVar( protected val id: Int )
    extends Var[ Boolean ] with BasicSource {
       def get( implicit tx: S#Tx ): Boolean = {
@@ -325,9 +350,11 @@ object Durable {
    sealed trait Var[ @specialized A ] extends _Var[ S#Tx, A ]
 
    sealed trait Txn extends _Txn[ S ] {
+      def newCachedVar[ A ]( init: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
       def newCachedIntVar( init: Int ) : S#Var[ Int ]
-      def readCachedIntVar( in: DataInput ) : S#Var[ Int ]
       def newCachedLongVar( init: Long ) : S#Var[ Long ]
+      def readCachedVar[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+      def readCachedIntVar( in: DataInput ) : S#Var[ Int ]
       def readCachedLongVar( in: DataInput ) : S#Var[ Long ]
    }
 
@@ -344,6 +371,12 @@ object Durable {
       def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] = {
          val res = new VarImpl[ A ]( system.newIDValue()( this ), ser )
          res.setInit( init )( this )
+         res
+      }
+
+      def newCachedVar[ A ]( init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] = {
+         val res = new CachedVarImpl[ A ]( system.newIDValue()( this ), ScalaRef( init ), ser )
+         res.writeInit()( this )
          res
       }
 
@@ -401,6 +434,13 @@ object Durable {
       def readVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val id = in.readInt()
          new VarImpl[ A ]( id, ser )
+      }
+
+      def readCachedVar[ A ]( in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
+         val id = in.readInt()
+         val res = new CachedVarImpl[ A ]( id, ScalaRef.make[ A ](), ser )
+         res.readInit()( this )
+         res
       }
 
       def readBooleanVar( pid: S#ID, in: DataInput ) : S#Var[ Boolean ] = {
