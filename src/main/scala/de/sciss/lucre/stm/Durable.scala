@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package stm
 
-import stm.{Var => _Var}
+import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import annotation.elidable
 import elidable.CONFIG
@@ -265,6 +265,14 @@ object Durable {
          tx.system.write( id )( _.writeInt( v ))
       }
 
+      def writeInit()( implicit tx: S#Tx ) {
+         tx.system.write( id )( _.writeInt( get ))
+      }
+
+      def readInit()( implicit tx: S#Tx ) {
+         peer.set( tx.system.read( id )( _.readInt() ))( tx.peer )
+      }
+
       def transform( f: Int => Int )( implicit tx: S#Tx ) { set( f( get ))}
 
       override def toString = "Var[Int](" + id + ")"
@@ -290,12 +298,41 @@ object Durable {
       override def toString = "Var[Long](" + id + ")"
    }
 
+   private final class CachedLongVar( protected val id: Int, peer: ScalaRef[ Long ])
+   extends Var[ Long ] with BasicSource {
+      def get( implicit tx: S#Tx ) : Long = peer.get( tx.peer )
+
+      def setInit( v: Long )( implicit tx: S#Tx ) { set( v )}
+
+      def set( v: Long )( implicit tx: S#Tx ) {
+         peer.set( v )( tx.peer )
+         tx.system.write( id )( _.writeLong( v ))
+      }
+
+      def writeInit()( implicit tx: S#Tx ) {
+         tx.system.write( id )( _.writeLong( get ))
+      }
+
+      def readInit()( implicit tx: S#Tx ) {
+         peer.set( tx.system.read( id )( _.readLong() ))( tx.peer )
+      }
+
+      def transform( f: Long => Long )( implicit tx: S#Tx ) { set( f( get ))}
+
+      override def toString = "Var[Long](" + id + ")"
+   }
+
    sealed trait Var[ @specialized A ] extends _Var[ S#Tx, A ]
 
-//   sealed trait Txn extends _Txn[ S ]
+   sealed trait Txn extends _Txn[ S ] {
+      def newCachedIntVar( init: Int ) : S#Var[ Int ]
+      def readCachedIntVar( in: DataInput ) : S#Var[ Int ]
+      def newCachedLongVar( init: Long ) : S#Var[ Long ]
+      def readCachedLongVar( in: DataInput ) : S#Var[ Long ]
+   }
 
    private final class TxnImpl( val system: System, val peer: InTxn )
-   extends Txn[ S ] {
+   extends Txn {
       //      private var id = -1L
 
       def newID(): S#ID = new IDImpl( system.newIDValue()( this ))
@@ -322,9 +359,21 @@ object Durable {
          res
       }
 
+      def newCachedIntVar( init: Int ): S#Var[ Int ] = {
+         val res = new CachedIntVar( system.newIDValue()( this ), ScalaRef( init ))
+         res.writeInit()( this )
+         res
+      }
+
       def newLongVar( id: S#ID, init: Long ): S#Var[ Long ] = {
          val res = new LongVar( system.newIDValue()( this ))
          res.setInit( init )( this )
+         res
+      }
+
+      def newCachedLongVar( init: Long ): S#Var[ Long ] = {
+         val res = new CachedLongVar( system.newIDValue()( this ), ScalaRef( init ))
+         res.writeInit()( this )
          res
       }
 
@@ -364,9 +413,23 @@ object Durable {
          new IntVar( id )
       }
 
+      def readCachedIntVar( in: DataInput ) : S#Var[ Int ] = {
+         val id = in.readInt()
+         val res = new CachedIntVar( id, ScalaRef( 0 ))
+         res.readInit()( this )
+         res
+      }
+
       def readLongVar( pid: S#ID, in: DataInput ) : S#Var[ Long ] = {
          val id = in.readInt()
          new LongVar( id )
+      }
+
+      def readCachedLongVar( in: DataInput ) : S#Var[ Long ] = {
+         val id = in.readInt()
+         val res = new CachedLongVar( id, ScalaRef( 0L ))
+         res.readInit()( this )
+         res
       }
 
       def readID( in: DataInput, acc: S#Acc ) : S#ID = new IDImpl( in.readInt() )
@@ -378,7 +441,7 @@ object Durable {
 sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
    final type Var[ @specialized A ] = Durable.Var[ A ]
    final type ID                    = Durable.ID
-   final type Tx                    = Txn[ Durable ]
+   final type Tx                    = Durable.Txn // Txn[ Durable ]
    final type Acc                   = Unit
    final type Entry[ A ]            = Durable.Var[ A ]
 
