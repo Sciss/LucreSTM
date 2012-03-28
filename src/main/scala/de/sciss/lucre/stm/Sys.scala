@@ -44,6 +44,7 @@ trait Sys[ S <: Sys[ S ]] {
    def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ]
 
    def manifest: Manifest[ S ]
+   def idOrdering: Ordering[ S#ID ]
 
    /**
     * Reads the root object representing the stored data structure,

@@ -68,6 +68,26 @@ object Confluent {
 
    def apply() : S = new System
 
+   private object IDOrdering extends Ordering[ S#ID ] {
+      def compare( a: S#ID, b: S#ID ) : Int = {
+         val aid = a.id
+         val bid = b.id
+         if( aid < bid ) -1 else if( aid > bid ) 1 else {
+            val ap      = a.path
+            val bp      = b.path
+            val apsz    = ap.size
+            val bpsz    = bp.size
+            val minsz = math.min( apsz, bpsz )
+            var i = 0; while ( i < minsz ) {
+               val av = ap( i )
+               val bv = bp( i )
+               if( av < bv ) return -1 else if( av > bv ) return 1
+            i += 1 }
+            if( apsz < bpsz ) -1 else if( apsz > bpsz ) 1 else 0
+         }
+      }
+   }
+
    private final class System extends Confluent {
       private var cnt = 0
       private var pathVar = IIdxSeq.empty[ Int ]
@@ -79,7 +99,8 @@ object Confluent {
          tx.newIntVar( tx.newID(), 0 )
       })( ctx => inMem.wrap( ctx.peer ))
 
-//      def path( implicit tx: Tx ) = pathVar
+      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Confluent ])
+      def idOrdering : Ordering[ S#ID ] = IDOrdering
 
       def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
@@ -172,8 +193,6 @@ object Confluent {
          val newID   = IDImpl.readAndUpdate( mid, position, in )
          reader.readData( in, newID )
       }
-
-      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Confluent ])
    }
 
    private[Confluent] def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )

@@ -45,6 +45,14 @@ object Durable {
    def apply( factory: PersistentStoreFactory[ PersistentStore ], name: String = "data" ) : S =
       apply( factory.open( name ))
 
+   private object IDOrdering extends Ordering[ S#ID ] {
+      def compare( a: S#ID, b: S#ID ) : Int = {
+         val aid = a.id
+         val bid = b.id
+         if( aid < bid ) -1 else if( aid > bid ) 1 else 0
+      }
+   }
+
    private final class System( store: PersistentStore ) // , idCnt0: Int, reactCnt0: Int
    extends Durable {
       system =>
@@ -60,18 +68,8 @@ object Durable {
 
       val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
 
-//      private val idCnt    = ScalaRef( idCnt0 )
-//      private val reactCnt = ScalaRef( reactCnt0 )
-
-//      private val idCntVar    = new CachedIntVar( 0, idCnt )
-//      private val reactCntVar = new CachedIntVar( 1, reactCnt )
-//      private val inMem       = InMemory()
-
-//      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.step { implicit tx =>
-//         tx.newIntVar( tx.newID(), reactCnt0 )
-//      })( tx => inMem.wrap( tx.peer ))
-
       def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
+      def idOrdering : Ordering[ S#ID ] = IDOrdering
 
       def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
