@@ -87,10 +87,10 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
       // we need to mix Renamed and Moved which are case classes,
       // hence to ensure sweet OR operation, we gotta say that
       // Changed extends Product and Serializable
-      sealed trait Changed extends Update with Product with Serializable { def r: EventRegion }
+      sealed trait Update extends Product with Serializable { def r: EventRegion }
 //         final case class Changed( r: EventRegion ) extends ChangedLike
-      final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Changed
-      final case class Moved(   r: EventRegion, change: event.Change[ Span ]) extends Changed
+      final case class Renamed( r: EventRegion, change: event.Change[ String ]) extends Update
+      final case class Moved(   r: EventRegion, change: event.Change[ Span ]) extends Update
 
       declare[ Renamed ]( _.renamed )
       declare[ Moved   ]( _.moved   )
@@ -140,7 +140,7 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
 
       def renamed: Event[ S, Renamed, EventRegion ]
       def moved:   Event[ S, Moved,   EventRegion ]
-      def changed: Event[ S, Changed, EventRegion ]
+      def changed: Event[ S, Update,  EventRegion ]
 //         final def renamed = name_#.changed.map( Renamed( this, _ ))
 //         final def moved   = span_#.changed.map( Moved(   this, _ ))
 
@@ -148,11 +148,11 @@ class Regions[ S <: Sys[ S ]]( val strings: Strings[ S ], val longs: Longs[ S ],
    }
 
    object RegionList extends Decl[ S, RegionList ] {
-//         sealed trait Change
+      sealed trait Update
       sealed trait Collection extends Update { def l: RegionList; def idx: Int; def region: EventRegion }
       final case class Added(   l: RegionList, idx: Int, region: EventRegion ) extends Collection
       final case class Removed( l: RegionList, idx: Int, region: EventRegion ) extends Collection
-      final case class Element( l: RegionList, changes: IIdxSeq[ EventRegion.Changed ]) extends Update
+      final case class Element( l: RegionList, changes: IIdxSeq[ EventRegion.Update ]) extends Update
 
       declare[ Collection ]( _.collectionChanged )
 //         declare[ Update ]( _.changed )

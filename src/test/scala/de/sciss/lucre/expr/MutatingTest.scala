@@ -94,10 +94,12 @@ class MutatingTest[ S <: Sys[ S ]]( val regions: Regions[ S ]) {
    import regions._
 
    object Sorted extends Decl[ S, Sorted ] {
+      sealed trait Update
+//      type Update = Update
       sealed trait Collection extends Update { def l: Sorted; def region: EventRegion }
       final case class Added(   l: Sorted, region: EventRegion ) extends Collection
       final case class Removed( l: Sorted, region: EventRegion ) extends Collection
-      final case class Element( l: Sorted, changes: IIdxSeq[ EventRegion.Changed ]) extends Update
+      final case class Element( l: Sorted, changes: IIdxSeq[ EventRegion.Update ]) extends Update
 
       declare[ Collection ]( _.collectionChanged )
       declare[ Element    ]( _.elementChanged    )
