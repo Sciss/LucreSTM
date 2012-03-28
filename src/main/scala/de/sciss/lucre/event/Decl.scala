@@ -47,45 +47,21 @@ trait Decl[ S <: Sys[ S ], Impl ] {
    private var keyMap   = Map.empty[ Class[ _ ], Int ]
    private var idMap    = Map.empty[ Int, Declaration[ _ <: Update ]]
 
-//   def id[ U <: Update ]( clz: Class[ U ]): Int = keyMap( clz )
-   private[event] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
-//   private[event] def route[ S <: Sys[ S ]]( impl: EventImpl[ S ], id: Int ) : Event[ S, Update, _ ] = idMap( id ).apply( impl )
+   final private[event] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
 
-//   private[event] def pull( impl: EventImpl, id: Int, source: Event[ S, _, _ ],
-//                            update: Any )( implicit tx: S#Tx ) : Option[ Update ]=
-//      idMap( id ).apply( impl ).pull( source, update )
+   final private[event] def getEvent( impl: Impl, id: Int ) : Event[ S, _ <: Update, _ ] = idMap( id ).apply( impl )
 
-   private[event] def getEvent( impl: Impl, id: Int ) : Event[ S, _ <: Update, _ ] = idMap( id ).apply( impl )
-
-//   private[event] def connectSources( impl: EventImpl )( implicit tx: S#Tx ) {
-//      sys.error( "TODO" )
-//   }
-
-//   private[event] def events( impl: EventImpl ) : IIdxSeq[ (Int, Event[ S, _ <: Update, _ ])] = {
-//      type Elem = (Int, Event[ S, _ <: Update, _ ])
-//      idMap.map[ Elem, IIdxSeq[ Elem ]]( tup => {
-//         val id   = tup._1
-//         val dec  = tup._2
-//         (id, dec( impl ))
-//      })( breakOut )
-//   }
-
-   private[event] def events( impl: Impl ) : IIdxSeq[ Event[ S, _ <: Update, _ ]] = {
+   final private[event] def events( impl: Impl ) : IIdxSeq[ Event[ S, _ <: Update, _ ]] = {
       type Elem = Event[ S, _ <: Update, _ ]
       idMap.map[ Elem, IIdxSeq[ Elem ]]( tup => {
-//         val id   = tup._1
          val dec  = tup._2
          dec( impl )
       })( breakOut )
    }
 
-//   private sealed trait Key[ U ] {
-//      def id: Int
-//      def apply[ S <: Sys[ S ]]( disp: EventImpl[ S ]) : Event[ S, U, _ ]
-//   }
-
-   protected def declare[ U <: Update ]( fun: Impl => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) : Unit =
+   final protected def declare[ U <: Update ]( fun: Impl => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) {
       new Declaration[ U ]( fun )
+   }
 
    private final class Declaration[ U <: Update ]( fun: Impl => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) {
       val id = 1 << cnt
@@ -96,7 +72,6 @@ trait Decl[ S <: Sys[ S ], Impl ] {
       def apply[ S <: Sys[ S ]]( impl: Impl ) : Event[ S, U, _ ] = fun( impl ).asInstanceOf[ Event[ S, U, _ ]]
    }
 
-//   /* sealed */ trait Update
    type Update
 
    def serializer: Reader[ S, Impl ]
