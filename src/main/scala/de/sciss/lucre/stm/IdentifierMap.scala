@@ -35,14 +35,15 @@ package de.sciss.lucre.stm
  * system, it looks up the most recent entry for the key. It is therefore a useful
  * tool to map system entities to ephemeral live views.
  *
- * @tparam S   the underlying system from which the identifiers are taken as keys,
- *             and whose transactions are used for the operations.
+ * @tparam Txn the underlying system's transaction type
+ * @tparam ID  the underlying system's identifier type
  * @tparam A   the values stored at the keys. `Unit` can be used if only set
  *             functionality is needed.
  */
-trait IdentifierMap[ S <: Sys[ S ], A ] {
-   def put( id: S#ID, value: A )( implicit tx: S#Tx ) : Unit
-   def get( id: S#ID )( implicit tx: S#Tx ) : Option[ A ]
-   def getOrElse( id: S#ID, default: => A )( implicit tx: S#Tx ) : A
-   def contains( id: S#ID )
+trait IdentifierMap[ -Txn, -ID, A ] /* extends Disposable[ Txn ] */ {
+   def put( id: ID, value: A )( implicit tx: Txn ) : Unit
+   def get( id: ID )( implicit tx: Txn ) : Option[ A ]
+   def getOrElse( id: ID, default: => A )( implicit tx: Txn ) : A
+   def contains( id: ID )( implicit tx: Txn ) : Boolean
+   def remove( id: ID )( implicit tx: Txn ) : Unit
 }

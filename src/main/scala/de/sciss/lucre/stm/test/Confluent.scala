@@ -233,45 +233,38 @@ object Confluent {
       def dispose()( implicit tx: Txn ) {}
    }
 
+   private final class IDMapImpl[ A ]( id: Int )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
+   extends IdentifierMap[ S#Tx, S#ID, A ] {
+      def get( id: S#ID )( implicit tx: S#Tx ) : Option[ A ] = {
+         sys.error( "TODO" )
+      }
+      def getOrElse( id: S#ID, default: => A )( implicit tx: S#Tx ) : A = {
+         sys.error( "TODO" )
+      }
+      def put( id: S#ID, value: A )( implicit tx: S#Tx ) {
+         sys.error( "TODO" )
+      }
+      def contains( id: S#ID )( implicit tx: S#Tx ) : Boolean = {
+         sys.error( "TODO" )
+      }
+      def remove( id: S#ID )( implicit tx: S#Tx ) {
+         sys.error( "TODO" )
+      }
+
+      override def toString = "IdentifierMap<" + id + ">"
+   }
+
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = system.newID()( this )
 
       override def toString = "Confluent#Tx" // + system.path.mkString( "<", ",", ">" )
 
-//      def addStateReaction[ A, Repr <: State[ S, A ]](
-//         reader: State.Reader[ S, Repr ], fun: (Txn, A) => Unit ) : State.ReactorKey[ S ] =
-//            system.reactionMap.addStateReaction( reader, fun )( this )
-//
-//      def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ],
-//                                               keys: IIdxSeq[ Int ]) : State.Reactor[ S ] =
-//         system.reactionMap.mapStateTargets( in, access, targets, keys )( this )
-//
-//      def propagateState( slot: Int, state: State[ S, _ ],
-//                                            reactions: State.Reactions ) : State.Reactions =
-//         system.reactionMap.propagateState( slot, state, reactions )( this )
-//
-//      def removeStateReaction( slot: State.ReactorKey[ S ]) { system.reactionMap.removeStateReaction( slot )( this )}
-
       def reactionMap : ReactionMap[ S ] = system.reactionMap
 
-//      def addEventReaction[ A, Repr /* <: Event[ S, A ] */]( reader: event.Reader[ S, Repr, _ ],
-//                                                       fun: S#Tx => A => Unit ) : ObserverKey[ S ] =
-//         system.reactionMap.addEventReaction( reader, fun )( this )
-//
-//      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-//                           observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ] =
-//         system.reactionMap.mapEventTargets( in, access, targets, observers )( this )
-//
-//      def processEvent( observer: ObserverKey[ S ], update: Any, parent: NodeSelector[ S ], visited: Visited[ S ], reactions: Reactions ) {
-//         system.reactionMap.processEvent( observer, update, parent, visited, reactions )( this )
-//      }
-//
-//      def removeEventReaction( slot: ObserverKey[ S ]) { system.reactionMap.removeEventReaction( slot )( this )}
-
-      def alloc( pid: ID )( implicit tx: Txn ) : ID = new IDImpl( system.newIDCnt(), pid.path )
+      def alloc( pid: ID ) : ID = new IDImpl( system.newIDCnt()( this ), pid.path )
 
       def newVar[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] = {
-         val id   = alloc( pid )( this )
+         val id   = alloc( pid )
          val res  = new VarImpl[ A ]( id, system, ser )
          res.store( init )
          res
@@ -282,6 +275,9 @@ object Confluent {
       def newLongVar(    pid: ID, init: Long ) :    Var[ Long ]    = newVar[ Long ](    pid, init )
 
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
+
+      def newIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
+         new IDMapImpl[ A ]( system.newIDCnt()( this ))
 
       private def readSource( in: DataInput, pid: ID ) : ID = {
          val id = in.readInt()
@@ -326,22 +322,6 @@ object Confluent {
       def readID( in: DataInput, acc: Acc ) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
 
       def access[ A ]( source: S#Var[ A ]) : A = source.access( system.position( this ))( this )
-
-//      def readMut[ A <: Mutable[ S ]]( pid: ID, in: DataInput )
-//                                             ( implicit reader: MutableReader[ ID, Txn, A ]) : A = {
-//         val mid  = in.readInt()
-//         val id   = IDImpl.readAndReplace( mid, pid.path, in )
-//         reader.readData( in, id )( this )
-//      }
-//
-//      def readOptionMut[ A <: MutableOption[ S ]]( pid: ID, in: DataInput )
-//                                                         ( implicit reader: MutableOptionReader[ ID, Txn, A ]) : A = {
-//         val mid  = in.readInt()
-//         if( mid == -1 ) reader.empty else {
-//            val id   = IDImpl.readAndReplace( mid, pid.path, in )
-//            reader.readData( in, id )( this )
-//         }
-//      }
    }
 
    private sealed trait SourceImpl[ @specialized A ] {
@@ -398,6 +378,13 @@ object Confluent {
    }
 }
 
+/**
+ * A simple confluent system implementation for testing purposes only. It is not really
+ * transactional (atomic), nor any thread safe, nor does it have particular performance
+ * guarantees. Use it exclusively for trying out if things work under confluent semantics,
+ * but don't expect wonders. For a production quality system, see the separate
+ * TemporalObjects project instead.
+ */
 sealed trait Confluent extends Sys[ Confluent ] with Cursor[ Confluent ] {
    import Confluent._
 

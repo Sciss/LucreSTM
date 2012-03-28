@@ -53,107 +53,6 @@ object Durable {
       }
    }
 
-   private final class System( store: PersistentStore ) // , idCnt0: Int, reactCnt0: Int
-   extends Durable {
-      system =>
-
-      private val (idCntVar, reactCntVar) = step { implicit tx =>
-         val _id        = store.get( _.writeInt( 0 ))( _.readInt() ).getOrElse( 1 )
-         val _react     = store.get( _.writeInt( 1 ))( _.readInt() ).getOrElse( 0 )
-         val _idCnt     = ScalaRef( _id )
-         val _reactCnt  = ScalaRef( _react )
-         (new CachedIntVar( 0, _idCnt ),
-          new CachedIntVar( 1, _reactCnt ))
-      }
-
-      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
-
-      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
-      def idOrdering : Ordering[ S#ID ] = IDOrdering
-
-      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
-
-      def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
-         val rootID = 2 // 1 == reaction map!!!
-         step { implicit tx =>
-            if( exists( rootID )) {
-//               read( rootID )( ser.read( _, () ))
-               new VarImpl[ A ]( rootID, serializer )
-
-            } else {
-               val id = newIDValue()
-               require( id == rootID, "Root can only be initialized on an empty database (expected id count is " + rootID + " but found " + id + ")")
-               val res = new VarImpl[ A ]( id, serializer )
-               res.setInit( init( tx ))
-//               write( id )( ser.write( res, _ ))
-               res
-            }
-         }
-      }
-
-      def exists( id: Int )( implicit tx: S#Tx ) : Boolean = store.contains( _.writeInt( id ))
-
-      // ---- cursor ----
-
-      def step[ A ]( fun: S#Tx => A ): A = {
-         TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx )))
-      }
-
-      def position( implicit tx: S#Tx ) : S#Acc = ()
-
-      def position_=( path: S#Acc )( implicit tx: S#Tx ) {}
-
-      def debugListUserRecords()( implicit tx: S#Tx ): Seq[ ID ] = {
-         val b    = Seq.newBuilder[ ID ]
-         val cnt  = idCntVar.get
-         var i    = 1;
-         while( i <= cnt ) {
-            if( exists( i )) b += new IDImpl( i )
-            i += 1
-         }
-         b.result()
-      }
-
-      def close() {
-         store.close()
-      }
-
-      def wrap( peer: InTxn ) : S#Tx = new TxnImpl( this, peer )
-
-      def numRecords( implicit tx: S#Tx ): Int = store.numEntries
-
-      def numUserRecords( implicit tx: S#Tx ): Int = math.max( 0, numRecords - 1 )
-
-      def newIDValue()( implicit tx: S#Tx ) : Int = {
-         val id = idCntVar.get + 1
-         logConfig( "new   <" + id + ">" )
-         idCntVar.set( id )
-         id
-      }
-
-      def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
-         logConfig( "write <" + id + ">" )
-         store.put( _.writeInt( id ))( valueFun )
-      }
-
-      def remove( id: Int )( implicit tx: S#Tx ) {
-         logConfig( "remov <" + id + ">" )
-         store.remove( _.writeInt( id ))
-      }
-
-      def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: S#Tx ) : A = {
-         logConfig( "read  <" + id + ">" )
-         store.get( _.writeInt( id ))( valueFun ).getOrElse( sys.error( "Key not found " + id ))
-      }
-
-//      def tryRead[ A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Txn ) : Option[ A ] = {
-//         withIO { io =>
-//            val in = io.read( id )
-//            if( in != null ) Some( valueFun( in )) else None
-//         }
-//      }
-   }
-
    private final class IDImpl( val id: Int ) extends ID {
       def write( out: DataOutput ) {
          out.writeInt( id )
@@ -172,6 +71,29 @@ object Durable {
       override def toString = "<" + id + ">"
    }
 
+   private final class IDMapImpl[ A ]( mapID: Int )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
+   extends IdentifierMap[ S#Tx, S#ID, A ] {
+      private val idn = mapID.toLong << 32
+
+      def get( id: S#ID )( implicit tx: S#Tx ) : Option[ A ] = {
+         tx.system.tryRead( idn | (id.id.toLong & 0xFFFFFFFFL) )( serializer.read( _, () ))
+      }
+
+      def getOrElse( id: S#ID, default: => A )( implicit tx: S#Tx ) : A = get( id ).getOrElse( default )
+
+      def put( id: S#ID, value: A )( implicit tx: S#Tx ) {
+         tx.system.write( idn | (id.id.toLong & 0xFFFFFFFFL) )( serializer.write( value, _ ))
+      }
+      def contains( id: S#ID )( implicit tx: S#Tx ) : Boolean = {
+         tx.system.exists( idn | (id.id.toLong & 0xFFFFFFFFL) )
+      }
+      def remove( id: S#ID )( implicit tx: S#Tx ) {
+         tx.system.remove( idn | (id.id.toLong & 0xFFFFFFFFL) )
+      }
+
+      override def toString = "IdentifierMap<" + mapID + ">"
+   }
+
    private sealed trait BasicSource {
       protected def id: Int
 
@@ -188,9 +110,6 @@ object Durable {
          require( tx.system.exists( id ), "trying to write disposed ref " + id )
       }
    }
-
-   //   private type Obs[ A ]    = Observer[ Txn, Change[ A ]]
-   //   private type ObsVar[ A ] = Var[ A ] with State[ S, Change[ A ]]
 
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
       protected def ser: TxnSerializer[ S#Tx, S#Acc, A ]
@@ -410,6 +329,9 @@ object Durable {
 
       def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ] ] = new Array[ Var[ A ]]( size )
 
+      def newIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
+         new IDMapImpl[ A ]( system.newIDValue()( this ))
+
       def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
          system.read( id.id )( serializer.read( _, () )( this ))( this )
       }
@@ -474,6 +396,117 @@ object Durable {
 
       def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
    }
+
+   private final class System( /* private[stm] val */ store: PersistentStore ) // , idCnt0: Int, reactCnt0: Int
+   extends Durable {
+      system =>
+
+      private val (idCntVar, reactCntVar) = step { implicit tx =>
+         val _id        = store.get( _.writeInt( 0 ))( _.readInt() ).getOrElse( 1 )
+         val _react     = store.get( _.writeInt( 1 ))( _.readInt() ).getOrElse( 0 )
+         val _idCnt     = ScalaRef( _id )
+         val _reactCnt  = ScalaRef( _react )
+         (new CachedIntVar( 0, _idCnt ),
+          new CachedIntVar( 1, _reactCnt ))
+      }
+
+      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
+
+      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
+      def idOrdering : Ordering[ S#ID ] = IDOrdering
+
+      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
+
+      def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
+         val rootID = 2 // 1 == reaction map!!!
+         step { implicit tx =>
+            if( exists( rootID )) {
+//               read( rootID )( ser.read( _, () ))
+               new VarImpl[ A ]( rootID, serializer )
+
+            } else {
+               val id = newIDValue()
+               require( id == rootID, "Root can only be initialized on an empty database (expected id count is " + rootID + " but found " + id + ")")
+               val res = new VarImpl[ A ]( id, serializer )
+               res.setInit( init( tx ))
+//               write( id )( ser.write( res, _ ))
+               res
+            }
+         }
+      }
+
+      // ---- cursor ----
+
+      def step[ A ]( fun: S#Tx => A ): A = {
+         TxnExecutor.defaultAtomic( itx => fun( new TxnImpl( this, itx )))
+      }
+
+      def position( implicit tx: S#Tx ) : S#Acc = ()
+
+      def position_=( path: S#Acc )( implicit tx: S#Tx ) {}
+
+      def debugListUserRecords()( implicit tx: S#Tx ): Seq[ ID ] = {
+         val b    = Seq.newBuilder[ ID ]
+         val cnt  = idCntVar.get
+         var i    = 1;
+         while( i <= cnt ) {
+            if( exists( i )) b += new IDImpl( i )
+            i += 1
+         }
+         b.result()
+      }
+
+      def close() {
+         store.close()
+      }
+
+      def wrap( peer: InTxn ) : S#Tx = new TxnImpl( this, peer )
+
+      def numRecords( implicit tx: S#Tx ): Int = store.numEntries
+
+      def numUserRecords( implicit tx: S#Tx ): Int = math.max( 0, numRecords - 1 )
+
+      def newIDValue()( implicit tx: S#Tx ) : Int = {
+         val id = idCntVar.get + 1
+         logConfig( "new   <" + id + ">" )
+         idCntVar.set( id )
+         id
+      }
+
+      def write( id: Long )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
+         logConfig( "writeL <" + id + ">" )
+         store.put( _.writeLong( id ))( valueFun )
+      }
+
+      def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
+         logConfig( "write <" + id + ">" )
+         store.put( _.writeInt( id ))( valueFun )
+      }
+
+      def remove( id: Long )( implicit tx: S#Tx ) {
+         logConfig( "removL <" + id + ">" )
+         store.remove( _.writeLong( id ))
+      }
+
+      def remove( id: Int )( implicit tx: S#Tx ) {
+         logConfig( "remov <" + id + ">" )
+         store.remove( _.writeInt( id ))
+      }
+
+      def tryRead[ A ]( id: Long )( valueFun: DataInput => A )( implicit tx: S#Tx ) : Option[ A ]= {
+         logConfig( "readL  <" + id + ">" )
+         store.get( _.writeLong( id ))( valueFun )
+      }
+
+      def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: S#Tx ) : A = {
+         logConfig( "read  <" + id + ">" )
+         store.get( _.writeInt( id ))( valueFun ).getOrElse( sys.error( "Key not found " + id ))
+      }
+
+      def exists( id: Int )( implicit tx: S#Tx ) : Boolean = store.contains( _.writeInt( id ))
+
+      def exists( id: Long )( implicit tx: S#Tx ) : Boolean = store.contains( _.writeLong( id ))
+   }
 }
 
 sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
@@ -497,13 +530,23 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
 
    def debugListUserRecords()( implicit tx: Tx ) : Seq[ ID ]
 
+//   private[stm] def store : PersistentStore
+
    private[stm] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Tx ): A
+
+   private[stm] def tryRead[ A ]( id: Long )( valueFun: DataInput => A )( implicit tx: Tx ): Option[ A ]
 
    private[stm] def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: Tx ): Unit
 
+   private[stm] def write( id: Long )( valueFun: DataOutput => Unit )( implicit tx: Tx ): Unit
+
    private[stm] def remove( id: Int )( implicit tx: Tx ) : Unit
 
+   private[stm] def remove( id: Long )( implicit tx: Tx ) : Unit
+
    private[stm] def exists( id: Int )( implicit tx: Tx ) : Boolean
+
+   private[stm] def exists( id: Long )( implicit tx: Tx ) : Boolean
 
    private[stm] def newIDValue()( implicit tx: Tx ) : Int
 
