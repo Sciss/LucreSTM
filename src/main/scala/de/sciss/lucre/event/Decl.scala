@@ -69,7 +69,7 @@ trait Decl[ S <: Sys[ S ], Impl ] {
       keyMap += ((mf.erasure, cnt))
       idMap += ((id, this))
 
-      def apply[ S <: Sys[ S ]]( impl: Impl ) : Event[ S, U, _ ] = fun( impl ).asInstanceOf[ Event[ S, U, _ ]]
+      def apply( impl: Impl ) : Event[ S, U, _ ] = fun( impl ).asInstanceOf[ Event[ S, U, _ ]]
    }
 
    type Update

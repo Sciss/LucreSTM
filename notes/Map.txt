@@ -9,5 +9,16 @@ Durable
   // we need to be very careful then with Confluent not to use the same key space?
 
 Confluent
-  two possibilities : map itself is ephemeral
-                      map itself is confluent
+  two possibilities : (1) map itself is ephemeral
+                             set/map: allocID
+                             then getTxn/putTxn like with <set/map-id> ++ <key-id> --> value
+                      (2) map itself is confluent
+
+  the easier implementation is (1), and that's the one we need for the live views.
+  
+
+to keep the 'namespace' open for other maps, we could just have:
+
+newIDMap ...
+readIDMap ...
+

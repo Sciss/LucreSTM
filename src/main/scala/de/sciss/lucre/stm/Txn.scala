@@ -30,29 +30,24 @@ import concurrent.stm.InTxn
 import event.ReactionMap
 
 trait Txn[ S <: Sys[ S ]] {
+   /**
+    * Back link to the underlying system
+    */
    def system: S
+
+   /**
+    * Every transaction has a plain Scala-STM transaction as a peer. This comes handy for
+    * seting up custom things like `TxnLocal`, `TMap`, or calling into the hooks of `concurrent.stm.Txn`.
+    * It is also needed when re-wrapping the transaction of one system into another.
+    */
    def peer: InTxn
 
    def newID() : S#ID
-   // note that `Repr` is only required to be subtype of `State`, but `State.addReactor` will make sure
-   // that only really `StateNode` is storing observers as children. This makes it possible to
-   // create a `StateObserver` for any `State` without needing to check whether the state is actually
-   // a reactor source or not. This is a bit ugly, but should be working fine.
-//   def addStateReaction[ A, Repr <: State[ S, A ]]( reader: State.Reader[ S, Repr ],
-//                                                    fun: (S#Tx, A) => Unit ) : State.ReactorKey[ S ]
-//   def mapStateTargets( in: DataInput, access: S#Acc, targets: State.Targets[ S ], keys: IIdxSeq[ Int ]) : State.Reactor[ S ]
-//   def propagateState( slot: Int, state: State[ S, _ ], reactions: State.Reactions ) : State.Reactions
-//   def removeStateReaction( slot: State.ReactorKey[ S ]) : Unit
 
+   /**
+    * The event system hook. Eventually this should be separated into a `Txn` sub type.
+    */
    def reactionMap : ReactionMap[ S ]
-
-//   def addEventReaction[ A, Repr /* <: Event[ S, A, _ ] */]( reader: event.Reader[ S, Repr, _ ],
-//                                                             fun: S#Tx => A => Unit ) : ObserverKey[ S ]
-////   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], keys: IIdxSeq[ Int ]) : Reactor[ S ]
-//   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-//                        observers: IIdxSeq[ ObserverKey[ S ]]) : Reactor[ S ]
-//   def processEvent( leaf: ObserverKey[ S ], parent: NodeSelector[ S ], push: Push[ S ]) : Unit
-//   def removeEventReaction( slot: ObserverKey[ S ]) : Unit
 
    def newVar[ A ]( id: S#ID, init: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]
@@ -60,6 +55,8 @@ trait Txn[ S <: Sys[ S ]] {
    def newLongVar( id: S#ID, init: Long ) : S#Var[ Long ]
 
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
+
+//   def newIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S, A ]
 
    def readVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ]
