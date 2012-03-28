@@ -1,0 +1,13 @@
+::::::::::::: Unordered Set/ Map which can be used to lookup Mutable objects :::::::::::::
+
+InMemory
+  simple: IntMap[ A ]
+
+Durable
+  set/map: allocID
+  then read/write <set/map-id> ++ <key-id> --> value
+  // we need to be very careful then with Confluent not to use the same key space?
+
+Confluent
+  two possibilities : map itself is ephemeral
+                      map itself is confluent
