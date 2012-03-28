@@ -121,7 +121,7 @@ sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writ
 }
 
 /* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends ReactorSelector[ S ] with ExpandedSelector[ S ] {
-   private[event] def reactor: Node[ S, _ ]
+   private[event] def reactor: Node[ S ]
 
    final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
 

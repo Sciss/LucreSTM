@@ -94,7 +94,7 @@ private[event] def slot = opNotSupported
       override def toString = elems.mkString( " | " )
    }
 
-   final protected class CollectionOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S, _ ], B ](
+   final protected class CollectionOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S ], B ](
       d: Compound[ S, Repr, D ], elem: Elem => Event[ S, B, Elem ])( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ]) {
 
       def map[ A1 <: D#Update ]( fun: IIdxSeq[ B ] => A1 )( implicit m: ClassManifest[ A1 ]) : CollectionEvent[ S, Repr, D, Elem, B, A1 ] =
@@ -118,7 +118,7 @@ private[event] def slot = opNotSupported
       } + "]"
    }
 
-   final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S, _ ], B, A1 <: D#Update ] private[Compound](
+   final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S ], B, A1 <: D#Update ] private[Compound](
       private[event] val reactor: Compound[ S, Repr, D ], elemEvt: Elem => Event[ S, B, Elem ], fun: IIdxSeq[ B ] => A1 )
    ( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ], protected val m: ClassManifest[ A1 ])
    extends EventImpl[ S, Repr, D, A1 ] with InvariantEvent[ S, A1, Repr ] {
@@ -194,7 +194,7 @@ private[event] def slot = opNotSupported
       protected def prefix = reactor.toString + ".event"
    }
 }
-trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Update ] {
+trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S ] {
    me: Repr =>
 
    import de.sciss.lucre.{event => evt}
@@ -212,7 +212,7 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S, D#Up
    protected def event[ A1 <: D#Update ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr ] =
       new Compound.Trigger( this )
 
-   protected def collection[ Elem <: Node[ S, _ ], B ]( fun: Elem => Event[ S, B, Elem ])
+   protected def collection[ Elem <: Node[ S ], B ]( fun: Elem => Event[ S, B, Elem ])
                                       ( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 

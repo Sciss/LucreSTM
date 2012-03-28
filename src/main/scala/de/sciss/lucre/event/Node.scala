@@ -36,7 +36,7 @@ import stm.{TxnReader, TxnSerializer, Sys, Writer, Disposable}
    def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
 }
 
-trait NodeSerializer[ S <: Sys[ S ], Repr <: /* Writer */ Node[ S, _ ]]
+trait NodeSerializer[ S <: Sys[ S ], Repr <: /* Writer */ Node[ S ]]
 extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -211,7 +211,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
  * This trait also implements `equals` and `hashCode` in terms of the `id` inherited from the
  * targets.
  */
-/* sealed */ trait Node[ S <: Sys[ S ], A ] extends Reactor[ S ] /* with Dispatcher[ S, A ] */ {
+/* sealed */ trait Node[ S <: Sys[ S ]] extends Reactor[ S ] /* with Dispatcher[ S, A ] */ {
    override def toString = "Node" + id
 
    protected def targets: Targets[ S ]
