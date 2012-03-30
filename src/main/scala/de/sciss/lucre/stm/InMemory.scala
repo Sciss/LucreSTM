@@ -28,7 +28,7 @@ package stm
 
 import stm.{Var => _Var}
 import event.ReactionMap
-import concurrent.stm.{TMap, TxnExecutor, InTxn, Ref => ScalaRef}
+import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 
 object InMemory {
    private type S = InMemory
@@ -78,20 +78,6 @@ object InMemory {
          (that.asInstanceOf[ ID ].id == id)
    }
 
-//   sealed trait Txn extends _Txn[ S ]
-
-   private final class IDMapImpl[ A ] extends IdentifierMap[ S#Tx, S#ID, A ] {
-      private val peer = TMap.empty[ Int, A ]
-
-      def get( id: S#ID )( implicit tx: S#Tx ) : Option[ A ] = peer.get( id.id )( tx.peer )
-      def getOrElse( id: S#ID, default: => A )( implicit tx: S#Tx ) : A = get( id ).getOrElse( default )
-      def put( id: S#ID, value: A )( implicit tx: S#Tx ) { peer.put( id.id, value )( tx.peer )}
-      def contains( id: S#ID )( implicit tx: S#Tx ) : Boolean = peer.contains( id.id )( tx.peer )
-      def remove( id: S#ID )( implicit tx: S#Tx ) { peer.remove( id.id )( tx.peer )}
-
-      override def toString = "IdentifierMap"
-   }
-
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn[ S ] {
       def newID() : S#ID = new IDImpl( system.newIDValue( peer ))
 
@@ -119,8 +105,11 @@ object InMemory {
 
       def newVarArray[ A ]( size: Int ) = new Array[ S#Var[ A ] ]( size )
 
-      def newIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
-         new IDMapImpl[ A ]
+      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
+         IdentifierMap.newInMemoryIntMap( _.id )
+
+      def newInMemoryIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
+         IdentifierMap.newInMemoryIntMap( _.id )
 
       def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A =
          opNotSupported( "_readUgly" )

@@ -25,6 +25,13 @@
 
 package de.sciss.lucre.stm
 
+import impl.IdentifierMapImpl
+import de.sciss.lucre.stm.{Txn => _Txn}
+
+object IdentifierMap {
+   def newInMemoryIntMap[ Txn <: _Txn[ _ ], ID, A ]( implicit intView: ID => Int ) : IdentifierMap[ Txn, ID, A ] =
+      IdentifierMapImpl.newInMemoryIntMap[ Txn, ID, A ]
+}
 /**
  * An identifier map is basically a transactional map whose keys are system identifiers.
  * However, there are two important aspects: First, the map is always ephemeral

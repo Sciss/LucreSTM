@@ -276,7 +276,10 @@ object Confluent {
 
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
 
-      def newIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
+      def newInMemoryIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
+         new IDMapImpl[ A ]( system.newIDCnt()( this ))
+
+      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
          new IDMapImpl[ A ]( system.newIDCnt()( this ))
 
       private def readSource( in: DataInput, pid: ID ) : ID = {

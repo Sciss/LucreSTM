@@ -56,7 +56,8 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
-   def newIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ]
+   def newDurableIDMap[  A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ]
+   def newInMemoryIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ]
 
    def readVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ]
