@@ -40,9 +40,9 @@ object Durable {
       private[ Durable ] def id: Int
    }
 
-   def apply( store: PersistentStore ) : S = new System( store )
+   def apply( store: DataStore ) : S = new System( store )
 
-   def apply( factory: PersistentStoreFactory[ PersistentStore ], name: String = "data" ) : S =
+   def apply( factory: DataStoreFactory[ DataStore ], name: String = "data" ) : S =
       apply( factory.open( name ))
 
    private object IDOrdering extends Ordering[ S#ID ] {
@@ -400,7 +400,7 @@ object Durable {
       def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
    }
 
-   private final class System( /* private[stm] val */ store: PersistentStore ) // , idCnt0: Int, reactCnt0: Int
+   private final class System( /* private[stm] val */ store: DataStore ) // , idCnt0: Int, reactCnt0: Int
    extends Durable {
       system =>
 
@@ -533,7 +533,7 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
 
    def debugListUserRecords()( implicit tx: Tx ) : Seq[ ID ]
 
-//   private[stm] def store : PersistentStore
+//   private[stm] def store : DataStore
 
    private[stm] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: Tx ): A
 

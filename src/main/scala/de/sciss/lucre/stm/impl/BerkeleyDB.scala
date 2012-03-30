@@ -27,7 +27,7 @@ package de.sciss.lucre
 package stm
 package impl
 
-import de.sciss.lucre.stm.PersistentStore
+import de.sciss.lucre.stm.DataStore
 import java.util.concurrent.ConcurrentLinkedQueue
 import LucreSTM.logConfig
 import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
@@ -41,11 +41,11 @@ object BerkeleyDB {
    case object LogAll extends LogLevel { override def toString = "ALL" }
 
    def factory( dir: File, createIfNecessary: Boolean = true,
-                logLevel: LogLevel = LogOff ) : PersistentStoreFactory[ BerkeleyDB ] =
+                logLevel: LogLevel = LogOff ) : DataStoreFactory[ BerkeleyDB ] =
       new Factory( dir, createIfNecessary, logLevel )
 
    private final class Factory( dir: File, createIfNecessary: Boolean, logLevel: LogLevel )
-   extends PersistentStoreFactory[ BerkeleyDB ] {
+   extends DataStoreFactory[ BerkeleyDB ] {
       private lazy val env = {
          val envCfg  = new EnvironmentConfig()
          val txnCfg  = new TransactionConfig()
@@ -266,4 +266,4 @@ object BerkeleyDB {
       partialE.setPartial( 0, 0, true )
    }
 }
-trait BerkeleyDB extends PersistentStore
+trait BerkeleyDB extends DataStore

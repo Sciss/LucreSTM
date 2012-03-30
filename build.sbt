@@ -1,6 +1,6 @@
 name := "LucreSTM"
 
-version := "0.22-SNAPSHOT"
+version := "0.22"
 
 organization := "de.sciss"
 

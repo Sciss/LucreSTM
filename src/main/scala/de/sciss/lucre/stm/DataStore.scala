@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package stm
 
-trait PersistentStore {
+trait DataStore {
    def put(      keyFun: DataOutput => Unit )( valueFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Unit
    def get[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => A )(     implicit tx: Txn[ _ ]) : Option[ A ]
    def contains( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean

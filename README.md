@@ -19,7 +19,7 @@ LucreSTM builds with sbt 0.11 against Scala 2.9.1. It depends on [Scala-STM](htt
 
 The following dependency is necessary:
 
-    "de.sciss" %% "lucrestm" % "0.22-SNAPSHOT"
+    "de.sciss" %% "lucrestm" % "0.22"
 
 ## documentation
 

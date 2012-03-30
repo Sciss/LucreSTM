@@ -56,7 +56,29 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
-   def newDurableIDMap[  A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ]
+   /**
+    * Creates a new durable transactional map for storing and retrieving values based on a mutable's identifier
+    * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
+    * matches the search key.
+    *
+    * ID maps can be used by observing views to look up associated view meta data even though they may be
+    * presented with a more recent access path of the model peer (e.g. when a recent event is fired and observed).
+    *
+    * @param serializer the serializer for values in the map
+    * @tparam A         the value type in the map
+    */
+   def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ]
+
+   /**
+    * Creates a new in-memory transactional map for storing and retrieving values based on a mutable's identifier
+    * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
+    * matches the search key. Objects are not serialized but kept live in memory.
+    *
+    * ID maps can be used by observing views to look up associated view meta data even though they may be
+    * presented with a more recent access path of the model peer (e.g. when a recent event is fired and observed).
+    *
+    * @tparam A         the value type in the map
+    */
    def newInMemoryIDMap[ A ] : IdentifierMap[ S#Tx, S#ID, A ]
 
    def readVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
