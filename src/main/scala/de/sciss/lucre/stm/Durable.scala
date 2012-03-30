@@ -329,11 +329,11 @@ object Durable {
 
       def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ] ] = new Array[ Var[ A ]]( size )
 
-      def newInMemoryIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
-         new IDMapImpl[ A ]( system.newIDValue()( this ))
+      def newInMemoryIDMap[ A ] : IdentifierMap[ S#Tx, S#ID, A ] =
+         IdentifierMap.newInMemoryIntMap( _.id )
 
       def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
-         IdentifierMap.newInMemoryIntMap( _.id )
+         new IDMapImpl[ A ]( system.newIDValue()( this ))
 
       def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
          system.read( id.id )( serializer.read( _, () )( this ))( this )

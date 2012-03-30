@@ -105,10 +105,10 @@ object InMemory {
 
       def newVarArray[ A ]( size: Int ) = new Array[ S#Var[ A ] ]( size )
 
-      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
+      def newInMemoryIDMap[ A ] : IdentifierMap[ S#Tx, S#ID, A ] =
          IdentifierMap.newInMemoryIntMap( _.id )
 
-      def newInMemoryIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
+      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
          IdentifierMap.newInMemoryIntMap( _.id )
 
       def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A =
