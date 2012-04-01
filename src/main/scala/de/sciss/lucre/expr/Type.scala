@@ -57,6 +57,9 @@ trait Type[ A ] {
       new Var( ref, targets )
    }
 
+   final def readExpr[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Ex[ S ] =
+      serializer.read( in, access )
+
    implicit final def serializer[ S <: Sys[ S ]] : EventLikeSerializer[ S, Ex[ S ]] =
       anySer.asInstanceOf[ Ser[ S ]] // new Ser[ S ]
 
