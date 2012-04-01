@@ -107,7 +107,7 @@ object Spans {
       new Spans[ S ]( longs )
 }
 
-final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends Type[ S, Span ] {
+final class Spans[ S <: Sys[ S ]] private( longs: Longs[ S ]) extends TypeOld[ S, Span ] {
    tpe =>
 
    val id = 100

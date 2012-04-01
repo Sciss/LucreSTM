@@ -34,7 +34,7 @@ object Longs {
    def apply[ S <: Sys[ S ]] : Longs[ S ] = new Longs[ S ]
 }
 
-final class Longs[ S <: Sys[ S ]] extends Type[ S, Long ] {
+final class Longs[ S <: Sys[ S ]] extends TypeOld[ S, Long ] {
    tpe =>
 
    val id = 3

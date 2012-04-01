@@ -34,7 +34,7 @@ object Strings {
    def apply[ S <: Sys[ S ]] : Strings[ S ] = new Strings[ S ]
 }
 
-final class Strings[ S <: Sys[ S ]] private() extends Type[ S, String ] {
+final class Strings[ S <: Sys[ S ]] private() extends TypeOld[ S, String ] {
    tpe =>
 
    val id = 8

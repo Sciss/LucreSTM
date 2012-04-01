@@ -17,11 +17,11 @@ trait Extensions[ S <: Sys[ S ], A ] {
       map.get( tpe ).getOrElse( sys.error( "No registered extensions from type " + tpe ))
    }
 
-   final def addExtension( tpe: Type[ S, _ ], reader: TupleReader[ S, A ])( implicit tx: InTxn ) {
+   final def addExtension( tpe: TypeOld[ S, _ ], reader: TupleReader[ S, A ])( implicit tx: InTxn ) {
       map += ((tpe.id, reader))
    }
 
-   final def removeExtension( tpe: Type[ S, _ ])( implicit tx: InTxn ) {
+   final def removeExtension( tpe: TypeOld[ S, _ ])( implicit tx: InTxn ) {
       map -= tpe.id
    }
 }
