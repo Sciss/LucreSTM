@@ -27,7 +27,7 @@ package de.sciss.lucre
 package event
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import stm.{TxnReader, TxnSerializer, Sys, Writer, Disposable}
+import stm.{TxnSerializer, Sys, Writer, Disposable}
 
 /**
  * An abstract trait uniting invariant and mutating readers.
@@ -238,127 +238,6 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
       targets.dispose()
    }
 }
-
-///**
-// * An event which is `Invariant` designates a `Node` which does not mutate any internal state
-// * as a result of events bubbling up from its sources. As a consequence, if an event is
-// * propagated through this invariant event, and there are no live reactions currently hanging
-// * off its target tree, the event can simply be swallowed without damage. If this event was
-// * changing internal state, a loss of incoming events would be disastrous, as no live reactions
-// * mean that the node's `Targets` are not fully deserialized into the outer `Node` object!
-// * For such a situation, the invalidating `Mutating` node must be used.
-// *
-// * Most event nodes should be invariant, including combinators in expression systems, or
-// * mapping, filtering and forwarding nodes.
-// */
-//trait InvariantNode[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-////   final def dispose()( implicit tx: S#Tx ) {
-////      targets.dispose()
-////      disposeData()
-////   }
-//}
-
-//object Mutating {
-//   object Targets {
-//      def apply[ S <: Sys[ S ]]( invalid: Boolean )( implicit tx: S#Tx ) : Targets[ S ] = {
-//         val id         = tx.newID()
-//         val children   = tx.newVar[ Children[ S ]]( id, IIdxSeq.empty )
-//         val invalidVar = tx.newBooleanVar( id, invalid )
-//         new EventImpl( id, children, invalidVar )
-//      }
-//
-//      private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-//         val id         = tx.readID( in, access )
-//         tx.readVal( id )( new ExpanderReader[ S ])
-//      }
-//
-//      private class ExpanderReader[ S <: Sys[ S ]] extends TxnReader[ S#Tx, S#Acc, Reactor[ S ]] {
-//         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-//            val targets    = Targets.read( in, access )
-//            val observers  = targets.childrenVar.get.flatMap( _._2.toObserverKey )
-//            tx.reactionMap.mapEventTargets( in, access, targets, observers )
-//         }
-//      }
-//
-//      private[event] def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-//         val cookie = in.readUnsignedByte()
-//         require( cookie == 1, "Unexpected cookie " + cookie )
-//         readIdentified( in, access )
-//      }
-//
-//      private[event] def readIdentified[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-//         val id            = tx.readID( in, access )
-//         val children      = tx.readVar[ Children[ S ]]( id, in )
-//         val invalid       = tx.readBooleanVar( id, in )
-//         new EventImpl[ S ]( id, children, invalid )
-//      }
-//
-//      private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]],
-//                                                invalid: S#Var[ Boolean ]) : Targets[ S ] =
-//         new EventImpl( id, children, invalid )
-//
-//      private final class EventImpl[ S <: Sys[ S ]](
-//         val id: S#ID, protected val childrenVar: S#Var[ Children[ S ]], invalid: S#Var[ Boolean ])
-//      extends Targets[ S ] {
-//         def isInvalid( implicit tx: S#Tx ) : Boolean = invalid.get
-//         def validated()( implicit tx: S#Tx ) { invalid.set( false )}
-//         def invalidate()( implicit tx: S#Tx ) { invalid.set( true )}
-//
-//         def write( out: DataOutput ) {
-//            out.writeUnsignedByte( 1 )
-//            id.write( out )
-//            childrenVar.write( out )
-//            invalid.write( out )
-//         }
-//
-//         def dispose()( implicit tx: S#Tx ) {
-//            require( !isConnected, "Disposing a event reactor which is still being observed" )
-//            id.dispose()
-//            childrenVar.dispose()
-//            invalid.dispose()
-//         }
-//
-//         def select( slot: Int ) : ReactorSelector[ S ] = Selector( slot, this )
-//      }
-//   }
-//
-//   sealed trait Targets[ S <: Sys[ S ]] extends event.Targets[ S ] {
-//      /* private[event] */ def isInvalid( implicit tx: S#Tx ) : Boolean
-//      def invalidate()( implicit tx: S#Tx ) : Unit
-//      def validated()( implicit tx: S#Tx ) : Unit
-//   }
-//}
-
-///**
-// * An event node `Mutating` internal state as part of the event propagation. Examples of this behavior
-// * are caching algorithms or persisted data structures which need to adapt according to changes in
-// * source events (e.g. a sorted collection storing mutable objects).
-// *
-// * This is implementation is INCOMPLETE at the moment. The idea is to enhance the event's `Targets`
-// * with an invalidation flag which is set during propagation when no live reactions are hanging of the
-// * node's target tree (in which case the targets are not fully deserialized to the `Mutating` node,
-// * and thus the node is not able to update its internal state). When a mutating node is deserialized
-// * it must check the targets' invalidation status and rebuild the internal state if necessary.
-// */
-//trait Mutating[ S <: Sys[ S ], A ] extends Node[ S, A ] {
-//   protected def targets: Mutating.Targets[ S ]
-//
-//   final def select( slot: Int ) : NodeSelector[ S ] = Selector( slot, this )
-//
-//   final private[event] def addTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-//      targets.add( slot, sel )
-//   }
-//
-//   final private[event] def removeTarget( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-//      targets.remove( slot, sel )
-//   }
-//
-//   final def dispose()( implicit tx: S#Tx ) {
-//      targets.dispose()
-//      disconnectNode()
-//      disposeData()
-//   }
-//}
 
 /**
  * The `Reactor` trait encompasses the possible targets (dependents) of an event. It defines
