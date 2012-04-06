@@ -28,6 +28,7 @@ package event
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import stm.{TxnSerializer, Sys, Writer, Disposable}
+import annotation.switch
 
 /**
  * An abstract trait uniting invariant and mutating readers.
@@ -60,7 +61,14 @@ object Targets {
       val id         = tx.newID()
       val children   = tx.newVar[ Children[ S ]]( id, NoChildren )
       val invalid    = tx.newIntVar( id, 0 )
-      new Impl( id, children, invalid )
+      new Impl( 0, id, children, invalid )
+   }
+
+   def partial[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
+      val id         = tx.newID()
+      val children   = tx.newPartialVar[ Children[ S ]]( id, NoChildren )
+      val invalid    = tx.newIntVar( id, 0 )
+      new Impl( 1, id, children, invalid )
    }
 
    private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
@@ -69,26 +77,35 @@ object Targets {
    }
 
    /* private[lucre] */ def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-      val cookie = in.readUnsignedByte()
-      require( cookie == 0, "Unexpected cookie " + cookie )
-      readIdentified( in, access )
+      (in.readUnsignedByte(): @switch) match {
+         case 0      => readIdentified( in, access )
+         case 1      => readIdentifiedPartial( in, access )
+         case cookie => sys.error( "Unexpected cookie " + cookie )
+      }
    }
 
    private[event] def readIdentified[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
       val id            = tx.readID( in, access )
       val children      = tx.readVar[ Children[ S ]]( id, in )
       val invalid       = tx.readIntVar( id, in )
-      new Impl[ S ]( id, children, invalid )
+      new Impl[ S ]( 0, id, children, invalid )
+   }
+
+   private[event] def readIdentifiedPartial[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
+      val id            = tx.readID( in, access )
+      val children      = tx.readPartialVar[ Children[ S ]]( id, in )
+      val invalid       = tx.readIntVar( id, in )
+      new Impl[ S ]( 1, id, children, invalid )
    }
 
 //   private[event] def apply[ S <: Sys[ S ]]( id: S#ID, children: S#Var[ Children[ S ]]) : Targets[ S ] =
 //      new EventImpl( id, children )
 
-   private final class Impl[ S <: Sys[ S ]](
+   private final class Impl[ S <: Sys[ S ]]( cookie: Int,
       val id: S#ID, childrenVar: S#Var[ Children[ S ]], invalidVar: S#Var[ Int ])
    extends Targets[ S ] {
       def write( out: DataOutput ) {
-         out.writeUnsignedByte( 0 )
+         out.writeUnsignedByte( cookie )
          id.write( out )
          childrenVar.write( out )
          invalidVar.write( out )

@@ -45,6 +45,9 @@ extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
          case 0 =>
             val targets = Targets.readIdentified[ S ]( in, access )
             read( in, access, targets )
+         case 1 =>
+            val targets = Targets.readIdentifiedPartial[ S ]( in, access )
+            read( in, access, targets )
          case cookie => sys.error( "Unexpected cookie " + cookie )
       }
    }

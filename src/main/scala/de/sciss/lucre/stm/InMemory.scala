@@ -90,6 +90,9 @@ object InMemory {
          new VarImpl( peer )
       }
 
+      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
+         newVar( id, init )
+
       def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
@@ -125,6 +128,9 @@ object InMemory {
       def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          opNotSupported( "readVar" )
       }
+
+      def readPartialVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] =
+         readVar( pid, in )
 
       def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ] = {
          opNotSupported( "readBooleanVar" )

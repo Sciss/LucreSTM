@@ -293,6 +293,9 @@ object Durable {
          res
       }
 
+      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
+         newVar( id, init )
+
       def newCachedVar[ A ]( init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] = {
          val res = new CachedVarImpl[ A ]( system.newIDValue()( this ), ScalaRef( init ), ser )
          res.writeInit()( this )
@@ -360,6 +363,9 @@ object Durable {
          val id = in.readInt()
          new VarImpl[ A ]( id, ser )
       }
+
+      def readPartialVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] =
+         readVar( pid, in )
 
       def readCachedVar[ A ]( in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val id = in.readInt()

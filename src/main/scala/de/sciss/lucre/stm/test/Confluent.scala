@@ -270,6 +270,9 @@ object Confluent {
          res
       }
 
+      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
+         sys.error( "TODO" )
+
       def newBooleanVar( pid: ID, init: Boolean ) : Var[ Boolean ] = newVar[ Boolean ]( pid, init )
       def newIntVar(     pid: ID, init: Int ) :     Var[ Int ]     = newVar[ Int ](     pid, init )
       def newLongVar(    pid: ID, init: Long ) :    Var[ Long ]    = newVar[ Long ](    pid, init )
@@ -317,6 +320,9 @@ object Confluent {
          val id = readSource( in, pid )
          new VarImpl( id, system, ser )
       }
+
+      def readPartialVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] =
+         sys.error( "TODO" )
 
       def readBooleanVar( pid: ID, in: DataInput ) : Var[ Boolean ] = readVar[ Boolean ]( pid, in )
       def readIntVar(     pid: ID, in: DataInput ) : Var[ Int ]     = readVar[ Int ](     pid, in )

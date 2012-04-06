@@ -56,6 +56,8 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
+   def newPartialVar[ A ]( id: S#ID, init: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+
    /**
     * Creates a new durable transactional map for storing and retrieving values based on a mutable's identifier
     * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
@@ -85,6 +87,8 @@ trait Txn[ S <: Sys[ S ]] {
    def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ]
    def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
    def readLongVar( id: S#ID, in: DataInput ) : S#Var[ Long ]
+
+   def readPartialVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
 
    /**
     * A raw read. If the underlying system doesn't persist objects, an implementation may
