@@ -109,14 +109,16 @@ object Durable {
       @elidable(CONFIG) protected final def assertExists()( implicit tx: S#Tx ) {
          require( tx.system.exists( id ), "trying to write disposed ref " + id )
       }
+
+      final def isFresh( implicit tx: S#Tx ) : Boolean = true
    }
 
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
       protected def ser: TxnSerializer[ S#Tx, S#Acc, A ]
 
-      def get( implicit tx: S#Tx ) : A = tx.system.read[ A ]( id )( ser.read( _, () ))
+      final def get( implicit tx: S#Tx ) : A = tx.system.read[ A ]( id )( ser.read( _, () ))
 
-      def setInit( v: A )( implicit tx: S#Tx ) { tx.system.write( id )( ser.write( v, _ ))}
+      final def setInit( v: A )( implicit tx: S#Tx ) { tx.system.write( id )( ser.write( v, _ ))}
    }
 
    private final class VarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ S#Tx, S#Acc, A ])

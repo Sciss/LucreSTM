@@ -378,6 +378,8 @@ object Confluent {
       protected def readValue( in: DataInput, postfix: Acc )( implicit tx: Txn ) : A = {
          ser.read( in, postfix )
       }
+
+      def isFresh( implicit tx: S#Tx ) : Boolean = sys.error( "TODO" )
    }
 }
 

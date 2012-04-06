@@ -89,6 +89,8 @@ object Expr {
 
       final def transform( f: Ex => Ex )( implicit tx: S#Tx ) { set( f( get ))}
 
+      final def isFresh( implicit tx: S#Tx ) : Boolean = ref.isFresh
+
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 
       final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ Change[ A ]] = {

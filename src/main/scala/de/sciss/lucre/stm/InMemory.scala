@@ -58,6 +58,8 @@ object InMemory {
       def dispose()( implicit tx: S#Tx ) {
          peer.set( null.asInstanceOf[ A ])( tx.peer )
       }
+
+      def isFresh( implicit tx: S#Tx ) : Boolean = true
    }
 
    private def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )
