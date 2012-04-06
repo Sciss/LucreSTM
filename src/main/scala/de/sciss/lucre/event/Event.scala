@@ -136,7 +136,14 @@ trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] with NodeS
 
 trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with InvariantSelector[ S ] {
    final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
-      if( reactor._targets.add( slot, r )) connect()
+      val t = reactor._targets
+      if( t.add( slot, r )) {
+         connect()
+      } else if( t.isInvalid( slot )) {
+         // XXX TODO -- could be a more efficient reconnect() method at some point
+         disconnect()
+         connect()
+      }
    }
 
    final private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
