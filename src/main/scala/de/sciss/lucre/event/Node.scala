@@ -176,7 +176,7 @@ object Targets {
 sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with Disposable[ S#Tx ] */ {
    /* private[event] */ def id: S#ID
 
-   private[event] def children( implicit tx: S#Tx ) : Children[ S ]
+//   private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
    /**
     * Adds a dependant to this node target.
