@@ -136,18 +136,31 @@ object Targets {
 //      private[event] def nodeOption : Option[ Node[ S, _ ]] = None
       private[event] def _targets : Targets[ S ] = this
 
-      private[event] def isInvalid( implicit tx: S#Tx ) : Boolean = invalidVar.get != 0
+      private[event] def isInvalid( implicit tx: S#Tx ) : Boolean = !invalidVar.isFresh || (invalidVar.get != 0)
 
-      private[event] def isInvalid( slot: Int  )( implicit tx: S#Tx ) : Boolean = (invalidVar.get & slot) != 0
+      private[event] def isInvalid( slot: Int  )( implicit tx: S#Tx ) : Boolean =
+         !invalidVar.isFresh || ((invalidVar.get & slot) != 0)
+
       private[event] def validated( slot: Int )( implicit tx: S#Tx ) {
-         invalidVar.transform( _ & ~slot )
+         if( invalidVar.isFresh ) {
+            invalidVar.transform( _ & ~slot )
+         } else {
+            invalidVar.set( ~slot )
+         }
       }
+
       private[event] def invalidate( slot: Int )( implicit tx: S#Tx ) {
-         invalidVar.transform( _ | slot )
+         if( invalidVar.isFresh ) {
+            invalidVar.transform( _ | slot )
+         } else {
+            invalidVar.set( 0xFFFFFFFF )
+         }
       }
+
       private[event] def validated()( implicit tx: S#Tx ) {
          invalidVar.set( 0 )
       }
+
       private[event] def invalidate()( implicit tx: S#Tx ) {
          invalidVar.set( 0xFFFFFFFF )
       }
