@@ -143,6 +143,7 @@ trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with 
          // XXX TODO -- could be a more efficient reconnect() method at some point
          disconnect()
          connect()
+         t.validated( slot )
       }
    }
 
