@@ -332,7 +332,7 @@ object Confluent {
       protected def system: System
 
       protected final def toString( pre: String ) = pre + id + ": " +
-         (system.storage.getOrElse(id.id, Map.empty).map(_._1)).mkString( ", " )
+         (system.storage.getOrElse( id.id, Map.empty ).map( _._1 )).mkString( ", " )
 
       final def set( v: A )( implicit tx: Txn ) {
          store( v )
@@ -379,7 +379,10 @@ object Confluent {
          ser.read( in, postfix )
       }
 
-      def isFresh( implicit tx: S#Tx ) : Boolean = sys.error( "TODO" )
+      def isFresh( implicit tx: S#Tx ) : Boolean = {
+         val (_, acc) = system.access( id.id, id.path )
+         acc.last == id.path.last   // XXX overly pessimistic, but we haven't implemented meld or tree levels here, anyway
+      }
    }
 }
 
