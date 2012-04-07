@@ -29,6 +29,7 @@ package event
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import stm.{TxnSerializer, Sys, Writer, Disposable}
 import annotation.switch
+import LucreSTM.logEvent
 
 /**
  * An abstract trait uniting invariant and mutating readers.
@@ -125,16 +126,20 @@ object Targets {
       override def toString = "Targets" + id
 
       private[event] def add( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
+         logEvent( this.toString + " add( " + slot + ", " + sel + ")" )
          val tup  = (slot, sel)
          val old  = childrenVar.get
+         logEvent( this.toString + " old children = " + old )
          sel.writeValue()
          childrenVar.set( old :+ tup )
          !old.exists( _._1 == slot )
       }
 
       private[event] def remove( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
+         logEvent( this.toString + " remove( " + slot + ", " + sel + ")" )
          val tup  = (slot, sel)
          val xs   = childrenVar.get
+         logEvent( this.toString + " old children = " + xs )
          val i    = xs.indexOf( tup )
          if( i >= 0 ) {
             val xs1 = xs.patch( i, IIdxSeq.empty, 1 ) // XXX crappy way of removing a single element
@@ -147,8 +152,8 @@ object Targets {
       private[event] def observers( implicit tx: S#Tx ): IIdxSeq[ ObserverKey[ S ]] =
          children.flatMap( _._2.toObserverKey )
 
-      def isEmpty(  implicit tx: S#Tx ) : Boolean = children.isEmpty
-      def nonEmpty( implicit tx: S#Tx ) : Boolean = children.nonEmpty
+      def isEmpty(  implicit tx: S#Tx ) : Boolean = children.isEmpty    // XXX TODO this is expensive
+      def nonEmpty( implicit tx: S#Tx ) : Boolean = children.nonEmpty   // XXX TODO this is expensive
 
 //      private[event] def nodeOption : Option[ Node[ S, _ ]] = None
       private[event] def _targets : Targets[ S ] = this

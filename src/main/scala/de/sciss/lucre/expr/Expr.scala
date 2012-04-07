@@ -28,6 +28,7 @@ package expr
 
 import stm.{Disposable, Var => _Var, Sys, Writer}
 import event._
+import LucreSTM.logEvent
 
 object Expr {
    trait Node[ S <: Sys[ S ], A ] extends Expr[ S, A ] // with Invariant[ S, Change[ A ]]
@@ -76,6 +77,7 @@ object Expr {
          val before = ref.get
          if( before != expr ) {
             val con = targets.nonEmpty
+            logEvent( this.toString + " set " + expr + " (con = " + con + ")" )
             if( con ) before.changed -/-> this
             ref.set( expr )
             if( con ) {

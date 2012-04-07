@@ -27,8 +27,12 @@ package de.sciss.lucre
 package event
 
 import stm.Sys
+import LucreSTM.logEvent
 
 trait Generator[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Event[ S, A1, Repr ] {
-   final protected def fire( update: A1 )( implicit tx: S#Tx ) { Push( this /* select() */, update )}
+   final protected def fire( update: A1 )( implicit tx: S#Tx ) {
+      logEvent( this.toString + " fire " + update )
+      Push( this /* select() */, update )
+   }
 }
 

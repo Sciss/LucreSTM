@@ -29,7 +29,7 @@ package impl
 
 import de.sciss.lucre.stm.DataStore
 import java.util.concurrent.ConcurrentLinkedQueue
-import LucreSTM.logConfig
+import LucreSTM.logSTM
 import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
 import com.sleepycat.je.{OperationStatus, LockMode, DatabaseEntry, Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
 import java.io.{File, FileNotFoundException}
@@ -128,10 +128,10 @@ object BerkeleyDB {
          ScalaTxn.setExternalDecider( this )
          val res  = env.beginTransaction( null, txnCfg )
          val id   = res.getId
-         logConfig( "txn begin  <" + id + ">" )
+         logSTM( "txn begin  <" + id + ">" )
          ScalaTxn.afterRollback({ status =>
             try {
-               logConfig( "txn rollback <" + id + ">" )
+               logSTM( "txn rollback <" + id + ">" )
                res.abort()
             } catch {
                case _ =>
@@ -144,13 +144,13 @@ object BerkeleyDB {
       def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
          val dbTxn = dbTxnRef()
          try {
-            logConfig( "txn commit <" + dbTxn.getId + ">" )
+            logSTM( "txn commit <" + dbTxn.getId + ">" )
             dbTxn.commit()
             true
          } catch {
             case e =>
                try {
-                  logConfig( "txn abort <" + dbTxn.getId + ">" )
+                  logSTM( "txn abort <" + dbTxn.getId + ">" )
                   dbTxn.abort()
                } catch {
                   case _ =>

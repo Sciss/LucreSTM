@@ -32,6 +32,8 @@ import java.util.{Date, Locale}
 
 object LucreSTM {
    private lazy val logHeader = new SimpleDateFormat( "[d MMM yyyy, HH:mm''ss.SSS] 'Lucre' - ", Locale.US )
+   var showSTMLog    = false
+   var showEventLog  = false
 
    val name          = "LucreSTM"
    val version       = 0.23
@@ -53,8 +55,15 @@ object LucreSTM {
          ". All rights reserved.\n\nThis is a library which cannot be executed directly.\n" )
    }
 
-   @elidable(CONFIG) private[lucre] def logConfig( what: String ) {
-//      log.info( what )
-      println( logHeader.format( new Date() ) + what )
+   @elidable(CONFIG) private[lucre] def logSTM( what: => String ) {
+      if( showSTMLog ) {
+         println( logHeader.format( new Date() ) + "stm " + what )
+      }
+   }
+
+   @elidable(CONFIG) private[lucre] def logEvent( what: => String ) {
+      if( showEventLog ) {
+         println( logHeader.format( new Date() ) + "evt " + what )
+      }
    }
 }

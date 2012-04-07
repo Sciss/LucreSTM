@@ -28,19 +28,24 @@ package event
 
 import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
+import LucreSTM.logEvent
 
 object Push {
    private[event] def apply[ S <: Sys[ S ], A ]( source: NodeSelector[ S, A ], update: A )( implicit tx: S#Tx ) {
       val push    = new Impl( source, update )
-      val inlet   = source.slot
-      source.reactor.children.foreach { tup =>
-         val inlet2 = tup._1
-         if( inlet2 == inlet ) {
-            val sel = tup._2
-            sel.pushUpdate( source, push )
-         }
-      }
+      logEvent( "push begin" )
+//      val inlet   = source.slot
+//      source.reactor.children.foreach { tup =>
+//         val inlet2 = tup._1
+//         if( inlet2 == inlet ) {
+//            val sel = tup._2
+//            sel.pushUpdate( source, push )
+//         }
+//      }
+      push.visitChildren( source )
+      logEvent( "pull begin" )
       push.pull()
+      logEvent( "pull end" )
    }
 
    private val NoReactions = IIdxSeq.empty[ Reaction ]
@@ -60,11 +65,12 @@ object Push {
 
       private def addVisited( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Boolean = {
          val parents = visited.getOrElse( sel, NoParents )
+         logEvent( "visit " + sel + " (new ? " + parents.isEmpty + ")" )
          visited += ((sel, parents + parent))
          parents.isEmpty
       }
 
-      private def visitChildren( sel: ReactorSelector[ S ]) {
+      def visitChildren( sel: ReactorSelector[ S ]) {
          val inlet   = sel.slot
          sel.reactor.children.foreach { tup =>
             val inlet2 = tup._1
@@ -91,6 +97,7 @@ object Push {
       def parents( sel: ReactorSelector[ S ]) : Parents[ S ] = visited.getOrElse( sel, NoParents )
 
       def addLeaf( leaf: ObserverKey[ S ], parent: ReactorSelector[ S ]) {
+         logEvent( "addLeaf " + leaf + ", parent = " + parent )
          val nParent = parent.nodeSelectorOption.getOrElse( sys.error( "Orphan observer " + leaf + " - no expanded node selector" ))
          tx.reactionMap.processEvent( leaf, nParent, this )
       }
@@ -98,10 +105,12 @@ object Push {
       def addReaction( r: Reaction ) { reactions :+= r }
 
       def pull() {
+         logEvent( "numReactions = " + reactions.size )
          val firstPass  =    reactions.map( _.apply() )
       /* val secondPass = */ firstPass.foreach( _.apply() )
 
          if( mutating.nonEmpty ) {
+            logEvent( "numInvalid = " + mutating.size )
             mutating.foreach { sel =>
                println( "INVALIDATED: " + mutating.mkString( ", " ))
                sel.reactor._targets.invalidate( sel.slot )
@@ -110,10 +119,12 @@ object Push {
       }
 
       def markInvalid( evt: MutatingSelector[ S ]) {
+         logEvent( "markInvalid " + evt )
          mutating += evt
       }
 
       def clearInvalid( evt: MutatingSelector[ S ]) {
+         logEvent( "clearInvalid " + evt )
          mutating -= evt
       }
 

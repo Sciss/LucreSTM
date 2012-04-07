@@ -27,6 +27,7 @@ package de.sciss.lucre
 package event
 
 import stm.Sys
+import LucreSTM.logEvent
 
 /* sealed */ trait EventLike[ S <: Sys[ S ], A, Repr ] {
    /**
@@ -138,8 +139,10 @@ trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with 
    final private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
       val t = reactor._targets
       if( t.add( slot, r )) {
+         logEvent( this.toString + " connect" )
          connect()
       } else if( t.isInvalid( slot )) {
+         logEvent( this.toString + " re-connect" )
          // XXX TODO -- could be a more efficient reconnect() method at some point
          disconnect()
          connect()

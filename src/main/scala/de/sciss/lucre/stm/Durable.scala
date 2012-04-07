@@ -31,7 +31,7 @@ import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import annotation.elidable
 import elidable.CONFIG
 import event.ReactionMap
-import LucreSTM.logConfig
+import LucreSTM.logSTM
 
 object Durable {
    private type S = Durable
@@ -479,38 +479,38 @@ object Durable {
 
       def newIDValue()( implicit tx: S#Tx ) : Int = {
          val id = idCntVar.get + 1
-         logConfig( "new   <" + id + ">" )
+         logSTM( "new   <" + id + ">" )
          idCntVar.set( id )
          id
       }
 
       def write( id: Long )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
-         logConfig( "writeL <" + id + ">" )
+         logSTM( "writeL <" + id + ">" )
          store.put( _.writeLong( id ))( valueFun )
       }
 
       def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
-         logConfig( "write <" + id + ">" )
+         logSTM( "write <" + id + ">" )
          store.put( _.writeInt( id ))( valueFun )
       }
 
       def remove( id: Long )( implicit tx: S#Tx ) {
-         logConfig( "removL <" + id + ">" )
+         logSTM( "removL <" + id + ">" )
          store.remove( _.writeLong( id ))
       }
 
       def remove( id: Int )( implicit tx: S#Tx ) {
-         logConfig( "remov <" + id + ">" )
+         logSTM( "remov <" + id + ">" )
          store.remove( _.writeInt( id ))
       }
 
       def tryRead[ A ]( id: Long )( valueFun: DataInput => A )( implicit tx: S#Tx ) : Option[ A ]= {
-         logConfig( "readL  <" + id + ">" )
+         logSTM( "readL  <" + id + ">" )
          store.get( _.writeLong( id ))( valueFun )
       }
 
       def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: S#Tx ) : A = {
-         logConfig( "read  <" + id + ">" )
+         logSTM( "read  <" + id + ">" )
          store.get( _.writeInt( id ))( valueFun ).getOrElse( sys.error( "Key not found " + id ))
       }
 
