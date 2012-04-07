@@ -44,7 +44,7 @@ trait Type[ A ] {
    final def newConst[ S <: Sys[ S ]]( value: A ) : Ex[ S ] = new Const( value )
 
    final def newVar[ S <: Sys[ S ]]( init: Ex[ S ])( implicit tx: S#Tx ) : Expr.Var[ S, A ] = {
-      val targets = Targets[ S ]
+      val targets = Targets.partial[ S ]
       val ref     = tx.newVar[ Ex[ S ]]( targets.id, init )
       new Var( ref, targets )
    }
