@@ -146,7 +146,10 @@ object Targets {
             childrenVar.set( xs1 )
    //         xs1.isEmpty
             !xs1.exists( _._1 == slot )
-         } else false
+         } else {
+            logEvent( this.toString + " selector not found" )
+            false
+         }
       }
 
       private[event] def observers( implicit tx: S#Tx ): IIdxSeq[ ObserverKey[ S ]] =

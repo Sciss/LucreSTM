@@ -29,11 +29,20 @@ package event
 import stm.Sys
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import LucreSTM.logEvent
+import annotation.elidable
+import elidable.CONFIG
 
 object Push {
+   private var indent = ""
+
+   @elidable(CONFIG) private def resetIndent() { indent = "" }
+   @elidable(CONFIG) private def incIndent()   { indent += "  " }
+   @elidable(CONFIG) private def decIndent()   { indent = indent.substring( indent.length - 2 )}
+
    private[event] def apply[ S <: Sys[ S ], A ]( source: NodeSelector[ S, A ], update: A )( implicit tx: S#Tx ) {
       val push    = new Impl( source, update )
       logEvent( "push begin" )
+      resetIndent()
 //      val inlet   = source.slot
 //      source.reactor.children.foreach { tup =>
 //         val inlet2 = tup._1
@@ -65,13 +74,14 @@ object Push {
 
       private def addVisited( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Boolean = {
          val parents = visited.getOrElse( sel, NoParents )
-         logEvent( "visit " + sel + " (new ? " + parents.isEmpty + ")" )
+         logEvent( indent + "visit " + sel + " (new ? " + parents.isEmpty + ")" )
          visited += ((sel, parents + parent))
          parents.isEmpty
       }
 
       def visitChildren( sel: ReactorSelector[ S ]) {
          val inlet   = sel.slot
+         incIndent()
          sel.reactor.children.foreach { tup =>
             val inlet2 = tup._1
             if( inlet2 == inlet ) {
@@ -79,6 +89,7 @@ object Push {
                selChild.pushUpdate( sel, this )
             }
          }
+         decIndent()
       }
 
       def visit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) {
@@ -97,7 +108,7 @@ object Push {
       def parents( sel: ReactorSelector[ S ]) : Parents[ S ] = visited.getOrElse( sel, NoParents )
 
       def addLeaf( leaf: ObserverKey[ S ], parent: ReactorSelector[ S ]) {
-         logEvent( "addLeaf " + leaf + ", parent = " + parent )
+         logEvent( indent + "addLeaf " + leaf + ", parent = " + parent )
          val nParent = parent.nodeSelectorOption.getOrElse( sys.error( "Orphan observer " + leaf + " - no expanded node selector" ))
          tx.reactionMap.processEvent( leaf, nParent, this )
       }
