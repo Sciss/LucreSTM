@@ -93,7 +93,7 @@ object Targets {
    }
 
    private[event] def readIdentifiedPartial[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
-      val id            = tx.readID( in, access )
+      val id            = tx.readPartialID( in, access )
       val children      = tx.readPartialVar[ Children[ S ]]( id, in )
       val invalid       = tx.readIntVar( id, in )
       new Impl[ S ]( 1, id, children, invalid )

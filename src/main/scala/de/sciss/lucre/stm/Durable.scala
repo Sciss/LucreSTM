@@ -404,6 +404,7 @@ object Durable {
       }
 
       def readID( in: DataInput, acc: S#Acc ) : S#ID = new IDImpl( in.readInt() )
+      def readPartialID( in: DataInput, acc: S#Acc ) : S#ID = readID( in, acc )
 
       def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
    }

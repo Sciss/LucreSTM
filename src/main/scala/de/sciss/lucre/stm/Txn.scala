@@ -107,6 +107,8 @@ trait Txn[ S <: Sys[ S ]] {
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
 
+   def readPartialID( in: DataInput, acc: S#Acc ) : S#ID
+
    /**
     * XXX TODO: this is called from Targets.readAndExpand
     */

@@ -329,6 +329,7 @@ object Confluent {
       def readLongVar(    pid: ID, in: DataInput ) : Var[ Long ]    = readVar[ Long ](    pid, in )
 
       def readID( in: DataInput, acc: Acc ) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
+      def readPartialID( in: DataInput, acc: S#Acc ) : S#ID = sys.error( "TODO" )
 
       def access[ A ]( source: S#Var[ A ]) : A = source.access( system.position( this ))( this )
    }
