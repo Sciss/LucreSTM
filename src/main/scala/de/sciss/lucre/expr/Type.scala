@@ -45,7 +45,7 @@ trait Type[ A ] {
 
    final def newVar[ S <: Sys[ S ]]( init: Ex[ S ])( implicit tx: S#Tx ) : Expr.Var[ S, A ] = {
       val targets = Targets.partial[ S ]
-      val ref     = tx.newVar[ Ex[ S ]]( targets.id, init )
+      val ref     = tx.newPartialVar[ Ex[ S ]]( targets.id, init )
       new Var( ref, targets )
    }
 
@@ -53,7 +53,7 @@ trait Type[ A ] {
       val targets = Targets.read[ S ]( in, access )
       val cookie  = in.readUnsignedByte
       require( cookie == 0, "Unexpected cookie " + cookie )
-      val ref     = tx.readVar[ Ex[ S ]]( targets.id, in )
+      val ref     = tx.readPartialVar[ Ex[ S ]]( targets.id, in )
       new Var( ref, targets )
    }
 
@@ -72,7 +72,7 @@ trait Type[ A ] {
          // 0 = var, 1 = op
          (in.readUnsignedByte() /*: @switch */) match {
             case 0 =>
-               val ref = tx.readVar[ Ex[ S ]]( targets.id, in )
+               val ref = tx.readPartialVar[ Ex[ S ]]( targets.id, in )
                new Var( ref, targets )
 
             case cookie => readTuple( cookie, in, access, targets )
