@@ -112,6 +112,8 @@ object Targets {
          invalidVar.write( out )
       }
 
+      private[lucre] def isPartial : Boolean = cookie == 1
+
       def dispose()( implicit tx: S#Tx ) {
          require( children.isEmpty, "Disposing a event reactor which is still being observed" )
          id.dispose()
@@ -202,6 +204,8 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    /* private[event] */ def id: S#ID
 
 //   private[event] def children( implicit tx: S#Tx ) : Children[ S ]
+
+   private[lucre] def isPartial : Boolean
 
    /**
     * Adds a dependant to this node target.

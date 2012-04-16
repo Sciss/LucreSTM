@@ -59,7 +59,11 @@ trait Type[ A ] {
       val targets = Targets.read[ S ]( in, access )
       val cookie  = in.readUnsignedByte
       require( cookie == 0, "Unexpected cookie " + cookie )
-      val ref     = tx.readPartialVar[ Ex[ S ]]( targets.id, in )
+      val ref     = if( targets.isPartial ) {
+         tx.readPartialVar[ Ex[ S ]]( targets.id, in )
+      } else {
+         tx.readVar[ Ex[ S ]]( targets.id, in )
+      }
       new Var( ref, targets )
    }
 
@@ -78,7 +82,11 @@ trait Type[ A ] {
          // 0 = var, 1 = op
          (in.readUnsignedByte() /*: @switch */) match {
             case 0 =>
-               val ref = tx.readPartialVar[ Ex[ S ]]( targets.id, in )
+               val ref = if( targets.isPartial ) {
+                  tx.readPartialVar[ Ex[ S ]]( targets.id, in )
+               } else {
+                  tx.readVar[ Ex[ S ]]( targets.id, in )
+               }
                new Var( ref, targets )
 
             case cookie => readTuple( cookie, in, access, targets )
