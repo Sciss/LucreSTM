@@ -362,6 +362,10 @@ object Confluent {
 
       final def get( implicit tx: Txn ) : A = access( id.path )
 
+      final def getFresh( implicit tx: S#Tx ) : A = {
+         sys.error( "TODO" )
+      }
+
       final def access( acc: S#Acc )( implicit tx: Txn ) : A = {
          val (in, acc1) = system.access( id.id, acc )
          readValue( in, acc1 )
@@ -386,10 +390,10 @@ object Confluent {
          ser.read( in, postfix )
       }
 
-      def isFresh( implicit tx: S#Tx ) : Boolean = {
-         val (_, acc) = system.access( id.id, id.path )
-         acc.last == id.path.last   // XXX overly pessimistic, but we haven't implemented meld or tree levels here, anyway
-      }
+//      def isFresh( implicit tx: S#Tx ) : Boolean = {
+//         val (_, acc) = system.access( id.id, id.path )
+//         acc.last == id.path.last   // XXX overly pessimistic, but we haven't implemented meld or tree levels here, anyway
+//      }
    }
 }
 

@@ -141,12 +141,12 @@ trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with 
       if( t.add( slot, r )) {
          logEvent( this.toString + " connect" )
          connect()
-      } else if( t.isInvalid( slot )) {
-         logEvent( this.toString + " re-connect" )
-         // XXX TODO -- could be a more efficient reconnect() method at some point
-         disconnect()
-         connect()
-         t.validated( slot )
+//      } else if( t.isInvalid( slot )) {
+//         logEvent( this.toString + " re-connect" )
+//         // XXX TODO -- could be a more efficient reconnect() method at some point
+//         disconnect()
+//         connect()
+//         t.validated( slot )
       }
    }
 

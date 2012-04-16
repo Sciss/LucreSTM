@@ -38,9 +38,11 @@ object InMemory {
    private sealed trait SourceImpl[ @specialized A ] {
       protected def peer: ScalaRef[ A ]
 
-      def get( implicit tx: S#Tx ) : A = peer.get( tx.peer )
+      final def get( implicit tx: S#Tx ) : A = peer.get( tx.peer )
 
-      def write( out: DataOutput ) {}
+      final def getFresh( implicit tx: S#Tx ) : A = get
+
+      final def write( out: DataOutput ) {}
    }
 
    private final class VarImpl[ @specialized A ](protected val peer: ScalaRef[ A ])
@@ -59,7 +61,7 @@ object InMemory {
          peer.set( null.asInstanceOf[ A ])( tx.peer )
       }
 
-      def isFresh( implicit tx: S#Tx ) : Boolean = true
+//      def isFresh( implicit tx: S#Tx ) : Boolean = true
    }
 
    private def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )

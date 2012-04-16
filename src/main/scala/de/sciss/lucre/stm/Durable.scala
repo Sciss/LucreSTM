@@ -110,13 +110,15 @@ object Durable {
          require( tx.system.exists( id ), "trying to write disposed ref " + id )
       }
 
-      final def isFresh( implicit tx: S#Tx ) : Boolean = true
+//      final def isFresh( implicit tx: S#Tx ) : Boolean = true
    }
 
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
       protected def ser: TxnSerializer[ S#Tx, S#Acc, A ]
 
       final def get( implicit tx: S#Tx ) : A = tx.system.read[ A ]( id )( ser.read( _, () ))
+
+      final def getFresh( implicit tx: S#Tx ) : A = get
 
       final def setInit( v: A )( implicit tx: S#Tx ) { tx.system.write( id )( ser.write( v, _ ))}
    }
@@ -137,6 +139,8 @@ object Durable {
                                            ser: TxnSerializer[ S#Tx, S#Acc, A ])
    extends Var[ A ] with BasicSource {
       def get( implicit tx: S#Tx ) : A = peer.get( tx.peer )
+
+      def getFresh( implicit tx: S#Tx ) : A = get
 
       def setInit( v: A )( implicit tx: S#Tx ) { set( v )}
 
@@ -164,6 +168,8 @@ object Durable {
          tx.system.read[ Boolean ]( id )( _.readBoolean() )
       }
 
+      def getFresh( implicit tx: S#Tx ) : Boolean = get
+
       def setInit( v: Boolean )( implicit tx: S#Tx ) {
          tx.system.write( id )( _.writeBoolean( v ))
       }
@@ -184,6 +190,8 @@ object Durable {
          tx.system.read[ Int ]( id )( _.readInt() )
       }
 
+      def getFresh( implicit tx: S#Tx ) : Int = get
+
       def setInit( v: Int )( implicit tx: S#Tx ) {
          tx.system.write( id )( _.writeInt( v ))
       }
@@ -201,6 +209,8 @@ object Durable {
    private final class CachedIntVar( protected val id: Int, peer: ScalaRef[ Int ])
    extends Var[ Int ] with BasicSource {
       def get( implicit tx: S#Tx ) : Int = peer.get( tx.peer )
+
+      def getFresh( implicit tx: S#Tx ) : Int = get
 
       def setInit( v: Int )( implicit tx: S#Tx ) { set( v )}
 
@@ -228,6 +238,8 @@ object Durable {
          tx.system.read[ Long ]( id )( _.readLong() )
       }
 
+      def getFresh( implicit tx: S#Tx ) : Long = get
+
       def setInit( v: Long )( implicit tx: S#Tx ) {
          tx.system.write( id )( _.writeLong( v ))
       }
@@ -245,6 +257,8 @@ object Durable {
    private final class CachedLongVar( protected val id: Int, peer: ScalaRef[ Long ])
    extends Var[ Long ] with BasicSource {
       def get( implicit tx: S#Tx ) : Long = peer.get( tx.peer )
+
+      def getFresh( implicit tx: S#Tx ) : Long = get
 
       def setInit( v: Long )( implicit tx: S#Tx ) { set( v )}
 
