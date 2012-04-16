@@ -49,6 +49,12 @@ trait Type[ A ] {
       new Var( ref, targets )
    }
 
+   final def newConfluentVar[ S <: Sys[ S ]]( init: Ex[ S ])( implicit tx: S#Tx ) : Expr.Var[ S, A ] = {
+      val targets = Targets[ S ]
+      val ref     = tx.newVar[ Ex[ S ]]( targets.id, init )
+      new Var( ref, targets )
+   }
+
    final def readVar[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Expr.Var[ S, A ] = {
       val targets = Targets.read[ S ]( in, access )
       val cookie  = in.readUnsignedByte
