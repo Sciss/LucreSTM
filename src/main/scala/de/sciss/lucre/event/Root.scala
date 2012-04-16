@@ -34,6 +34,7 @@ import stm.Sys
  */
 trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
    final private[lucre] def connect()(    implicit tx: S#Tx ) {}
+//   final private[lucre] def reconnect()(  implicit tx: S#Tx ) {}
    final private[lucre] def disconnect()( implicit tx: S#Tx ) {}
 
    final /* override */ private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = pull.resolve[ A ]

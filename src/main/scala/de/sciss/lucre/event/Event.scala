@@ -84,6 +84,8 @@ import LucreSTM.logEvent
     */
    private[lucre] def disconnect()( implicit tx: S#Tx ) : Unit
 
+//   private[lucre] def reconnect()( implicit tx: S#Tx ) : Unit
+
    /**
     * Involves this event in the pull-phase of event delivery. The event should check
     * the source of the originally fired event, and if it identifies itself with that
@@ -125,6 +127,7 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
    final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = opNotSupported
 
    final private[lucre] def connect()(    implicit tx: S#Tx ) {}
+//   final private[lucre] def reconnect()(  implicit tx: S#Tx ) {}
    final private[lucre] def disconnect()( implicit tx: S#Tx ) {}
 }
 
@@ -141,12 +144,11 @@ trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with 
       if( t.add( slot, r )) {
          logEvent( this.toString + " connect" )
          connect()
-//      } else if( t.isInvalid( slot )) {
-//         logEvent( this.toString + " re-connect" )
-//         // XXX TODO -- could be a more efficient reconnect() method at some point
-//         disconnect()
-//         connect()
-//         t.validated( slot )
+      } else if( t.isInvalid( slot )) {
+         logEvent( this.toString + " re-connect" )
+         disconnect()
+         connect()
+         t.validated( slot )
       }
    }
 

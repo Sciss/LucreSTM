@@ -79,6 +79,9 @@ private[event] def slot = opNotSupported
 //      private[lucre] def select() = opNotSupported
 
       private[lucre] def connect()( implicit tx: S#Tx ) {}
+      private[lucre] def reconnect()( implicit tx: S#Tx ) {
+//         elems.foreach( _.reconnect() )
+      }
       private[lucre] def disconnect()( implicit tx: S#Tx ) {}
 
       private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
