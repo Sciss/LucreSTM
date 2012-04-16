@@ -128,7 +128,7 @@ object Targets {
       private[event] def add( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
          logEvent( this.toString + " add( " + slot + ", " + sel + ")" )
          val tup  = (slot, sel)
-         val old  = childrenVar.getFresh
+         val old  = childrenVar.get // .getFresh
          logEvent( this.toString + " old children = " + old )
          sel.writeValue()
          childrenVar.set( old :+ tup )

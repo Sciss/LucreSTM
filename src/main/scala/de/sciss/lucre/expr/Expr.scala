@@ -89,11 +89,11 @@ object Expr {
          }
       }
 
-      final def getFresh( implicit tx: S#Tx ) : Ex = ref.getFresh
-
       final def transform( f: Ex => Ex )( implicit tx: S#Tx ) { set( f( get ))}
 
-//      final def isFresh( implicit tx: S#Tx ) : Boolean = ref.isFresh
+      final def isFresh( implicit tx: S#Tx ) : Boolean = ref.isFresh
+
+//      final def getFresh( implicit tx: S#Tx ) : Ex = ref.getFresh
 
       final def value( implicit tx: S#Tx ) : A = ref.get.value
 

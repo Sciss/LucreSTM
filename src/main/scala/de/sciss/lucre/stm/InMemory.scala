@@ -40,7 +40,7 @@ object InMemory {
 
       final def get( implicit tx: S#Tx ) : A = peer.get( tx.peer )
 
-      final def getFresh( implicit tx: S#Tx ) : A = get
+//      final def getFresh( implicit tx: S#Tx ) : A = get
 
       final def write( out: DataOutput ) {}
    }
@@ -61,7 +61,7 @@ object InMemory {
          peer.set( null.asInstanceOf[ A ])( tx.peer )
       }
 
-//      def isFresh( implicit tx: S#Tx ) : Boolean = true
+      def isFresh( implicit tx: S#Tx ) : Boolean = true
    }
 
    private def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )
