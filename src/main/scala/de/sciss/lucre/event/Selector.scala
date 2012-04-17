@@ -170,7 +170,10 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
 
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
 
-   private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { push.addLeaf( this, parent )}
+   private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
+      val nParent = parent.nodeSelectorOption.getOrElse( sys.error( "Orphan observer " + this + " - no expanded node selector" ))
+      push.addLeaf( this, nParent )
+   }
 
    private[event] def writeValue()( implicit tx: S#Tx ) {}  // we are light weight, nothing to do here
 

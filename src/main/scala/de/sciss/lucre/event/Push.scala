@@ -107,10 +107,9 @@ object Push {
 
       def parents( sel: ReactorSelector[ S ]) : Parents[ S ] = visited.getOrElse( sel, NoParents )
 
-      def addLeaf( leaf: ObserverKey[ S ], parent: ReactorSelector[ S ]) {
+      def addLeaf( leaf: ObserverKey[ S ], parent: NodeSelector[ S, _ ]) {
          logEvent( indent + "addLeaf " + leaf + ", parent = " + parent )
-         val nParent = parent.nodeSelectorOption.getOrElse( sys.error( "Orphan observer " + leaf + " - no expanded node selector" ))
-         tx.reactionMap.processEvent( leaf, nParent, this )
+         tx.reactionMap.processEvent( leaf, parent, this )
       }
 
       def addReaction( r: Reaction ) { reactions :+= r }
@@ -154,7 +153,7 @@ sealed trait Push[ S <: Sys[ S ]] extends Pull[ S ] {
 //   def visit( sel: MutatingSelector[ S ],  parent: ReactorSelector[ S ]) : Unit
 //   def mutatingVisit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Unit
 //   def addMutation( sel: ReactorSelector[ S ]) : Unit
-   def addLeaf( leaf: ObserverKey[ S ], parent: ReactorSelector[ S ]) : Unit
+   def addLeaf( leaf: ObserverKey[ S ], parent: NodeSelector[ S, _ ]) : Unit
    def addReaction( r: Reaction ) : Unit
    def markInvalid( evt: MutatingSelector[ S ])
 }
