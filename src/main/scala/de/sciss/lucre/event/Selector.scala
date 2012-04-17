@@ -65,7 +65,7 @@ object Selector {
       protected def data: Array[ Byte ]
       protected def access: S#Acc
 
-      final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
+//      final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
 
       final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] = {
          val in   = new DataInput( data )
@@ -101,7 +101,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    private[event] def reactor: Reactor[ S ]
    private[event] def slot: Int
 
-   private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]]
+//   private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]]
 
    private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ]
 
@@ -139,7 +139,7 @@ sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writ
 /* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends VirtualNodeSelector[ S ] with ExpandedSelector[ S ] {
    private[event] def reactor: Node[ S ]
 
-   final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
+//   final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
 
    final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] =
       this
@@ -190,10 +190,13 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
 
    private[event] def pushUpdate( parent: VirtualNodeSelector[ S ], push: Push[ S ]) {
-      val nParent = parent.nodeSelectorOption.getOrElse(
-         sys.error( "Orphan observer " + this + " - no expanded node selector" )
-      )
-      push.addLeaf( this, nParent )
+//      val reader  = push
+//      val nParent = parent.devirtualize( reader )
+////
+////      val nParent = parent.nodeSelectorOption.getOrElse(
+////         sys.error( "Orphan observer " + this + " - no expanded node selector" )
+////      )
+      push.addLeaf( this, parent )
    }
 
    private[event] def writeValue()( implicit tx: S#Tx ) {}  // we are light weight, nothing to do here

@@ -65,11 +65,12 @@ object ReactionMap {
          }
       }
 
-      def processEvent( leaf: ObserverKey[ S ], parent: NodeSelector[ S, _ ], push: Push[ S ])( implicit tx: S#Tx ) {
+      def processEvent( leaf: ObserverKey[ S ], parent: VirtualNodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) {
          val itx = tx.peer
          eventMap.get( leaf.id )( itx ).foreach { obs =>
+            val nParent = parent.devirtualize( obs.reader.asInstanceOf[ Reader[ S, Node[ S ]]]) // ugly XXX
             val react: Reaction = () => {
-               parent.pullUpdate( push ) match {
+               nParent.pullUpdate( push ) match {
                   case Some( result ) =>
                      () => obs.fun.asInstanceOf[ AnyObsFun[ S ]]( tx )( result.asInstanceOf[ AnyRef ])
                   case None => noOpEval
@@ -104,5 +105,5 @@ trait ReactionMap[ S <: Sys[ S ]] {
    def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], observer: IIdxSeq[ ObserverKey[ S ]])
                       ( implicit tx: S#Tx ) : Reactor[ S ]
 
-   def processEvent( leaf: ObserverKey[ S ], parent: NodeSelector[ S, _ ], push: Push[ S ])( implicit tx: S#Tx ) : Unit
+   def processEvent( leaf: ObserverKey[ S ], parent: VirtualNodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) : Unit
 }

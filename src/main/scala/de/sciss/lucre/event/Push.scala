@@ -107,7 +107,7 @@ object Push {
 
       def parents( sel: VirtualNodeSelector[ S ]) : Parents[ S ] = visited.getOrElse( sel, NoParents )
 
-      def addLeaf( leaf: ObserverKey[ S ], parent: NodeSelector[ S, _ ]) {
+      def addLeaf( leaf: ObserverKey[ S ], parent: VirtualNodeSelector[ S ]) {
          logEvent( indent + "addLeaf " + leaf + ", parent = " + parent )
          tx.reactionMap.processEvent( leaf, parent, this )
       }
@@ -153,7 +153,7 @@ sealed trait Push[ S <: Sys[ S ]] extends Pull[ S ] {
 //   def visit( sel: MutatingSelector[ S ],  parent: VirtualNodeSelector[ S ]) : Unit
 //   def mutatingVisit( sel: VirtualNodeSelector[ S ], parent: VirtualNodeSelector[ S ]) : Unit
 //   def addMutation( sel: VirtualNodeSelector[ S ]) : Unit
-   def addLeaf( leaf: ObserverKey[ S ], parent: NodeSelector[ S, _ ]) : Unit
+   def addLeaf( leaf: ObserverKey[ S ], parent: VirtualNodeSelector[ S ]) : Unit
    def addReaction( r: Reaction ) : Unit
    def markInvalid( evt: MutatingSelector[ S ])
 }
