@@ -354,14 +354,6 @@ object Durable {
       def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
          new IDMapImpl[ A ]( system.newIDValue()( this ))
 
-      def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
-         system.read( id.id )( serializer.read( _, () )( this ))( this )
-      }
-
-      def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {
-         system.write( id.id )( serializer.write( value, _ ))( this )
-      }
-
       def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
          system.read( id.id )( serializer.read( _, () )( this ))( this )
       }

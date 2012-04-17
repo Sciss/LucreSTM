@@ -90,21 +90,6 @@ trait Txn[ S <: Sys[ S ]] {
 
    def readPartialVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
 
-   /**
-    * A raw read. If the underlying system doesn't persist objects, an implementation may
-    * throw an exception.
-    *
-    * XXX TODO this is used by Compound
-    */
-   def _readUgly[ A ]( parent: S#ID, id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A
-   /**
-    * A raw write. If the underlying system doesn't persist objects, the implementation
-    * should provide a no-op stub, but must not throw an exception.
-    *
-    * XXX TODO this is used by Compound
-    */
-   def _writeUgly[ A ]( parent: S#ID, id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : Unit
-
    def readID( in: DataInput, acc: S#Acc ) : S#ID
 
    def readPartialID( in: DataInput, acc: S#Acc ) : S#ID
