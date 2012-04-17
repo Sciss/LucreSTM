@@ -53,17 +53,17 @@ object ReactionMap {
 
       private val eventMap = TMap.empty[ Int, EventObservation[ S, _, _ /* <: Event[ S, _, _ ]*/ ]]
 
-      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-                           observers: IIdxSeq[ ObserverKey[ S ]])
-                         ( implicit tx: S#Tx ) : Reactor[ S ] = {
-         val itx = tx.peer
-         val observations = observers.flatMap( k => eventMap.get( k.id )( itx ))
-         observations.headOption match {
-            case Some( obs ) => obs.reader.asInstanceOf[ event.Reader[ S, Reactor[ S ]]]   // ugly XXX
-               .read( in, access, targets )
-            case None => targets
-         }
-      }
+//      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
+//                           observers: IIdxSeq[ ObserverKey[ S ]])
+//                         ( implicit tx: S#Tx ) : Reactor[ S ] = {
+//         val itx = tx.peer
+//         val observations = observers.flatMap( k => eventMap.get( k.id )( itx ))
+//         observations.headOption match {
+//            case Some( obs ) => obs.reader.asInstanceOf[ event.Reader[ S, Reactor[ S ]]]   // ugly XXX
+//               .read( in, access, targets )
+//            case None => targets
+//         }
+//      }
 
       def processEvent( leaf: ObserverKey[ S ], parent: VirtualNodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) {
          val itx = tx.peer
@@ -86,7 +86,6 @@ object ReactionMap {
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
          eventMap.+=( (key, new EventObservation[ S, A, Repr ]( reader, fun )) )( tx.peer )
-//         sys.error( "TODO" )  // UUU
          new ObserverKey[ S ]( key )
       }
 
@@ -102,8 +101,8 @@ trait ReactionMap[ S <: Sys[ S ]] {
 
    def removeEventReaction( key: ObserverKey[ S ])( implicit tx: S#Tx ) : Unit
 
-   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], observer: IIdxSeq[ ObserverKey[ S ]])
-                      ( implicit tx: S#Tx ) : Reactor[ S ]
+//   def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ], observer: IIdxSeq[ ObserverKey[ S ]])
+//                      ( implicit tx: S#Tx ) : Reactor[ S ]
 
    def processEvent( leaf: ObserverKey[ S ], parent: VirtualNodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) : Unit
 }
