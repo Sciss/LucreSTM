@@ -32,9 +32,10 @@ import scala.util.MurmurHash
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
-   def apply[ S <: Sys[ S ]]( slot: Int, targets: Targets[ S ], invariant: Boolean ) : ReactorSelector[ S ] = {
-      if( invariant ) InvariantTargetsSelector( slot, targets )
-      else            MutatingTargetsSelector(  slot, targets )
+   def apply[ S <: Sys[ S ]]( slot: Int, targets: Targets[ S ], data: Array[ Byte ], access: S#Acc,
+                              invariant: Boolean ) : VirtualNodeSelector[ S ] = {
+      if( invariant ) InvariantTargetsSelector( slot, targets, data, access )
+      else            MutatingTargetsSelector(  slot, targets, data, access )
    }
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
@@ -58,14 +59,27 @@ object Selector {
       }
    }
 
-   private sealed trait TargetsSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+   private sealed trait TargetsSelector[ S <: Sys[ S ]] extends VirtualNodeSelector[ S ] {
+//      override protected def reactor: Targets[ S ]
+      override private[event] def reactor: Targets[ S ]
+      protected def data: Array[ Byte ]
+      protected def access: S#Acc
+
       final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
+
+      final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] = {
+         val in   = new DataInput( data )
+         val node = reader.read( in, access, reactor )
+         node.select( slot, cookie == 0 )
+      }
    }
 
-   private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
+   private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ],
+                                                                      data: Array[ Byte ], access: S#Acc )
    extends TargetsSelector[ S ] with InvariantSelector[ S ]
 
-   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ])
+   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ],
+                                                                     data: Array[ Byte ], access: S#Acc )
    extends TargetsSelector[ S ] with MutatingSelector[ S ]
 }
 
@@ -79,15 +93,17 @@ sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {
 
    protected def writeSelectorData( out: DataOutput ) : Unit
 
-   private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) : Unit // ( implicit tx: S#Tx ) : Unit
+   private[event] def pushUpdate( parent: VirtualNodeSelector[ S ], push: Push[ S ]) : Unit // ( implicit tx: S#Tx ) : Unit
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] // Option[ Int ]
 }
 
-sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
+sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    private[event] def reactor: Reactor[ S ]
    private[event] def slot: Int
 
    private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]]
+
+   private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ]
 
    final protected def writeSelectorData( out: DataOutput ) {
       out.writeInt( slot )
@@ -105,8 +121,8 @@ sealed trait ReactorSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    }
 
    override def equals( that: Any ) : Boolean = {
-      (if( that.isInstanceOf[ ReactorSelector[ _ ]]) {
-         val thatSel = that.asInstanceOf[ ReactorSelector[ _ ]]
+      (if( that.isInstanceOf[ VirtualNodeSelector[ _ ]]) {
+         val thatSel = that.asInstanceOf[ VirtualNodeSelector[ _ ]]
          (slot == thatSel.slot && reactor.id == thatSel.reactor.id)
       } else super.equals( that ))
    }
@@ -120,27 +136,30 @@ sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writ
    private[event] def writeValue()( implicit tx: S#Tx ) : Unit
 }
 
-/* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends ReactorSelector[ S ] with ExpandedSelector[ S ] {
+/* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends VirtualNodeSelector[ S ] with ExpandedSelector[ S ] {
    private[event] def reactor: Node[ S ]
 
    final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
 
+   final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] =
+      this
+
    private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
 
    final private[event] def writeValue()( implicit tx: S#Tx ) {
-      tx.writeVal[ Reactor[ S ]]( reactor.id, reactor )( new Targets.ExpanderSerializer[ S ])
+      tx.writeVal[ VirtualNode[ S ]]( reactor.id, reactor ) // ( new Targets.ExpanderSerializer[ S ])
    }
 }
 
-trait InvariantSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+trait InvariantSelector[ S <: Sys[ S ]] extends VirtualNodeSelector[ S ] {
    final protected def cookie: Int = 0
 
-   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
+   final private[event] def pushUpdate( parent: VirtualNodeSelector[ S ], push: Push[ S ]) {
       push.visit( this, parent )
    }
 }
 
-trait MutatingSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
+trait MutatingSelector[ S <: Sys[ S ]] extends VirtualNodeSelector[ S ] {
    final protected def cookie: Int = 1
 
 //   final private[event] def _invalidate()( implicit tx: S#Tx ) {
@@ -154,7 +173,7 @@ trait MutatingSelector[ S <: Sys[ S ]] extends ReactorSelector[ S ] {
 //   final /* protected */ def isInvalid( implicit tx: S#Tx ) : Boolean = reactor._targets.isInvalid( slot )
 //   final /* protected */ def validated()( implicit tx: S#Tx ) { reactor._targets.validated( slot )}
 
-   final private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
+   final private[event] def pushUpdate( parent: VirtualNodeSelector[ S ], push: Push[ S ]) {
       push.markInvalid( this )
       push.visit( this, parent )
    }
@@ -170,8 +189,10 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
 
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
 
-   private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) {
-      val nParent = parent.nodeSelectorOption.getOrElse( sys.error( "Orphan observer " + this + " - no expanded node selector" ))
+   private[event] def pushUpdate( parent: VirtualNodeSelector[ S ], push: Push[ S ]) {
+      val nParent = parent.nodeSelectorOption.getOrElse(
+         sys.error( "Orphan observer " + this + " - no expanded node selector" )
+      )
       push.addLeaf( this, nParent )
    }
 

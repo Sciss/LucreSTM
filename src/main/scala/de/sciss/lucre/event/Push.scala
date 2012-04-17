@@ -60,26 +60,26 @@ object Push {
    private val NoReactions = IIdxSeq.empty[ Reaction ]
    private val emptySet = Set.empty[ Nothing ]
 //   private val emptyMap = Map.empty[ Nothing, Nothing ]
-   type Parents[ S <: Sys[ S ]] = Set[ ReactorSelector[ S ]]
+   type Parents[ S <: Sys[ S ]] = Set[ VirtualNodeSelector[ S ]]
    private def NoParents[ S <: Sys[ S ]] : Parents[ S ] = emptySet.asInstanceOf[ Parents[ S ]]
    private def NoMutating[ S <: Sys[ S ]] : Set[ MutatingSelector[ S ]] = emptySet.asInstanceOf[ Set[ MutatingSelector[ S ]]]
-   private type Visited[ S <: Sys[ S ]] = Map[ ReactorSelector[ S ], Parents[ S ]]
+   private type Visited[ S <: Sys[ S ]] = Map[ VirtualNodeSelector[ S ], Parents[ S ]]
 //   private def EmptyVisited[ S <: Sys[ S ]] : Visited[ S ] = emptyMap.asInstanceOf[ Visited[ S ]]
 
-   private final class Impl[ S <: Sys[ S ]]( source: ReactorSelector[ S ], val update: Any )( implicit tx: S#Tx )
+   private final class Impl[ S <: Sys[ S ]]( source: VirtualNodeSelector[ S ], val update: Any )( implicit tx: S#Tx )
    extends Push[ S ] {
       private var visited     = Map( (source, NoParents[ S ])) // EmptyVisited[ S ]
       private var reactions   = NoReactions
       private var mutating    = NoMutating[ S ]
 
-      private def addVisited( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Boolean = {
+      private def addVisited( sel: VirtualNodeSelector[ S ], parent: VirtualNodeSelector[ S ]) : Boolean = {
          val parents = visited.getOrElse( sel, NoParents )
          logEvent( indent + "visit " + sel + " (new ? " + parents.isEmpty + ")" )
          visited += ((sel, parents + parent))
          parents.isEmpty
       }
 
-      def visitChildren( sel: ReactorSelector[ S ]) {
+      def visitChildren( sel: VirtualNodeSelector[ S ]) {
          val inlet   = sel.slot
          incIndent()
          sel.reactor.children.foreach { tup =>
@@ -92,20 +92,20 @@ object Push {
          decIndent()
       }
 
-      def visit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) {
+      def visit( sel: VirtualNodeSelector[ S ], parent: VirtualNodeSelector[ S ]) {
          if( addVisited( sel, parent )) visitChildren( sel )
       }
 
-//      def visit( sel: MutatingSelector[ S ], parent: ReactorSelector[ S ]) {
+//      def visit( sel: MutatingSelector[ S ], parent: VirtualNodeSelector[ S ]) {
 //         if( addVisited( sel, parent )) {
 //            mutating += sel
 //            visitChildren( sel )
 //         }
 //      }
 
-      def hasVisited( sel: ReactorSelector[ S ]) : Boolean = visited.contains( sel )
+      def hasVisited( sel: VirtualNodeSelector[ S ]) : Boolean = visited.contains( sel )
 
-      def parents( sel: ReactorSelector[ S ]) : Parents[ S ] = visited.getOrElse( sel, NoParents )
+      def parents( sel: VirtualNodeSelector[ S ]) : Parents[ S ] = visited.getOrElse( sel, NoParents )
 
       def addLeaf( leaf: ObserverKey[ S ], parent: NodeSelector[ S, _ ]) {
          logEvent( indent + "addLeaf " + leaf + ", parent = " + parent )
@@ -144,15 +144,15 @@ object Push {
 sealed trait Pull[ S <: Sys[ S ]] {
    def resolve[ A ]: Option[ A ]
    def update: Any
-   def hasVisited( sel: ReactorSelector[ S ]) : Boolean
-   def parents( sel: ReactorSelector[ S ]) : Push.Parents[ S ]
+   def hasVisited( sel: VirtualNodeSelector[ S ]) : Boolean
+   def parents( sel: VirtualNodeSelector[ S ]) : Push.Parents[ S ]
    def clearInvalid( evt: MutatingSelector[ S ])
 }
 sealed trait Push[ S <: Sys[ S ]] extends Pull[ S ] {
-   def visit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Unit
-//   def visit( sel: MutatingSelector[ S ],  parent: ReactorSelector[ S ]) : Unit
-//   def mutatingVisit( sel: ReactorSelector[ S ], parent: ReactorSelector[ S ]) : Unit
-//   def addMutation( sel: ReactorSelector[ S ]) : Unit
+   def visit( sel: VirtualNodeSelector[ S ], parent: VirtualNodeSelector[ S ]) : Unit
+//   def visit( sel: MutatingSelector[ S ],  parent: VirtualNodeSelector[ S ]) : Unit
+//   def mutatingVisit( sel: VirtualNodeSelector[ S ], parent: VirtualNodeSelector[ S ]) : Unit
+//   def addMutation( sel: VirtualNodeSelector[ S ]) : Unit
    def addLeaf( leaf: ObserverKey[ S ], parent: NodeSelector[ S, _ ]) : Unit
    def addReaction( r: Reaction ) : Unit
    def markInvalid( evt: MutatingSelector[ S ])

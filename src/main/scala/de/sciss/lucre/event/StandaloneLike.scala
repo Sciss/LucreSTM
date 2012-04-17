@@ -32,7 +32,7 @@ import stm.Sys
  * Standalone events unite a node and one particular event.
  *
  * WARNING: the implementations of `equals` are really tricky right now. `EventImpl` is more specific in that
- * `ReactorSelector` checks if the compared object is another `ReactorSelector` whose reactor has the
+ * `VirtualNodeSelector` checks if the compared object is another `VirtualNodeSelector` whose reactor has the
  * same id and whose slot is the same. On the other hand `Invariant` inherits `equals` from `Reactor`
  * which checks for another reactor and then compares their ids.
  *
@@ -43,7 +43,7 @@ with InvariantEvent[ S, A, Repr ] {
    final private[event] def slot = 1
    final private[event] def reactor: Node[ S ] = this
 
-   final private[event] def select( slot: Int, invariant: Boolean ) : ReactorSelector[ S ] = {
+   final private[event] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, _ ] = {
       require( slot == 1, "Invalid slot " + slot )
       require( invariant, "Invalid invariant flag. Should be true" )
       this

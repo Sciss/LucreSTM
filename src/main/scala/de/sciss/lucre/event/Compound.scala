@@ -57,7 +57,7 @@ object Compound {
 
 // XXX
 //protected def cookie = opNotSupported
-//private[event] def pushUpdate( parent: ReactorSelector[ S ], push: Push[ S ]) { opNotSupported }
+//private[event] def pushUpdate( parent: VirtualNodeSelector[ S ], push: Push[ S ]) { opNotSupported }
 private[event] def slot = opNotSupported
 
 
@@ -219,5 +219,5 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S ] {
                                       ( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
-   final private[lucre] def select( slot: Int, invariant: Boolean ) : ReactorSelector[ S ] = decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
+   final private[lucre] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, _ ] = decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
 }

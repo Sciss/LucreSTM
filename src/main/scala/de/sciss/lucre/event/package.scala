@@ -9,9 +9,9 @@ package object event {
    type Reaction  = () => () => Unit
 //   type Reactions = Buffer[ Reaction ]
 //   type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
-//   type Parents[ S <: Sys[ S ]] = Set[ ReactorSelector[ S ]]
-//   type Visited[ S <: Sys[ S ]] = MMap[ ReactorSelector[ S ], Parents[ S ]]
-//   type Path[ S <: Sys[ S ]] = List[ ReactorSelector[ S ]]
+//   type Parents[ S <: Sys[ S ]] = Set[ VirtualNodeSelector[ S ]]
+//   type Visited[ S <: Sys[ S ]] = MMap[ VirtualNodeSelector[ S ], Parents[ S ]]
+//   type Path[ S <: Sys[ S ]] = List[ VirtualNodeSelector[ S ]]
 //   val EmptyPull = None // Nil
 //   def Pull[ A ]( update: A ) : Option[ A ] = Some( update ) //  update :: Nil
 

@@ -49,14 +49,14 @@ extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
 }
 
 object Targets {
-   private[event] final class ExpanderSerializer[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
-      def write( v: Reactor[ S ], out: DataOutput ) { v.write( out )}
-      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-         val targets    = Targets.read( in, access )
-         val observers  = targets.observers
-         tx.reactionMap.mapEventTargets( in, access, targets, observers )
-      }
-   }
+//   private[event] final class ExpanderSerializer[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
+//      def write( v: Reactor[ S ], out: DataOutput ) { v.write( out )}
+//      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+//         val targets    = Targets.read( in, access )
+//         val observers  = targets.observers
+//         tx.reactionMap.mapEventTargets( in, access, targets, observers )
+//      }
+//   }
 
    def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
       val id         = tx.newID()
@@ -72,9 +72,9 @@ object Targets {
       new Impl( 1, id, children, invalid )
    }
 
-   private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
+   private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : VirtualNode[ S ] = {
       val id         = tx.readID( in, access )
-      tx.readVal( id )( new ExpanderSerializer[ S ])
+      tx.readVal[ VirtualNode[ S ]]( id ) // ( new ExpanderSerializer[ S ])
    }
 
    /* private[lucre] */ def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
@@ -121,7 +121,7 @@ object Targets {
          invalidVar.dispose()
       }
 
-      def select( slot: Int, invariant: Boolean ) : ReactorSelector[ S ] = Selector( slot, this, invariant )
+//      def select( slot: Int, invariant: Boolean ) : VirtualNodeSelector[ S ] = Selector( slot, this, invariant )
 
       private[event] def children( implicit tx: S#Tx ) : Children[ S ] = childrenVar.get
 
@@ -253,7 +253,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
  * This trait also implements `equals` and `hashCode` in terms of the `id` inherited from the
  * targets.
  */
-/* sealed */ trait Node[ S <: Sys[ S ]] extends Reactor[ S ] /* with Dispatcher[ S, A ] */ {
+/* sealed */ trait Node[ S <: Sys[ S ]] extends Reactor[ S ] with VirtualNode[ S ] /* with Dispatcher[ S, A ] */ {
    override def toString = "Node" + id
 
    protected def targets: Targets[ S ]
@@ -269,6 +269,9 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
    final private[event] def children( implicit tx: S#Tx ) = targets.children
 
    final def id: S#ID = targets.id
+
+//   private[event] def select( slot: Int ) : NodeSelector[ S, _ ]
+   private[event] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, _ ]
 
    final def write( out: DataOutput ) {
       targets.write( out )
@@ -290,7 +293,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
 sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disposable[ S#Tx ] {
    def id: S#ID
 
-   private[event] def select( slot: Int, invariant: Boolean ) : ReactorSelector[ S ]
+//   private[event] def select( slot: Int, invariant: Boolean ) : VirtualNodeSelector[ S ]
 
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
 
@@ -304,3 +307,42 @@ sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disp
 
    override def hashCode = id.hashCode()
 }
+
+object VirtualNode {
+   implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, VirtualNode[ S ]] = new Ser[ S ]
+
+   private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, VirtualNode[ S ]] {
+      def write( v: VirtualNode[ S ], out: DataOutput ) {
+         v.write( out )
+//         v.targets.write( out )
+//         out.write( v.data )
+      }
+
+      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : VirtualNode[ S ] = {
+         val targets    = Targets.read( in, access )
+         val dataSize   = in.getBufferLength - in.getBufferOffset
+         val data       = new Array[ Byte ]( dataSize )
+         in.read( data )
+         new Raw( targets, data, access )
+      }
+   }
+
+   private final class Raw[ S <: Sys[ S ]]( targets: Targets[ S ], data: Array[ Byte ], access: S#Acc )
+   extends VirtualNode[ S ] {
+      def write( out: DataOutput ) {
+         targets.write( out )
+         out.write( data )
+      }
+
+      private[event] def select( slot: Int, invariant: Boolean ) = Selector( slot, targets, data, access, invariant )
+   }
+}
+//private[event] final case class VirtualNode[ S <: Sys[ S ]]( targets: Targets[ S ], data: Array[ Byte ])
+
+sealed trait VirtualNode[ S <: Sys[ S ]] extends Writer {
+   private[event] def select( slot: Int, invariant: Boolean ) : VirtualNodeSelector[ S ]
+}
+
+//sealed trait VirtualNode[ S <: Sys[ S ]] extends Reactor[ S ] {
+//   private[event] def select( slot: Int, invariant: Boolean ) : VirtualNodeSelector[ S ]
+//}
