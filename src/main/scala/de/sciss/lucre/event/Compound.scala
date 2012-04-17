@@ -98,7 +98,7 @@ private[event] def slot = opNotSupported
    }
 
    final protected class CollectionOps[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S ], B ](
-      d: Compound[ S, Repr, D ], elem: Elem => EventLike[ S, B, Elem ])( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ]) {
+      d: Compound[ S, Repr, D ], elem: Elem => EventLike[ S, B, Elem ])( implicit elemReader: Reader[ S, Elem ]) {
 
       def map[ A1 <: D#Update ]( fun: IIdxSeq[ B ] => A1 )( implicit m: ClassManifest[ A1 ]) : CollectionEvent[ S, Repr, D, Elem, B, A1 ] =
          new CollectionEvent[ S, Repr, D, Elem, B, A1 ]( d, elem, fun )
@@ -123,7 +123,7 @@ private[event] def slot = opNotSupported
 
    final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S ], B, A1 <: D#Update ] private[Compound](
       private[event] val reactor: Compound[ S, Repr, D ], elemEvt: Elem => EventLike[ S, B, Elem ], fun: IIdxSeq[ B ] => A1 )
-   ( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ], protected val m: ClassManifest[ A1 ])
+   ( implicit elemReader: Reader[ S, Elem ], protected val m: ClassManifest[ A1 ])
    extends EventImpl[ S, Repr, D, A1 ] with InvariantEvent[ S, A1, Repr ] {
 
       private[lucre] def connect()( implicit tx: S#Tx ) {}
@@ -131,7 +131,7 @@ private[event] def slot = opNotSupported
 
       def +=( elem: Elem )( implicit tx: S#Tx ) {
          elemEvt( elem ) ---> this
-         tx._writeUgly( reactor.id, elem.id, elem )
+//         tx._writeUgly( reactor.id, elem.id, elem )
       }
 
       def -=( elem: Elem )( implicit tx: S#Tx ) {
@@ -141,8 +141,9 @@ private[event] def slot = opNotSupported
       protected def prefix = reactor.toString + ".event"
 
       private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
-         sys.error( "TODO" )
-//         val elems: IIdxSeq[ B ] = pull.parents( this /* select() */).flatMap( sel =>
+         val elems: IIdxSeq[ B ] = pull.parents( this /* select() */).flatMap( sel => {
+            val elem = sel.devirtualize( elemReader ).reactor.asInstanceOf[ Elem ]
+//
 //            sel.nodeSelectorOption match {
 //               case Some( nodeSel ) => // this happens for mem-cached and not persisting systems (e.g. `InMemory`)
 //                  nodeSel.pullUpdate( pull ).asInstanceOf[ Option[ B ]]
@@ -155,11 +156,11 @@ private[event] def slot = opNotSupported
 //                  // may safely deserialize the element with the given reader, and
 //                  // can then apply `elemEvt` to get the event/selector.
 //                  val elem = tx._readUgly[ Elem ]( reactor.id, sel.reactor.id )
-//                  elemEvt( elem ).pullUpdate( pull ) // we could also do elem.select( sel.slot ) but would need an additional cast
+                  elemEvt( elem ).pullUpdate( pull ) // we could also do elem.select( sel.slot ) but would need an additional cast
 //            }
-//         )( breakOut )
-//
-//         if( elems.isEmpty ) None else Some( fun( elems ))
+         })( breakOut )
+
+         if( elems.isEmpty ) None else Some( fun( elems ))
       }
    }
 
@@ -217,7 +218,7 @@ trait Compound[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ]] extends Node[ S ] {
       new Compound.Trigger( this )
 
    protected def collection[ Elem <: Node[ S ], B ]( fun: Elem => EventLike[ S, B, Elem ])
-                                      ( implicit elemSer: TxnSerializer[ S#Tx, S#Acc, Elem ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
+                                      ( implicit elemReader: Reader[ S, Elem ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
    final private[lucre] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, _ ] = decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
