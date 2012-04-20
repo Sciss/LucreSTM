@@ -37,7 +37,7 @@ object Push {
 
    @elidable(CONFIG) private def resetIndent() { indent = "" }
    @elidable(CONFIG) private def incIndent()   { indent += "  " }
-   @elidable(CONFIG) private def decIndent()   { indent = indent.substring( indent.length - 2 )}
+   @elidable(CONFIG) private def decIndent()   { indent = indent.substring( 2 )}
 
    private[event] def apply[ S <: Sys[ S ], A ]( source: NodeSelector[ S, A ], update: A )( implicit tx: S#Tx ) {
       val push    = new Impl( source, update )
