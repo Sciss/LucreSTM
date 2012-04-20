@@ -13,13 +13,13 @@ Further reading:
 
 ## requirements / installation
 
-LucreSTM builds with sbt 0.11 against Scala 2.9.1. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.5 and currently includes a Berkeley DB JE 5 based database backend.
+LucreSTM builds with sbt 0.11 against Scala 2.9.2. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.5 and currently includes a Berkeley DB JE 5 based database backend.
 
 ## linking to LucreSTM
 
 The following dependency is necessary:
 
-    "de.sciss" %% "lucrestm" % "0.23-SNAPSHOT"
+    "de.sciss" %% "lucrestm" % "0.23"
 
 ## documentation
 

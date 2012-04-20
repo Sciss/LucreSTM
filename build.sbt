@@ -1,6 +1,6 @@
 name := "LucreSTM"
 
-version := "0.23-SNAPSHOT"
+version := "0.23"
 
 organization := "de.sciss"
 
@@ -10,18 +10,18 @@ homepage := Some( url( "https://github.com/Sciss/LucreSTM" ))
 
 licenses := Seq( "GPL v2+" -> url( "http://www.gnu.org/licenses/gpl-2.0.txt" ))
 
-scalaVersion := "2.9.1"
+scalaVersion := "2.9.2"
 
 resolvers += "Oracle Repository" at "http://download.oracle.com/maven"
 
 libraryDependencies ++= Seq(
-   "org.scala-tools" %% "scala-stm" % "0.5",
+   "org.scala-tools" % "scala-stm_2.9.1" % "0.5",    // not yet build for Scala 2.9.2
    "com.sleepycat" % "je" % "5.0.34"
 )
 
 retrieveManaged := true
 
-scalacOptions ++= Seq( "-deprecation", "-unchecked" ) // , "-Xelide-below", "INFO" ) // elide debug logging!
+scalacOptions ++= Seq( "-deprecation", "-unchecked", "-Xelide-below", "INFO" ) // elide debug logging!
 
 testOptions in Test += Tests.Argument( "-oDF" )   // ScalaTest: durations and full stack traces
 
