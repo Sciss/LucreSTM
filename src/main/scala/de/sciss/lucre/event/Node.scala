@@ -137,6 +137,15 @@ object Targets {
          !old.exists( _._1 == slot )
       }
 
+      private[event] def resetAndValidate( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+         logEvent( this.toString + " resetAndValidate( " + slot + ", " + sel + ")" )
+         val tup  = (slot, sel)
+         sel.writeValue()
+         val old  = if( isPartial ) childrenVar.get else NoChildren[ S ]
+         childrenVar.set( old :+ tup )
+         validated( slot )
+      }
+
       private[event] def remove( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
          logEvent( this.toString + " remove( " + slot + ", " + sel + ")" )
          val tup  = (slot, sel)
@@ -216,6 +225,15 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
     * @return  `true` if this was the first dependant registered with the given slot, `false` otherwise
     */
    private[event] def add( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
+
+   /**
+    * This method should be invoked when the targets are invalid for the given slot. It resets the children
+    * for that slot to the single selector, and clears the invalid flag for the slot.
+    *
+    * @param slot the slot for this node to be pushing to the dependant
+    * @param sel  the target selector to which an event at slot `slot` will be pushed
+    */
+   private[event] def resetAndValidate( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
 
    def isEmpty( implicit tx: S#Tx ) : Boolean
    def nonEmpty( implicit tx: S#Tx ) : Boolean
