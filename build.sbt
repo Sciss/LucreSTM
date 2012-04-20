@@ -27,7 +27,7 @@ testOptions in Test += Tests.Argument( "-oDF" )   // ScalaTest: durations and fu
 
 parallelExecution in Test := false
 
-publishArtifact in (Compile, packageDoc) := false   // disable doc generation during development cycles
+// publishArtifact in (Compile, packageDoc) := false   // disable doc generation during development cycles
 
 // ---- publishing ----
 
