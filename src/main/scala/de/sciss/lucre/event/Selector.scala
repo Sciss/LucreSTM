@@ -48,7 +48,9 @@ object Selector {
          // 0 = invariant, 1 = mutating, 2 = observer
          if( cookie == 0 || cookie == 1 ) {
             val slot    = in.readInt()
-            val reactor = Targets.readAndExpand[ S ]( in, access )
+// MMM
+//            val reactor = Targets.readAndExpand[ S ]( in, access )
+val reactor = VirtualNode.read[ S ]( in, access )
             reactor.select( slot, cookie == 0 )
          } else if( cookie == 2 ) {
             val id = in.readInt()

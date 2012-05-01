@@ -72,10 +72,11 @@ object Targets {
       new Impl( 1, id, children, invalid )
    }
 
-   private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : VirtualNode[ S ] = {
-      val id         = tx.readID( in, access )
-      tx.readVal[ VirtualNode[ S ]]( id ) // ( new ExpanderSerializer[ S ])
-   }
+// MMM
+//   private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : VirtualNode[ S ] = {
+//      val id         = tx.readID( in, access )
+//      tx.readVal[ VirtualNode[ S ]]( id ) // ( new ExpanderSerializer[ S ])
+//   }
 
    /* private[lucre] */ def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
       (in.readUnsignedByte(): @switch) match {
@@ -331,6 +332,15 @@ sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disp
 object VirtualNode {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, VirtualNode[ S ]] = new Ser[ S ]
 
+   // MMM
+   def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : VirtualNode[ S ] = {
+      val targets    = Targets.read( in, access )
+      val dataSize   = in.getBufferLength - in.getBufferOffset
+      val data       = new Array[ Byte ]( dataSize )
+      in.read( data )
+      new Raw( targets, data, access )
+   }
+
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, VirtualNode[ S ]] {
       def write( v: VirtualNode[ S ], out: DataOutput ) {
          v.write( out )
@@ -339,11 +349,13 @@ object VirtualNode {
       }
 
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : VirtualNode[ S ] = {
-         val targets    = Targets.read( in, access )
-         val dataSize   = in.getBufferLength - in.getBufferOffset
-         val data       = new Array[ Byte ]( dataSize )
-         in.read( data )
-         new Raw( targets, data, access )
+// MMM
+VirtualNode.read( in, access )
+//         val targets    = Targets.read( in, access )
+//         val dataSize   = in.getBufferLength - in.getBufferOffset
+//         val data       = new Array[ Byte ]( dataSize )
+//         in.read( data )
+//         new Raw( targets, data, access )
       }
    }
 
