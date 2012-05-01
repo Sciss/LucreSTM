@@ -132,11 +132,13 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    override def toString = reactor.toString + ".select(" + slot + ")"
 }
 
-sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writer */ {
-   private[event] def writeValue()( implicit tx: S#Tx ) : Unit
-}
+// MMM
+//sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writer */ {
+//// MMM
+////   private[event] def writeValue()( implicit tx: S#Tx ) : Unit
+//}
 
-/* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends VirtualNodeSelector[ S ] with ExpandedSelector[ S ] {
+/* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends VirtualNodeSelector[ S ] /* MMM with ExpandedSelector[ S ] */ {
    private[event] def reactor: Node[ S ]
 
 //   final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
@@ -146,9 +148,10 @@ sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writ
 
    private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
 
-   final private[event] def writeValue()( implicit tx: S#Tx ) {
-      tx.writeVal[ VirtualNode[ S ]]( reactor.id, reactor ) // ( new Targets.ExpanderSerializer[ S ])
-   }
+// MMM
+//   final private[event] def writeValue()( implicit tx: S#Tx ) {
+//      tx.writeVal[ VirtualNode[ S ]]( reactor.id, reactor ) // ( new Targets.ExpanderSerializer[ S ])
+//   }
 }
 
 trait InvariantSelector[ S <: Sys[ S ]] extends VirtualNodeSelector[ S ] {
@@ -184,7 +187,7 @@ trait MutatingSelector[ S <: Sys[ S ]] extends VirtualNodeSelector[ S ] {
  * the observing function is not persisted, the slot will be used for lookup (again through the transaction)
  * of the reacting function during the first reaction gathering phase of event propagation.
  */
-final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends ExpandedSelector[ S ] {
+final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends /* MMM Expanded */ Selector[ S ] {
    protected def cookie: Int = 2
 
    private[event] def toObserverKey : Option[ ObserverKey[ S ]] = Some( this )
@@ -199,7 +202,8 @@ final case class ObserverKey[ S <: Sys[ S ]] private[lucre] ( id: Int ) extends 
       push.addLeaf( this, parent )
    }
 
-   private[event] def writeValue()( implicit tx: S#Tx ) {}  // we are light weight, nothing to do here
+// MMM
+//   private[event] def writeValue()( implicit tx: S#Tx ) {}  // we are light weight, nothing to do here
 
    def dispose()( implicit tx: S#Tx ) {}  // XXX really?
 

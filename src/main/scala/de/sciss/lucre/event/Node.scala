@@ -127,26 +127,28 @@ object Targets {
 
       override def toString = "Targets" + id
 
-      private[event] def add( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
+      private[event] def add( slot: Int, sel: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
          logEvent( this.toString + " add( " + slot + ", " + sel + ")" )
          val tup  = (slot, sel)
          val old  = childrenVar.get // .getFresh
          logEvent( this.toString + " old children = " + old )
-         sel.writeValue()
+// MMM
+//         sel.writeValue()
          childrenVar.set( old :+ tup )
          !old.exists( _._1 == slot )
       }
 
-      private[event] def resetAndValidate( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+      private[event] def resetAndValidate( slot: Int, sel: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
          logEvent( this.toString + " resetAndValidate( " + slot + ", " + sel + ")" )
          val tup  = (slot, sel)
-         sel.writeValue()
+// MMM
+//         sel.writeValue()
          val old  = if( isPartial ) childrenVar.get else NoChildren[ S ]
          childrenVar.set( old :+ tup )
          validated( slot )
       }
 
-      private[event] def remove( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean = {
+      private[event] def remove( slot: Int, sel: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) : Boolean = {
          logEvent( this.toString + " remove( " + slot + ", " + sel + ")" )
          val tup  = (slot, sel)
          val xs   = childrenVar.get
@@ -224,7 +226,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
     *
     * @return  `true` if this was the first dependant registered with the given slot, `false` otherwise
     */
-   private[event] def add( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
+   private[event] def add( slot: Int, sel: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) : Boolean
 
    /**
     * This method should be invoked when the targets are invalid for the given slot. It resets the children
@@ -233,7 +235,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
     * @param slot the slot for this node to be pushing to the dependant
     * @param sel  the target selector to which an event at slot `slot` will be pushed
     */
-   private[event] def resetAndValidate( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Unit
+   private[event] def resetAndValidate( slot: Int, sel: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) : Unit
 
    def isEmpty( implicit tx: S#Tx ) : Boolean
    def nonEmpty( implicit tx: S#Tx ) : Boolean
@@ -246,7 +248,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
     *
     * @return  `true` if this was the last dependant unregistered with the given slot, `false` otherwise
     */
-   private[event] def remove( slot: Int, sel: ExpandedSelector[ S ])( implicit tx: S#Tx ) : Boolean
+   private[event] def remove( slot: Int, sel: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) : Boolean
 
    private[event] def observers( implicit tx: S#Tx ): IIdxSeq[ ObserverKey[ S ]]
 

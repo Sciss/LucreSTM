@@ -84,10 +84,10 @@ private[event] def slot = opNotSupported
       }
       private[lucre] def disconnect()( implicit tx: S#Tx ) {}
 
-      private[lucre] def --->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+      private[lucre] def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
          elems.foreach( _ ---> r )
       }
-      private[lucre] def -/->( r: ExpandedSelector[ S ])( implicit tx: S#Tx ) {
+      private[lucre] def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
          elems.foreach( _ -/-> r )
       }
 
