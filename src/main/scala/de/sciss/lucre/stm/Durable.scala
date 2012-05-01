@@ -354,16 +354,16 @@ object Durable {
       def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
          new IDMapImpl[ A ]( system.newIDValue()( this ))
 
-      def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
-         system.read( id.id )( serializer.read( _, () )( this ))( this )
-      }
-
-      def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {
-         val idi = id.id
-         if( !system.exists( idi )( this )) {
-            system.write( idi )( serializer.write( value, _ ))( this )
-         }
-      }
+//      def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
+//         system.read( id.id )( serializer.read( _, () )( this ))( this )
+//      }
+//
+//      def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {
+//         val idi = id.id
+//         if( !system.exists( idi )( this )) {
+//            system.write( idi )( serializer.write( value, _ ))( this )
+//         }
+//      }
 
       def readVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val id = in.readInt()

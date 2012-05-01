@@ -290,18 +290,18 @@ object Confluent {
          new IDImpl( id, pid.path )
       }
 
-      def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
-         val (in, acc) = system.access( id.id, id.path )( this )
-         serializer.read( in, acc )( this )
-      }
-
-      def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {
-         val out = new DataOutput()
-         serializer.write( value, out )
-         val bytes = out.toByteArray
-         system.storage += id.id -> (system.storage.getOrElse( id.id,
-            Map.empty[ Acc, Array[ Byte ]]) + (id.path -> bytes))
-      }
+//      def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
+//         val (in, acc) = system.access( id.id, id.path )( this )
+//         serializer.read( in, acc )( this )
+//      }
+//
+//      def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {
+//         val out = new DataOutput()
+//         serializer.write( value, out )
+//         val bytes = out.toByteArray
+//         system.storage += id.id -> (system.storage.getOrElse( id.id,
+//            Map.empty[ Acc, Array[ Byte ]]) + (id.path -> bytes))
+//      }
 
       def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Acc, A ]) : Var[ A ] = {
          val id = readSource( in, pid )
