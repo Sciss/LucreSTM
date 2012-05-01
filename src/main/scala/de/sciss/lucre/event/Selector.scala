@@ -111,7 +111,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    final protected def writeSelectorData( out: DataOutput ) {
       out.writeInt( slot )
       val sizeOffset = out.getBufferLength
-      out.addSize( 4 )
+      out.writeInt( 0 ) // will be overwritten later -- note: addSize cannot be used, because the subsequent write will be invalid!!!
       node.write( out )
       val stop       = out.getBufferLength
       val delta      = stop - sizeOffset
