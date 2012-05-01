@@ -140,7 +140,7 @@ trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] with NodeS
 
 trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with InvariantSelector[ S ] {
    final private[lucre] def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
-      val t = reactor._targets
+      val t = node._targets
 //      if( t.add( slot, r )) {
 //         logEvent( this.toString + " connect" )
 //         connect()
@@ -162,17 +162,17 @@ trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with 
    }
 
    final private[lucre] def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
-      if( reactor._targets.remove( slot, r )) disconnect()
+      if( node._targets.remove( slot, r )) disconnect()
    }
 }
 
 trait MutatingEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with MutatingSelector[ S ] {
    final private[lucre] def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
-      reactor._targets.add( slot, r )
+      node._targets.add( slot, r )
    }
 
    final private[lucre] def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
-      reactor._targets.remove( slot, r )
+      node._targets.remove( slot, r )
    }
 
    final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = {

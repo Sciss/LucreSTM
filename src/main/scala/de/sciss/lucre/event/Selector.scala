@@ -32,10 +32,10 @@ import scala.util.MurmurHash
 object Selector {
    implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
-   def apply[ S <: Sys[ S ]]( slot: Int, targets: Targets[ S ], data: Array[ Byte ], access: S#Acc,
-                              invariant: Boolean ) : VirtualNodeSelector[ S ] = {
-      if( invariant ) InvariantTargetsSelector( slot, targets, data, access )
-      else            MutatingTargetsSelector(  slot, targets, data, access )
+   private[event] def apply[ S <: Sys[ S ]]( slot: Int, node: VirtualNode.Raw[ S ],
+                                             invariant: Boolean ) : VirtualNodeSelector[ S ] = {
+      if( invariant ) InvariantTargetsSelector( slot, node )
+      else            MutatingTargetsSelector(  slot, node )
    }
 
    private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
@@ -50,7 +50,8 @@ object Selector {
             val slot    = in.readInt()
 // MMM
 //            val reactor = Targets.readAndExpand[ S ]( in, access )
-val reactor = VirtualNode.read[ S ]( in, access )
+val fullSize = in.readInt()
+val reactor  = VirtualNode.read[ S ]( in, fullSize, access )
             reactor.select( slot, cookie == 0 )
          } else if( cookie == 2 ) {
             val id = in.readInt()
@@ -63,31 +64,27 @@ val reactor = VirtualNode.read[ S ]( in, access )
 
    private sealed trait TargetsSelector[ S <: Sys[ S ]] extends VirtualNodeSelector[ S ] {
 //      override protected def reactor: Targets[ S ]
-      override private[event] def reactor: Targets[ S ]
-      protected def data: Array[ Byte ]
-      protected def access: S#Acc
+//      override private[event] def reactor: Targets[ S ]
+//      protected def data: Array[ Byte ]
+//      protected def access: S#Acc
+      override private[event] def node: VirtualNode.Raw[ S ]
 
 //      final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
 
-      final protected def writeSelectorData( out: DataOutput ) {
-         out.writeInt( slot )
-         reactor.write( out )
-         out.write( data )
-      }
+//      final protected def writeVirtualNode( out: DataOutput ) {
+//         reactor.write( out )
+//         out.write( data )
+//      }
 
       final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] = {
-         val in   = new DataInput( data )
-         val node = reader.read( in, access, reactor )
-         node.select( slot, cookie == 0 )
+         node.devirtualize( reader ).select( slot, cookie == 0 )
       }
    }
 
-   private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ],
-                                                                      data: Array[ Byte ], access: S#Acc )
+   private final case class InvariantTargetsSelector[ S <: Sys[ S ]]( slot: Int, node: VirtualNode.Raw[ S ])
    extends TargetsSelector[ S ] with InvariantSelector[ S ]
 
-   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( slot: Int, reactor: Targets[ S ],
-                                                                     data: Array[ Byte ], access: S#Acc )
+   private final case class MutatingTargetsSelector[ S <: Sys[ S ]]( slot: Int, node: VirtualNode.Raw[ S ])
    extends TargetsSelector[ S ] with MutatingSelector[ S ]
 }
 
@@ -106,10 +103,23 @@ sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {
 }
 
 sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
-   private[event] def reactor: Reactor[ S ]
+//   private[event] def reactor: Reactor[ S ]
+   private[event] def node: VirtualNode[ S ]
    private[event] def slot: Int
 
 //   private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]]
+   final protected def writeSelectorData( out: DataOutput ) {
+      out.writeInt( slot )
+      val sizeOffset = out.getBufferLength
+      out.addSize( 4 )
+      node.write( out )
+      val stop       = out.getBufferLength
+      val delta      = stop - sizeOffset
+      out.addSize( -delta )      // XXX ugly ... should have a seek method
+      val fullSize   = delta - 4
+      out.writeInt( fullSize )
+      out.addSize( fullSize )
+   }
 
    private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ]
 
@@ -125,20 +135,20 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
       val c = startMagicA
       val k = startMagicB
       h = extendHash( h, slot, c, k )
-      h = extendHash( h, reactor.id.##, nextMagicA( c ), nextMagicB( k ))
+      h = extendHash( h, node.id.##, nextMagicA( c ), nextMagicB( k ))
       finalizeHash( h )
    }
 
    override def equals( that: Any ) : Boolean = {
       (if( that.isInstanceOf[ VirtualNodeSelector[ _ ]]) {
          val thatSel = that.asInstanceOf[ VirtualNodeSelector[ _ ]]
-         (slot == thatSel.slot && reactor.id == thatSel.reactor.id)
+         (slot == thatSel.slot && node.id == thatSel.node.id)
       } else super.equals( that ))
    }
 
    final private[event] def toObserverKey : Option[ ObserverKey[ S ]] = None
 
-   override def toString = reactor.toString + ".select(" + slot + ")"
+   override def toString = node.toString + ".select(" + slot + ")"
 }
 
 // MMM
@@ -148,13 +158,18 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 //}
 
 /* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends VirtualNodeSelector[ S ] /* MMM with ExpandedSelector[ S ] */ {
-   private[event] def reactor: Node[ S ]
+   private[event] def node: Node[ S ]
 
 //   final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
-   final protected def writeSelectorData( out: DataOutput ) {
-      out.writeInt( slot )
-      reactor.write( out )
-   }
+//   final protected def writeSelectorData( out: DataOutput ) {
+//      out.writeInt( slot )
+//      val sizeOffset = out.getBufferOffset
+//      out.addSize( 4 )
+//      reactor.write( out )
+//      val pos        = out.getBufferOffset
+//      val delta      = pos - sizeOffset
+//      out.addSize( -delta )
+//   }
 
    final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] =
       this

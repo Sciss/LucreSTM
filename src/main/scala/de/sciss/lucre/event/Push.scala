@@ -82,7 +82,8 @@ object Push {
       def visitChildren( sel: VirtualNodeSelector[ S ]) {
          val inlet   = sel.slot
          incIndent()
-         sel.reactor.children.foreach { tup =>
+         val ch      = sel.node._targets.children
+         ch.foreach { tup =>
             val inlet2 = tup._1
             if( inlet2 == inlet ) {
                val selChild = tup._2
@@ -123,7 +124,7 @@ object Push {
             logEvent( "numInvalid = " + mutating.size )
             mutating.foreach { sel =>
                println( "INVALIDATED: " + mutating.mkString( ", " ))
-               sel.reactor._targets.invalidate( sel.slot )
+               sel.node._targets.invalidate( sel.slot )
             }
          }
       }

@@ -41,7 +41,7 @@ import stm.Sys
 trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Node[ S ] with EventImpl[ S, A, A, Repr ]
 with InvariantEvent[ S, A, Repr ] {
    final private[event] def slot = 1
-   final private[event] def reactor: Node[ S ] = this
+   final private[event] def node: Node[ S ] = this
 
    final private[event] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, _ ] = {
       require( slot == 1, "Invalid slot " + slot )
