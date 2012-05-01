@@ -69,6 +69,12 @@ val reactor = VirtualNode.read[ S ]( in, access )
 
 //      final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
 
+      final protected def writeSelectorData( out: DataOutput ) {
+         out.writeInt( slot )
+         reactor.write( out )
+         out.write( data )
+      }
+
       final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] = {
          val in   = new DataInput( data )
          val node = reader.read( in, access, reactor )
@@ -107,10 +113,11 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 
    private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ]
 
-   final protected def writeSelectorData( out: DataOutput ) {
-      out.writeInt( slot )
-      reactor.id.write( out )
-   }
+// MMM
+//   final protected def writeSelectorData( out: DataOutput ) {
+//      out.writeInt( slot )
+//      reactor.id.write( out )
+//   }
 
    override def hashCode : Int = {
       import MurmurHash._
@@ -144,6 +151,10 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    private[event] def reactor: Node[ S ]
 
 //   final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
+   final protected def writeSelectorData( out: DataOutput ) {
+      out.writeInt( slot )
+      reactor.write( out )
+   }
 
    final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] =
       this
