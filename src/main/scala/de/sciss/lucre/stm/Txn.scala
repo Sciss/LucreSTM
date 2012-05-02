@@ -56,6 +56,7 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
+   def newPartialID() : S#ID
    def newPartialVar[ A ]( id: S#ID, init: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
 
    /**

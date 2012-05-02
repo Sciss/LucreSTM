@@ -66,9 +66,9 @@ object Targets {
    }
 
    def partial[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
-      val id         = tx.newID()
+      val id         = tx.newPartialID()
       val children   = tx.newPartialVar[ Children[ S ]]( id, NoChildren )
-      val invalid    = tx.newIntVar( id, 0 )
+      val invalid    = tx.newIntVar( id, 0 ) // XXX should this be removed? or partial?
       new Impl( 1, id, children, invalid )
    }
 

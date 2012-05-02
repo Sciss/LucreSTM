@@ -256,6 +256,7 @@ object Confluent {
 
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       def newID() : ID = system.newID()( this )
+      def newPartialID(): S#ID = sys.error( "TODO" )
 
       override def toString = "Confluent#Tx" // + system.path.mkString( "<", ",", ">" )
 

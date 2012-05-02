@@ -296,6 +296,7 @@ object Durable {
       //      private var id = -1L
 
       def newID(): S#ID = new IDImpl( system.newIDValue()( this ))
+      def newPartialID(): S#ID = newID()
 
       def reactionMap: ReactionMap[ S ] = system.reactionMap
 

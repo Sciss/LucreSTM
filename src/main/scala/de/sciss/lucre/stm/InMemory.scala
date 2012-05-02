@@ -84,6 +84,7 @@ object InMemory {
 
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn[ S ] {
       def newID() : S#ID = new IDImpl( system.newIDValue( peer ))
+      def newPartialID(): S#ID = newID()
 
       def reactionMap: ReactionMap[ S ] = system.reactionMap
 
