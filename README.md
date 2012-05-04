@@ -2,7 +2,7 @@
 
 ## statement
 
-LucreSTM is provides a software transactional memory with persistent backend, as well as reactive observer system. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project. The reactive system implements event graphs which also can be persistent, along with live observers.
+LucreSTM provides a software transactional memory with persistent backend, as well as reactive observer system. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project. The reactive system implements event graphs which also can be persistent, along with live observers.
 
 LucreSTM is (C)opyright 2011&ndash;2012 by Hanns Holger Rutz. All rights reserved. It is released under the [GNU General Public License](https://raw.github.com/Sciss/LucreSTM/master/licenses/LucreSTM-License.txt) and comes with absolutely no warranties. To contact the author, send an email to `contact at sciss.de`
 
@@ -19,7 +19,7 @@ LucreSTM builds with sbt 0.11 against Scala 2.9.2. It depends on [Scala-STM](htt
 
 The following dependency is necessary:
 
-    "de.sciss" %% "lucrestm" % "0.23"
+    "de.sciss" %% "lucrestm" % "0.24"
 
 ## documentation
 
