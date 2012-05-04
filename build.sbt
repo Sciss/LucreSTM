@@ -1,6 +1,6 @@
 name := "LucreSTM"
 
-version := "0.24-SNAPSHOT"
+version := "0.24"
 
 organization := "de.sciss"
 
@@ -15,7 +15,7 @@ scalaVersion := "2.9.2"
 resolvers += "Oracle Repository" at "http://download.oracle.com/maven"
 
 libraryDependencies ++= Seq(
-   "org.scala-tools" % "scala-stm_2.9.1" % "0.5",    // not yet build for Scala 2.9.2
+   "org.scala-tools" %% "scala-stm" % "0.5",
    "com.sleepycat" % "je" % "5.0.34"
 )
 
