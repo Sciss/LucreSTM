@@ -30,11 +30,14 @@ import stm.{TxnSerializer, Writer, Sys}
 import annotation.switch
 
 /**
-* A trait to serialize events which can be both constants and immutable nodes.
-* An implementation mixing in this trait just needs to implement methods
-* `readConstant` to return the constant instance, and `read` with the
-* `Event.Targets` argument to return the immutable node instance.
-*/
+ * A trait to serialize events which can be both constants and immutable nodes.
+ * An implementation mixing in this trait just needs to implement methods
+ * `readConstant` to return the constant instance, and `read` with the
+ * `Event.Targets` argument to return the immutable node instance.
+ *
+ * The constant event should mix in `Constant` which takes care of writing
+ * the appropriate serialization preamble.
+ */
 trait EventLikeSerializer[ S <: Sys[ S ], Repr <: Writer /* Node[ S, _ ] */]
 extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
@@ -52,5 +55,12 @@ extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
       }
    }
 
+   /**
+    * Called by the implementation when the cookie for constant value is
+    * detected in deserialization.
+    *
+    * @return  the constant representation of this event like type, which
+    *          should mix in trait `Constant`.
+    */
    def readConstant( in: DataInput )( implicit tx: S#Tx ) : Repr
 }
