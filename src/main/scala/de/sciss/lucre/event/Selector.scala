@@ -67,7 +67,7 @@ val reactor  = VirtualNode.read[ S ]( in, fullSize, access )
 //      override private[event] def reactor: Targets[ S ]
 //      protected def data: Array[ Byte ]
 //      protected def access: S#Acc
-      override private[event] def node: VirtualNode.Raw[ S ]
+      override private[lucre] def node: VirtualNode.Raw[ S ]
 
 //      final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
 
@@ -76,7 +76,7 @@ val reactor  = VirtualNode.read[ S ]( in, fullSize, access )
 //         out.write( data )
 //      }
 
-      final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] = {
+      final def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] = {
          node.devirtualize( reader ).select( slot, cookie == 0 )
       }
    }
@@ -104,7 +104,8 @@ sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {
 
 sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 //   private[event] def reactor: Reactor[ S ]
-   private[event] def node: VirtualNode[ S ]
+
+   private[lucre] def node: VirtualNode[ S ]
    private[event] def slot: Int
 
 //   private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]]
@@ -121,7 +122,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
       out.addSize( fullSize )
    }
 
-   private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ]
+   private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ]
 
 // MMM
 //   final protected def writeSelectorData( out: DataOutput ) {
@@ -158,7 +159,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 //}
 
 /* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends VirtualNodeSelector[ S ] /* MMM with ExpandedSelector[ S ] */ {
-   private[event] def node: Node[ S ]
+   private[lucre] def node: Node[ S ]
 
 //   final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
 //   final protected def writeSelectorData( out: DataOutput ) {
@@ -171,7 +172,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 //      out.addSize( -delta )
 //   }
 
-   final private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] =
+   final private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] =
       this
 
    private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]

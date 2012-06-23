@@ -52,7 +52,7 @@ object Compound {
    }
 
    final class Or[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B <: D#Update ] private[Compound](
-      private[event] val node: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, _ <: B, Repr ]])
+      val node: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, _ <: B, Repr ]])
    extends Event[ S, B, Repr ] with InvariantSelector[ S ] {
 
 // XXX
@@ -106,7 +106,7 @@ private[event] def slot = opNotSupported
 
    sealed trait EventImpl[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ]
    extends event.EventImpl[ S, D#Update, A1, Repr ] {
-      private[event] def node: Compound[ S, Repr, D ]
+      def node: Compound[ S, Repr, D ]
       protected def prefix : String
       implicit protected def m: ClassManifest[ A1 ]
 
@@ -122,7 +122,7 @@ private[event] def slot = opNotSupported
    }
 
    final class CollectionEvent[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], Elem <: Node[ S ], B, A1 <: D#Update ] private[Compound](
-      private[event] val node: Compound[ S, Repr, D ], elemEvt: Elem => EventLike[ S, B, Elem ], fun: IIdxSeq[ B ] => A1 )
+      val node: Compound[ S, Repr, D ], elemEvt: Elem => EventLike[ S, B, Elem ], fun: IIdxSeq[ B ] => A1 )
    ( implicit elemReader: Reader[ S, Elem ], protected val m: ClassManifest[ A1 ])
    extends EventImpl[ S, Repr, D, A1 ] with InvariantEvent[ S, A1, Repr ] {
 
@@ -159,7 +159,7 @@ private[event] def slot = opNotSupported
    }
 
    private final class Map[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
-      private[event] val node: Compound[ S, Repr, D ], protected val e: Event[ S, B, _ ], fun: S#Tx => B => A1 )
+      val node: Compound[ S, Repr, D ], protected val e: Event[ S, B, _ ], fun: S#Tx => B => A1 )
    ( implicit protected val m: ClassManifest[ A1 ])
    extends MapLike[ S, Repr, D, B, A1 ] with InvariantEvent[ S, A1, Repr ] {
       private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
@@ -169,7 +169,7 @@ private[event] def slot = opNotSupported
    }
 
    private final class MutatingMap[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], B, A1 <: D#Update ](
-      private[event] val node: Compound[ S, Repr, D ], protected val e: Event[ S, B, _ ], fun: S#Tx => B => A1 )
+      val node: Compound[ S, Repr, D ], protected val e: Event[ S, B, _ ], fun: S#Tx => B => A1 )
    ( implicit protected val m: ClassManifest[ A1 ])
    extends MapLike[ S, Repr, D, B, A1 ] with MutatingEvent[ S, A1, Repr  ] {
       protected def processUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
@@ -179,7 +179,7 @@ private[event] def slot = opNotSupported
    }
 
    private final class Trigger[ S <: Sys[ S ], Repr, D <: Decl[ S, Repr ], A1 <: D#Update ](
-      private[event] val node: Compound[ S, Repr, D ])( implicit protected val m: ClassManifest[ A1 ])
+      val node: Compound[ S, Repr, D ])( implicit protected val m: ClassManifest[ A1 ])
    extends EventImpl[ S, Repr, D, A1 ] with event.Trigger.Impl[ S, D#Update, A1, Repr ] with Root[ S, A1 ]
    with InvariantEvent[ S, A1, Repr ] {
       protected def prefix = node.toString + ".event"

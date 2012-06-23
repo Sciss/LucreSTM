@@ -36,7 +36,7 @@ object LucreSTM {
    var showEventLog  = false
 
    val name          = "LucreSTM"
-   val version       = 0.24
+   val version       = 0.33
    val copyright     = "(C)opyright 2011-2012 Hanns Holger Rutz"
    val isSnapshot    = false
 
