@@ -2,12 +2,13 @@
 
 ## statement
 
-LucreSTM provides a software transactional memory with persistent backend, as well as reactive observer system. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project. The reactive system implements event graphs which also can be persistent, along with live observers.
+LucreSTM provides a software transactional memory with persistent backend and a reactive observer system for the Scala programming language. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project. The reactive system implements event graphs which also can be persistent, along with live observers.
 
 LucreSTM is (C)opyright 2011&ndash;2012 by Hanns Holger Rutz. All rights reserved. It is released under the [GNU General Public License](https://raw.github.com/Sciss/LucreSTM/master/licenses/LucreSTM-License.txt) and comes with absolutely no warranties. To contact the author, send an email to `contact at sciss.de`
 
 Further reading:
 
+ - Rutz, H.H., "A Reactive, Confluently Persistent Framework for the Design of Computer Music Systems," in Proceedings of the 9th Sound and Music Computing Conference (SMC), Copenhagen 2012.
  - Bronson, N.G. and Chafi, H. and Olukotun, K., "CCSTM: A library-based STM for Scala," in Proceedings of the First Scala Workshop, 2010.
  - Gasiunas, V. and Satabin, L. and Mezini, M. and Núñez, A. and Noyé, J., "EScala: Modular Event-Driven Object Interactions in Scala," in Proceedings of the tenth international conference on Aspect-oriented software development, pp. 227--240, 2011.
 
