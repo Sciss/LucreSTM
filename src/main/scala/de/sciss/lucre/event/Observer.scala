@@ -41,11 +41,11 @@ object Observer {
    extends Observer[ S, A, Repr ] {
       override def toString = "Observer<" + key.id + ">"
 
-      def add( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) {
+      def add[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) {
          event ---> key
       }
 
-      def remove( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) {
+      def remove[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) {
          event -/-> key
       }
 
@@ -57,8 +57,8 @@ object Observer {
    def dummy[ S <: Sys[ S ], A, Repr ] : Observer[ S, A, Repr ] = new Dummy[ S, A, Repr ]
 
    private final class Dummy[ S <: Sys[ S ], A, Repr ] extends Observer[ S, A, Repr ] {
-      def add( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) {}
-      def remove( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) {}
+      def add[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) {}
+      def remove[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) {}
       def dispose()( implicit tx: S#Tx ) {}
    }
 }
@@ -67,7 +67,7 @@ object Observer {
  * `Observer` instances are returned by the `observe` method of classes implementing
  * `Observable`. The observe can be registered and unregistered with events.
  */
-sealed trait Observer[ S <: Sys[ S ], A, Repr ] extends Disposable[ S#Tx ] {
-   def add(    event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) : Unit
-   def remove( event: Event[ S, _ <: A, Repr ])( implicit tx: S#Tx ) : Unit
+sealed trait Observer[ S <: Sys[ S ], A, -Repr ] extends Disposable[ S#Tx ] {
+   def add[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) : Unit
+   def remove[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) : Unit
 }

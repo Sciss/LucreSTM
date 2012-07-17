@@ -29,7 +29,7 @@ package event
 import stm.Sys
 import LucreSTM.logEvent
 
-/* sealed */ trait EventLike[ S <: Sys[ S ], A, Repr ] {
+/* sealed */ trait EventLike[ S <: Sys[ S ], A, -Repr ] {
    /**
     * Connects the given selector to this event. That is, this event will
     * adds the selector to its propagation targets.
