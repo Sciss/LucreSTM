@@ -10,12 +10,12 @@ homepage := Some( url( "https://github.com/Sciss/LucreSTM" ))
 
 licenses := Seq( "GPL v2+" -> url( "http://www.gnu.org/licenses/gpl-2.0.txt" ))
 
-scalaVersion := "2.9.2"
+scalaVersion := "2.10.0-M6"
 
 resolvers += "Oracle Repository" at "http://download.oracle.com/maven"
 
 libraryDependencies ++= Seq(
-   "org.scala-tools" %% "scala-stm" % "0.5",
+   "org.scala-tools" %% "scala-stm" % "0.6",
    "com.sleepycat" % "je" % "5.0.34"
 )
 

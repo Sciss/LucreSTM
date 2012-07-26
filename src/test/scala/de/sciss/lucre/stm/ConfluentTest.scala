@@ -141,7 +141,7 @@ object ConfluentTest extends App {
    }
 
    val (acc0, path0) = sys.step { implicit tx =>
-      val _acc0 = new Access {
+      val _acc0: Access = new Access {
          import tx._
          val id      = tx.newID()
 //         val headRef = newOptionRef[ E[ Int ]]( id, empty )

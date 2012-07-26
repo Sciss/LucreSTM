@@ -28,7 +28,7 @@ object Example extends App {
    val rnd  = new util.Random()
 
    // create a person with random name and no friends
-   def newPerson()( implicit tx: S#Tx ) = new Person {
+   def newPerson()( implicit tx: S#Tx ) : Person = new Person {
       val id      = tx.newID()
       val name    = pre( rnd.nextInt( pre.size )) + post( rnd.nextInt( post.size ))
       val friends = tx.newVar[ List[ Person ]]( id, Nil )
