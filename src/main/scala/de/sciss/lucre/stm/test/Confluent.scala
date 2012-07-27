@@ -99,7 +99,7 @@ object Confluent {
          tx.newIntVar( tx.newID(), 0 )
       })( ctx => inMem.wrap( ctx.peer ))
 
-      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Confluent ])
+//      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Confluent ])
       def idOrdering : Ordering[ S#ID ] = IDOrdering
 
       def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v

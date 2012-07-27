@@ -28,7 +28,7 @@ package event
 
 import collection.breakOut
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import stm.{TxnSerializer, Sys}
+import stm.Sys
 
 object Compound {
    private def opNotSupported = sys.error( "Operation not supported" )

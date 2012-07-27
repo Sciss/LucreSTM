@@ -28,11 +28,11 @@ package stm
 
 import stm.{Var => _Var}
 
-object Sys {
-// this produces 'diverging ...' messages
-//   implicit def fromTxn[ S <: Sys[ S ]]( implicit tx: S#Tx ) : S = tx.system
-   implicit def manifest[ S <: Sys[ S ]]( implicit system: S ) : Manifest[ S ] = system.manifest
-}
+//object Sys {
+//// this produces 'diverging ...' messages
+////   implicit def fromTxn[ S <: Sys[ S ]]( implicit tx: S#Tx ) : S = tx.system
+//   implicit def manifest[ S <: Sys[ S ]]( implicit system: S ) : Manifest[ S ] = system.manifest
+//}
 /**
  * A system in LucreSTM describes a particular mode of representing values in time and of
  * persisting values to disk. The `Sys` trait contains types for variables, identifiers,
@@ -83,12 +83,12 @@ trait Sys[ S <: Sys[ S ]] {
     */
    def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ]
 
-   /**
-    * The manifest of the system representation class. This may be useful when
-    * dealing with arrays, or when caching classes parametrized in the system type
-    * in sets or maps.
-    */
-   def manifest: Manifest[ S ]
+//   /**
+//    * The manifest of the system representation class. This may be useful when
+//    * dealing with arrays, or when caching classes parametrized in the system type
+//    * in sets or maps.
+//    */
+//   def manifest: Manifest[ S ]
 
    /**
     * An (arbitrary) ordering for the system's identifiers. This was introduced to

@@ -431,7 +431,7 @@ object Durable {
 
       val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
 
-      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
+//      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
       def idOrdering : Ordering[ S#ID ] = IDOrdering
 
       def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
@@ -467,7 +467,7 @@ object Durable {
       def debugListUserRecords()( implicit tx: S#Tx ): Seq[ ID ] = {
          val b    = Seq.newBuilder[ ID ]
          val cnt  = idCntVar.get
-         var i    = 1;
+         var i    = 1
          while( i <= cnt ) {
             if( exists( i )) b += new IDImpl( i )
             i += 1

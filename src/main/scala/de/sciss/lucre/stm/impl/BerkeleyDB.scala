@@ -87,7 +87,7 @@ object BerkeleyDB {
             txn.commit()
             new Impl( env, db )
          } catch {
-            case e =>
+            case e: Throwable =>
                txn.abort()
                throw e
          }
@@ -130,12 +130,8 @@ object BerkeleyDB {
          val id   = res.getId
          logSTM( "txn begin  <" + id + ">" )
          ScalaTxn.afterRollback({ status =>
-            try {
-               logSTM( "txn rollback <" + id + ">" )
-               res.abort()
-            } catch {
-               case _ =>
-            }
+            logSTM( "txn rollback <" + id + ">" )
+            res.abort()
          })
          res
       })
@@ -148,13 +144,14 @@ object BerkeleyDB {
             dbTxn.commit()
             true
          } catch {
-            case e =>
-               try {
+            case e: Throwable =>
+               e.printStackTrace()
+//               try {
                   logSTM( "txn abort <" + dbTxn.getId + ">" )
                   dbTxn.abort()
-               } catch {
-                  case _ =>
-               }
+//               } catch {
+//                  case _ =>
+//               }
                false
          }
       }

@@ -157,7 +157,7 @@ object InMemory {
    }
 
    private final class System extends InMemory {
-      def manifest : Manifest[ S ] = Manifest.classType(classOf[ InMemory ])
+//      def manifest : Manifest[ S ] = Manifest.classType(classOf[ InMemory ])
       def idOrdering : Ordering[ S#ID ] = IDOrdering
 
       val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
