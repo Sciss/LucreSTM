@@ -31,6 +31,17 @@ object SourceHook {
 //   implicit def serializer[ S <: Sys[ S ], A ]( implicit peerSerializer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, SourceHook[ S#Tx, A ]] =
 //      new Ser[ S, A ]
 
+   def apply[ S <: Sys[ S ], A <: Writer ]( value: A )
+                                          ( peer: (=> Source[ S#Tx, A ]) => TxnSerializer[ S#Tx, S#Acc, A ])
+                                          ( implicit tx: S#Tx ): SourceHook[ S#Tx, A ] =
+      new Impl[ S, A ] {
+         val id   = tx.newID()
+         val v    = tx.newVar[ A ]( id, value )( this )
+         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : A = {
+            peer( source ).read( in, access )
+         }
+      }
+
    def serializer[ S <: Sys[ S ], A <: Writer ](
       peer: (=> Source[ S#Tx, A ]) => TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, SourceHook[ S#Tx, A ]] =
       new Ser[ S, A ]( peer )
@@ -50,25 +61,26 @@ object SourceHook {
       }
    }
 
-   private abstract class Impl[ S <: Sys[ S ], A <: Writer ] extends SourceHook[ S#Tx, A ] with TxnSerializer[ S#Tx, S#Acc, A ] {
-      protected def id: S#ID
+   private abstract class Impl[ S <: Sys[ S ], A <: Writer ]
+   extends SourceHook[ S#Tx, A ] with Mutable[ S ] with TxnSerializer[ S#Tx, S#Acc, A ] {
       protected def v: S#Var[ A ]
 //      protected def peerSerializer: Source[ S#Tx, A ] => TxnSerializer[ S#Tx, S#Acc, A ]
 
+      override def toString = "SourceHook" + id
+
       final def source: Source[ S#Tx, A ] = v
-      final def write( out: DataOutput ) {
-         id.write( out )
+
+      final protected def writeData( out: DataOutput ) {
          v.write( out )
       }
 
-      final def dispose()( implicit tx: S#Tx ) {
-         id.dispose()
+      final protected def disposeData()( implicit tx: S#Tx ) {
          v.dispose()
       }
 
       // ---- TxnSerializer[ S#Tx, S#Acc, A ] ----
-      def write( peer: A, out: DataOutput ) {
-         peer.write( out )
+      final def write( value: A, out: DataOutput ) {
+         value.write( out )
       }
 
 //      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : A = {
