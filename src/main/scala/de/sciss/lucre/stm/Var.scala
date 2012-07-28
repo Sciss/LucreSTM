@@ -26,12 +26,36 @@
 package de.sciss.lucre
 package stm
 
+object Sink {
+   def map[ Tx, A, B ]( in: Sink[ Tx, A ])( fun: B => A ) : Sink[ Tx, B ] = new Map( in, fun )
+
+   private final class Map[ Tx, A, B ]( in: Sink[ Tx, A ], fun: B => A )
+   extends Sink[ Tx, B ] {
+      override def toString = "Sink.map(" + in + ")"
+      def set( v: B )( implicit tx: Tx ) { in.set( fun( v ))}
+//      def write( out: DataOutput ) { in.write( out )}
+//      def dispose()( implicit tx: Tx ) { in.dispose() }
+   }
+}
+
 sealed trait Sink[ -Tx, @specialized -A ] {
    def set( v: A )( implicit tx: Tx ) : Unit
 }
 
+object Source {
+   def map[ Tx, A, B ]( in: Source[ Tx, A ])( fun: A => B ) : Source[ Tx, B ] = new Map( in, fun )
+
+   private final class Map[ Tx, A, B ]( in: Source[ Tx, A ], fun: A => B )
+   extends Source[ Tx, B ] {
+      override def toString = "Source.map(" + in + ")"
+      def get( implicit tx: Tx ) : B = fun( in.get )
+//      def write( out: DataOutput ) { in.write( out )}
+//      def dispose()( implicit tx: Tx ) { in.dispose() }
+   }
+}
+
 /* sealed */
-trait Source[ -Tx, @specialized +A ] extends Writer with Disposable[ Tx ] {
+trait Source[ -Tx, @specialized +A ] /* extends Writer with Disposable[ Tx ] */ {
    def get( implicit tx: Tx ) : A
 }
 
@@ -41,7 +65,7 @@ trait Source[ -Tx, @specialized +A ] extends Writer with Disposable[ Tx ] {
 //   def transform( f: A => A )( implicit tx: Tx ) : Unit
 //}
 
-trait Var[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] {
+trait Var[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] with Writer with Disposable[ Tx ] {
    def transform( f: A => A )( implicit tx: Tx ) : Unit
    def isFresh( implicit tx: Tx ) : Boolean
 //   def getFresh( implicit tx: Tx ) : A
