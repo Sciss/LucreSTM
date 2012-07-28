@@ -90,14 +90,14 @@ trait Sys[ S <: Sys[ S ]] {
 //    */
 //   def manifest: Manifest[ S ]
 
-   /**
-    * An (arbitrary) ordering for the system's identifiers. This was introduced to
-    * be able to store mutable objects in sets or maps, but it was not taken into
-    * consideration that one might not even able to look up identifiers as they
-    * mutate across transactions (in the confluent case), so there is little
-    * use for this method, and it should probably removed again.
-    */
-   def idOrdering: Ordering[ S#ID ]
+//   /**
+//    * An (arbitrary) ordering for the system's identifiers. This was introduced to
+//    * be able to store mutable objects in sets or maps, but it was not taken into
+//    * consideration that one might not even able to look up identifiers as they
+//    * mutate across transactions (in the confluent case), so there is little
+//    * use for this method, and it should probably removed again.
+//    */
+//   def idOrdering: Ordering[ S#ID ]
 
    /**
     * Reads the root object representing the stored data structure,

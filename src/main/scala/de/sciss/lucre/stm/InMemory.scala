@@ -148,17 +148,17 @@ object InMemory {
       def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
    }
 
-   private object IDOrdering extends Ordering[ S#ID ] {
-      def compare( a: S#ID, b: S#ID ) : Int = {
-         val aid = a.id
-         val bid = b.id
-         if( aid < bid ) -1 else if( aid > bid ) 1 else 0
-      }
-   }
+//   private object IDOrdering extends Ordering[ S#ID ] {
+//      def compare( a: S#ID, b: S#ID ) : Int = {
+//         val aid = a.id
+//         val bid = b.id
+//         if( aid < bid ) -1 else if( aid > bid ) 1 else 0
+//      }
+//   }
 
    private final class System extends InMemory {
 //      def manifest : Manifest[ S ] = Manifest.classType(classOf[ InMemory ])
-      def idOrdering : Ordering[ S#ID ] = IDOrdering
+//      def idOrdering : Ordering[ S#ID ] = IDOrdering
 
       val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
       private val idCnt = ScalaRef( 0 )

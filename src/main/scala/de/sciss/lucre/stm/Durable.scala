@@ -45,13 +45,13 @@ object Durable {
    def apply( factory: DataStoreFactory[ DataStore ], name: String = "data" ) : S =
       apply( factory.open( name ))
 
-   private object IDOrdering extends Ordering[ S#ID ] {
-      def compare( a: S#ID, b: S#ID ) : Int = {
-         val aid = a.id
-         val bid = b.id
-         if( aid < bid ) -1 else if( aid > bid ) 1 else 0
-      }
-   }
+//   private object IDOrdering extends Ordering[ S#ID ] {
+//      def compare( a: S#ID, b: S#ID ) : Int = {
+//         val aid = a.id
+//         val bid = b.id
+//         if( aid < bid ) -1 else if( aid > bid ) 1 else 0
+//      }
+//   }
 
    private final class IDImpl( val id: Int ) extends ID {
       def write( out: DataOutput ) {
@@ -432,7 +432,7 @@ object Durable {
       val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
 
 //      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
-      def idOrdering : Ordering[ S#ID ] = IDOrdering
+//      def idOrdering : Ordering[ S#ID ] = IDOrdering
 
 //      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
