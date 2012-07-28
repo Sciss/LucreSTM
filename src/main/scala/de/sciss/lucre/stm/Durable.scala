@@ -434,7 +434,7 @@ object Durable {
 //      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
       def idOrdering : Ordering[ S#ID ] = IDOrdering
 
-      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
+//      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
       def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
          val rootID = 2 // 1 == reaction map!!!

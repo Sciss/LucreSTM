@@ -77,11 +77,11 @@ trait Sys[ S <: Sys[ S ]] {
     */
    type Entry[ A ] <: _Var[ S#Tx, A ] // Var[ A ]
 
-   /**
-    * Currently not used. The idea is that any variable can be converted to an access point.
-    * Not sure we are going to need this at all...
-    */
-   def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ]
+//   /**
+//    * Currently not used. The idea is that any variable can be converted to an access point.
+//    * Not sure we are going to need this at all...
+//    */
+//   def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ]
 
 //   /**
 //    * The manifest of the system representation class. This may be useful when

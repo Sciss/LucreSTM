@@ -169,7 +169,7 @@ object InMemory {
          res
       }
 
-      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
+//      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
       def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
          step { implicit tx =>
