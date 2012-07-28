@@ -28,25 +28,52 @@ package de.sciss.lucre.stm
 import de.sciss.lucre.{DataOutput, DataInput}
 
 object SourceHook {
-   implicit def serializer[ S <: Sys[ S ], A ]( implicit peerSerializer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, SourceHook[ S#Tx, A ]] =
-      new Ser[ S, A ]
+//   implicit def serializer[ S <: Sys[ S ], A ]( implicit peerSerializer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, SourceHook[ S#Tx, A ]] =
+//      new Ser[ S, A ]
 
-   private final class Ser[ S <: Sys[ S ], A ]( implicit peerSerializer: TxnSerializer[ S#Tx, S#Acc, A ])
+   def serializer[ S <: Sys[ S ], A <: Writer ](
+      peer: (=> Source[ S#Tx, A ]) => TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, SourceHook[ S#Tx, A ]] =
+      new Ser[ S, A ]( peer )
+
+   private final class Ser[ S <: Sys[ S ], A <: Writer ]( peer: (=> Source[ S#Tx, A ]) => TxnSerializer[ S#Tx, S#Acc, A ])
    extends TxnSerializer[ S#Tx, S#Acc, SourceHook[ S#Tx, A ]] {
       def write( hook: SourceHook[ S#Tx, A ], out: DataOutput ) { hook.write( out )}
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : SourceHook[ S#Tx, A ] = {
-         val id      = tx.readID( in, access )
-         val source  = tx.readVar[ A ]( id, in )
-         new Impl( id, source )
+         new Impl[ S, A ] {
+//            def peerSerializer: Source[ S#Tx, A ] => TxnSerializer[ S#Tx, S#Acc, A ] = peer
+            val id               = tx.readID( in, access )
+            val v: S#Var[ A ]    = tx.readVar[ A ]( id, in )( this )
+            def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : A = {
+               peer( source ).read( in, access )
+            }
+         }
       }
    }
 
-   private final class Impl[ S <: Sys[ S ], A ]( id: S#ID, v: S#Var[ A ]) extends SourceHook[ S#Tx, A ] {
-      def source: Source[ S#Tx, A ] = v
-      def write( out: DataOutput ) {
+   private abstract class Impl[ S <: Sys[ S ], A <: Writer ] extends SourceHook[ S#Tx, A ] with TxnSerializer[ S#Tx, S#Acc, A ] {
+      protected def id: S#ID
+      protected def v: S#Var[ A ]
+//      protected def peerSerializer: Source[ S#Tx, A ] => TxnSerializer[ S#Tx, S#Acc, A ]
+
+      final def source: Source[ S#Tx, A ] = v
+      final def write( out: DataOutput ) {
          id.write( out )
          v.write( out )
       }
+
+      final def dispose()( implicit tx: S#Tx ) {
+         id.dispose()
+         v.dispose()
+      }
+
+      // ---- TxnSerializer[ S#Tx, S#Acc, A ] ----
+      def write( peer: A, out: DataOutput ) {
+         peer.write( out )
+      }
+
+//      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : A = {
+//         peerSerializer( source ).read( in, access )
+//      }
    }
 }
 
@@ -59,6 +86,6 @@ object SourceHook {
  * @tparam Tx  the transaction type of the source
  * @tparam A   the payload type of the source
  */
-sealed trait SourceHook[ -Tx, +A ] extends Writer {
+sealed trait SourceHook[ -Tx, +A ] extends Writer with Disposable[ Tx ] {
    def source: Source[ Tx, A ]
 }
