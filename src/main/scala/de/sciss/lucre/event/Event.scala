@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package event
 
-import stm.Sys
+import stm.{InMemory, Sys}
 import LucreSTM.logEvent
 
 /* sealed */ trait EventLike[ S <: Sys[ S ], A, -Repr ] {
@@ -101,7 +101,9 @@ import LucreSTM.logEvent
 }
 
 object Dummy {
-   def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = new Dummy[ S, A, Repr ] {}
+   def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = Impl.asInstanceOf[ Dummy[ S, A, Repr ]]
+
+   private object Impl extends Dummy[ InMemory, AnyRef, AnyRef ]
 
    private def opNotSupported = sys.error( "Operation not supported ")
 }
