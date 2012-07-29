@@ -101,6 +101,9 @@ import LucreSTM.logEvent
 }
 
 object Dummy {
+   /**
+    * This method is cheap.
+    */
    def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = Impl.asInstanceOf[ Dummy[ S, A, Repr ]]
 
    private object Impl extends Dummy[ InMemory, AnyRef, AnyRef ]

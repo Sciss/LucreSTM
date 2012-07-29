@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package event
 
-import stm.{Disposable, Sys}
+import stm.{InMemory, Disposable, Sys}
 
 object Observer {
    def apply[ S <: Sys[ S ], A, Repr ](
@@ -41,11 +41,11 @@ object Observer {
    extends Observer[ S, A, Repr ] {
       override def toString = "Observer<" + key.id + ">"
 
-      def add[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) {
+      def add[ A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])( implicit tx: S#Tx ) {
          event ---> key
       }
 
-      def remove[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) {
+      def remove[ A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])( implicit tx: S#Tx ) {
          event -/-> key
       }
 
@@ -54,12 +54,15 @@ object Observer {
       }
    }
 
-   def dummy[ S <: Sys[ S ], A, Repr ] : Observer[ S, A, Repr ] = new Dummy[ S, A, Repr ]
+   /**
+    * This method is cheap.
+    */
+   def dummy[ S <: Sys[ S ], A, Repr ] : Observer[ S, A, Repr ] = Dummy.asInstanceOf[ Observer[ S, A, Repr ]]
 
-   private final class Dummy[ S <: Sys[ S ], A, Repr ] extends Observer[ S, A, Repr ] {
-      def add[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) {}
-      def remove[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) {}
-      def dispose()( implicit tx: S#Tx ) {}
+   private object Dummy extends Observer[ InMemory, AnyRef, AnyRef ] {
+      def add[    A1 <: AnyRef, R <: AnyRef ]( event: EventLike[ InMemory, A1, R ])( implicit tx: InMemory#Tx ) {}
+      def remove[ A1 <: AnyRef, R <: AnyRef ]( event: EventLike[ InMemory, A1, R ])( implicit tx: InMemory#Tx ) {}
+      def dispose()( implicit tx: InMemory#Tx ) {}
    }
 }
 
@@ -68,6 +71,6 @@ object Observer {
  * `Observable`. The observe can be registered and unregistered with events.
  */
 sealed trait Observer[ S <: Sys[ S ], A, -Repr ] extends Disposable[ S#Tx ] {
-   def add[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) : Unit
-   def remove[ R <: Repr ]( event: Event[ S, _ <: A, R ])( implicit tx: S#Tx ) : Unit
+   def add[    A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])( implicit tx: S#Tx ) : Unit
+   def remove[ A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])( implicit tx: S#Tx ) : Unit
 }
