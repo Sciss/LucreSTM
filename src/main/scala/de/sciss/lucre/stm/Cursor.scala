@@ -28,5 +28,5 @@ package de.sciss.lucre.stm
 trait Cursor[ S <: Sys[ S ]] {
    def step[ A ]( fun: S#Tx => A ) : A
    def position( implicit tx: S#Tx ) : S#Acc
-   def position_=( path: S#Acc )( implicit tx: S#Tx ) : Unit
+//   def position_=( path: S#Acc )( implicit tx: S#Tx ) : Unit
 }

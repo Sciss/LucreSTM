@@ -95,6 +95,19 @@ trait Txn[ S <: Sys[ S ]] {
 
    def readPartialID( in: DataInput, acc: S#Acc ) : S#ID
 
+   /**
+    * Refreshes a stale version of an object, assuming that the current transaction is issued
+    * from the same cursor that was used to access the stale version, except for potentially having advanced.
+    * This is a mechanism that can be used in live views to gain valid access to a referenced object
+    * (e.g. self access).
+    *
+    * @param access        the ancestral position within the current transaction's access path (e.g. taken from cursor.position)
+    * @param value         the object at an ancestral position within the current transaction's access path
+    * @param serializer    used to write and freshly read the object
+    * @return              the refreshed object (as if accessed from within the current transaction)
+    */
+   def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A
+
 // MMM
 //   /**
 //    * XXX TODO: this is called from Targets.readAndExpand
@@ -105,8 +118,8 @@ trait Txn[ S <: Sys[ S ]] {
 //    * XXX TODO: this is called from NodeSelector.writeValue which is turn is called from Targets
 //    */
 //   def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : Unit
-
-   // XXX TODO: this merely used by ReactionTest2
-   // it should be replaced by a general mechanism to turn any S#Var into a read access
-   def access[ A ]( source: S#Var[ A ]) : A
+//
+//   // XXX TODO: this merely used by ReactionTest2
+//   // it should be replaced by a general mechanism to turn any S#Var into a read access
+//   def access[ A ]( source: S#Var[ A ]) : A
 }

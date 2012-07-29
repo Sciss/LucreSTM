@@ -145,7 +145,9 @@ object InMemory {
       def readID( in: DataInput, acc: S#Acc ) : S#ID = opNotSupported( "readID" )
       def readPartialID( in: DataInput, acc: S#Acc ) : S#ID = readID( in, acc )
 
-      def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
+//      def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
+
+      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = value
    }
 
 //   private object IDOrdering extends Ordering[ S#ID ] {
@@ -187,7 +189,7 @@ object InMemory {
 
       def position( implicit tx: S#Tx ) : S#Acc = ()
 
-      def position_=( path: S#Acc )( implicit tx: S#Tx ) {}
+//      def position_=( path: S#Acc )( implicit tx: S#Tx ) {}
 
       def wrap( itx: InTxn ) : Tx = new TxnImpl( this, itx )
    }

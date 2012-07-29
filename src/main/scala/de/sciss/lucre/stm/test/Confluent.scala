@@ -63,7 +63,7 @@ object Confluent {
 
    sealed trait Txn extends _Txn[ S ]
    sealed trait Var[ @specialized A ] extends _Var[ Txn, A ] {
-      private[Confluent] def access( path: S#Acc )( implicit tx: S#Tx ) : A
+//      private[Confluent] def access( path: S#Acc )( implicit tx: S#Tx ) : A
    }
 
    def apply() : S = new System
@@ -159,9 +159,9 @@ object Confluent {
 
       def position( implicit tx: S#Tx ) : S#Acc = pathVar
 
-      def position_=( path: S#Acc )( implicit tx: S#Tx ) {
-         pathVar = path
-      }
+//      def position_=( path: S#Acc )( implicit tx: S#Tx ) {
+//         pathVar = path
+//      }
 
 //      def atomicAccess[ A ]( fun: (S#Tx, S#Acc) => A ) : A = {
 //         TxnExecutor.defaultAtomic[ A ] { itx =>
@@ -319,7 +319,18 @@ object Confluent {
       def readID( in: DataInput, acc: Acc ) : ID = IDImpl.readAndAppend( in.readInt(), acc, in )
       def readPartialID( in: DataInput, aPacc: S#Acc ) : S#ID = sys.error( "TODO" )
 
-      def access[ A ]( source: S#Var[ A ]) : A = source.access( system.position( this ))( this )
+//      def access[ A ]( source: S#Var[ A ]) : A = source.access( system.position( this ))( this )
+
+      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
+         val out     = new DataOutput()
+         serializer.write( value, out )
+//         val bytes   = out.toByteArray
+         val newAcc  = system.position( this )
+         val len     = access.zip( newAcc ).segmentLength({ case (a, b) => a == b }, 0 )
+         val in      = new DataInput( out )
+         val postfix = newAcc.drop( len )
+         serializer.read( in, postfix )( this )
+      }
    }
 
    private sealed trait SourceImpl[ @specialized A ] {
@@ -354,7 +365,7 @@ object Confluent {
 //         sys.error( "TODO" )
 //      }
 
-      final def access( acc: S#Acc )( implicit tx: Txn ) : A = {
+      private def access( acc: S#Acc )( implicit tx: Txn ) : A = {
          val (in, acc1) = system.access( id.id, acc )
          readValue( in, acc1 )
       }
