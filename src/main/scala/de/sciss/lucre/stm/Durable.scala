@@ -72,7 +72,7 @@ object Durable {
    }
 
    private final class IDMapImpl[ A ]( mapID: Int )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-   extends IdentifierMap[ S#Tx, S#ID, A ] {
+   extends IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] {
       private val idn = mapID.toLong << 32
 
       def get( id: S#ID )( implicit tx: S#Tx ) : Option[ A ] = {
@@ -90,6 +90,12 @@ object Durable {
       def remove( id: S#ID )( implicit tx: S#Tx ) {
          tx.system.remove( idn | (id.id.toLong & 0xFFFFFFFFL) )
       }
+
+      def write( out: DataOutput ) {
+         out.writeInt( mapID )
+      }
+
+      def dispose()( implicit tx: S#Tx ) {}
 
       override def toString = "IdentifierMap<" + mapID + ">"
    }
@@ -352,19 +358,9 @@ object Durable {
       def newInMemoryIDMap[ A ] : IdentifierMap[ S#Tx, S#ID, A ] =
          IdentifierMap.newInMemoryIntMap( _.id )
 
-      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#Tx, S#ID, A ] =
+      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
+         : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] =
          new IDMapImpl[ A ]( system.newIDValue()( this ))
-
-//      def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = {
-//         system.read( id.id )( serializer.read( _, () )( this ))( this )
-//      }
-//
-//      def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {
-//         val idi = id.id
-//         if( !system.exists( idi )( this )) {
-//            system.write( idi )( serializer.write( value, _ ))( this )
-//         }
-//      }
 
       def readVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val id = in.readInt()
@@ -413,7 +409,11 @@ object Durable {
       def readID( in: DataInput, acc: S#Acc ) : S#ID = new IDImpl( in.readInt() )
       def readPartialID( in: DataInput, acc: S#Acc ) : S#ID = readID( in, acc )
 
-//      def access[ A ]( source: S#Var[ A ]) : A = source.get( this )
+      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
+         : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] = {
+         val mapID = in.readInt()
+         new IDMapImpl[ A ]( mapID )
+      }
 
       def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = value
    }

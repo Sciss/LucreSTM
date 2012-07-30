@@ -23,18 +23,19 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.stm
+package de.sciss.lucre
+package stm
 package impl
 
 import concurrent.stm.TMap
-import de.sciss.lucre.stm.{ Txn => _Txn }
+import stm.{ Txn => _Txn }
 
 object IdentifierMapImpl {
-   def newInMemoryIntMap[ Txn <: _Txn[ _ ], ID, A ]( implicit intView: ID => Int ) : IdentifierMap[ Txn, ID, A ] =
-      new InMemoryInt[ Txn, ID, A ]( intView )
+   def newInMemoryIntMap[ Txn <: _Txn[ _ ], ID, A ]( implicit intView: ID => Int )
+      : IdentifierMap[ Txn, ID, A ] with Writer with Disposable[ Txn ] = new InMemoryInt[ Txn, ID, A ]( intView )
 
    private final class InMemoryInt[ Txn <: _Txn[ _ ], ID, A ]( intView: ID => Int )
-   extends IdentifierMap[ Txn, ID, A ] {
+   extends IdentifierMap[ Txn, ID, A ] with Writer with Disposable[ Txn ] {
       private val peer = TMap.empty[ Int, A ]
 
       def get( id: ID )( implicit tx: Txn ) : Option[ A ] = peer.get( intView( id ))( tx.peer )
@@ -44,5 +45,8 @@ object IdentifierMapImpl {
       def remove( id: ID )( implicit tx: Txn ) { peer.remove( intView( id ))( tx.peer )}
 
       override def toString = "IdentifierMap"
+
+      def write( out: DataOutput ) {}
+      def dispose()( implicit tx: Txn ) {}
    }
 }

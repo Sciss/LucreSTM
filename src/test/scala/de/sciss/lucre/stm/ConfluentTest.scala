@@ -3,21 +3,22 @@ package stm
 
 import annotation.tailrec
 import collection.immutable.{IndexedSeq => IIdxSeq}
+import impl.ConfluentSkel
 
 object ConfluentTest extends App {
-   val sys = test.Confluent()
+   val sys = ConfluentSkel()
 
 //   sealed trait ListElemOption[ A ] { def toOption: Option[ ListElem[ A ]]}
-//   type E[ A ] = ListElemOption[ A ] with MutableOption[ Confluent ]
+//   type E[ A ] = ListElemOption[ A ] with MutableOption[ ConfluentSkel ]
    type E[ A ] = Option[ ListElem[ A ]]
 //   final class ListEmptyElem[ A ] extends ListElemOption[ A ] with EmptyMutable { def toOption = None }
 
-   type ID        = test.Confluent#ID
-   type Tx        = test.Confluent#Tx
-   type Var[ ~ ]  = test.Confluent#Var[ ~ ]
-   type Acc       = test.Confluent#Acc
+   type ID        = ConfluentSkel#ID
+   type Tx        = ConfluentSkel#Tx
+   type Var[ ~ ]  = ConfluentSkel#Var[ ~ ]
+   type Acc       = ConfluentSkel#Acc
 
-   trait ListElem[ A ] extends /* ListElemOption[ A ] with */ Mutable[ test.Confluent ] {
+   trait ListElem[ A ] extends /* ListElemOption[ A ] with */ Mutable[ ConfluentSkel ] {
       protected def nextRef: Var[ E[ A ]]
       protected def valueRef: Var[ A ]
 
@@ -38,7 +39,7 @@ object ConfluentTest extends App {
          nextRef.write( out )
       }
 
-      final protected def disposeData()( implicit tx: test.Confluent#Tx ) {
+      final protected def disposeData()( implicit tx: ConfluentSkel#Tx ) {
          valueRef.dispose()
          nextRef.dispose()
       }
@@ -46,10 +47,10 @@ object ConfluentTest extends App {
       override def toString = "w" + num + id
    }
 
-   implicit val reader = new MutableSerializer[ test.Confluent, ListElem[ Int ]] {
+   implicit val reader = new MutableSerializer[ ConfluentSkel, ListElem[ Int ]] {
       implicit def ser = this
 
-      def readData( in: DataInput, _id: test.Confluent#ID )( implicit tx: Tx ) : ListElem[ Int ] = new ListElem[ Int ] {
+      def readData( in: DataInput, _id: ConfluentSkel#ID )( implicit tx: Tx ) : ListElem[ Int ] = new ListElem[ Int ] {
          import tx._
          val id         = _id
          val num        = in.readInt()
@@ -71,7 +72,7 @@ object ConfluentTest extends App {
       }
    }
 
-   trait Access extends Mutable[ test.Confluent ] {
+   trait Access extends Mutable[ ConfluentSkel ] {
       me =>
 
       protected def headRef : Var[ E[ Int ]]
@@ -83,7 +84,7 @@ object ConfluentTest extends App {
       final protected def writeData( out: DataOutput ) {
          headRef.write( out )
       }
-      final protected def disposeData()( implicit tx: test.Confluent#Tx ) {
+      final protected def disposeData()( implicit tx: ConfluentSkel#Tx ) {
          headRef.dispose()
       }
 
@@ -115,7 +116,7 @@ object ConfluentTest extends App {
 //      implicit def me = this
 //
 //      def empty : E[ Int ] = new ListEmptyElem[ Int ]
-//      def readData( in: DataInput, _id: Confluent#ID )( implicit tx: Tx ) : E[ Int ] = new ListElem[ Int ] {
+//      def readData( in: DataInput, _id: ConfluentSkel#ID )( implicit tx: Tx ) : E[ Int ] = new ListElem[ Int ] {
 //         import tx._
 //         val id         = _id
 //         val num        = in.readInt()
