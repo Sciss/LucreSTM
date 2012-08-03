@@ -104,7 +104,7 @@ object ConfluentSkel {
 
       //      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
-      def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]): S#Entry[ A ] = {
+      def root[ A ]( init: S#Tx => A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]): S#Entry[ A ] = {
          step {implicit tx =>
             tx.newVar[ A ]( tx.newID(), init( tx ))
          }
@@ -219,7 +219,7 @@ object ConfluentSkel {
       def dispose()( implicit tx: Txn ) {}
    }
 
-   private final class IDMapImpl[ A ]( val id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
+   private final class IDMapImpl[ A ]( val id: S#ID )( implicit serializer: Serializer[ S#Tx, S#Acc, A ])
    extends IdentifierMap[ S#ID, S#Tx, A ] {
       def get( id: S#ID )( implicit tx: S#Tx ): Option[ A ] = {
          sys.error( "TODO" )
@@ -263,14 +263,14 @@ object ConfluentSkel {
 
       def alloc( pid: ID ): ID = new IDImpl( system.newIDCnt()( this ), pid.path )
 
-      def newVar[ A ]( pid: ID, init: A )( implicit ser: TxnSerializer[ Txn, Acc, A ]): Var[ A ] = {
+      def newVar[ A ]( pid: ID, init: A )( implicit ser: Serializer[ Txn, Acc, A ]): Var[ A ] = {
          val id = alloc( pid )
          val res = new VarImpl[ A ]( id, system, ser )
          res.store( init )
          res
       }
 
-      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
+      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
          sys.error( "TODO" )
 
       def newBooleanVar( pid: ID, init: Boolean ): Var[ Boolean ] = newVar[ Boolean ]( pid, init )
@@ -283,7 +283,7 @@ object ConfluentSkel {
 
       def newInMemoryIDMap[ A ]: IdentifierMap[ S#ID, S#Tx, A ] = sys.error( "TODO" )
 
-      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]  =
+      def newDurableIDMap[ A ]( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]  =
          new IDMapImpl[ A ]( newID() )
 
       private def readSource( in: DataInput, pid: ID ): ID = {
@@ -291,12 +291,12 @@ object ConfluentSkel {
          new IDImpl( id, pid.path )
       }
 
-      def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Acc, A ]): Var[ A ] = {
+      def readVar[ A ]( pid: ID, in: DataInput )( implicit ser: Serializer[ Txn, Acc, A ]): Var[ A ] = {
          val id = readSource( in, pid )
          new VarImpl( id, system, ser )
       }
 
-      def readPartialVar[ A ]( pid: ID, in: DataInput )( implicit ser: TxnSerializer[ Txn, Acc, A ]): Var[ A ] =
+      def readPartialVar[ A ]( pid: ID, in: DataInput )( implicit ser: Serializer[ Txn, Acc, A ]): Var[ A ] =
          sys.error( "TODO" )
 
       def readBooleanVar( pid: ID, in: DataInput ): Var[ Boolean ] = readVar[ Boolean ]( pid, in )
@@ -309,10 +309,10 @@ object ConfluentSkel {
 
       def readPartialID( in: DataInput, aPacc: S#Acc ): S#ID = sys.error( "TODO" )
 
-      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
+      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
          sys.error( "TODO" )
 
-      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]): A = {
+      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]): A = {
          val out = new DataOutput()
          serializer.write( value, out )
          val newAcc = system.position( this )
@@ -366,7 +366,7 @@ object ConfluentSkel {
    }
 
    private final class VarImpl[ @specialized A ]( val id: ID, val system: System,
-                                                  ser: TxnSerializer[ Txn, Acc, A ])
+                                                  ser: Serializer[ Txn, Acc, A ])
       extends Var[ A ] with SourceImpl[ A ] {
 
       override def toString = toString( "Var" )

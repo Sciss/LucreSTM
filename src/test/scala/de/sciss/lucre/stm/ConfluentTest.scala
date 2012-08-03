@@ -127,7 +127,7 @@
 ////      }
 ////   }
 //
-////   implicit val ser = new TxnSerializer[ Tx, Acc, E[ Int ]] {
+////   implicit val ser = new Serializer[ Tx, Acc, E[ Int ]] {
 ////      def write( v: E[ Int ], out: DataOutput ) { v.write( out )}
 ////   }
 //

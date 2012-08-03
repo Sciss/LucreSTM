@@ -226,4 +226,4 @@ object ImmutableSerializer {
    }
 }
 
-trait ImmutableSerializer[ @specialized A ] extends ImmutableReader[ A ] with TxnSerializer[ Any, Any, A ]
+trait ImmutableSerializer[ @specialized A ] extends ImmutableReader[ A ] with Serializer[ Any, Any, A ]

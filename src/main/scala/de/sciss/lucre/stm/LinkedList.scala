@@ -29,14 +29,14 @@ package stm
 import annotation.tailrec
 
 object LinkedList {
-   def empty[ S <: Sys[ S ], A ]( implicit tx: S#Tx, peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : LinkedList[ S, A ] =
+   def empty[ S <: Sys[ S ], A ]( implicit tx: S#Tx, peerSer: Serializer[ S#Tx, S#Acc, A ]) : LinkedList[ S, A ] =
       new ListNew[ S, A ]( tx )
 
    private sealed trait ListImpl[ S <: Sys[ S ], A ] extends LinkedList[ S, A ] with Mutable.Impl[ S ] {
       override def toString = "LinkedList" + id
 
       protected def headRef: S#Var[ Option[ Cell[ S, A ]]]
-      protected def peerSer: TxnSerializer[ S#Tx, S#Acc, A ]
+      protected def peerSer: Serializer[ S#Tx, S#Acc, A ]
 
       final protected def disposeData()( implicit tx: S#Tx ) {
          headRef.dispose()
@@ -90,7 +90,7 @@ object LinkedList {
    }
 
    private final class ListNew[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ]( tx0: S#Tx )(
-      protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ])
+      protected implicit val peerSer: Serializer[ S#Tx, S#Acc, A ])
    extends ListImpl[ S, A ] {
       val id                  = tx0.newID()
       protected val headRef   = tx0.newVar[ Option[ Cell[ S, A ]]]( id, None )
@@ -98,12 +98,12 @@ object LinkedList {
 
    private object Cell {
       implicit def serializer[ S <: Sys[ S ], A ](
-         implicit peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, Cell[ S, A ]] =
+         implicit peerSer: Serializer[ S#Tx, S#Acc, A ]) : Serializer[ S#Tx, S#Acc, Cell[ S, A ]] =
             new Ser[ S, A ]( peerSer )
 
       private final class Ser[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ](
-         peerSer: TxnSerializer[ S#Tx, S#Acc, A ])
-      extends TxnSerializer[ S#Tx, S#Acc, Cell[ S, A ]] {
+         peerSer: Serializer[ S#Tx, S#Acc, A ])
+      extends Serializer[ S#Tx, S#Acc, Cell[ S, A ]] {
          def write( v: Cell[ S, A ], out: DataOutput ) {
             v.write( out )
          }
@@ -114,14 +114,14 @@ object LinkedList {
 
       final class New[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ](
          tx0: S#Tx, val value: A, initNext: Option[ Cell[ S, A ]],
-         protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ])
+         protected implicit val peerSer: Serializer[ S#Tx, S#Acc, A ])
       extends Cell[ S, A ] {
          val id      = tx0.newID()
          val nextRef = tx0.newVar[ Option[ Cell[ S, A ]]]( id, initNext )
       }
 
       private final class Read[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ](
-         tx0: S#Tx, in: DataInput, access: S#Acc, protected implicit val peerSer: TxnSerializer[ S#Tx, S#Acc, A ])
+         tx0: S#Tx, in: DataInput, access: S#Acc, protected implicit val peerSer: Serializer[ S#Tx, S#Acc, A ])
       extends Cell[ S, A ] {
          val id      = tx0.readID( in, access )
          val nextRef = tx0.readVar[ Option[ Cell[ S, A ]]]( id, in )
@@ -129,7 +129,7 @@ object LinkedList {
       }
    }
    private sealed trait Cell[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ] extends Mutable.Impl[ S ] {
-      protected def peerSer: TxnSerializer[ S#Tx, S#Acc, A ]
+      protected def peerSer: Serializer[ S#Tx, S#Acc, A ]
 
       def value: A
       def nextRef: S#Var[ Option[ Cell[ S, A ]]]

@@ -71,7 +71,7 @@ object Durable {
       override def toString = "<" + id + ">"
    }
 
-   private final class IDMapImpl[ A ]( val id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
+   private final class IDMapImpl[ A ]( val id: S#ID )( implicit serializer: Serializer[ S#Tx, S#Acc, A ])
    extends IdentifierMap[ S#ID, S#Tx, A ] {
       map =>
 
@@ -124,7 +124,7 @@ object Durable {
    }
 
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {
-      protected def ser: TxnSerializer[ S#Tx, S#Acc, A ]
+      protected def ser: Serializer[ S#Tx, S#Acc, A ]
 
       final def get( implicit tx: S#Tx ) : A = tx.system.read[ A ]( id )( ser.read( _, () ))
 
@@ -133,7 +133,7 @@ object Durable {
       final def setInit( v: A )( implicit tx: S#Tx ) { tx.system.write( id )( ser.write( v, _ ))}
    }
 
-   private final class VarImpl[ A ]( protected val id: Int, protected val ser: TxnSerializer[ S#Tx, S#Acc, A ])
+   private final class VarImpl[ A ]( protected val id: Int, protected val ser: Serializer[ S#Tx, S#Acc, A ])
    extends BasicVar[ A ] {
       def set( v: A )( implicit tx: S#Tx ) {
          assertExists()
@@ -146,7 +146,7 @@ object Durable {
    }
 
    private final class CachedVarImpl[ A ]( protected val id: Int, peer: ScalaRef[ A ],
-                                           ser: TxnSerializer[ S#Tx, S#Acc, A ])
+                                           ser: Serializer[ S#Tx, S#Acc, A ])
    extends Var[ A ] with BasicSource {
       def get( implicit tx: S#Tx ) : A = peer.get( tx.peer )
 
@@ -293,10 +293,10 @@ object Durable {
    sealed trait Var[ @specialized A ] extends _Var[ S#Tx, A ]
 
    sealed trait Txn extends _Txn[ S ] {
-      def newCachedVar[ A ]( init: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+      def newCachedVar[ A ]( init: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
       def newCachedIntVar( init: Int ) : S#Var[ Int ]
       def newCachedLongVar( init: Long ) : S#Var[ Long ]
-      def readCachedVar[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+      def readCachedVar[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
       def readCachedIntVar( in: DataInput ) : S#Var[ Int ]
       def readCachedLongVar( in: DataInput ) : S#Var[ Long ]
    }
@@ -312,16 +312,16 @@ object Durable {
 
       override def toString = "Txn" // <" + id + ">"
 
-      def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] = {
+      def newVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] = {
          val res = new VarImpl[ A ]( system.newIDValue()( this ), ser )
          res.setInit( init )( this )
          res
       }
 
-      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
+      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
          newVar( id, init )
 
-      def newCachedVar[ A ]( init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] = {
+      def newCachedVar[ A ]( init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] = {
          val res = new CachedVarImpl[ A ]( system.newIDValue()( this ), ScalaRef( init ), ser )
          res.writeInit()( this )
          res
@@ -362,18 +362,18 @@ object Durable {
       def newInMemoryIDMap[ A ] : IdentifierMap[ S#ID, S#Tx, A ] =
          IdentifierMap.newInMemoryIntMap[ S#ID, S#Tx, A ]( new IDImpl( 0 ))( _.id )
 
-      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
+      def newDurableIDMap[ A ]( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
          new IDMapImpl[ A ]( newID() )
 
-      def readVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
+      def readVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val id = in.readInt()
          new VarImpl[ A ]( id, ser )
       }
 
-      def readPartialVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] =
+      def readPartialVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] =
          readVar( pid, in )
 
-      def readCachedVar[ A ]( in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
+      def readCachedVar[ A ]( in: DataInput )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val id = in.readInt()
          val res = new CachedVarImpl[ A ]( id, ScalaRef.make[ A ](), ser )
          res.readInit()( this )
@@ -412,12 +412,12 @@ object Durable {
       def readID( in: DataInput, acc: S#Acc ) : S#ID = new IDImpl( in.readInt() )
       def readPartialID( in: DataInput, acc: S#Acc ) : S#ID = readID( in, acc )
 
-      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] = {
+      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] = {
          val mapID = new IDImpl( in.readInt() )
          new IDMapImpl[ A ]( mapID )
       }
 
-      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = value
+      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = value
    }
 
    private final class System( /* private[stm] val */ store: DataStore ) // , idCnt0: Int, reactCnt0: Int
@@ -440,7 +440,7 @@ object Durable {
 
 //      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
-      def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
+      def root[ A ]( init: S#Tx => A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
          val rootID = 2 // 1 == reaction map!!!
          step { implicit tx =>
             if( exists( rootID )) {

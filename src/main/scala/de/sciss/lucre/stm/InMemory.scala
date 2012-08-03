@@ -88,12 +88,12 @@ object InMemory {
 
       def reactionMap: ReactionMap[ S ] = system.reactionMap
 
-      def newVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
+      def newVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
       }
 
-      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
+      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
          newVar( id, init )
 
       def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ] = {
@@ -116,18 +116,18 @@ object InMemory {
       def newInMemoryIDMap[ A ] : IdentifierMap[ S#ID, S#Tx, A ] =
          IdentifierMap.newInMemoryIntMap[ S#ID, S#Tx, A ]( new IDImpl( 0 ))( _.id )
 
-      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
+      def newDurableIDMap[ A ]( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
          IdentifierMap.newInMemoryIntMap[ S#ID, S#Tx, A ]( new IDImpl( 0 ))( _.id )
 
-//      def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = opNotSupported( "readVal" )
+//      def readVal[ A ]( id: S#ID )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = opNotSupported( "readVal" )
 //
-//      def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) {}
+//      def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) {}
 
-      def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
+      def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          opNotSupported( "readVar" )
       }
 
-      def readPartialVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] =
+      def readPartialVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] =
          readVar( pid, in )
 
       def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ] = {
@@ -145,10 +145,10 @@ object InMemory {
       def readID( in: DataInput, acc: S#Acc ) : S#ID = opNotSupported( "readID" )
       def readPartialID( in: DataInput, acc: S#Acc ) : S#ID = readID( in, acc )
 
-      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
+      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
          opNotSupported( "readDurableIDMap" )
 
-      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = value
+      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = value
    }
 
 //   private object IDOrdering extends Ordering[ S#ID ] {
@@ -174,7 +174,7 @@ object InMemory {
 
 //      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
 
-      def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
+      def root[ A ]( init: S#Tx => A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
          step { implicit tx =>
             tx.newVar[ A ]( tx.newID(), init( tx ))
          }

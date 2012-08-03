@@ -27,7 +27,7 @@ package de.sciss.lucre
 package event
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import stm.{TxnSerializer, Sys, Disposable, Mutable}
+import stm.{Serializer, Sys, Disposable, Mutable}
 import annotation.switch
 import LucreSTM.logEvent
 
@@ -39,7 +39,7 @@ import LucreSTM.logEvent
 }
 
 trait NodeSerializer[ S <: Sys[ S ], Repr <: /* Writable */ Node[ S ]]
-extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
+extends Reader[ S, Repr ] with Serializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
    def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
@@ -49,7 +49,7 @@ extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
 }
 
 object Targets {
-//   private[event] final class ExpanderSerializer[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Reactor[ S ]] {
+//   private[event] final class ExpanderSerializer[ S <: Sys[ S ]] extends Serializer[ S#Tx, S#Acc, Reactor[ S ]] {
 //      def write( v: Reactor[ S ], out: DataOutput ) { v.write( out )}
 //      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
 //         val targets    = Targets.read( in, access )
@@ -326,7 +326,7 @@ sealed trait Reactor[ S <: Sys[ S ]] extends Mutable[ S#ID, S#Tx ] {
 
 object VirtualNode {
 // MMM
-//   implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, VirtualNode[ S ]] = new Ser[ S ]
+//   implicit def serializer[ S <: Sys[ S ]] : Serializer[ S#Tx, S#Acc, VirtualNode[ S ]] = new Ser[ S ]
 
    // MMM
    private[event] def read[ S <: Sys[ S ]]( in: DataInput, fullSize: Int, access: S#Acc )( implicit tx: S#Tx ) : Raw[ S ] = {
@@ -339,7 +339,7 @@ object VirtualNode {
    }
 
 // MMM
-//   private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, VirtualNode[ S ]] {
+//   private final class Ser[ S <: Sys[ S ]] extends Serializer[ S#Tx, S#Acc, VirtualNode[ S ]] {
 //      def write( v: VirtualNode[ S ], out: DataOutput ) {
 //         v.write( out )
 ////         v.targets.write( out )

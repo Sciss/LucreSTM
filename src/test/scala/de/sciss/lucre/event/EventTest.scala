@@ -38,7 +38,7 @@ object EventTest extends App {
 //
 
 //   val f = system.atomic { implicit tx =>
-////      implicit def ser: TxnSerializer[ S#Tx, S#Acc, Event.Trigger.Standalone[ S, Int ]] = Event.Trigger.Standalone.serializer[ S, Int ]
+////      implicit def ser: Serializer[ S#Tx, S#Acc, Event.Trigger.Standalone[ S, Int ]] = Event.Trigger.Standalone.serializer[ S, Int ]
 ////      e2.filter[ Event.Trigger.Standalone[ S, Int ], Int => Boolean ]( (_: Int) < 10 )
 //      e2.filter( _ < 10 )
 //   }

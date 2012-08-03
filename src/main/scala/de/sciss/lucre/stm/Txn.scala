@@ -49,7 +49,7 @@ trait Txn[ S <: Sys[ S ]] {
     */
    def reactionMap : ReactionMap[ S ]
 
-   def newVar[ A ]( id: S#ID, init: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+   def newVar[ A ]( id: S#ID, init: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]
    def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]
    def newLongVar( id: S#ID, init: Long ) : S#Var[ Long ]
@@ -57,7 +57,7 @@ trait Txn[ S <: Sys[ S ]] {
    def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
 
    def newPartialID() : S#ID
-   def newPartialVar[ A ]( id: S#ID, init: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+   def newPartialVar[ A ]( id: S#ID, init: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
 
    /**
     * Creates a new durable transactional map for storing and retrieving values based on a mutable's identifier
@@ -70,7 +70,7 @@ trait Txn[ S <: Sys[ S ]] {
     * @param serializer the serializer for values in the map
     * @tparam A         the value type in the map
     */
-   def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]
+   def newDurableIDMap[ A ]( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]
 
    /**
     * Creates a new in-memory transactional map for storing and retrieving values based on a mutable's identifier
@@ -84,18 +84,18 @@ trait Txn[ S <: Sys[ S ]] {
     */
    def newInMemoryIDMap[ A ] : IdentifierMap[ S#ID, S#Tx, A ]
 
-   def readVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+   def readVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ]
    def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
    def readLongVar( id: S#ID, in: DataInput ) : S#Var[ Long ]
 
-   def readPartialVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+   def readPartialVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
 
    def readID( in: DataInput, acc: S#Acc ) : S#ID
 
    def readPartialID( in: DataInput, acc: S#Acc ) : S#ID
 
-   def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]
+   def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]
 
    /**
     * Refreshes a stale version of an object, assuming that the current transaction is issued
@@ -108,18 +108,18 @@ trait Txn[ S <: Sys[ S ]] {
     * @param serializer    used to write and freshly read the object
     * @return              the refreshed object (as if accessed from within the current transaction)
     */
-   def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A
+   def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A
 
 // MMM
 //   /**
 //    * XXX TODO: this is called from Targets.readAndExpand
 //    */
-//   def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A
+//   def readVal[ A ]( id: S#ID )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A
 //
 //   /**
 //    * XXX TODO: this is called from NodeSelector.writeValue which is turn is called from Targets
 //    */
-//   def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : Unit
+//   def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : Unit
 //
 //   // XXX TODO: this merely used by ReactionTest2
 //   // it should be replaced by a general mechanism to turn any S#Var into a read access

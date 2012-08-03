@@ -26,11 +26,11 @@
 package de.sciss.lucre
 package event
 
-import stm.{TxnSerializer, Sys}
+import stm.{Serializer, Sys}
 import scala.util.MurmurHash
 
 object Selector {
-   implicit def serializer[ S <: Sys[ S ]] : TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
+   implicit def serializer[ S <: Sys[ S ]] : Serializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
    private[event] def apply[ S <: Sys[ S ]]( slot: Int, node: VirtualNode.Raw[ S ],
                                              invariant: Boolean ) : VirtualNodeSelector[ S ] = {
@@ -38,7 +38,7 @@ object Selector {
       else            MutatingTargetsSelector(  slot, node )
    }
 
-   private final class Ser[ S <: Sys[ S ]] extends TxnSerializer[ S#Tx, S#Acc, Selector[ S ]] {
+   private final class Ser[ S <: Sys[ S ]] extends Serializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
          v.writeSelector( out )
       }

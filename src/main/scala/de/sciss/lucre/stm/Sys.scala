@@ -104,7 +104,7 @@ trait Sys[ S <: Sys[ S ]] {
     * or provides a newly initialized one via the `init` argument,
     * if no root has been stored yet.
     */
-   def root[ A ]( init: S#Tx => A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ]
+   def root[ A ]( init: S#Tx => A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ]
 
    /**
     * Closes the underlying database (if the system is durable). The STM cannot be used beyond this call.
