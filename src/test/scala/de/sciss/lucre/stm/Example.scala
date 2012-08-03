@@ -6,7 +6,7 @@ object Example extends App {
 
    object Person {
       implicit object ser extends MutableSerializer[ S, Person ] {
-         def readData( in: DataInput, _id: S#ID )( implicit tx: S#Tx ) : Person = new Person {
+         def readData( in: DataInput, _id: S#ID )( implicit tx: S#Tx ) : Person = new Person with Mutable.Impl[ S ] {
             val id      = _id
             val name    = in.readString()
             val friends = tx.readVar[ List[ Person ]]( id, in )
@@ -28,7 +28,7 @@ object Example extends App {
    val rnd  = new util.Random()
 
    // create a person with random name and no friends
-   def newPerson()( implicit tx: S#Tx ) : Person = new Person {
+   def newPerson()( implicit tx: S#Tx ) : Person = new Person with Mutable.Impl[ S ] {
       val id      = tx.newID()
       val name    = pre( rnd.nextInt( pre.size )) + post( rnd.nextInt( post.size ))
       val friends = tx.newVar[ List[ Person ]]( id, Nil )

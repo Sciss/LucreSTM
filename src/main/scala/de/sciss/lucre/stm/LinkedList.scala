@@ -32,7 +32,7 @@ object LinkedList {
    def empty[ S <: Sys[ S ], A ]( implicit tx: S#Tx, peerSer: TxnSerializer[ S#Tx, S#Acc, A ]) : LinkedList[ S, A ] =
       new ListNew[ S, A ]( tx )
 
-   private sealed trait ListImpl[ S <: Sys[ S ], A ] extends LinkedList[ S, A ] {
+   private sealed trait ListImpl[ S <: Sys[ S ], A ] extends LinkedList[ S, A ] with Mutable.Impl[ S ] {
       override def toString = "LinkedList" + id
 
       protected def headRef: S#Var[ Option[ Cell[ S, A ]]]
@@ -128,7 +128,7 @@ object LinkedList {
          val value   = peerSer.read( in, access )( tx0 )
       }
    }
-   private sealed trait Cell[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ] extends Mutable[ S ] {
+   private sealed trait Cell[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ] extends Mutable.Impl[ S ] {
       protected def peerSer: TxnSerializer[ S#Tx, S#Acc, A ]
 
       def value: A

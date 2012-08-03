@@ -18,7 +18,7 @@ object ConfluentTest extends App {
    type Var[ ~ ]  = ConfluentSkel#Var[ ~ ]
    type Acc       = ConfluentSkel#Acc
 
-   trait ListElem[ A ] extends /* ListElemOption[ A ] with */ Mutable[ ConfluentSkel ] {
+   trait ListElem[ A ] extends /* ListElemOption[ A ] with */ Mutable.Impl[ ConfluentSkel ] {
       protected def nextRef: Var[ E[ A ]]
       protected def valueRef: Var[ A ]
 
@@ -72,7 +72,7 @@ object ConfluentTest extends App {
       }
    }
 
-   trait Access extends Mutable[ ConfluentSkel ] {
+   trait Access extends Mutable.Impl[ ConfluentSkel ] {
       me =>
 
       protected def headRef : Var[ E[ Int ]]

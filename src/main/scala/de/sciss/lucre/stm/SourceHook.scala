@@ -61,7 +61,7 @@ object SourceHook {
    }
 
    private abstract class Impl[ S <: Sys[ S ], A <: Writable ]
-   extends SourceHook[ S#Tx, A ] with Mutable[ S ] with TxnSerializer[ S#Tx, S#Acc, A ] {
+   extends SourceHook[ S#Tx, A ] with Mutable.Impl[ S ] with TxnSerializer[ S#Tx, S#Acc, A ] {
       protected def v: S#Var[ A ]
 //      protected def peerSerializer: Source[ S#Tx, A ] => TxnSerializer[ S#Tx, S#Acc, A ]
 

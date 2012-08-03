@@ -26,33 +26,34 @@
 package de.sciss.lucre
 package stm
 
-trait Mutable[ S <: Sys[ S ]] extends /* MutableOption[ S ] with */ Writable with Disposable[ S#Tx ] {
-   def id: S#ID
+object Mutable {
+   trait Impl[ S <: Sys[ S ]] extends Mutable[ S ] {
+      final def dispose()( implicit tx: S#Tx ) {
+         id.dispose()
+         disposeData()
+      }
 
-   final def dispose()( implicit tx: S#Tx ) {
-      id.dispose()
-      disposeData()
+      final def write( out: DataOutput ) {
+         id.write( out )
+         writeData( out )
+      }
+
+      protected def disposeData()( implicit tx: S#Tx ) : Unit
+      protected def writeData( out: DataOutput ) : Unit
+
+      override def equals( that: Any ) : Boolean = {
+         // note: microbenchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
+         /* (that != null) && */ (if( that.isInstanceOf[ Mutable[ _ ]]) {
+            id == that.asInstanceOf[ Mutable[ _ ]].id
+         } else super.equals( that ))
+      }
+
+      override def hashCode = id.hashCode()
+
+      override def toString = super.toString + id.toString
    }
-
-   final def write( out: DataOutput ) {
-      id.write( out )
-      writeData( out )
-   }
-
-   protected def disposeData()( implicit tx: S#Tx ) : Unit
-   protected def writeData( out: DataOutput ) : Unit
-
-   override def equals( that: Any ) : Boolean = {
-      // note: microbenchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
-      /* (that != null) && */ (if( that.isInstanceOf[ Mutable[ _ ]]) {
-         id == that.asInstanceOf[ Mutable[ _ ]].id
-      } else super.equals( that ))
-   }
-
-   override def hashCode = id.hashCode()
-
-   override def toString = super.toString + id.toString
 }
+trait Mutable[ S <: Sys[ S ]] extends Identifiable[ S#ID ] with Writable with Disposable[ S#Tx ]
 
 /**
  * Note: Since a reader goes along with `A` implementing the writer,
