@@ -1,5 +1,5 @@
 /*
- *  Writer.scala
+ *  Writable.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -24,8 +24,7 @@
  */
 
 package de.sciss.lucre
-package stm
 
-trait Writer {
+trait Writable {
    def write( out: DataOutput ) : Unit
 }

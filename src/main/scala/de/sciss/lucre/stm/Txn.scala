@@ -71,7 +71,7 @@ trait Txn[ S <: Sys[ S ]] {
     * @tparam A         the value type in the map
     */
    def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-      : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ]
+      : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ]
 
    /**
     * Creates a new in-memory transactional map for storing and retrieving values based on a mutable's identifier
@@ -97,7 +97,7 @@ trait Txn[ S <: Sys[ S ]] {
    def readPartialID( in: DataInput, acc: S#Acc ) : S#ID
 
    def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-      : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ]
+      : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ]
 
    /**
     * Refreshes a stale version of an object, assuming that the current transaction is issued

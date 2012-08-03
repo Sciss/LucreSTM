@@ -23,15 +23,14 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.stm
-
-import de.sciss.lucre.{DataOutput, DataInput}
+package de.sciss.lucre
+package stm
 
 object SourceHook {
 //   implicit def serializer[ S <: Sys[ S ], A ]( implicit peerSerializer: TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, SourceHook[ S#Tx, A ]] =
 //      new Ser[ S, A ]
 
-   def apply[ S <: Sys[ S ], A <: Writer ]( value: A )
+   def apply[ S <: Sys[ S ], A <: Writable ]( value: A )
                                           ( peer: (=> Source[ S#Tx, A ]) => TxnSerializer[ S#Tx, S#Acc, A ])
                                           ( implicit tx: S#Tx ): SourceHook[ S#Tx, A ] =
       new Impl[ S, A ] {
@@ -42,11 +41,11 @@ object SourceHook {
          }
       }
 
-   def serializer[ S <: Sys[ S ], A <: Writer ](
+   def serializer[ S <: Sys[ S ], A <: Writable ](
       peer: (=> Source[ S#Tx, A ]) => TxnSerializer[ S#Tx, S#Acc, A ]) : TxnSerializer[ S#Tx, S#Acc, SourceHook[ S#Tx, A ]] =
       new Ser[ S, A ]( peer )
 
-   private final class Ser[ S <: Sys[ S ], A <: Writer ]( peer: (=> Source[ S#Tx, A ]) => TxnSerializer[ S#Tx, S#Acc, A ])
+   private final class Ser[ S <: Sys[ S ], A <: Writable ]( peer: (=> Source[ S#Tx, A ]) => TxnSerializer[ S#Tx, S#Acc, A ])
    extends TxnSerializer[ S#Tx, S#Acc, SourceHook[ S#Tx, A ]] {
       def write( hook: SourceHook[ S#Tx, A ], out: DataOutput ) { hook.write( out )}
       def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : SourceHook[ S#Tx, A ] = {
@@ -61,7 +60,7 @@ object SourceHook {
       }
    }
 
-   private abstract class Impl[ S <: Sys[ S ], A <: Writer ]
+   private abstract class Impl[ S <: Sys[ S ], A <: Writable ]
    extends SourceHook[ S#Tx, A ] with Mutable[ S ] with TxnSerializer[ S#Tx, S#Acc, A ] {
       protected def v: S#Var[ A ]
 //      protected def peerSerializer: Source[ S#Tx, A ] => TxnSerializer[ S#Tx, S#Acc, A ]
@@ -98,6 +97,6 @@ object SourceHook {
  * @tparam Tx  the transaction type of the source
  * @tparam A   the payload type of the source
  */
-sealed trait SourceHook[ -Tx, +A ] extends Writer with Disposable[ Tx ] {
+sealed trait SourceHook[ -Tx, +A ] extends Writable with Disposable[ Tx ] {
    def source: Source[ Tx, A ]
 }

@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package event
 
-import stm.{TxnSerializer, Writer, Sys}
+import stm.{TxnSerializer, Sys}
 import annotation.switch
 
 /**
@@ -38,7 +38,7 @@ import annotation.switch
  * The constant event should mix in `Constant` which takes care of writing
  * the appropriate serialization preamble.
  */
-trait EventLikeSerializer[ S <: Sys[ S ], Repr <: Writer /* Node[ S, _ ] */]
+trait EventLikeSerializer[ S <: Sys[ S ], Repr <: Writable /* Node[ S, _ ] */]
 extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 

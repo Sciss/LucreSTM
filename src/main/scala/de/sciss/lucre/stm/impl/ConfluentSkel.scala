@@ -219,7 +219,7 @@ object ConfluentSkel {
    }
 
    private final class IDMapImpl[ A ]( id: Int )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-   extends IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] {
+   extends IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] {
       def get( id: S#ID )( implicit tx: S#Tx ): Option[ A ] = {
          sys.error( "TODO" )
       }
@@ -282,7 +282,7 @@ object ConfluentSkel {
          sys.error( "TODO" )
 
       def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-      : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] =
+      : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] =
          new IDMapImpl[ A ](system.newIDCnt()( this ))
 
       private def readSource( in: DataInput, pid: ID ): ID = {
@@ -309,7 +309,7 @@ object ConfluentSkel {
       def readPartialID( in: DataInput, aPacc: S#Acc ): S#ID = sys.error( "TODO" )
 
       def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-      : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] = sys.error( "TODO" )
+      : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] = sys.error( "TODO" )
 
       def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]): A = {
          val out = new DataOutput()

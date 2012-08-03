@@ -88,7 +88,7 @@ val reactor  = VirtualNode.read[ S ]( in, fullSize, access )
    extends TargetsSelector[ S ] with MutatingSelector[ S ]
 }
 
-sealed trait Selector[ S <: Sys[ S ]] /* extends Writer */ {
+sealed trait Selector[ S <: Sys[ S ]] /* extends Writable */ {
    protected def cookie: Int
 
    final def writeSelector( out: DataOutput ) {
@@ -153,7 +153,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 }
 
 // MMM
-//sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writer */ {
+//sealed trait ExpandedSelector[ S <: Sys[ S ]] extends Selector[ S ] /* with Writable */ {
 //// MMM
 ////   private[event] def writeValue()( implicit tx: S#Tx ) : Unit
 //}

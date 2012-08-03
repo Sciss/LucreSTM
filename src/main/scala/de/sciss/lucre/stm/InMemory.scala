@@ -117,7 +117,7 @@ object InMemory {
          IdentifierMap.newInMemoryIntMap( _.id )
 
       def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-         : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] = IdentifierMap.newInMemoryIntMap( _.id )
+         : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] = IdentifierMap.newInMemoryIntMap( _.id )
 
 //      def readVal[ A ]( id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = opNotSupported( "readVal" )
 //
@@ -146,7 +146,7 @@ object InMemory {
       def readPartialID( in: DataInput, acc: S#Acc ) : S#ID = readID( in, acc )
 
       def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ InMemory.S#Tx, InMemory.S#Acc, A ])
-         : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] = opNotSupported( "readDurableIDMap" )
+         : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] = opNotSupported( "readDurableIDMap" )
 
       def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : A = value
    }

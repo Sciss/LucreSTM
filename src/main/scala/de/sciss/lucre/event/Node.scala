@@ -27,7 +27,7 @@ package de.sciss.lucre
 package event
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import stm.{TxnSerializer, Sys, Writer, Disposable}
+import stm.{TxnSerializer, Sys, Disposable}
 import annotation.switch
 import LucreSTM.logEvent
 
@@ -38,7 +38,7 @@ import LucreSTM.logEvent
    def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
 }
 
-trait NodeSerializer[ S <: Sys[ S ], Repr <: /* Writer */ Node[ S ]]
+trait NodeSerializer[ S <: Sys[ S ], Repr <: /* Writable */ Node[ S ]]
 extends Reader[ S, Repr ] with TxnSerializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
@@ -212,7 +212,7 @@ object Targets {
  * object, sharing the same `id` as its targets. As a `Reactor`, it has a method to
  * `propagate` a fired event.
  */
-sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with Disposable[ S#Tx ] */ {
+sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writable with Disposable[ S#Tx ] */ {
    /* private[event] */ def id: S#ID
 
 //   private[event] def children( implicit tx: S#Tx ) : Children[ S ]
@@ -267,7 +267,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
  * An `Event.Node` is most similar to EScala's `EventNode` class. It represents an observable
  * object and can also act as an observer itself. It adds the `Reactor` functionality in the
  * form of a proxy, forwarding to internally stored `Targets`. It also provides a final
- * implementation of the `Writer` and `Disposable` traits, asking sub classes to provide
+ * implementation of the `Writable` and `Disposable` traits, asking sub classes to provide
  * methods `writeData` and `disposeData`. That way it is ensured that the sealed `Reactor` trait
  * is written first as the `Targets` stub, providing a means for partial deserialization during
  * the push phase of event propagation.
@@ -312,7 +312,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writer with
  * either a persisted event `Node` or a registered `ObserverKey` which is resolved through the transaction
  * as pointing to a live view.
  */
-sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writer with Disposable[ S#Tx ] {
+sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writable with Disposable[ S#Tx ] {
    def id: S#ID
 
 //   private[event] def select( slot: Int, invariant: Boolean ) : VirtualNodeSelector[ S ]

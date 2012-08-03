@@ -72,7 +72,7 @@ object Durable {
    }
 
    private final class IDMapImpl[ A ]( mapID: Int )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-   extends IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] {
+   extends IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] {
       private val idn = mapID.toLong << 32
 
       def get( id: S#ID )( implicit tx: S#Tx ) : Option[ A ] = {
@@ -359,7 +359,7 @@ object Durable {
          IdentifierMap.newInMemoryIntMap( _.id )
 
       def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-         : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] =
+         : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] =
          new IDMapImpl[ A ]( system.newIDValue()( this ))
 
       def readVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: TxnSerializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
@@ -410,7 +410,7 @@ object Durable {
       def readPartialID( in: DataInput, acc: S#Acc ) : S#ID = readID( in, acc )
 
       def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-         : IdentifierMap[ S#Tx, S#ID, A ] with Writer with Disposable[ S#Tx ] = {
+         : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] = {
          val mapID = in.readInt()
          new IDMapImpl[ A ]( mapID )
       }

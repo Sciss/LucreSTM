@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package stm
 
-trait Mutable[ S <: Sys[ S ]] extends /* MutableOption[ S ] with */ Writer with Disposable[ S#Tx ] {
+trait Mutable[ S <: Sys[ S ]] extends /* MutableOption[ S ] with */ Writable with Disposable[ S#Tx ] {
    def id: S#ID
 
    final def dispose()( implicit tx: S#Tx ) {

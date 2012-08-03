@@ -55,7 +55,7 @@ object Source {
 }
 
 /* sealed */
-trait Source[ -Tx, @specialized +A ] /* extends Writer with Disposable[ Tx ] */ {
+trait Source[ -Tx, @specialized +A ] /* extends Writable with Disposable[ Tx ] */ {
    def get( implicit tx: Tx ) : A
 }
 
@@ -65,7 +65,7 @@ trait Source[ -Tx, @specialized +A ] /* extends Writer with Disposable[ Tx ] */ 
 //   def transform( f: A => A )( implicit tx: Tx ) : Unit
 //}
 
-trait Var[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] with Writer with Disposable[ Tx ] {
+trait Var[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] with Writable with Disposable[ Tx ] {
    def transform( f: A => A )( implicit tx: Tx ) : Unit
    def isFresh( implicit tx: Tx ) : Boolean
 //   def getFresh( implicit tx: Tx ) : A

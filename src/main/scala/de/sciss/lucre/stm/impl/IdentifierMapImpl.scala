@@ -32,10 +32,10 @@ import stm.{ Txn => _Txn }
 
 object IdentifierMapImpl {
    def newInMemoryIntMap[ Txn <: _Txn[ _ ], ID, A ]( implicit intView: ID => Int )
-      : IdentifierMap[ Txn, ID, A ] with Writer with Disposable[ Txn ] = new InMemoryInt[ Txn, ID, A ]( intView )
+      : IdentifierMap[ Txn, ID, A ] with Writable with Disposable[ Txn ] = new InMemoryInt[ Txn, ID, A ]( intView )
 
    private final class InMemoryInt[ Txn <: _Txn[ _ ], ID, A ]( intView: ID => Int )
-   extends IdentifierMap[ Txn, ID, A ] with Writer with Disposable[ Txn ] {
+   extends IdentifierMap[ Txn, ID, A ] with Writable with Disposable[ Txn ] {
       private val peer = TMap.empty[ Int, A ]
 
       def get( id: ID )( implicit tx: Txn ) : Option[ A ] = peer.get( intView( id ))( tx.peer )

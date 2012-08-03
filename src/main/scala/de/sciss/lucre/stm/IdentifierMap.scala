@@ -23,14 +23,15 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre.stm
+package de.sciss.lucre
+package stm
 
 import impl.IdentifierMapImpl
-import de.sciss.lucre.stm.{Txn => _Txn}
+import stm.{Txn => _Txn}
 
 object IdentifierMap {
    def newInMemoryIntMap[ Txn <: _Txn[ _ ], ID, A ]( implicit intView: ID => Int )
-   : IdentifierMap[ Txn, ID, A ] with Writer with Disposable[ Txn ] = IdentifierMapImpl.newInMemoryIntMap[ Txn, ID, A ]
+   : IdentifierMap[ Txn, ID, A ] with Writable with Disposable[ Txn ] = IdentifierMapImpl.newInMemoryIntMap[ Txn, ID, A ]
 }
 /**
  * An identifier map is basically a transactional map whose keys are system identifiers.
