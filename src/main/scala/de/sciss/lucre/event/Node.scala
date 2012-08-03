@@ -27,7 +27,7 @@ package de.sciss.lucre
 package event
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import stm.{TxnSerializer, Sys, Disposable}
+import stm.{TxnSerializer, Sys, Disposable, Mutable}
 import annotation.switch
 import LucreSTM.logEvent
 
@@ -213,7 +213,7 @@ object Targets {
  * `propagate` a fired event.
  */
 sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writable with Disposable[ S#Tx ] */ {
-   /* private[event] */ def id: S#ID
+//   /* private[event] */ def id: S#ID
 
 //   private[event] def children( implicit tx: S#Tx ) : Children[ S ]
    private[event] def children( implicit tx: S#Tx ) : Children[ S ]
@@ -312,13 +312,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writable wi
  * either a persisted event `Node` or a registered `ObserverKey` which is resolved through the transaction
  * as pointing to a live view.
  */
-sealed trait Reactor[ S <: Sys[ S ]] extends /* Reactor[ S ] */ Writable with Disposable[ S#Tx ] {
-   def id: S#ID
-
-//   private[event] def select( slot: Int, invariant: Boolean ) : VirtualNodeSelector[ S ]
-
-//   private[event] def children( implicit tx: S#Tx ) : Children[ S ]
-
+sealed trait Reactor[ S <: Sys[ S ]] extends Mutable[ S#ID, S#Tx ] {
    private[event] def _targets : Targets[ S ]
 
    override def equals( that: Any ) : Boolean = {
