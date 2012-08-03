@@ -30,57 +30,57 @@ import annotation.switch
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import collection.mutable.Builder
 
-object Serializer {
+object ImmutableSerializer {
    // ---- primitives ----
 
-   implicit object Unit extends Serializer[ scala.Unit ] {
+   implicit object Unit extends ImmutableSerializer[ scala.Unit ] {
       def write( v: scala.Unit, out: DataOutput ) {}
       def read( in: DataInput ) {}
    }
 
-   implicit object Boolean extends Serializer[ scala.Boolean ] {
+   implicit object Boolean extends ImmutableSerializer[ scala.Boolean ] {
       def write( v: scala.Boolean, out: DataOutput ) {
          out.writeBoolean( v )
       }
       def read( in: DataInput ) : scala.Boolean = in.readBoolean()
    }
 
-   implicit object Char extends Serializer[ scala.Char ] {
+   implicit object Char extends ImmutableSerializer[ scala.Char ] {
       def write( v: scala.Char, out: DataOutput ) {
          out.writeChar( v )
       }
       def read( in: DataInput ) : scala.Char = in.readChar()
    }
 
-   implicit object Int extends Serializer[ scala.Int ] {
+   implicit object Int extends ImmutableSerializer[ scala.Int ] {
       def write( v: scala.Int, out: DataOutput ) {
          out.writeInt( v )
       }
       def read( in: DataInput ) : scala.Int = in.readInt()
    }
 
-   implicit object Float extends Serializer[ scala.Float ] {
+   implicit object Float extends ImmutableSerializer[ scala.Float ] {
       def write( v: scala.Float, out: DataOutput ) {
          out.writeFloat( v )
       }
       def read( in: DataInput ) : scala.Float = in.readFloat()
    }
 
-   implicit object Long extends Serializer[ scala.Long ] {
+   implicit object Long extends ImmutableSerializer[ scala.Long ] {
       def write( v: scala.Long, out: DataOutput ) {
          out.writeLong( v )
       }
       def read( in: DataInput ) : scala.Long = in.readLong()
    }
 
-   implicit object Double extends Serializer[ scala.Double ] {
+   implicit object Double extends ImmutableSerializer[ scala.Double ] {
       def write( v: scala.Double, out: DataOutput ) {
          out.writeDouble( v )
       }
       def read( in: DataInput ) : scala.Double = in.readDouble()
    }
 
-   implicit object String extends Serializer[ java.lang.String ] {
+   implicit object String extends ImmutableSerializer[ java.lang.String ] {
       def write( v: java.lang.String, out: DataOutput ) {
          out.writeString( v )
       }
@@ -89,19 +89,19 @@ object Serializer {
 
    // ---- incremental build-up ----
 
-   implicit def fromReader[ A <: Writable ]( implicit reader: Reader[ A ]) : Serializer[ A ] = new ReaderWrapper( reader )
+   implicit def fromReader[ A <: Writable ]( implicit reader: Reader[ A ]) : ImmutableSerializer[ A ] = new ReaderWrapper( reader )
 
-   private final class ReaderWrapper[ A <: Writable ]( reader: Reader[ A ]) extends Serializer[ A ] {
+   private final class ReaderWrapper[ A <: Writable ]( reader: Reader[ A ]) extends ImmutableSerializer[ A ] {
       def write( v: A, out: DataOutput ) { v.write( out )}
       def read( in: DataInput ) : A = reader.read( in )
    }
 
    // ---- higher-kinded ----
 
-   implicit def option[ A ]( implicit peer: Serializer[ A ]) : Serializer[ Option[ A ]] = new OptionWrapper[ A ]( peer )
+   implicit def option[ A ]( implicit peer: ImmutableSerializer[ A ]) : ImmutableSerializer[ Option[ A ]] = new OptionWrapper[ A ]( peer )
 
-   private final class OptionWrapper[ @specialized A ]( peer: Serializer[ A ])
-   extends Serializer[ Option[ A ]] {
+   private final class OptionWrapper[ @specialized A ]( peer: ImmutableSerializer[ A ])
+   extends ImmutableSerializer[ Option[ A ]] {
       def write( opt: Option[ A ], out: DataOutput ) { opt match {
          case Some( v ) => out.writeUnsignedByte( 1 ); peer.write( v, out )
          case None      => out.writeUnsignedByte( 0 )
@@ -113,12 +113,12 @@ object Serializer {
       }
    }
 
-   implicit def either[ A, B ]( implicit peer1: Serializer[ A ], peer2: Serializer[ B ]) : Serializer[ Either[ A, B ]] =
+   implicit def either[ A, B ]( implicit peer1: ImmutableSerializer[ A ], peer2: ImmutableSerializer[ B ]) : ImmutableSerializer[ Either[ A, B ]] =
       new EitherWrapper[ A, B ]( peer1, peer2 )
 
    private final class EitherWrapper[ @specialized( scala.Int, scala.Float, scala.Double, scala.Long, scala.Char ) A,
                                       @specialized( scala.Int, scala.Float, scala.Double, scala.Long, scala.Char ) B ](
-      peer1: Serializer[ A ], peer2: Serializer[ B ]) extends Serializer[ Either[ A, B ]] {
+      peer1: ImmutableSerializer[ A ], peer2: ImmutableSerializer[ B ]) extends ImmutableSerializer[ Either[ A, B ]] {
 
       def write( eith: Either[ A, B ], out: DataOutput ) { eith match {
          case Left( a )  => out.writeUnsignedByte( 0 ); peer1.write( a, out )
@@ -131,13 +131,13 @@ object Serializer {
       }
    }
 
-   implicit def tuple2[ A1, A2 ]( implicit peer1: Serializer[ A1 ],
-                                  peer2: Serializer[ A2 ]) : Serializer[ (A1, A2) ] =
+   implicit def tuple2[ A1, A2 ]( implicit peer1: ImmutableSerializer[ A1 ],
+                                  peer2: ImmutableSerializer[ A2 ]) : ImmutableSerializer[ (A1, A2) ] =
       new Tuple2Wrapper[ A1, A2 ]( peer1, peer2 )
 
    private final class Tuple2Wrapper[ @specialized( scala.Int, scala.Float, scala.Double, scala.Long, scala.Char ) A1,
                                       @specialized( scala.Int, scala.Float, scala.Double, scala.Long, scala.Char ) A2 ](
-      peer1: Serializer[ A1 ], peer2: Serializer[ A2 ]) extends Serializer[ (A1, A2) ] {
+      peer1: ImmutableSerializer[ A1 ], peer2: ImmutableSerializer[ A2 ]) extends ImmutableSerializer[ (A1, A2) ] {
 
       def write( tup: (A1, A2), out: DataOutput ) {
          peer1.write( tup._1, out )
@@ -151,13 +151,13 @@ object Serializer {
       }
    }
 
-   implicit def tuple3[ A1, A2, A3 ]( implicit peer1: Serializer[ A1 ], peer2: Serializer[ A2 ],
-                                      peer3: Serializer[ A3 ]) : Serializer[ (A1, A2, A3) ] =
+   implicit def tuple3[ A1, A2, A3 ]( implicit peer1: ImmutableSerializer[ A1 ], peer2: ImmutableSerializer[ A2 ],
+                                      peer3: ImmutableSerializer[ A3 ]) : ImmutableSerializer[ (A1, A2, A3) ] =
       new Tuple3Wrapper[ A1, A2, A3 ]( peer1, peer2, peer3 )
 
    private final class Tuple3Wrapper[ A1, A2, A3 ](
-      peer1: Serializer[ A1 ], peer2: Serializer[ A2 ], peer3: Serializer[ A3 ])
-   extends Serializer[ (A1, A2, A3) ] {
+      peer1: ImmutableSerializer[ A1 ], peer2: ImmutableSerializer[ A2 ], peer3: ImmutableSerializer[ A3 ])
+   extends ImmutableSerializer[ (A1, A2, A3) ] {
 
       def write( tup: (A1, A2, A3), out: DataOutput ) {
          peer1.write( tup._1, out )
@@ -173,20 +173,20 @@ object Serializer {
       }
    }
 
-   implicit def list[ A ]( implicit peer: Serializer[ A ]) : Serializer[ List[ A ]] = new ListSerializer[ A ]( peer )
+   implicit def list[ A ]( implicit peer: ImmutableSerializer[ A ]) : ImmutableSerializer[ List[ A ]] = new ListSerializer[ A ]( peer )
 
-   implicit def set[ A ]( implicit peer: Serializer[ A ]) : Serializer[ Set[ A ]] = new SetSerializer[ A ]( peer )
+   implicit def set[ A ]( implicit peer: ImmutableSerializer[ A ]) : ImmutableSerializer[ Set[ A ]] = new SetSerializer[ A ]( peer )
 
-   implicit def indexedSeq[ A ]( implicit peer: Serializer[ A ]) : Serializer[ IIdxSeq[ A ]] =
+   implicit def indexedSeq[ A ]( implicit peer: ImmutableSerializer[ A ]) : ImmutableSerializer[ IIdxSeq[ A ]] =
       new IndexedSeqSerializer[ A ]( peer )
 
-   implicit def map[ A, B ]( implicit peer: Serializer[ (A, B) ]) : Serializer[ Map[ A, B ]] =
+   implicit def map[ A, B ]( implicit peer: ImmutableSerializer[ (A, B) ]) : ImmutableSerializer[ Map[ A, B ]] =
       new MapSerializer[ A, B ]( peer )
 
    // XXX size might be a slow operation on That...
-   private sealed trait CollectionSerializer[ A, That <: Traversable[ A ]] extends Serializer[ That ] {
+   private sealed trait CollectionSerializer[ A, That <: Traversable[ A ]] extends ImmutableSerializer[ That ] {
       def newBuilder: Builder[ A, That ]
-      def peer: Serializer[ A ]
+      def peer: ImmutableSerializer[ A ]
 
       final def write( coll: That, out: DataOutput ) {
          out.writeInt( coll.size )
@@ -205,25 +205,25 @@ object Serializer {
       }
    }
 
-   private final class ListSerializer[ A ]( val peer: Serializer[ A ])
+   private final class ListSerializer[ A ]( val peer: ImmutableSerializer[ A ])
    extends CollectionSerializer[ A, List[ A ]] {
       def newBuilder = List.newBuilder[ A ]
    }
 
-   private final class SetSerializer[ A ]( val peer: Serializer[ A ])
+   private final class SetSerializer[ A ]( val peer: ImmutableSerializer[ A ])
    extends CollectionSerializer[ A, Set[ A ]] {
       def newBuilder = Set.newBuilder[ A ]
    }
 
-   private final class IndexedSeqSerializer[ A ]( val peer: Serializer[ A ])
+   private final class IndexedSeqSerializer[ A ]( val peer: ImmutableSerializer[ A ])
    extends CollectionSerializer[ A, IIdxSeq[ A ]] {
       def newBuilder = IIdxSeq.newBuilder[ A ]
    }
 
-   private final class MapSerializer[ A, B ]( val peer: Serializer[ (A, B) ])
+   private final class MapSerializer[ A, B ]( val peer: ImmutableSerializer[ (A, B) ])
    extends CollectionSerializer[ (A, B), Map[ A, B ]] {
       def newBuilder = Map.newBuilder[ A, B ]
    }
 }
 
-trait Serializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, Any, A ]
+trait ImmutableSerializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, Any, A ]

@@ -31,16 +31,16 @@ import collection.mutable.Builder
 import annotation.switch
 
 object TxnSerializer {
-   implicit val Unit    = Serializer.Unit
-   implicit val Boolean = Serializer.Boolean
-   implicit val Char    = Serializer.Char
-   implicit val Int     = Serializer.Int
-   implicit val Float   = Serializer.Float
-   implicit val Long    = Serializer.Long
-   implicit val Double  = Serializer.Double
-   implicit val String  = Serializer.String
+   implicit val Unit    = ImmutableSerializer.Unit
+   implicit val Boolean = ImmutableSerializer.Boolean
+   implicit val Char    = ImmutableSerializer.Char
+   implicit val Int     = ImmutableSerializer.Int
+   implicit val Float   = ImmutableSerializer.Float
+   implicit val Long    = ImmutableSerializer.Long
+   implicit val Double  = ImmutableSerializer.Double
+   implicit val String  = ImmutableSerializer.String
 
-   implicit def fromSerializer[ A ]( implicit peer: Serializer[ A ]) : TxnSerializer[ Any, Any, A ] = peer
+   implicit def fromSerializer[ A ]( implicit peer: ImmutableSerializer[ A ]) : TxnSerializer[ Any, Any, A ] = peer
 
    // ---- higher-kinded ----
 

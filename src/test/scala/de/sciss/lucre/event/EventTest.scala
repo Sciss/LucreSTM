@@ -17,7 +17,7 @@ object EventTest extends App {
 
    val e2 = system.step { implicit tx => Trigger[ S, Int ]}
 
-//   object FilterReader extends Event.Invariant.Serializer[ S, Filter ] {
+//   object FilterReader extends Event.Invariant.ImmutableSerializer[ S, Filter ] {
 //      def read( in: DataInput, access: S#Acc, _targets: Event.Invariant.Targets[ S ])( implicit tx: S#Tx ) : Filter =
 //         new Filter {
 //            protected val targets = _targets
