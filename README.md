@@ -14,13 +14,13 @@ Further reading:
 
 ## requirements / installation
 
-LucreSTM builds with sbt 0.11 against Scala 2.9.2. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.5 and currently includes a Berkeley DB JE 5 based database backend.
+LucreSTM builds with sbt 0.12 against Scala 2.9.2. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.6 and currently includes a Berkeley DB JE 5 based database backend.
 
 ## linking to LucreSTM
 
 The following dependency is necessary:
 
-    "de.sciss" %% "lucrestm" % "0.34-SNAPSHOT"
+    "de.sciss" %% "lucrestm" % "0.34"
 
 ## documentation
 
@@ -32,12 +32,12 @@ An STM implementations uses the trait `Sys` which defines the actual transaction
 
 To spawn a transaction, you need a `Cursor`. All of the systems included here mixin the `Cursor` trait, which provides the `step` method to open a transaction. Unlike Scala-STM, references can only be created within a transaction, thus their constructors are methods in `S#Tx` (which is a sub type of trait `Txn`). The underlying Scala-STM transaction can be read via `tx.peer`. LucreSTM currently does not implement any protocol system such as SBinary. It thus asks for readers and writers (both which combine into serializers) when constructing or reading in a reference.
 
-The __life cycle__ of a reference, in following just called Var, is as follows: It comes into existance through `tx.newVar` (or one of the specialised methods such as `tx.newIntVar`). Apart from the initial value, this call requires to pass in an `S#ID` __parent_ identifier and a `TxnSerializer` for the type of Var. The parent ID is the ID of the mutable objects in which the Var will reside. You can think of the ID as an opaque object, behind the scenes this is used by the confluent system to retrieve the access path of the parent. When you instantiate a new mutable object with transactional semantics, you can get a new ID by calling `tx.newID()`.
+The __life cycle__ of a reference, in following just called Var, is as follows: It comes into existance through `tx.newVar` (or one of the specialised methods such as `tx.newIntVar`). Apart from the initial value, this call requires to pass in an `S#ID` __parent_ identifier and a `Serializer` for the type of Var. The parent ID is the ID of the mutable objects in which the Var will reside. You can think of the ID as an opaque object, behind the scenes this is used by the confluent system to retrieve the access path of the parent. When you instantiate a new mutable object with transactional semantics, you can get a new ID by calling `tx.newID()`.
 
 The serializer has a non-transactional `write` method, and a transactional `read` method:
 
 ```scala
-    trait TxnSerializer[ -Txn, -Access, A ] {
+    trait Serializer[ -Txn, -Access, A ] {
        def write( v: A, out: DataOutput ) : Unit
        def read( in: DataInput, access: Access )( implicit tx: Txn ) : A
     }
@@ -51,15 +51,15 @@ Finally, objects must be disposed. We require explicit garbage disposal instead 
 
 #### STM Example
 
-This is taken from the test sources. For conciseness, disposal is not demonstrated. Note how we use `Mutable` and `MutableSerializer` to minimise implementation costs. `Mutable` makes sure we have an `id` field, it also provides a `write` method which writes out that id and then calls `writeData`, similarly with `dispose` and `disposeData`. More importantly, it provides `hashCode` and `equals` based on the identifier. `MutableSerializer` has a convenient `write` method implementation, and reads the identifier, passing it into the only method left to implement, `readData`.
+This is taken from the test sources. For conciseness, disposal is not demonstrated. Note how we use `Mutable` and `MutableSerializer` to minimise implementation costs. `Mutable.Impl` makes sure we have an `id` field, it also provides a `write` method which writes out that id and then calls `writeData`, similarly with `dispose` and `disposeData`. More importantly, it provides `hashCode` and `equals` based on the identifier. `MutableSerializer` has a convenient `write` method implementation, and reads the identifier, passing it into the only method left to implement, `readData`.
 
 ```scala
     import de.sciss.lucre._
     import stm.{Durable => S, _}
 
     object Person {
-       implicit object ser extends TxnMutableSerializer[ S, Person ] {
-          def readData( in: DataInput, _id: S#ID )( implicit tx: S#Tx ) : Person = new Person {
+       implicit object ser extends MutableSerializer[ S, Person ] {
+          def readData( in: DataInput, _id: S#ID )( implicit tx: S#Tx ) : Person = new Person with Mutable.Impl[ S ] {
              val id      = _id
              val name    = in.readString()
              val friends = tx.readVar[ List[ Person ]]( id, in )
@@ -81,7 +81,7 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
     val rnd  = new util.Random()
 
     // create a person with random name and no friends
-    def newPerson()( implicit tx: S#Tx ) = new Person {
+    def newPerson()( implicit tx: S#Tx ): Person = new Person with Mutable.Impl[ S ] {
        val id      = tx.newID()
        val name    = pre( rnd.nextInt( pre.size )) + post( rnd.nextInt( post.size ))
        val friends = tx.newVar[ List[ Person ]]( id, Nil )
@@ -134,9 +134,9 @@ TODO!
 
 ## limitations, future ideas
 
- - This project is in early test stage, so it is not yet optimized for best possible performance, but rather for simplicity!
+ - This project is not yet optimized for best possible performance, but rather for simplicity!
  - Currently all persisted types need explicit serializers, which can be tiresome. The idea was that this way we can have very fast and efficient serialization, but probably it would be helpful if we could use standard Java serialization (`@serializable`) as a default layer in the absence of explicit serializers.
- - Currently the fields of references are directly written out in the database version. This can yield to several representations of the same object in memory. It is therefore crucial to properly implement the `equals` method of values stored (no care needs to be taken in the case of `Mutable` which already comes with an `equals` implementation). This also potentially worsens RAM and harddisk usage, although it decreases the number of harddisk reads and avoid having to maintain an in-memory identifier set. A future version will likely to change this to keeping such an in-memory id set and persisting the `Mutable` only once, storing its id instead in each reference to it.
+ - Currently the fields of references are directly written out in the database version. This can yield to several representations of the same object in memory. It is therefore crucial to properly implement the `equals` method of values stored (no care needs to be taken in the case of `Mutable.Impl` which already comes with an `equals` implementation). This also potentially worsens RAM and harddisk usage, although it decreases the number of harddisk reads and avoid having to maintain an in-memory identifier set. A future version will likely to change this to keeping such an in-memory id set and persisting the `Mutable` only once, storing its id instead in each reference to it.
  - the API could be released separately from the implementations. Especially the database implementation should be abstracted away, so that it will be easier to try other key-value stores (and compare performances, for example). Also the database implementation currently doesn't do any sort of caching beyond what BDB does on its own. It might be useful to wrap `BerkeleyDB` in a `CachedSys` at some point. Preliminary tests yield around a 10x overhead of using the database STM compared to in-memory STM.
 
 ## creating an IntelliJ IDEA project
@@ -147,7 +147,4 @@ To develop the sources of LucreSTM, we recommend IntelliJ IDEA. If you haven't g
 
     addSbtPlugin("com.github.mpeltonen" % "sbt-idea" % "1.0.0")
 
-Then to create the IDEA project, run the following two commands from the xsbt shell:
-
-    > set ideaProjectName := "LucreSTM"
-    > gen-idea
+Then to create the IDEA project, run `sbt gen-idea`.
