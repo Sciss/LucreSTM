@@ -55,13 +55,13 @@ object Mutable {
 }
 trait Mutable[ S <: Sys[ S ]] extends Identifiable[ S#ID ] with Writable with Disposable[ S#Tx ]
 
-/**
- * Note: Since a reader goes along with `A` implementing the writer,
- * it does not make sense to make `MutableReader` covariant in `A`.
- */
-trait MutableReader[ -ID, -Txn, A ] {
-   def readData( in: DataInput, id: ID )( implicit tx: Txn ) : A
-}
+///**
+// * Note: Since a reader goes along with `A` implementing the writer,
+// * it does not make sense to make `MutableReader` covariant in `A`.
+// */
+//trait MutableReader[ -ID, -Txn, A ] {
+//   def readData( in: DataInput, id: ID )( implicit tx: Txn ) : A
+//}
 
 //trait MutableOptionReader[ -ID, -Txn, A ] extends MutableReader[ ID, Txn, A ] {
 //   def empty: A

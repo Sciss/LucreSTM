@@ -26,7 +26,8 @@ sealed trait ConfluentSkel extends Sys[ ConfluentSkel ] with Cursor[ ConfluentSk
    def inPath[ A ]( _path: Acc )( fun: Tx => A ) : A
    def fromPath[ A ]( _path: Acc )( fun: Tx => A ) : A
 //   def path( implicit tx: Tx ) : Acc
-   def update[ A <: Mutable[ ConfluentSkel ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A
+
+//   def update[ A <: Mutable[ ConfluentSkel ]]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]) : A
 }
 
 object ConfluentSkel {
@@ -169,14 +170,14 @@ object ConfluentSkel {
          new IDImpl( id, pathVar.takeRight( 1 ))
       }
 
-      def update[ A <: Mutable[ S ] ]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]): A = {
-         val out = new DataOutput()
-         old.write( out )
-         val in = new DataInput( out.toByteArray )
-         val mid = in.readInt()
-         val newID = IDImpl.readAndUpdate( mid, position, in )
-         reader.readData( in, newID )
-      }
+//      def update[ A <: Mutable[ S ] ]( old: A )( implicit tx: Tx, reader: MutableReader[ ID, Txn, A ]): A = {
+//         val out = new DataOutput()
+//         old.write( out )
+//         val in = new DataInput( out.toByteArray )
+//         val mid = in.readInt()
+//         val newID = IDImpl.readAndUpdate( mid, position, in )
+//         reader.readData( in, newID )
+//      }
    }
 
    private[ ConfluentSkel ] def opNotSupported( name: String ): Nothing = sys.error( "Operation not supported: " + name )
