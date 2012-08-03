@@ -1,5 +1,5 @@
 /*
- *  TxnReader.scala
+ *  Reader.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -26,6 +26,6 @@
 package de.sciss.lucre
 package stm
 
-trait TxnReader[ -Txn, @specialized( Unit ) -Access, @specialized +A ] {
+trait Reader[ -Txn, @specialized( Unit ) -Access, @specialized +A ] {
    def read( in: DataInput, access: Access )( implicit tx: Txn ) : A
 }
