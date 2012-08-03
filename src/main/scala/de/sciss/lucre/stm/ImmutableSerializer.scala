@@ -89,9 +89,9 @@ object ImmutableSerializer {
 
    // ---- incremental build-up ----
 
-   implicit def fromReader[ A <: Writable ]( implicit reader: Reader[ A ]) : ImmutableSerializer[ A ] = new ReaderWrapper( reader )
+   implicit def fromReader[ A <: Writable ]( implicit reader: ImmutableReader[ A ]) : ImmutableSerializer[ A ] = new ReaderWrapper( reader )
 
-   private final class ReaderWrapper[ A <: Writable ]( reader: Reader[ A ]) extends ImmutableSerializer[ A ] {
+   private final class ReaderWrapper[ A <: Writable ]( reader: ImmutableReader[ A ]) extends ImmutableSerializer[ A ] {
       def write( v: A, out: DataOutput ) { v.write( out )}
       def read( in: DataInput ) : A = reader.read( in )
    }
@@ -226,4 +226,4 @@ object ImmutableSerializer {
    }
 }
 
-trait ImmutableSerializer[ @specialized A ] extends Reader[ A ] with TxnSerializer[ Any, Any, A ]
+trait ImmutableSerializer[ @specialized A ] extends ImmutableReader[ A ] with TxnSerializer[ Any, Any, A ]
