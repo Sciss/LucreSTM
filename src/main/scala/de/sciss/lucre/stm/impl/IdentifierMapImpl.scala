@@ -31,11 +31,11 @@ import concurrent.stm.TMap
 import stm.{ Txn => _Txn }
 
 object IdentifierMapImpl {
-   def newInMemoryIntMap[ Txn <: _Txn[ _ ], ID, A ]( implicit intView: ID => Int )
-      : IdentifierMap[ Txn, ID, A ] with Writable with Disposable[ Txn ] = new InMemoryInt[ Txn, ID, A ]( intView )
+   def newInMemoryIntMap[ ID, Txn <: _Txn[ _ ], A ]( id: ID )( implicit intView: ID => Int ) : IdentifierMap[ ID, Txn, A ] =
+      new InMemoryInt[ ID, Txn, A ]( id, intView )
 
-   private final class InMemoryInt[ Txn <: _Txn[ _ ], ID, A ]( intView: ID => Int )
-   extends IdentifierMap[ Txn, ID, A ] with Writable with Disposable[ Txn ] {
+   private final class InMemoryInt[ ID, Txn <: _Txn[ _ ], A ]( val id: ID, intView: ID => Int )
+   extends IdentifierMap[ ID, Txn, A ] {
       private val peer = TMap.empty[ Int, A ]
 
       def get( id: ID )( implicit tx: Txn ) : Option[ A ] = peer.get( intView( id ))( tx.peer )

@@ -219,8 +219,8 @@ object ConfluentSkel {
       def dispose()( implicit tx: Txn ) {}
    }
 
-   private final class IDMapImpl[ A ]( id: Int )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-   extends IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] {
+   private final class IDMapImpl[ A ]( val id: S#ID )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
+   extends IdentifierMap[ S#ID, S#Tx, A ] {
       def get( id: S#ID )( implicit tx: S#Tx ): Option[ A ] = {
          sys.error( "TODO" )
       }
@@ -242,12 +242,14 @@ object ConfluentSkel {
       }
 
       def write( out: DataOutput ) {
-         sys.error( "TODO" )
+         id.write( out )
       }
 
-      def dispose()( implicit tx: S#Tx ) {}
+      def dispose()( implicit tx: S#Tx ) {
+         id.dispose()
+      }
 
-      override def toString = "IdentifierMap<" + id + ">"
+      override def toString = "IdentifierMap" + id // <" + id + ">"
    }
 
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
@@ -279,12 +281,10 @@ object ConfluentSkel {
 
       def newVarArray[ A ]( size: Int ) = new Array[ Var[ A ]]( size )
 
-      def newInMemoryIDMap[ A ]: IdentifierMap[ S#Tx, S#ID, A ] =
-         sys.error( "TODO" )
+      def newInMemoryIDMap[ A ]: IdentifierMap[ S#ID, S#Tx, A ] = sys.error( "TODO" )
 
-      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-      : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] =
-         new IDMapImpl[ A ](system.newIDCnt()( this ))
+      def newDurableIDMap[ A ]( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]  =
+         new IDMapImpl[ A ]( newID() )
 
       private def readSource( in: DataInput, pid: ID ): ID = {
          val id = in.readInt()
@@ -309,8 +309,8 @@ object ConfluentSkel {
 
       def readPartialID( in: DataInput, aPacc: S#Acc ): S#ID = sys.error( "TODO" )
 
-      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ])
-      : IdentifierMap[ S#Tx, S#ID, A ] with Writable with Disposable[ S#Tx ] = sys.error( "TODO" )
+      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
+         sys.error( "TODO" )
 
       def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: TxnSerializer[ S#Tx, S#Acc, A ]): A = {
          val out = new DataOutput()

@@ -30,8 +30,8 @@ import impl.IdentifierMapImpl
 import stm.{Txn => _Txn}
 
 object IdentifierMap {
-   def newInMemoryIntMap[ Txn <: _Txn[ _ ], ID, A ]( implicit intView: ID => Int )
-   : IdentifierMap[ Txn, ID, A ] with Writable with Disposable[ Txn ] = IdentifierMapImpl.newInMemoryIntMap[ Txn, ID, A ]
+   def newInMemoryIntMap[ ID, Txn <: _Txn[ _ ], A ]( id: ID )( implicit intView: ID => Int ) : IdentifierMap[ ID, Txn, A ] =
+      IdentifierMapImpl.newInMemoryIntMap[ ID, Txn, A ]( id )
 }
 /**
  * An identifier map is basically a transactional map whose keys are system identifiers.
@@ -48,7 +48,7 @@ object IdentifierMap {
  * @tparam A   the values stored at the keys. `Unit` can be used if only set
  *             functionality is needed.
  */
-trait IdentifierMap[ -Txn, -ID, A ] /* extends Disposable[ Txn ] */ {
+trait IdentifierMap[ ID, -Txn, A ] extends Mutable[ ID, Txn ] {
    def put( id: ID, value: A )( implicit tx: Txn ) : Unit
    def get( id: ID )( implicit tx: Txn ) : Option[ A ]
    def getOrElse( id: ID, default: => A )( implicit tx: Txn ) : A

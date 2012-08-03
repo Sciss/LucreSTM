@@ -197,7 +197,7 @@ object TxnSerializer {
 trait TxnSerializer[ -Txn, @specialized( Unit ) -Access, @specialized A ]
 extends TxnReader[ Txn, Access, A ] with TxnWriter[ A ]
 
-trait MutableSerializer[ S <: Sys[ S ], M <: Mutable[ S ]]
+trait MutableSerializer[ S <: Sys[ S ], M <: Mutable[ S#ID, S#Tx ]]
 extends TxnSerializer[ S#Tx, S#Acc, M ] /* with MutableReader[ S#ID, S#Tx, M ] */ {
    final def write( m: M, out: DataOutput ) { m.write( out )}
    final def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : M = {

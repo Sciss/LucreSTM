@@ -13,7 +13,7 @@ object Example extends App {
          }
       }
    }
-   trait Person extends Mutable[ S ] {
+   trait Person extends Mutable[ S#ID, S#Tx ] {
       def name: String
       def friends: S#Var[ List[ Person ]]
       protected def disposeData()( implicit tx: S#Tx ) { friends.dispose() }

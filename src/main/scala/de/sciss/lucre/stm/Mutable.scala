@@ -27,7 +27,7 @@ package de.sciss.lucre
 package stm
 
 object Mutable {
-   trait Impl[ S <: Sys[ S ]] extends Mutable[ S ] {
+   trait Impl[ S <: Sys[ S ]] extends Mutable[ S#ID, S#Tx ] {
       final def dispose()( implicit tx: S#Tx ) {
          id.dispose()
          disposeData()
@@ -43,8 +43,8 @@ object Mutable {
 
       override def equals( that: Any ) : Boolean = {
          // note: microbenchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
-         /* (that != null) && */ (if( that.isInstanceOf[ Mutable[ _ ]]) {
-            id == that.asInstanceOf[ Mutable[ _ ]].id
+         /* (that != null) && */ (if( that.isInstanceOf[ Mutable[ _, _ ]]) {
+            id == that.asInstanceOf[ Mutable[ _, _ ]].id
          } else super.equals( that ))
       }
 
@@ -53,7 +53,7 @@ object Mutable {
       override def toString = super.toString + id.toString
    }
 }
-trait Mutable[ S <: Sys[ S ]] extends Identifiable[ S#ID ] with Writable with Disposable[ S#Tx ]
+trait Mutable[ +ID, -Tx ] extends Identifiable[ ID ] with Writable with Disposable[ Tx ]
 
 ///**
 // * Note: Since a reader goes along with `A` implementing the writer,

@@ -142,7 +142,7 @@ object LinkedList {
    }
 }
 
-trait LinkedList[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ] extends Mutable[ S ] {
+trait LinkedList[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ] extends Mutable[ S#ID, S#Tx ] {
    def prepend( elem: A )( implicit tx: S#Tx ) : Unit
    def append( elem: A )( implicit tx: S#Tx ) : Unit
    def remove( elem: A )( implicit tx: S#Tx ) : Unit
