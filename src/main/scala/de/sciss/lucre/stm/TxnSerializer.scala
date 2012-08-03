@@ -195,7 +195,7 @@ object TxnSerializer {
 }
 
 trait TxnSerializer[ -Txn, @specialized( Unit ) -Access, @specialized A ]
-extends Reader[ Txn, Access, A ] with TxnWriter[ A ]
+extends Reader[ Txn, Access, A ] with Writer[ A ]
 
 trait MutableSerializer[ S <: Sys[ S ], M <: Mutable[ S#ID, S#Tx ]]
 extends TxnSerializer[ S#Tx, S#Acc, M ] /* with MutableReader[ S#ID, S#Tx, M ] */ {
