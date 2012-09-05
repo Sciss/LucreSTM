@@ -35,25 +35,25 @@ object LucreSTM {
    var showSTMLog    = false
    var showEventLog  = false
 
-   val name          = "LucreSTM"
-   val version       = 0.34
-   val copyright     = "(C)opyright 2011-2012 Hanns Holger Rutz"
-   val isSnapshot    = false
-
-   def versionString = {
-      val s = (version + 0.001).toString.substring( 0, 4 )
-      if( isSnapshot ) s + "-SNAPSHOT" else s
-   }
-
-   def main( args: Array[ String ]) {
-      printInfo()
-      sys.exit( 1 )
-   }
-
-   def printInfo() {
-      println( "\n" + name + " v" + versionString + "\n" + copyright +
-         ". All rights reserved.\n\nThis is a library which cannot be executed directly.\n" )
-   }
+//   val name          = "LucreSTM"
+//   val version       = 0.34
+//   val copyright     = "(C)opyright 2011-2012 Hanns Holger Rutz"
+//   val isSnapshot    = false
+//
+//   def versionString = {
+//      val s = (version + 0.001).toString.substring( 0, 4 )
+//      if( isSnapshot ) s + "-SNAPSHOT" else s
+//   }
+//
+//   def main( args: Array[ String ]) {
+//      printInfo()
+//      sys.exit( 1 )
+//   }
+//
+//   def printInfo() {
+//      println( "\n" + name + " v" + versionString + "\n" + copyright +
+//         ". All rights reserved.\n\nThis is a library which cannot be executed directly.\n" )
+//   }
 
    @elidable(CONFIG) private[lucre] def logSTM( what: => String ) {
       if( showSTMLog ) {
