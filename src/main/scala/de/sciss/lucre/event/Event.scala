@@ -29,7 +29,7 @@ package event
 import stm.{InMemory, Sys}
 import LucreSTM.logEvent
 
-/* sealed */ trait EventLike[ S <: Sys[ S ], A, -Repr ] {
+/* sealed */ trait EventLike[ S <: Sys[ S ], +A, +Repr ] {
    /**
     * Connects the given selector to this event. That is, this event will
     * adds the selector to its propagation targets.
@@ -53,12 +53,12 @@ import LucreSTM.logEvent
     * on the resulting observer to register this event, as this is already
     * done as part of the call to `react`.
     */
-   def react( fun: A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
+   def react[ A1 >: A ]( fun: A1 => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ]
 
    /**
     * Like `react`, but passing in a transaction as first function argument.
     */
-   def reactTx( fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ]
+   def reactTx[ A1 >: A ]( fun: S#Tx => A1 => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ]
 
    /**
     * Tests whether this event participates in a pull. That is, whether the
@@ -110,7 +110,7 @@ object Dummy {
 
    private def opNotSupported = sys.error( "Operation not supported ")
 }
-trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
+trait Dummy[ S <: Sys[ S ], +A, +Repr ] extends EventLike[ S, A, Repr ] {
    import Dummy._
 
    final /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {}
@@ -123,11 +123,11 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
     */
    final /* private[lucre] */ def isSource( pull: Pull[ S ]) = false
 
-   final def react( fun: A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
-      Observer.dummy[ S, A, Repr ]
+   final def react[ A1 >: A ]( fun: A1 => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] =
+      Observer.dummy[ S, A1, Repr ]
 
-   final def reactTx( fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
-      Observer.dummy[ S, A, Repr ]
+   final def reactTx[ A1 >: A ]( fun: S#Tx => A1 => Unit )( implicit tx: S#Tx ) : Observer[ S, A1, Repr ] =
+      Observer.dummy[ S, A1, Repr ]
 
    final /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = opNotSupported
 
@@ -141,9 +141,9 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
  * implementations should extend either of `Event.Constant` or `Event.Node` (which itself is sealed and
  * split into `Event.Invariant` and `Event.Mutating`.
  */
-trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] with NodeSelector[ S, A ]
+trait Event[ S <: Sys[ S ], +A, +Repr ] extends EventLike[ S, A, Repr ] with NodeSelector[ S, A ]
 
-trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with InvariantSelector[ S ] {
+trait InvariantEvent[ S <: Sys[ S ], +A, +Repr ] extends Event[ S, A, Repr ] with InvariantSelector[ S ] {
    final /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
       val t = node._targets
 //      if( t.add( slot, r )) {
@@ -171,7 +171,7 @@ trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with 
    }
 }
 
-trait MutatingEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with MutatingSelector[ S ] {
+trait MutatingEvent[ S <: Sys[ S ], +A, +Repr ] extends Event[ S, A, Repr ] with MutatingSelector[ S ] {
    final /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
       node._targets.add( slot, r )
    }

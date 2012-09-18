@@ -29,7 +29,7 @@ package event
 import stm.{InMemory, Disposable, Sys}
 
 object Observer {
-   def apply[ S <: Sys[ S ], A, Repr ](
+   def apply[ S <: Sys[ S ], A, Repr <: NodeSelector[ S, Any ]](
       reader: Reader[ S, Repr ], fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
 
       val key = tx.reactionMap.addEventReaction[ A, Repr ]( reader, fun )
@@ -41,11 +41,11 @@ object Observer {
    extends Observer[ S, A, Repr ] {
       override def toString = "Observer<" + key.id + ">"
 
-      def add[ A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])( implicit tx: S#Tx ) {
+      def add[ R1 >: Repr <: NodeSelector[ S, Any ]]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) {
          event ---> key
       }
 
-      def remove[ A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])( implicit tx: S#Tx ) {
+      def remove[ R1 >: Repr <: NodeSelector[ S, Any ]]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) {
          event -/-> key
       }
 
@@ -57,12 +57,16 @@ object Observer {
    /**
     * This method is cheap.
     */
-   def dummy[ S <: Sys[ S ], A, Repr ] : Observer[ S, A, Repr ] = Dummy.asInstanceOf[ Observer[ S, A, Repr ]]
+   def dummy[ S <: Sys[ S ], A, Repr ] : Observer[ S, A, Repr ] = dummyVal.asInstanceOf[ Observer[ S, A, Repr ]]
 
-   private object Dummy extends Observer[ InMemory, AnyRef, AnyRef ] {
-      def add[    A1 <: AnyRef, R <: AnyRef ]( event: EventLike[ InMemory, A1, R ])( implicit tx: InMemory#Tx ) {}
-      def remove[ A1 <: AnyRef, R <: AnyRef ]( event: EventLike[ InMemory, A1, R ])( implicit tx: InMemory#Tx ) {}
-      def dispose()( implicit tx: InMemory#Tx ) {}
+   private val dummyVal = new Dummy[ InMemory ]
+
+   private final class Dummy[ S <: Sys[ S ]] extends Observer[ S, Any, Nothing ] {
+      override def toString = "Observer.Dummy"
+
+      def add[    R1 <: NodeSelector[ S, Any ]]( event: EventLike[ S, Any, R1 ])( implicit tx: S#Tx ) {}
+      def remove[ R1 <: NodeSelector[ S, Any ]]( event: EventLike[ S, Any, R1 ])( implicit tx: S#Tx ) {}
+      def dispose()( implicit tx: S#Tx ) {}
    }
 }
 
@@ -70,7 +74,7 @@ object Observer {
  * `Observer` instances are returned by the `observe` method of classes implementing
  * `Observable`. The observe can be registered and unregistered with events.
  */
-sealed trait Observer[ S <: Sys[ S ], A, -Repr ] extends Disposable[ S#Tx ] {
-   def add[    A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])( implicit tx: S#Tx ) : Unit
-   def remove[ A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])( implicit tx: S#Tx ) : Unit
+sealed trait Observer[ S <: Sys[ S ], -A, +Repr ] extends Disposable[ S#Tx ] {
+   def add[    R1 >: Repr <: NodeSelector[ S, Any ]]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) : Unit
+   def remove[ R1 >: Repr <: NodeSelector[ S, Any ]]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) : Unit
 }

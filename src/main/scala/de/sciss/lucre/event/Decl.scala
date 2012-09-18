@@ -42,7 +42,7 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
  * the order of their calls is not changed, as these calls
  * associate incremental identifiers with the declared events.
  */
-trait Decl[ S <: Sys[ S ], Impl ] {
+trait Decl[ S <: Sys[ S ], Impl <: NodeSelector[ S, Any ]] {
    private var cnt      = 0
    private var keyMap   = Map.empty[ Class[ _ ], Int ]
    private var idMap    = Map.empty[ Int, Declaration[ _ <: Update ]]

@@ -39,7 +39,7 @@ import util.MurmurHash
  *
  * I don't know if `Reactor` still needs the `equals` implementation?
  */
-trait StandaloneLike[ S <: Sys[ S ], A, Repr ] extends Node[ S ] with EventImpl[ S, A, A, Repr ]
+trait StandaloneLike[ S <: Sys[ S ], +A, +Repr <: NodeSelector[ S, Any ]] extends Node[ S ] with EventImpl[ S, A, Repr ]
 with InvariantEvent[ S, A, Repr ] {
    final private[event] def slot = 1
    final private[lucre] def node: Node[ S ] = this

@@ -55,3 +55,122 @@ EventObservation[ S <: Sys[ S ], A, Repr ]( reader: event.Reader[ S, Repr ], fun
             val elem = sel.devirtualize( elemReader ).node.asInstanceOf[ Elem ]
             elemEvt( elem ).pullUpdate( pull )
          })( breakOut )
+
+:::::::::::
+
+exhaustiveness test
+
+trait Reader[ +Repr ] { def read: Repr }
+
+trait NodeSelector[ +A ] { def pull: Option[ A ]}
+
+sealed trait Upd; case class UpdA() extends Upd; case class UpdB() extends Upd
+
+def testExhaust( n: NodeSelector[ Upd ]) = n.pull.getOrElse( sys.error("")) match {
+   case UpdA() => true
+   case UpdB() => false
+}
+// ok
+
+::::::::::::
+
+an observer's reader must be able to recover the parent event
+
+trait Observer[ A, -Repr ] {
+   def add[    A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])
+   def remove[ A1 <: A, R <: Repr ]( event: EventLike[ S, A1, R ])
+}
+
+in other words
+(1) - the observer which can recover Repr, can recover R <: Repr
+(2) - the observer whose function takes A, can handle A1 <: A
+
+??? correct ???
+
+(2) YES
+(1) no ????!!!!!
+
+secondly, the question is if the type args are necessary at all, or aren't already covered by the variance rules?
+
+:::::::::::::::::
+
+also nochmal:
+
+trait Reader[ +Repr ] { def read: Repr }
+
+trait NodeSelector[ +A ] { def pull: Option[ A ]}
+
+trait EventLike[ +A, +Repr ] {
+    def _add[ R1 >: Repr <: NodeSelector[ Any ]]( obs: Observer[ A, R1 ]) : Unit    
+    def pull: Option[ A ]
+    def react[ A1 >: A ]( fun: A1 => Unit ) : Observer[ A1, Repr ]
+}
+
+trait Event[ +A, +Repr ] extends EventLike[ A, Repr ] with NodeSelector[ A ]
+
+trait Observer[ -A, +Repr ] {
+   def fun: A => Unit
+   def reader: Reader[ Repr ]
+   def add[ R1 >: Repr <: NodeSelector[ Any ]]( evt: EventLike[ A, R1 ])
+}
+
+case class TestObserver[ A, Repr ]( fun: A => Unit )( implicit val reader: Reader[ Repr ]) extends Observer[ A, Repr ] {
+   def add[ R1 >: Repr <: NodeSelector[ Any ]]( evt: EventLike[ A, R1 ]) { evt._add( this )}
+}
+
+object Reactions {
+   private var pushed = Map.empty[ Any, Any ]
+   def push[ A ]( key: NodeSelector[ A ], value: A ) { pushed += key -> value }
+   def pull[ A ]( key: NodeSelector[ A ]) : Option[ A ] = pushed.get( key ).asInstanceOf[ Option[ A ]]
+}
+
+// --- test event ---
+
+case class TestTrigger[ A ]() extends Event[ A, TestTrigger[ A ]] {
+   private var obs = Set.empty[ Observer[ A, Any ]]
+   def _add[ R1 >: TestTrigger[ A ] <: NodeSelector[ Any ]]( ob: Observer[ A, R1 ]) { obs += ob }
+   def pull: Option[ A ] = Reactions.pull( this )
+   def push( obj: A ) { Reactions.push( this, obj )}
+   
+   def process() {       
+      obs.foreach { ob =>
+         val ob2 = ob.asInstanceOf[ Observer[ Any, NodeSelector[ Any ]]]  // ???
+         ob2.reader.read.pull.foreach { obj => ob2.fun( obj )}
+      }
+   }
+   
+   private def reader: Reader[ TestTrigger[ A ]] = new Reader[ TestTrigger[ A ]] { def read = TestTrigger[ A ]() }
+      
+   def react[ A1 >: A ]( fun: A1 => Unit ) : Observer[ A1, TestTrigger[ A ]] = {
+      val res = TestObserver( fun )( reader )
+      res.add( this )
+      res
+   }
+}
+
+// --- test updates ---
+
+trait Alpha { def a: Int }; case class AlphaImpl( a: Int ) extends Alpha; case class Beta( a: Int, b: Int ) extends Alpha
+
+// --- event instances ---
+
+val trb = TestTrigger[ Beta ]()
+val tra = TestTrigger[ Alpha ]()
+
+// --- test observers ---
+
+val obb = trb.react { beta:  Beta  => println( "BETA BETA "  + beta.a + ", " + beta.b )}
+val oba = trb.react { alpha: Alpha => println( "BETA ALPHA " + alpha.a )}
+// val oab = tra.react { beta:  Beta  => println( "ALPHA BETA "  + beta.a + ", " + beta.b )} // fails -- good
+val oaa = tra.react { alpha: Alpha => println( "ALPHA ALPHA " + alpha.a )}
+
+// obb.add( tra ) // fails -- good!
+oba.add( tra )
+oaa.add( trb )
+
+tra.push( AlphaImpl( 1 ))
+trb.push( Beta( 2, 3 ))
+
+// --- process events ---
+tra.process()
+trb.process()

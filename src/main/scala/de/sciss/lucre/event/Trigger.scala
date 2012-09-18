@@ -29,7 +29,8 @@ package event
 import stm.Sys
 
 object Trigger {
-   trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr ] extends Trigger[ S, A1, Repr ] with event.EventImpl[ S, A, A1, Repr ]
+   trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr <: NodeSelector[ S, Any ]]
+   extends Trigger[ S, A1, Repr ] with event.EventImpl[ S, /* A, */ A1, Repr ]
    with Generator[ S, A, A1, Repr ] {
       final def apply( update: A1 )( implicit tx: S#Tx ) { fire( update )}
    }
@@ -58,6 +59,6 @@ object Trigger {
  * A `Trigger` event is one which can be publically fired. One can think of it as the
  * imperative event in EScala.
  */
-trait Trigger[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] {
+trait Trigger[ S <: Sys[ S ], A, +Repr ] extends Event[ S, A, Repr ] {
    def apply( update: A )( implicit tx: S#Tx ) : Unit
 }
