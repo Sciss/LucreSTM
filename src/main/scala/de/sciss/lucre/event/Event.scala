@@ -26,12 +26,12 @@
 package de.sciss.lucre
 package event
 
-import stm.{InMemory, Sys, Serializer}
+import stm.{InMemory, Sys}
 import LucreSTM.logEvent
 import util.MurmurHash
 
 object Selector {
-   implicit def serializer[ S <: Sys[ S ]] : Serializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
+   implicit def serializer[ S <: Sys[ S ]] : stm.Serializer[ S#Tx, S#Acc, Selector[ S ]] = new Ser[ S ]
 
    private[event] def apply[ S <: Sys[ S ]]( slot: Int, node: VirtualNode.Raw[ S ],
                                              invariant: Boolean ) : VirtualNodeSelector[ S ] = {
@@ -39,7 +39,7 @@ object Selector {
       else            MutatingTargetsSelector(  slot, node )
    }
 
-   private final class Ser[ S <: Sys[ S ]] extends Serializer[ S#Tx, S#Acc, Selector[ S ]] {
+   private final class Ser[ S <: Sys[ S ]] extends stm.Serializer[ S#Tx, S#Acc, Selector[ S ]] {
       def write( v: Selector[ S ], out: DataOutput ) {
          v.writeSelector( out )
       }

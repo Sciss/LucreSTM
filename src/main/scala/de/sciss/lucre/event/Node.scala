@@ -27,7 +27,7 @@ package de.sciss.lucre
 package event
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
-import stm.{Serializer, Sys, Disposable, Mutable}
+import stm.{Sys, Mutable}
 import annotation.switch
 import LucreSTM.logEvent
 
@@ -35,29 +35,19 @@ import LucreSTM.logEvent
  * An abstract trait uniting invariant and mutating readers.
  */
 /* sealed */ trait Reader[ S <: Sys[ S ], +Repr ] {
-   def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr
+   def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr with Node[ S ]
 }
 
-trait NodeSerializer[ S <: Sys[ S ], Repr <: /* Writable */ Node[ S ]]
-extends Reader[ S, Repr ] with Serializer[ S#Tx, S#Acc, Repr ] {
+trait NodeSerializer[ S <: Sys[ S ], Repr <: Node[ S ]] extends Reader[ S, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
-   def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
+   final def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
       val targets = Targets.read[ S ]( in, access )
       read( in, access, targets )
    }
 }
 
 object Targets {
-//   private[event] final class ExpanderSerializer[ S <: Sys[ S ]] extends Serializer[ S#Tx, S#Acc, Reactor[ S ]] {
-//      def write( v: Reactor[ S ], out: DataOutput ) { v.write( out )}
-//      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Reactor[ S ] = {
-//         val targets    = Targets.read( in, access )
-//         val observers  = targets.observers
-//         tx.reactionMap.mapEventTargets( in, access, targets, observers )
-//      }
-//   }
-
    def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Targets[ S ] = {
       val id         = tx.newID()
       val children   = tx.newVar[ Children[ S ]]( id, NoChildren )
@@ -71,12 +61,6 @@ object Targets {
       val invalid    = tx.newIntVar( id, 0 ) // XXX should this be removed? or partial?
       new Impl( 1, id, children, invalid )
    }
-
-// MMM
-//   private[event] def readAndExpand[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : VirtualNode[ S ] = {
-//      val id         = tx.readID( in, access )
-//      tx.readVal[ VirtualNode[ S ]]( id ) // ( new ExpanderSerializer[ S ])
-//   }
 
    /* private[lucre] */ def read[ S <: Sys[ S ]]( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Targets[ S ] = {
       (in.readUnsignedByte(): @switch) match {
@@ -325,10 +309,6 @@ sealed trait Reactor[ S <: Sys[ S ]] extends Mutable[ S#ID, S#Tx ] {
 }
 
 object VirtualNode {
-// MMM
-//   implicit def serializer[ S <: Sys[ S ]] : Serializer[ S#Tx, S#Acc, VirtualNode[ S ]] = new Ser[ S ]
-
-   // MMM
    private[event] def read[ S <: Sys[ S ]]( in: DataInput, fullSize: Int, access: S#Acc )( implicit tx: S#Tx ) : Raw[ S ] = {
       val off        = in.getBufferOffset
       val targets    = Targets.read( in, access )
@@ -337,25 +317,6 @@ object VirtualNode {
       in.read( data )
       new Raw( targets, data, access )
    }
-
-// MMM
-//   private final class Ser[ S <: Sys[ S ]] extends Serializer[ S#Tx, S#Acc, VirtualNode[ S ]] {
-//      def write( v: VirtualNode[ S ], out: DataOutput ) {
-//         v.write( out )
-////         v.targets.write( out )
-////         out.write( v.data )
-//      }
-//
-//      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : VirtualNode[ S ] = {
-//// MMM
-//VirtualNode.read( in, access )
-////         val targets    = Targets.read( in, access )
-////         val dataSize   = in.getBufferLength - in.getBufferOffset
-////         val data       = new Array[ Byte ]( dataSize )
-////         in.read( data )
-////         new Raw( targets, data, access )
-//      }
-//   }
 
    private[event] final class Raw[ S <: Sys[ S ]]( private[event] val _targets: Targets[ S ], data: Array[ Byte ], access: S#Acc )
    extends VirtualNode[ S ] {

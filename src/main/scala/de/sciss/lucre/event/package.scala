@@ -5,28 +5,8 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 import stm.Sys
 
 package object event {
-//   type Reactions = IIdxSeq[ () => () => Unit ]
    type Reaction  = () => () => Unit
-//   type Reactions = Buffer[ Reaction ]
-//   type Visited[ S <: Sys[ S ]] = MMap[ S#ID, Int ]
-//   type Parents[ S <: Sys[ S ]] = Set[ VirtualNodeSelector[ S ]]
-//   type Visited[ S <: Sys[ S ]] = MMap[ VirtualNodeSelector[ S ], Parents[ S ]]
-//   type Path[ S <: Sys[ S ]] = List[ VirtualNodeSelector[ S ]]
-//   val EmptyPull = None // Nil
-//   def Pull[ A ]( update: A ) : Option[ A ] = Some( update ) //  update :: Nil
-
-//   private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ Selector[ S ]]
    private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, Selector[ S ])]
-//   private[event] type Children[ S <: Sys[ S ]] = IIdxSeq[ (Int, ExpandedSelector[ S ])]
-
-  /**
-   * Late binding events are defined by a static number of sources. This type specifies those
-   * sources, being essentially a collection of events.
-   */
-//   type Sources[ S <: Sys[ S ]] = IIdxSeq[ Event[ S, _, _ ]]
-//   type Sources[ S <: Sys[ S ]] = IIdxSeq[ (Event[ S, _, _ ], Int) ]
-
-//   private[lucre] type Sources[ S <: Sys[ S ]] = IIdxSeq[ Event[ S, _, _ ]]
 
    private val emptySeq = IIdxSeq.empty[ Nothing ]
 

@@ -26,7 +26,7 @@
 package de.sciss.lucre
 package event
 
-import stm.{Serializer, Sys}
+import stm.Sys
 import annotation.switch
 
 /**
@@ -39,7 +39,7 @@ import annotation.switch
  * the appropriate serialization preamble.
  */
 trait EventLikeSerializer[ S <: Sys[ S ], Repr <: Writable /* Node[ S ] */]
-extends Reader[ S, Repr ] with Serializer[ S#Tx, S#Acc, Repr ] {
+extends Reader[ S, Repr ] with stm.Serializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
    def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
