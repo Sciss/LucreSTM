@@ -12,4 +12,6 @@ package object event {
 
 //   private[lucre] def NoSources[ S <: Sys[ S ]]  : Sources[ S ]   = emptySeq
    private[lucre] def NoChildren[ S <: Sys[ S ]] : Children[ S ]  = emptySeq
+
+   type Serializer[ S <: Sys[ S ], Repr ] = Reader[ S, Repr ] with stm.Serializer[ S#Tx, S#Acc, Repr ]
 }

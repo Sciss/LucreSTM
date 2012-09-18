@@ -38,7 +38,8 @@ import LucreSTM.logEvent
    def read( in: DataInput, access: S#Acc, targets: Targets[ S ])( implicit tx: S#Tx ) : Repr with Node[ S ]
 }
 
-trait NodeSerializer[ S <: Sys[ S ], Repr <: Node[ S ]] extends Reader[ S, Repr ] {
+trait NodeSerializer[ S <: Sys[ S ], Repr <: Node[ S ]]
+extends Reader[ S, Repr ] with stm.Serializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 
    final def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Repr = {
@@ -329,7 +330,7 @@ object VirtualNode {
 
       private[event] def select( slot: Int, invariant: Boolean ) = Selector( slot, this, invariant )
 
-      private[event] def devirtualize[ Repr ]( reader: Reader[ S, Repr ])( implicit tx: S#Tx ) : Repr = {
+      private[event] def devirtualize[ Repr ]( reader: Reader[ S, Repr ])( implicit tx: S#Tx ) : Repr with Node[ S ] = {
          val in = new DataInput( data )
          reader.read( in, access, _targets )
       }
