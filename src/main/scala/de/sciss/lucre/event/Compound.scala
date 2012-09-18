@@ -191,7 +191,7 @@ trait Compound[ S <: Sys[ S ], D <: Decl[ S, Repr ], Repr <: Compound[ S, D, Rep
 
    import de.sciss.lucre.{event => evt}
 
-//   protected type Ev[ A <: D#Update ] = Event[ S, A, Repr ]
+   protected type Ev[ A /* <: D#Update */ ] = Event[ S, A, Repr ]
 
    protected def decl: D // Decl[ Repr ]
 
