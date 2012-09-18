@@ -58,13 +58,12 @@ object Push {
    }
 
    private val NoReactions = IIdxSeq.empty[ Reaction ]
-   private val emptySet = Set.empty[ Nothing ]
+//   private val emptySet = Set.empty[ Nothing ]
 //   private val emptyMap = Map.empty[ Nothing, Nothing ]
    type Parents[ S <: Sys[ S ]] = Set[ VirtualNodeSelector[ S ]]
-   private def NoParents[ S <: Sys[ S ]] : Parents[ S ] = emptySet.asInstanceOf[ Parents[ S ]]
-   private def NoMutating[ S <: Sys[ S ]] : Set[ MutatingSelector[ S ]] = emptySet.asInstanceOf[ Set[ MutatingSelector[ S ]]]
+   private def NoParents[ S <: Sys[ S ]] : Parents[ S ] = Set.empty[ VirtualNodeSelector[ S ]]
+   private def NoMutating[ S <: Sys[ S ]] : Set[ MutatingSelector[ S ]] = Set.empty[ MutatingSelector[ S ]]
    private type Visited[ S <: Sys[ S ]] = Map[ VirtualNodeSelector[ S ], Parents[ S ]]
-//   private def EmptyVisited[ S <: Sys[ S ]] : Visited[ S ] = emptyMap.asInstanceOf[ Visited[ S ]]
 
    private final class Impl[ S <: Sys[ S ]]( source: VirtualNodeSelector[ S ], val update: Any )( implicit tx: S#Tx )
    extends Push[ S ] {

@@ -142,8 +142,8 @@ private[event] def slot = opNotSupported
 
       /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
          val elems: IIdxSeq[ B ] = pull.parents( this /* select() */).flatMap( sel => {
-            val elem = sel.devirtualize( elemReader ).node.asInstanceOf[ Elem ]
-            elemEvt( elem ).pullUpdate( pull )
+            val evt = sel.devirtualize[ Event[ S, B, Any ]]( elemReader )
+            evt.pullUpdate( pull )
          })( breakOut )
 
          if( elems.isEmpty ) None else Some( fun( elems ))
@@ -208,5 +208,5 @@ trait Compound[ S <: Sys[ S ], Repr <: Node[ S ], D <: Decl[ S, Repr ]] extends 
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
    final private[lucre] def select( slot: Int, invariant: Boolean ) : Event[ S, Any, Any ] =
-      decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, Any ]]
+      decl.getEvent( this, slot )
 }

@@ -44,38 +44,31 @@ object ReactionMap {
 //   private final case class StateObservation[ S <: Sys[ S ], A, Repr <: State[ S, A ]](
 //      reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
 
-   private final case class EventObservation[ S <: Sys[ S ], -A, +Repr <: Node[ S ]](
-      reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
+   private final case class EventObservation[ S <: Sys[ S ], -A ](
+      reader: event.Reader[ S, Node[ S ]], fun: S#Tx => A => Unit ) {
+
+      def reaction( parent: VirtualNodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) : Reaction = {
+         val nParent = parent.devirtualize[ Event[ S, A, Any ]]( reader )
+         () => {
+            nParent.pullUpdate( push ) match {
+               case Some( result ) =>
+                  () => fun( tx )( result )
+               case None => noOpEval
+            }
+         }
+      }
+   }
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
 //      private val stateMap = TMap.empty[ Int, StateObservation[ S, _, _ <: State[ S, _ ]]]
 
-      private val eventMap = TMap.empty[ Int, EventObservation[ S, _, _ ]]
-
-//      def mapEventTargets( in: DataInput, access: S#Acc, targets: Targets[ S ],
-//                           observers: IIdxSeq[ ObserverKey[ S ]])
-//                         ( implicit tx: S#Tx ) : Reactor[ S ] = {
-//         val itx = tx.peer
-//         val observations = observers.flatMap( k => eventMap.get( k.id )( itx ))
-//         observations.headOption match {
-//            case Some( obs ) => obs.reader.asInstanceOf[ event.Reader[ S, Reactor[ S ]]]   // ugly XXX
-//               .read( in, access, targets )
-//            case None => targets
-//         }
-//      }
+      private val eventMap = TMap.empty[ Int, EventObservation[ S, Nothing ]]
 
       def processEvent( leaf: ObserverKey[ S ], parent: VirtualNodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) {
          val itx = tx.peer
          eventMap.get( leaf.id )( itx ).foreach { obs =>
-            val nParent = parent.devirtualize( obs.reader.asInstanceOf[ Reader[ S, Node[ S ]]]) // ugly XXX
-            val react: Reaction = () => {
-               nParent.pullUpdate( push ) match {
-                  case Some( result ) =>
-                     () => obs.fun.asInstanceOf[ AnyObsFun[ S ]]( tx )( result.asInstanceOf[ AnyRef ])
-                  case None => noOpEval
-               }
-            }
+            val react = obs.reaction( parent, push )
             push.addReaction( react )
          }
       }
@@ -85,7 +78,7 @@ object ReactionMap {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
-         eventMap.+=( (key, new EventObservation[ S, A, Repr ]( reader, fun )) )( tx.peer )
+         eventMap.+=( (key, new EventObservation[ S, A ]( reader, fun )) )( tx.peer )
          new ObserverKey[ S ]( key )
       }
 

@@ -81,8 +81,8 @@ val reactor  = VirtualNode.read[ S ]( in, fullSize, access )
 //         node.devirtualize( reader ).select( slot, cookie == 0 )
 //      }
 
-      final def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : Event[ S, Any, Any ] = {
-         node.devirtualize( reader ).select( slot, cookie == 0 )
+      final def devirtualize[ Evt <: Event[ S, Any, Any ]]( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : Evt = {
+         node.devirtualize( reader ).select( slot, cookie == 0 ).asInstanceOf[ Evt ]
       }
    }
 
@@ -128,7 +128,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    }
 
 //   private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, Any ]
-   private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : Event[ S, Any, Any ]
+   def devirtualize[ Evt <: Event[ S, Any, Any ]]( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : Evt
 
 // MMM
 //   final protected def writeSelectorData( out: DataOutput ) {
@@ -322,9 +322,13 @@ object Dummy {
    /**
     * This method is cheap.
     */
-   def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = Impl.asInstanceOf[ Dummy[ S, A, Repr ]]
+   def apply[ S <: Sys[ S ], A, Repr ] : Dummy[ S, A, Repr ] = anyDummy.asInstanceOf[ Dummy[ S, A, Repr ]]
 
-   private object Impl extends Dummy[ InMemory, AnyRef, AnyRef ]
+   private val anyDummy = new Impl[ InMemory ]
+
+   private final class Impl[ S <: Sys[ S ]] extends Dummy[ S, Any, Any ] {
+      override def toString = "event.Dummy"
+   }
 
    private def opNotSupported = sys.error( "Operation not supported ")
 }
@@ -361,7 +365,10 @@ trait Dummy[ S <: Sys[ S ], +A, +Repr ] extends EventLike[ S, A, Repr ] {
  */
 trait Event[ S <: Sys[ S ], +A, +Repr ] extends EventLike[ S, A, Repr ] with VirtualNodeSelector[ S ] { // with NodeSelector[ S, A ]
    private[lucre] def node: Node[ S ]
-   final private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : Event[ S, A, Repr ] = this
+   final def devirtualize[ Evt <: Event[ S, Any, Any ]]( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : Evt =
+      this.asInstanceOf[ Evt ]
+
+//   final private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : Event[ S, A, Repr ] = this
 }
 
 trait InvariantEvent[ S <: Sys[ S ], +A, +Repr ] extends InvariantSelector[ S ] with Event[ S, A, Repr ] {
