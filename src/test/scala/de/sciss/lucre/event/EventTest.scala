@@ -1,15 +1,24 @@
 package de.sciss.lucre
 package event
 
-import stm.impl.ConfluentSkel
+import stm.impl.{BerkeleyDB, ConfluentSkel}
+import stm.Durable
+import java.io.File
 
 object EventTest extends App {
-   val system  = ConfluentSkel()
-   type S      = ConfluentSkel
+//   val system  = ConfluentSkel()
+//   type S      = ConfluentSkel
+   val store   = BerkeleyDB.factory({ val f = File.createTempFile( "event_test", "db" ); f.delete(); f })
+   val system  = Durable( store )
+   type S      = Durable
 
    val bang = system.step { implicit tx => Bang[ S ]}
 
    system.step { implicit tx => bang.react { _ => println( "Bang!" )}}
+
+//   system.step { implicit tx => bang.react { m: Unit => m match {
+//      case "hallo" =>
+//   }}}
 
    system.step { implicit tx =>
       bang()
