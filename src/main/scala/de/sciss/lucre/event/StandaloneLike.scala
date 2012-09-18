@@ -39,12 +39,12 @@ import util.MurmurHash
  *
  * I don't know if `Reactor` still needs the `equals` implementation?
  */
-trait StandaloneLike[ S <: Sys[ S ], +A, +Repr <: StandaloneLike[ S, A, Repr ]]
-extends Node[ S ] with EventImpl[ S, A, Repr ] with InvariantEvent[ S, A, Repr ] {
+trait StandaloneLike[ S <: Sys[ S ], +A, +Repr /* <: Node[ S ]*/] extends Node[ S ] with EventImpl[ S, A, Repr ]
+with InvariantEvent[ S, A, Repr ] {
    _: Repr =>
 
    final private[event] def slot = 1
-   final /* private[lucre] */ def node: Repr = this
+   final /* private[lucre] */ def node: Repr with Node[ S ] = this
 
    final private[event] def select( slot: Int, invariant: Boolean ) : Event[ S, Any, Any ] = {
       require( slot == 1, "Invalid slot " + slot )
@@ -60,14 +60,14 @@ extends Node[ S ] with EventImpl[ S, A, Repr ] with InvariantEvent[ S, A, Repr ]
       val c = startMagicA
       val k = startMagicB
       h = extendHash( h, slot, c, k )
-      h = extendHash( h, node.id.##, nextMagicA( c ), nextMagicB( k ))
+      h = extendHash( h, /* node. */ id.##, nextMagicA( c ), nextMagicB( k ))
       finalizeHash( h )
    }
 
    override def equals( that: Any ) : Boolean = {
       (if( that.isInstanceOf[ VirtualNodeSelector[ _ ]]) {
          val thatSel = that.asInstanceOf[ VirtualNodeSelector[ _ ]]
-         (slot == thatSel.slot && node.id == thatSel.node.id)
+         (slot == thatSel.slot && /* node. */ id == thatSel.node.id)
       } else super.equals( that ))
    }
 

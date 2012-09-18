@@ -29,7 +29,7 @@ package event
 import stm.{InMemory, Disposable, Sys}
 
 object Observer {
-   def apply[ S <: Sys[ S ], A, Repr <: Node[ S ]](
+   def apply[ S <: Sys[ S ], A, Repr /* <: Node[ S ] */](
       reader: Reader[ S, Repr ], fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] = {
 
       val key = tx.reactionMap.addEventReaction[ A, Repr ]( reader, fun )
@@ -41,11 +41,11 @@ object Observer {
    extends Observer[ S, A, Repr ] {
       override def toString = "Observer<" + key.id + ">"
 
-      def add[ R1 >: Repr <: Node[ S ]]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) {
+      def add[ R1 >: Repr /* <: Node[ S ] */]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) {
          event ---> key
       }
 
-      def remove[ R1 >: Repr <: Node[ S ]]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) {
+      def remove[ R1 >: Repr /* <: Node[ S ] */]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) {
          event -/-> key
       }
 
@@ -64,8 +64,8 @@ object Observer {
    private final class Dummy[ S <: Sys[ S ]] extends Observer[ S, Any, Nothing ] {
       override def toString = "Observer.Dummy"
 
-      def add[    R1 <: Node[ S ]]( event: EventLike[ S, Any, R1 ])( implicit tx: S#Tx ) {}
-      def remove[ R1 <: Node[ S ]]( event: EventLike[ S, Any, R1 ])( implicit tx: S#Tx ) {}
+      def add[    R1 /* <: Node[ S ] */]( event: EventLike[ S, Any, R1 ])( implicit tx: S#Tx ) {}
+      def remove[ R1 /* <: Node[ S ] */]( event: EventLike[ S, Any, R1 ])( implicit tx: S#Tx ) {}
       def dispose()( implicit tx: S#Tx ) {}
    }
 }
@@ -75,6 +75,6 @@ object Observer {
  * `Observable`. The observe can be registered and unregistered with events.
  */
 sealed trait Observer[ S <: Sys[ S ], -A, +Repr ] extends Disposable[ S#Tx ] {
-   def add[    R1 >: Repr <: Node[ S ]]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) : Unit
-   def remove[ R1 >: Repr <: Node[ S ]]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) : Unit
+   def add[    R1 >: Repr /* <: Node[ S ] */]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) : Unit
+   def remove[ R1 >: Repr /* <: Node[ S ] */]( event: EventLike[ S, A, R1 ])( implicit tx: S#Tx ) : Unit
 }

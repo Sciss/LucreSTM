@@ -45,7 +45,7 @@ object ReactionMap {
 //      reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
 
    private final case class EventObservation[ S <: Sys[ S ], -A ](
-      reader: event.Reader[ S, Node[ S ]], fun: S#Tx => A => Unit ) {
+      reader: event.Reader[ S, Any ], fun: S#Tx => A => Unit ) {
 
       def reaction( parent: VirtualNodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) : Reaction = {
          val nParent = parent.devirtualize[ A, Any ]( reader )
@@ -71,7 +71,7 @@ object ReactionMap {
          }
       }
 
-      def addEventReaction[ A, Repr <: Node[ S ]]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
+      def addEventReaction[ A, Repr /* <: Node[ S ] */]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
                                                  ( implicit tx: S#Tx ) : ObserverKey[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
@@ -87,7 +87,7 @@ object ReactionMap {
 }
 
 trait ReactionMap[ S <: Sys[ S ]] {
-   def addEventReaction[ A, Repr <: Node[ S ]]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
+   def addEventReaction[ A, Repr /* <: Node[ S ] */]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
                                               ( implicit tx: S#Tx ) : ObserverKey[ S ]
 
    def removeEventReaction( key: ObserverKey[ S ])( implicit tx: S#Tx ) : Unit
