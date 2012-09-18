@@ -161,7 +161,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 /* sealed */ trait NodeSelector[ S <: Sys[ S ], +A ] extends VirtualNodeSelector[ S ] /* MMM with ExpandedSelector[ S ] */ {
    private[lucre] def node: Node[ S ]
 
-//   final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = Some( this )
+//   final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, Any ]] = Some( this )
 //   final protected def writeSelectorData( out: DataOutput ) {
 //      out.writeInt( slot )
 //      val sizeOffset = out.getBufferOffset

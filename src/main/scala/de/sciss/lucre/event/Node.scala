@@ -172,7 +172,7 @@ object Targets {
       def isEmpty(  implicit tx: S#Tx ) : Boolean = children.isEmpty    // XXX TODO this is expensive
       def nonEmpty( implicit tx: S#Tx ) : Boolean = children.nonEmpty   // XXX TODO this is expensive
 
-//      private[event] def nodeOption : Option[ Node[ S, _ ]] = None
+//      private[event] def nodeOption : Option[ Node[ S ]] = None
       private[event] def _targets : Targets[ S ] = this
 
       private[event] def isInvalid( implicit tx: S#Tx ) : Boolean = !invalidVar.isFresh || (invalidVar.get != 0)
@@ -292,8 +292,8 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writable wi
 
    final def id: S#ID = targets.id
 
-//   private[event] def select( slot: Int ) : NodeSelector[ S, _ ]
-   private[event] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, _ ]
+//   private[event] def select( slot: Int ) : NodeSelector[ S, Any ]
+   private[event] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, Any ]
 
    final def write( out: DataOutput ) {
       targets.write( out )
