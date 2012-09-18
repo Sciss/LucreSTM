@@ -368,7 +368,7 @@ object VirtualNode {
 
       private[event] def select( slot: Int, invariant: Boolean ) = Selector( slot, this, invariant )
 
-      private[event] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : Node[ S ] = {
+      private[event] def devirtualize[ Repr ]( reader: Reader[ S, Repr ])( implicit tx: S#Tx ) : Repr = {
          val in = new DataInput( data )
          reader.read( in, access, _targets )
       }

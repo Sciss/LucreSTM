@@ -1,0 +1,57 @@
+Selector:
+   def pushUpdate
+
+:: sub-types:
+
+   VirtualNodeSelector:
+      node: VirtualNode
+      def devirtualize( reader: Reader[ S, Repr ])( implicit tx: S#Tx, mf: Manifest[ Repr ]) : NodeSelector[ S, _, Repr ]
+   
+   :: sub-types:
+   
+      NodeSelector
+         def pullUpdate
+   
+      InvariantSelector
+      MutatingSelector
+
+   ObserverKey
+
+::::::
+
+VirtualNode
+   def select : VirtualNodeSelector
+
+   :: sub-types
+
+      Raw
+         // and this seems to be independent of the other devirtualize method
+         devirtualize( reader: Reader[ Repr ]) : Repr
+
+      Node
+
+::::::
+
+die verbindung ist
+
+   TargetsSelector.devirtualize --> rawNode.devirtualize
+
+   NodeSelector.devirtualize --> this
+
+::::::
+
+die aufrufe sind
+
+(1) ReactionMap.processEvent
+  leaf: ObserverKey gefunden; parent: VirtualNodeSelector ohne bekannten Typ!
+  
+EventObservation[ S <: Sys[ S ], A, Repr ]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
+
+            val nParent = parent.devirtualize( obs.reader.asInstanceOf[ Reader[ S, Node[ S, Any ]]]) // ugly XXX
+
+(2) CollectionEvent
+  
+         val elems: IIdxSeq[ B ] = pull.parents( this /* select() */).flatMap( sel => {
+            val elem = sel.devirtualize( elemReader ).node.asInstanceOf[ Elem ]
+            elemEvt( elem ).pullUpdate( pull )
+         })( breakOut )

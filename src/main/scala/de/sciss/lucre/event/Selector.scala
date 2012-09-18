@@ -69,14 +69,14 @@ val reactor  = VirtualNode.read[ S ]( in, fullSize, access )
 //      protected def access: S#Acc
       override private[lucre] def node: VirtualNode.Raw[ S ]
 
-//      final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]] = None
+//      final private[event] def nodeSelectorOption: Option[ NodeSelector[ S, Any ]] = None
 
 //      final protected def writeVirtualNode( out: DataOutput ) {
 //         reactor.write( out )
 //         out.write( data )
 //      }
 
-      final def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] = {
+      final def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, Any ] = {
          node.devirtualize( reader ).select( slot, cookie == 0 )
       }
    }
@@ -108,7 +108,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    private[lucre] def node: VirtualNode[ S ]
    private[event] def slot: Int
 
-//   private[event] def nodeSelectorOption: Option[ NodeSelector[ S, _ ]]
+//   private[event] def nodeSelectorOption: Option[ NodeSelector[ S, Any ]]
    final protected def writeSelectorData( out: DataOutput ) {
       out.writeInt( slot )
       val sizeOffset = out.getBufferLength
@@ -122,7 +122,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
       out.addSize( fullSize )
    }
 
-   private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ]
+   private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, Any ]
 
 // MMM
 //   final protected def writeSelectorData( out: DataOutput ) {
@@ -172,7 +172,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
 //      out.addSize( -delta )
 //   }
 
-   final private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] =
+   final private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, Any ] =
       this
 
    /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
