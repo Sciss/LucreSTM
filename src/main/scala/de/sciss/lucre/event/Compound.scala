@@ -45,57 +45,57 @@ object Compound {
 //         new MutatingMap[ S, Repr, D, B, A1 ]( d, e, fun )
 //   }
 
-//   final protected class EventOps2[ S <: Sys[ S ], +Repr <: NodeSelector[ S, Any ], D <: Decl[ S, Repr ], B <: D#Update ](
-//      d: Compound[ S, Repr, D ], e: Event[ S, B, Repr ]) {
-//      def |[ Up >: B <: D#Update, C <: Up ]( that: Event[ S, C, Repr ]) : Or[ S, Repr, D, Up ] =
-//         new Or[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, _ <: Up, Repr ]]( e, that ))
-//   }
-//
-//   final class Or[ S <: Sys[ S ], Repr <: NodeSelector[ S, B ], D <: Decl[ S, Repr ], B <: D#Update ] private[Compound](
-//      val node: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, _ <: B, Repr ]])
-//   extends Event[ S, B, Repr ] with InvariantSelector[ S ] {
-//
-//// XXX
-////protected def cookie = opNotSupported
-////private[event] def pushUpdate( parent: VirtualNodeSelector[ S ], push: Push[ S ]) { opNotSupported }
-//private[event] def slot = opNotSupported
-//
-//
-//      def react[ B1 >: B ]( fun: B1 => Unit )( implicit tx: S#Tx ) : Observer[ S, B1, Repr ] =
-//         reactTx( _ => fun )
-//
-//      def reactTx[ B1 >: B ]( fun: S#Tx => B1 => Unit )( implicit tx: S#Tx ) : Observer[ S, B1, Repr ] = {
-//         val obs = Observer( node.decl.serializer, fun )
-//         elems.foreach( obs add _ )
-//         obs
-//      }
-//
-//      /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ B ] = {
-//         elems.find( ev => ev.isSource( pull )).flatMap( _.pullUpdate( pull ))
-//      }
-//
-//      /* private[lucre] */ def isSource( pull: Pull[ S ]) : Boolean = opNotSupported
-//
-////      private[lucre] def select() = opNotSupported
-//
-//      private[lucre] def connect()( implicit tx: S#Tx ) {}
-//      private[lucre] def reconnect()( implicit tx: S#Tx ) {
-////         elems.foreach( _.reconnect() )
-//      }
-//      private[lucre] def disconnect()( implicit tx: S#Tx ) {}
-//
-//      /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
-//         elems.foreach( _ ---> r )
-//      }
-//      /* private[lucre] */ def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
-//         elems.foreach( _ -/-> r )
-//      }
-//
-//      def |[ Up >: B <: D#Update, C <: Up ]( that: Event[ S, C, Repr ]) : Or[ S, Repr, D, Up ] =
-//         new Or[ S, Repr, D, Up ]( node, IIdxSeq[ Event[ S, _ <: Up, Repr ]]( elems: _* ) :+ that )
-//
-//      override def toString = elems.mkString( " | " )
-//   }
+   final protected class EventOps2[ S <: Sys[ S ], Repr <: NodeSelector[ S, Any ], D <: Decl[ S, Repr ], B /* <: D#Update */ ](
+      d: Compound[ S, Repr, D ], e: Event[ S, B, Repr ]) {
+      def |[ Up >: B /* <: D#Update */, C <: Up ]( that: Event[ S, C, Repr ]) : Or[ S, Repr, D, Up ] =
+         new Or[ S, Repr, D, Up ]( d, IIdxSeq[ Event[ S, Up, Repr ]]( e, that ))
+   }
+
+   final class Or[ S <: Sys[ S ], Repr <: NodeSelector[ S, Any ], D <: Decl[ S, Repr ], B /* <: D#Update */] private[Compound](
+      val node: Compound[ S, Repr, D ], elems: IIdxSeq[ Event[ S, B, Repr ]])
+   extends Event[ S, B, Repr ] with InvariantSelector[ S ] {
+
+// XXX
+//protected def cookie = opNotSupported
+//private[event] def pushUpdate( parent: VirtualNodeSelector[ S ], push: Push[ S ]) { opNotSupported }
+private[event] def slot = opNotSupported
+
+
+      def react[ B1 >: B ]( fun: B1 => Unit )( implicit tx: S#Tx ) : Observer[ S, B1, Repr ] =
+         reactTx( _ => fun )
+
+      def reactTx[ B1 >: B ]( fun: S#Tx => B1 => Unit )( implicit tx: S#Tx ) : Observer[ S, B1, Repr ] = {
+         val obs = Observer( node.decl.serializer, fun )
+         elems.foreach( obs.add )
+         obs
+      }
+
+      /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ B ] = {
+         elems.find( ev => ev.isSource( pull )).flatMap( _.pullUpdate( pull ))
+      }
+
+      /* private[lucre] */ def isSource( pull: Pull[ S ]) : Boolean = opNotSupported
+
+//      private[lucre] def select() = opNotSupported
+
+      private[lucre] def connect()( implicit tx: S#Tx ) {}
+      private[lucre] def reconnect()( implicit tx: S#Tx ) {
+//         elems.foreach( _.reconnect() )
+      }
+      private[lucre] def disconnect()( implicit tx: S#Tx ) {}
+
+      /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
+         elems.foreach( _ ---> r )
+      }
+      /* private[lucre] */ def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
+         elems.foreach( _ -/-> r )
+      }
+
+      def |[ Up >: B <: D#Update, C <: Up ]( that: Event[ S, C, Repr ]) : Or[ S, Repr, D, Up ] =
+         new Or[ S, Repr, D, Up ]( node, IIdxSeq[ Event[ S, Up, Repr ]]( elems: _* ) :+ that )
+
+      override def toString = elems.mkString( " | " )
+   }
 
    final protected class CollectionOps[ S <: Sys[ S ], Repr <: NodeSelector[ S, Any ], D <: Decl[ S, Repr ], Elem <: Node[ S ], B ](
       d: Compound[ S, Repr, D ], elem: Elem => EventLike[ S, B, Elem ])( implicit elemReader: Reader[ S, Elem ]) {
@@ -197,8 +197,8 @@ trait Compound[ S <: Sys[ S ], Repr <: NodeSelector[ S, Any ], D <: Decl[ S, Rep
 //   implicit protected def eventOps1[ B ]( e: Event[ S, B, _ ]) : Compound.EventOps1[ S, Repr, D, B ] =
 //      new Compound.EventOps1( this, e )
 
-//   implicit protected def eventOps2[ B <: D#Update ]( e: Event[ S, B, Repr ]) : Compound.EventOps2[ S, Repr, D, B ] =
-//      new Compound.EventOps2( this, e )
+   implicit protected def eventOps2[ B <: D#Update ]( e: Event[ S, B, Repr ]) : Compound.EventOps2[ S, Repr, D, B ] =
+      new Compound.EventOps2( this, e )
 
    protected def event[ A1 <: D#Update ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr ] =
       new Compound.Trigger( this )
@@ -207,5 +207,5 @@ trait Compound[ S <: Sys[ S ], Repr <: NodeSelector[ S, Any ], D <: Decl[ S, Rep
                                       ( implicit elemReader: Reader[ S, Elem ]) : Compound.CollectionOps[ S, Repr, D, Elem, B ] =
       new Compound.CollectionOps[ S, Repr, D, Elem, B ]( this, fun )
 
-   final private[lucre] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, _ ] = decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
+   final private[lucre] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, Any ] = decl.getEvent( this, slot ) // .asInstanceOf[ Event[ S, D#Update, _ ]]
 }
