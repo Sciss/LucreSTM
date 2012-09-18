@@ -293,7 +293,7 @@ sealed trait Targets[ S <: Sys[ S ]] extends Reactor[ S ] /* extends Writable wi
    final def id: S#ID = targets.id
 
 //   private[event] def select( slot: Int ) : NodeSelector[ S, Any ]
-   private[event] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, Any ]
+   private[event] def select( slot: Int, invariant: Boolean ) : Event[ S, Any, Any ] // NodeSelector[ S, Any ]
 
    final def write( out: DataOutput ) {
       targets.write( out )

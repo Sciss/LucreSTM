@@ -44,7 +44,7 @@ object ReactionMap {
 //   private final case class StateObservation[ S <: Sys[ S ], A, Repr <: State[ S, A ]](
 //      reader: State.Reader[ S, Repr ], fun: (S#Tx, A) => Unit )
 
-   private final case class EventObservation[ S <: Sys[ S ], -A, +Repr <: NodeSelector[ S, Any ]](
+   private final case class EventObservation[ S <: Sys[ S ], -A, +Repr <: Node[ S ]](
       reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
@@ -80,8 +80,8 @@ object ReactionMap {
          }
       }
 
-      def addEventReaction[ A, Repr <: NodeSelector[ S, Any ]]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
-                                                           ( implicit tx: S#Tx ) : ObserverKey[ S ] = {
+      def addEventReaction[ A, Repr <: Node[ S ]]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
+                                                 ( implicit tx: S#Tx ) : ObserverKey[ S ] = {
          val ttx = sysConv( tx )
          val key = cnt.get( ttx )
          cnt.set( key + 1 )( ttx )
@@ -96,8 +96,8 @@ object ReactionMap {
 }
 
 trait ReactionMap[ S <: Sys[ S ]] {
-   def addEventReaction[ A, Repr <: NodeSelector[ S, Any ]]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
-                                                  ( implicit tx: S#Tx ) : ObserverKey[ S ]
+   def addEventReaction[ A, Repr <: Node[ S ]]( reader: event.Reader[ S, Repr ], fun: S#Tx => A => Unit )
+                                              ( implicit tx: S#Tx ) : ObserverKey[ S ]
 
    def removeEventReaction( key: ObserverKey[ S ])( implicit tx: S#Tx ) : Unit
 
