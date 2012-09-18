@@ -44,7 +44,7 @@ with InvariantEvent[ S, A, Repr ] {
    final private[event] def slot = 1
    final private[lucre] def node: Node[ S ] = this
 
-   final private[event] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, _ ] = {
+   final private[event] def select( slot: Int, invariant: Boolean ) : NodeSelector[ S, Any ] = {
       require( slot == 1, "Invalid slot " + slot )
       require( invariant, "Invalid invariant flag. Should be true" )
       this
