@@ -39,10 +39,12 @@ import util.MurmurHash
  *
  * I don't know if `Reactor` still needs the `equals` implementation?
  */
-trait StandaloneLike[ S <: Sys[ S ], +A, +Repr <: Node[ S ]] extends Node[ S ] with EventImpl[ S, A, Repr ]
-with InvariantEvent[ S, A, Repr ] {
+trait StandaloneLike[ S <: Sys[ S ], +A, +Repr <: StandaloneLike[ S, A, Repr ]]
+extends Node[ S ] with EventImpl[ S, A, Repr ] with InvariantEvent[ S, A, Repr ] {
+   _: Repr =>
+
    final private[event] def slot = 1
-   final private[lucre] def node: Node[ S ] = this
+   final /* private[lucre] */ def node: Repr = this
 
    final private[event] def select( slot: Int, invariant: Boolean ) : Event[ S, Any, Any ] = {
       require( slot == 1, "Invalid slot " + slot )

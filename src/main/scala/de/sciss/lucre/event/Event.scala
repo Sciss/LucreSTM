@@ -81,8 +81,9 @@ val reactor  = VirtualNode.read[ S ]( in, fullSize, access )
 //         node.devirtualize( reader ).select( slot, cookie == 0 )
 //      }
 
-      final def devirtualize[ Evt <: Event[ S, Any, Any ]]( reader: Reader[ S, Any ])( implicit tx: S#Tx ) : Evt = {
-         node.devirtualize( reader ).select( slot, cookie == 0 ).asInstanceOf[ Evt ]
+//      final def devirtualize[ Evt <: Event[ S, Any, Any ]]( reader: Reader[ S, Any ])( implicit tx: S#Tx ) : Evt =
+      final def devirtualize[ A, Repr ]( reader: Reader[ S, Repr ])( implicit tx: S#Tx ) : Event[ S, A, Repr with Node[ S ]] = {
+         node.devirtualize( reader ).select( slot, cookie == 0 ).asInstanceOf[ Event[ S, A, Repr with Node[ S ]]] // .asInstanceOf[ Evt ]
       }
    }
 
@@ -128,7 +129,8 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    }
 
 //   private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, Any ]
-   def devirtualize[ Evt <: Event[ S, Any, Any ]]( reader: Reader[ S, Any ])( implicit tx: S#Tx ) : Evt
+//def devirtualize[ Evt <: Event[ S, Any, Any ]]( reader: Reader[ S, Any ])( implicit tx: S#Tx ) : Evt
+   def devirtualize[ A, Repr ]( reader: Reader[ S, Repr ])( implicit tx: S#Tx ) : Event[ S, A, Repr with Node[ S ]]
 
 // MMM
 //   final protected def writeSelectorData( out: DataOutput ) {
@@ -364,9 +366,10 @@ trait Dummy[ S <: Sys[ S ], +A, +Repr ] extends EventLike[ S, A, Repr ] {
  * split into `Event.Invariant` and `Event.Mutating`.
  */
 trait Event[ S <: Sys[ S ], +A, +Repr ] extends EventLike[ S, A, Repr ] with VirtualNodeSelector[ S ] { // with NodeSelector[ S, A ]
-   private[lucre] def node: Node[ S ]
-   final def devirtualize[ Evt <: Event[ S, Any, Any ]]( reader: Reader[ S, Any ])( implicit tx: S#Tx ) : Evt =
-      this.asInstanceOf[ Evt ]
+   /* private[lucre] */ def node: Repr with Node[ S ]
+//   final def devirtualize[ Evt <: Event[ S, Any, Any ]]( reader: Reader[ S, Any ])( implicit tx: S#Tx ) : Evt =
+   final def devirtualize[ A1, R1 ]( reader: Reader[ S, R1 ])( implicit tx: S#Tx ) : Event[ S, A1, R1 with Node[ S ]] =
+      this.asInstanceOf[ Event[ S, A1, R1 with Node[ S ]]]
 
 //   final private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : Event[ S, A, Repr ] = this
 }

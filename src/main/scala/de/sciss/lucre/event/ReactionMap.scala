@@ -48,7 +48,7 @@ object ReactionMap {
       reader: event.Reader[ S, Node[ S ]], fun: S#Tx => A => Unit ) {
 
       def reaction( parent: VirtualNodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) : Reaction = {
-         val nParent = parent.devirtualize[ Event[ S, A, Any ]]( reader )
+         val nParent = parent.devirtualize[ A, Any ]( reader )
          () => {
             nParent.pullUpdate( push ) match {
                case Some( result ) =>
