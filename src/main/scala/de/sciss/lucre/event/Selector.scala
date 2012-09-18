@@ -175,7 +175,7 @@ sealed trait VirtualNodeSelector[ S <: Sys[ S ]] extends Selector[ S ] {
    final private[lucre] def devirtualize( reader: Reader[ S, Node[ S ]])( implicit tx: S#Tx ) : NodeSelector[ S, _ ] =
       this
 
-   private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
+   /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
 
 // MMM
 //   final private[event] def writeValue()( implicit tx: S#Tx ) {

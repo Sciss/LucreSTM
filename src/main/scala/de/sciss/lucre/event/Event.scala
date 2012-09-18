@@ -34,12 +34,12 @@ import LucreSTM.logEvent
     * Connects the given selector to this event. That is, this event will
     * adds the selector to its propagation targets.
     */
-   private[lucre] def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) : Unit
+   /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) : Unit
    /**
     * Disconnects the given selector from this event. That is, this event will
     * remove the selector from its propagation targets.
     */
-   private[lucre] def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) : Unit
+   /*private[lucre] */ def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) : Unit
 
    /**
     * Registers a live observer with this event. The method is called with the
@@ -64,7 +64,7 @@ import LucreSTM.logEvent
     * Tests whether this event participates in a pull. That is, whether the
     * event was visited during the push phase.
     */
-   private[lucre] def isSource( pull: Pull[ S ]) : Boolean
+   /* private[lucre] */ def isSource( pull: Pull[ S ]) : Boolean
 
    /**
     * Called when the first target is connected to the underlying dispatcher node. This allows
@@ -97,7 +97,7 @@ import LucreSTM.logEvent
     *          originate from this part of the dependency graph or was absorbed by
     *          a filtering function
     */
-   private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
+   /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ]
 }
 
 object Dummy {
@@ -113,15 +113,15 @@ object Dummy {
 trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
    import Dummy._
 
-   final private[lucre] def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {}
-   final private[lucre] def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {}
+   final /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {}
+   final /* private[lucre] */ def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {}
 
 //   final private[lucre] def select() : NodeSelector[ S ] = opNotSupported
 
    /**
     * Returns `false`, as a dummy is never a source event.
     */
-   final private[lucre] def isSource( pull: Pull[ S ]) = false
+   final /* private[lucre] */ def isSource( pull: Pull[ S ]) = false
 
    final def react( fun: A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
       Observer.dummy[ S, A, Repr ]
@@ -129,7 +129,7 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
    final def reactTx( fun: S#Tx => A => Unit )( implicit tx: S#Tx ) : Observer[ S, A, Repr ] =
       Observer.dummy[ S, A, Repr ]
 
-   final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = opNotSupported
+   final /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = opNotSupported
 
    final private[lucre] def connect()(    implicit tx: S#Tx ) {}
 //   final private[lucre] def reconnect()(  implicit tx: S#Tx ) {}
@@ -144,7 +144,7 @@ trait Dummy[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] {
 trait Event[ S <: Sys[ S ], A, Repr ] extends EventLike[ S, A, Repr ] with NodeSelector[ S, A ]
 
 trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with InvariantSelector[ S ] {
-   final private[lucre] def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
+   final /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
       val t = node._targets
 //      if( t.add( slot, r )) {
 //         logEvent( this.toString + " connect" )
@@ -166,21 +166,21 @@ trait InvariantEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with 
       }
    }
 
-   final private[lucre] def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
+   final /* private[lucre] */ def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
       if( node._targets.remove( slot, r )) disconnect()
    }
 }
 
 trait MutatingEvent[ S <: Sys[ S ], A, Repr ] extends Event[ S, A, Repr ] with MutatingSelector[ S ] {
-   final private[lucre] def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
+   final /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
       node._targets.add( slot, r )
    }
 
-   final private[lucre] def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
+   final /* private[lucre] */ def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
       node._targets.remove( slot, r )
    }
 
-   final private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = {
+   final /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = {
       pull.clearInvalid( this )
       processUpdate( pull )
    }

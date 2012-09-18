@@ -33,9 +33,9 @@ import stm.Sys
  * implementation of `pull` which merely checks if this event has fired or not.
  */
 trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
-   final private[lucre] def connect()(    implicit tx: S#Tx ) {}
+   final /* private[lucre] */ def connect()(    implicit tx: S#Tx ) {}
 //   final private[lucre] def reconnect()(  implicit tx: S#Tx ) {}
-   final private[lucre] def disconnect()( implicit tx: S#Tx ) {}
+   final /* private[lucre] */ def disconnect()( implicit tx: S#Tx ) {}
 
-   final /* override */ private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = pull.resolve[ A ]
+   final /* override */ /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A ] = pull.resolve[ A ]
 }

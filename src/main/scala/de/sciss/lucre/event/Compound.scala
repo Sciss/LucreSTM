@@ -70,11 +70,11 @@ private[event] def slot = opNotSupported
          obs
       }
 
-      private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ B ] = {
+      /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ B ] = {
          elems.find( ev => ev.isSource( pull )).flatMap( _.pullUpdate( pull ))
       }
 
-      private[lucre] def isSource( pull: Pull[ S ]) : Boolean = opNotSupported
+      /* private[lucre] */ def isSource( pull: Pull[ S ]) : Boolean = opNotSupported
 
 //      private[lucre] def select() = opNotSupported
 
@@ -84,10 +84,10 @@ private[event] def slot = opNotSupported
       }
       private[lucre] def disconnect()( implicit tx: S#Tx ) {}
 
-      private[lucre] def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
+      /* private[lucre] */ def --->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
          elems.foreach( _ ---> r )
       }
-      private[lucre] def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
+      /* private[lucre] */ def -/->( r: /* MMM Expanded */ Selector[ S ])( implicit tx: S#Tx ) {
          elems.foreach( _ -/-> r )
       }
 
@@ -140,7 +140,7 @@ private[event] def slot = opNotSupported
 
       protected def prefix = node.toString + ".event"
 
-      private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
+      /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
          val elems: IIdxSeq[ B ] = pull.parents( this /* select() */).flatMap( sel => {
             val elem = sel.devirtualize( elemReader ).node.asInstanceOf[ Elem ]
             elemEvt( elem ).pullUpdate( pull )
@@ -162,7 +162,7 @@ private[event] def slot = opNotSupported
       val node: Compound[ S, Repr, D ], protected val e: Event[ S, B, _ ], fun: S#Tx => B => A1 )
    ( implicit protected val m: ClassManifest[ A1 ])
    extends MapLike[ S, Repr, D, B, A1 ] with InvariantEvent[ S, A1, Repr ] {
-      private[lucre] def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
+      /* private[lucre] */ def pullUpdate( pull: Pull[ S ])( implicit tx: S#Tx ) : Option[ A1 ] = {
          e.pullUpdate( pull ).map( fun( tx )( _ ))
       }
       protected def prefix = e.toString + ".map"
