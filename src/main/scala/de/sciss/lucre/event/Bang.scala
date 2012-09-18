@@ -32,7 +32,7 @@ object Bang {
    def apply[ S <: Sys[ S ]]( implicit tx: S#Tx ) : Bang[ S ] = new Impl[ S ]( Targets[ S ])
 
    private final class Impl[ S <: Sys[ S ]]( protected val targets: Targets[ S ])
-   extends Bang[ S ] with Singleton[ S, Unit, Bang[ S ]] with Root[ S, Unit /*, Bang[ S ] */] {
+   extends Bang[ S ] with Singleton[ S ] with Root[ S, Unit /*, Bang[ S ] */] {
       protected def reader = Bang.serializer[ S ]
    }
 

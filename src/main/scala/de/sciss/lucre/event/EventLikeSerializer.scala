@@ -38,7 +38,7 @@ import annotation.switch
  * The constant event should mix in `Constant` which takes care of writing
  * the appropriate serialization preamble.
  */
-trait EventLikeSerializer[ S <: Sys[ S ], Repr <: Writable /* Node[ S, _ ] */]
+trait EventLikeSerializer[ S <: Sys[ S ], Repr <: Writable /* Node[ S ] */]
 extends Reader[ S, Repr ] with Serializer[ S#Tx, S#Acc, Repr ] {
    final def write( v: Repr, out: DataOutput ) { v.write( out )}
 

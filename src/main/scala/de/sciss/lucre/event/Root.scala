@@ -32,7 +32,7 @@ import stm.Sys
  * A rooted event does not have sources. This trait provides a simple
  * implementation of `pull` which merely checks if this event has fired or not.
  */
-trait Root[ S <: Sys[ S ], A ] /* extends Node[ S, A, Repr ] */ {
+trait Root[ S <: Sys[ S ], +A ] /* extends Node[ S, A, Repr ] */ {
    final /* private[lucre] */ def connect()(    implicit tx: S#Tx ) {}
 //   final private[lucre] def reconnect()(  implicit tx: S#Tx ) {}
    final /* private[lucre] */ def disconnect()( implicit tx: S#Tx ) {}
