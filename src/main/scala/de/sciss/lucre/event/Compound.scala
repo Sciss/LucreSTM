@@ -35,13 +35,13 @@ object Compound {
 
    final protected class EventOps1[ S <: Sys[ S ], D <: Decl[ S, Repr ], Repr <: Compound[ S, D, Repr ], B ](
       d: Repr, e: Event[ S, B, Any ]) {
-      def map[ A1 <: D#Update ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
+      def map[ A1 /* <: D#Update */ ]( fun: B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
          new Map[ S, D, Repr, B, A1 ]( d, e, _ => fun )
 
-      def mapTx[ A1 <: D#Update ]( fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
+      def mapTx[ A1 /* <: D#Update */]( fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ]) : Event[ S, A1, Repr ] =
          new Map[ S, D, Repr, B, A1 ]( d, e, fun )
 
-      def mapAndMutate[ A1 <: D#Update ]( fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ]) : MutatingEvent[ S, A1, Repr ] =
+      def mapAndMutate[ A1 /* <: D#Update */]( fun: S#Tx => B => A1 )( implicit m: ClassManifest[ A1 ]) : MutatingEvent[ S, A1, Repr ] =
          new MutatingMap[ S, D, Repr, B, A1 ]( d, e, fun )
    }
 
@@ -91,7 +91,7 @@ private[event] def slot = opNotSupported
          elems.foreach( _ -/-> r )
       }
 
-      def |[ Up >: B <: D#Update, C <: Up ]( that: Event[ S, C, Repr ]) : Or[ S, D, Repr, Up ] =
+      def |[ Up >: B /* <: D#Update */, C <: Up ]( that: Event[ S, C, Repr ]) : Or[ S, D, Repr, Up ] =
          new Or[ S, D, Repr, Up ]( node, IIdxSeq[ Event[ S, Up, Repr ]]( elems: _* ) :+ that )
 
       override def toString = elems.mkString( " | " )
@@ -100,7 +100,7 @@ private[event] def slot = opNotSupported
    final protected class CollectionOps[ S <: Sys[ S ], D <: Decl[ S, Repr ], Repr <: Compound[ S, D, Repr ], Elem <: Node[ S ], B ](
       d: Repr, elem: Elem => EventLike[ S, B, Elem ])( implicit elemReader: Reader[ S, Elem ]) {
 
-      def map[ A1 <: D#Update ]( fun: IIdxSeq[ B ] => A1 )( implicit m: ClassManifest[ A1 ]) : CollectionEvent[ S, D, Repr, Elem, B, A1 ] =
+      def map[ A1 /* <: D#Update */]( fun: IIdxSeq[ B ] => A1 )( implicit m: ClassManifest[ A1 ]) : CollectionEvent[ S, D, Repr, Elem, B, A1 ] =
          new CollectionEvent[ S, D, Repr, Elem, B, A1 ]( d, elem, fun )
    }
 
@@ -178,9 +178,9 @@ private[event] def slot = opNotSupported
       protected def prefix = e.toString + ".mapAndMutate"
    }
 
-   private final class Trigger[ S <: Sys[ S ], D <: Decl[ S, Repr ], Repr <: Compound[ S, D, Repr ], A1 <: D#Update ](
+   private final class Trigger[ S <: Sys[ S ], D <: Decl[ S, Repr ], Repr <: Compound[ S, D, Repr ], A1 /* <: D#Update */](
       val node: Repr )( implicit protected val m: ClassManifest[ A1 ])
-   extends EventImpl[ S, D, Repr, A1 ] with event.Trigger.Impl[ S, D#Update, A1, Repr ] with Root[ S, A1 ]
+   extends EventImpl[ S, D, Repr, A1 ] with event.Trigger.Impl[ S, A1, Repr ] with Root[ S, A1 ]
    with InvariantEvent[ S, A1, Repr ] {
       protected def prefix = node.toString + ".event"
    }
@@ -191,17 +191,17 @@ trait Compound[ S <: Sys[ S ], D <: Decl[ S, Repr ], Repr <: Compound[ S, D, Rep
 
    import de.sciss.lucre.{event => evt}
 
-   protected type Ev[ A <: D#Update ] = Event[ S, A, Repr ]
+//   protected type Ev[ A <: D#Update ] = Event[ S, A, Repr ]
 
    protected def decl: D // Decl[ Repr ]
 
    implicit protected def eventOps1[ B ]( e: Event[ S, B, Any ]) : Compound.EventOps1[ S, D, Repr, B ] =
       new Compound.EventOps1( this, e )
 
-   implicit protected def eventOps2[ B <: D#Update ]( e: Event[ S, B, Repr ]) : Compound.EventOps2[ S, D, Repr, B ] =
+   implicit protected def eventOps2[ B /* <: D#Update */]( e: Event[ S, B, Repr ]) : Compound.EventOps2[ S, D, Repr, B ] =
       new Compound.EventOps2( this, e )
 
-   protected def event[ A1 <: D#Update ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr ] =
+   protected def event[ A1 /* <: D#Update */ ]( implicit m: ClassManifest[ A1 ]) : evt.Trigger[ S, A1, Repr ] =
       new Compound.Trigger[ S, D, Repr, A1 ]( this )
 
    protected def collection[ Elem <: Node[ S ], B ]( fun: Elem => EventLike[ S, B, Elem ])

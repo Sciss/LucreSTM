@@ -29,10 +29,10 @@ package event
 import stm.Sys
 
 object Trigger {
-   trait Impl[ S <: Sys[ S ], A, A1 <: A, Repr <: Node[ S ]]
-   extends Trigger[ S, A1, Repr ] with event.EventImpl[ S, /* A, */ A1, Repr ]
-   with Generator[ S, A, A1, Repr ] {
-      final def apply( update: A1 )( implicit tx: S#Tx ) { fire( update )}
+   trait Impl[ S <: Sys[ S ], A, Repr <: Node[ S ]]
+   extends Trigger[ S, A, Repr ] with event.EventImpl[ S, A, Repr ]
+   with Generator[ S, A, Repr ] {
+      final def apply( update: A )( implicit tx: S#Tx ) { fire( update )}
    }
 
    def apply[ S <: Sys[ S ], A ]( implicit tx: S#Tx ) : Standalone[ S, A ] = new Standalone[ S, A ] {
@@ -48,7 +48,7 @@ object Trigger {
                }
          }
    }
-   trait Standalone[ S <: Sys[ S ], A ] extends Impl[ S, A, A, Standalone[ S, A ]]
+   trait Standalone[ S <: Sys[ S ], A ] extends Impl[ S, A, Standalone[ S, A ]]
    with StandaloneLike[ S, A, Standalone[ S, A ]] with Singleton[ S ] /* with EarlyBinding[ S, A ] */
    with Root[ S, A /*, Standalone[ S, A ] */ ] {
       final protected def reader: Reader[ S, Standalone[ S, A ]] = Standalone.serializer[ S, A ]

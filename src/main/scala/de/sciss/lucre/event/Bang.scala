@@ -50,7 +50,7 @@ object Bang {
  * `Unit` type as event type parameter. The `apply` method of the companion object builds a `Bang` which also
  * implements the `Observable` trait, so that the bang can be connected to a live view (e.g. a GUI).
  */
-trait Bang[ S <: Sys[ S ]] extends Trigger.Impl[ S, Unit, Unit, Bang[ S ]] with StandaloneLike[ S, Unit, Bang[ S ]] {
+trait Bang[ S <: Sys[ S ]] extends Trigger.Impl[ S, Unit, Bang[ S ]] with StandaloneLike[ S, Unit, Bang[ S ]] {
    /**
     * A parameterless convenience version of the `Trigger`'s `apply` method.
     */
