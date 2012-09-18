@@ -45,31 +45,31 @@ import collection.immutable.{IndexedSeq => IIdxSeq}
 trait Decl[ S <: Sys[ S ], Impl <: Node[ S ]] {
    private var cnt      = 0
    private var keyMap   = Map.empty[ Class[ _ ], Int ]
-   private var idMap    = Map.empty[ Int, Declaration[ _ <: Update ]]
+   private var idMap    = Map.empty[ Int, Declaration[ Update ]]
 
    final private[event] def eventID[ A ]( implicit m: ClassManifest[ A ]) : Int = keyMap( m.erasure )
 
-   final private[event] def getEvent( impl: Impl, id: Int ) : Event[ S, _ <: Update, _ ] = idMap( id ).apply( impl )
+   final private[event] def getEvent( impl: Impl, id: Int ) : Event[ S, Update, Impl ] = idMap( id ).apply( impl )
 
-   final private[event] def events( impl: Impl ) : IIdxSeq[ Event[ S, _ <: Update, _ ]] = {
-      type Elem = Event[ S, _ <: Update, _ ]
+   final private[event] def events( impl: Impl ) : IIdxSeq[ Event[ S, Update, Impl ]] = {
+      type Elem = Event[ S, Update, Impl ]
       idMap.map[ Elem, IIdxSeq[ Elem ]]( tup => {
          val dec  = tup._2
          dec( impl )
       })( breakOut )
    }
 
-   final protected def declare[ U <: Update ]( fun: Impl => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) {
+   final protected def declare[ U <: Update ]( fun: Impl => Event[ _, U, Impl ])( implicit mf: ClassManifest[ U ]) {
       new Declaration[ U ]( fun )
    }
 
-   private final class Declaration[ U <: Update ]( fun: Impl => Event[ _, U, _ ])( implicit mf: ClassManifest[ U ]) {
+   private final class Declaration[ +U <: Update ]( fun: Impl => Event[ _, U, Impl ])( implicit mf: ClassManifest[ U ]) {
       val id = 1 << cnt
       cnt += 1
       keyMap += ((mf.erasure, cnt))
       idMap += ((id, this))
 
-      def apply( impl: Impl ) : Event[ S, U, _ ] = fun( impl ).asInstanceOf[ Event[ S, U, _ ]]
+      def apply( impl: Impl ) : Event[ S, U, Impl ] = fun( impl ).asInstanceOf[ Event[ S, U, Impl ]]
    }
 
    type Update

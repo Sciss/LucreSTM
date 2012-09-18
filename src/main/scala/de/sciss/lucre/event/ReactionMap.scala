@@ -61,8 +61,6 @@ object ReactionMap {
 
    private final class Impl[ S <: Sys[ S ], T <: Sys[ T ]]( cnt: T#Var[ Int ])( implicit sysConv: S#Tx => T#Tx )
    extends ReactionMap[ S ] {
-//      private val stateMap = TMap.empty[ Int, StateObservation[ S, _, _ <: State[ S, _ ]]]
-
       private val eventMap = TMap.empty[ Int, EventObservation[ S, Nothing ]]
 
       def processEvent( leaf: ObserverKey[ S ], parent: VirtualNodeSelector[ S ], push: Push[ S ])( implicit tx: S#Tx ) {
