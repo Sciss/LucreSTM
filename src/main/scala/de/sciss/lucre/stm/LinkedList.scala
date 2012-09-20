@@ -23,46 +23,64 @@
  *  contact@sciss.de
  */
 
+/*
 package de.sciss.lucre
 package stm
 
 import annotation.tailrec
 
 object LinkedList {
-   def empty[ S <: Sys[ S ], A ]( implicit tx: S#Tx, peerSer: Serializer[ S#Tx, S#Acc, A ]) : LinkedList[ S, A ] =
-      new ListNew[ S, A ]( tx )
+   def empty[ S <: Sys[ S ], A ]( implicit tx: S#Tx, elemSerializer: Serializer[ S#Tx, S#Acc, A ]) : LinkedList[ S, A ] = {
+      val id      = tx.newID()
+      val headRef = tx.newVar[ Option[ Cell[ S, A ]]]( id, None )
+      new Impl[ S, A ]( id, headRef )
+   }
 
-   private sealed trait ListImpl[ S <: Sys[ S ], A ] extends LinkedList[ S, A ] with Mutable.Impl[ S ] {
+   def read[ S <: Sys[ S ], A ]( in: DataInput, access: S#Acc )
+                               ( implicit tx: S#Tx, elemSerializer: Serializer[ S#Tx, S#Acc, A ]) : LinkedList[ S, A ] = {
+      val id      = tx.readID( in, access )
+      val headRef = tx.readVar[ Option[ Cell[ S, A ]]]( id, in )
+      new Impl[ S, A ]( id, headRef )
+   }
+
+   private final class Impl[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ](
+      val id: S#ID, headRef: S#Var[ Option[ Cell[ S, A ]]])( implicit elemSerializer: Serializer[ S#Tx, S#Acc, A ])
+   extends LinkedList[ S, A ] with Mutable.Impl[ S ] {
       override def toString = "LinkedList" + id
 
-      protected def headRef: S#Var[ Option[ Cell[ S, A ]]]
-      protected def peerSer: Serializer[ S#Tx, S#Acc, A ]
+//      protected def headRef: S#Var[ Option[ Cell[ S, A ]]]
+//      protected def peerSer: Serializer[ S#Tx, S#Acc, A ]
 
-      final protected def disposeData()( implicit tx: S#Tx ) {
+      protected def disposeData()( implicit tx: S#Tx ) {
          headRef.dispose()
       }
 
-      final protected def writeData( out: DataOutput ) {
+      protected def writeData( out: DataOutput ) {
          headRef.write( out )
       }
 
-      final def prepend( elem: A )( implicit tx: S#Tx ) {
-         val oldHead = headRef.get
-         val c       = new Cell.New( tx, elem, oldHead, peerSer )
+      def prepend( elem: A )( implicit tx: S#Tx ) {
+         val cellID  = tx.newID()
+         val nextRef = tx.newVar( cellID, headRef.get )
+         val c       = new Cell( cellID, nextRef, elem )
          headRef.set( Some( c ))
       }
 
-      final def append( elem: A )( implicit tx: S#Tx ) {
+      def append( elem: A )( implicit tx: S#Tx ) {
+         val cellID  = tx.newID()
+         val nextRef = tx.newVar( cellID, Option.empty[ Cell[ S, A ]])
+         val c       = new Cell( cellID, nextRef, elem )
+
          @tailrec def step( v: S#Var[ Option[ Cell[ S, A ]]]) { v.get match {
             case None =>
-               v.set( Some( new Cell.New( tx, elem, None, peerSer )))
+               v.set( Some( c ))
             case Some( cell ) =>
                step( cell.nextRef )
          }}
          step( headRef )
       }
 
-      final def remove( elem: A )( implicit tx: S#Tx ) {
+      def remove( elem: A )( implicit tx: S#Tx ) {
          @tailrec def step( v: S#Var[ Option[ Cell[ S, A ]]]) { v.get match {
             case None =>
             case Some( cell ) =>
@@ -75,7 +93,7 @@ object LinkedList {
          step( headRef )
       }
 
-      final def foreach( fun: A => Unit )( implicit tx: S#Tx ) {
+      def foreach( fun: A => Unit )( implicit tx: S#Tx ) {
          @tailrec def step( v: S#Var[ Option[ Cell[ S, A ]]]) { v.get match {
             case None =>
             case Some( cell ) =>
@@ -85,63 +103,54 @@ object LinkedList {
          step( headRef )
       }
 
-      final def isEmpty( implicit tx: S#Tx ) : Boolean   = headRef.get.isEmpty
-      final def nonEmpty( implicit tx: S#Tx ) : Boolean  = !isEmpty
+      def isEmpty( implicit tx: S#Tx ) : Boolean   = headRef.get.isEmpty
+      def nonEmpty( implicit tx: S#Tx ) : Boolean  = !isEmpty
    }
 
-   private final class ListNew[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ]( tx0: S#Tx )(
-      protected implicit val peerSer: Serializer[ S#Tx, S#Acc, A ])
-   extends ListImpl[ S, A ] {
-      val id                  = tx0.newID()
-      protected val headRef   = tx0.newVar[ Option[ Cell[ S, A ]]]( id, None )
-   }
+   private implicit def cellSer[ S <: Sys[ S ], A ]( implicit elemSerializer: Serializer[ S#Tx, S#Acc, A ]) : Serializer[ S#Tx, S#Acc, Cell[ S, A ]] =
+      new CellSer
 
-   private object Cell {
-      implicit def serializer[ S <: Sys[ S ], A ](
-         implicit peerSer: Serializer[ S#Tx, S#Acc, A ]) : Serializer[ S#Tx, S#Acc, Cell[ S, A ]] =
-            new Ser[ S, A ]( peerSer )
+   private final class CellSer[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ](
+      implicit elemSerializer: Serializer[ S#Tx, S#Acc, A ])
+   extends Serializer[ S#Tx, S#Acc, Cell[ S, A ]] {
 
-      private final class Ser[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ](
-         peerSer: Serializer[ S#Tx, S#Acc, A ])
-      extends Serializer[ S#Tx, S#Acc, Cell[ S, A ]] {
-         def write( v: Cell[ S, A ], out: DataOutput ) {
-            v.write( out )
-         }
+      implicit def self = this
 
-         def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Cell[ S, A ] =
-            new Read[ S, A ]( tx, in, access, peerSer )
+      def write( v: Cell[ S, A ], out: DataOutput ) {
+         v.write( out )
       }
 
-      final class New[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ](
-         tx0: S#Tx, val value: A, initNext: Option[ Cell[ S, A ]],
-         protected implicit val peerSer: Serializer[ S#Tx, S#Acc, A ])
-      extends Cell[ S, A ] {
-         val id      = tx0.newID()
-         val nextRef = tx0.newVar[ Option[ Cell[ S, A ]]]( id, initNext )
-      }
-
-      private final class Read[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ](
-         tx0: S#Tx, in: DataInput, access: S#Acc, protected implicit val peerSer: Serializer[ S#Tx, S#Acc, A ])
-      extends Cell[ S, A ] {
-         val id      = tx0.readID( in, access )
-         val nextRef = tx0.readVar[ Option[ Cell[ S, A ]]]( id, in )
-         val value   = peerSer.read( in, access )( tx0 )
+      def read( in: DataInput, access: S#Acc )( implicit tx: S#Tx ) : Cell[ S, A ] = {
+         val id      = tx.readID( in, access )
+         val nextRef = tx.readVar[ Option[ Cell[ S, A ]]]( id, in )
+         val value   = elemSerializer.read( in, access )
+         new Cell( id, nextRef, value )
       }
    }
-   private sealed trait Cell[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ] extends Mutable.Impl[ S ] {
-      protected def peerSer: Serializer[ S#Tx, S#Acc, A ]
 
-      def value: A
-      def nextRef: S#Var[ Option[ Cell[ S, A ]]]
+//         val id      = tx0.newID()
+//         val nextRef = tx0.newVar[ Option[ Cell[ S, A ]]]( id, initNext )
 
-      final protected def disposeData()( implicit tx: S#Tx ) { nextRef.dispose() }
-      final protected def writeData( out: DataOutput ) {
+   private final class Cell[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ](
+      val id: S#ID, val nextRef: S#Var[ Option[ Cell[ S, A ]]], val value: A )(
+      implicit elemSerializer: Serializer[ S#Tx, S#Acc, A ])
+   extends Mutable.Impl[ S ] {
+      protected def disposeData()( implicit tx: S#Tx ) { nextRef.dispose() }
+      protected def writeData( out: DataOutput ) {
          nextRef.write( out )
-         peerSer.write( value, out )
+         elemSerializer.write( value, out )
       }
    }
 }
 
+/**
+ * A transactional and mutable single linked list.
+ *
+ * The following operations are O(1): `prepend`, `isEmpty`, `nonEmpty`
+ * The following operations are O(n): `append`, `remove`
+ *
+ * @tparam A   the element type stored in the list
+ */
 trait LinkedList[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean ) A ] extends Mutable[ S#ID, S#Tx ] {
    def prepend( elem: A )( implicit tx: S#Tx ) : Unit
    def append( elem: A )( implicit tx: S#Tx ) : Unit
@@ -150,6 +159,9 @@ trait LinkedList[ S <: Sys[ S ], @specialized( Int, Float, Long, Double, Boolean
    def isEmpty( implicit tx: S#Tx ) : Boolean
    def nonEmpty( implicit tx: S#Tx ) : Boolean
 
+   // def iterator: Iterator[ S#Tx, S#Acc, A ]
+
 //   def map( ) : Unit
 //   def flatMap( ) : Unit
 }
+*/
