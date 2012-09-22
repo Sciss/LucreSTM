@@ -130,7 +130,9 @@ object Durable {
 
 //      final def getFresh( implicit tx: S#Tx ) : A = get
 
-      final def setInit( v: A )( implicit tx: S#Tx ) { tx.system.write( id )( ser.write( v, _ ))}
+      final def setInit( v: A )( implicit tx: S#Tx ) {
+         tx.system.write( id )( ser.write( v, _ ))
+      }
    }
 
    private final class VarImpl[ A ]( protected val id: Int, protected val ser: Serializer[ S#Tx, S#Acc, A ])
@@ -299,13 +301,23 @@ object Durable {
       def readCachedVar[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
       def readCachedIntVar( in: DataInput ) : S#Var[ Int ]
       def readCachedLongVar( in: DataInput ) : S#Var[ Long ]
+
+      private[Durable] def markDirty() : Unit
    }
 
    private final class TxnImpl( val system: System, val peer: InTxn )
    extends Txn {
       //      private var id = -1L
 
+      private var dirty = false
+
       lazy val inMemory: InMemory#Tx = system.inMem.wrap( peer )
+
+      def markDirty() {
+         dirty = true
+      }
+
+      def isDirty = dirty
 
       def newID(): S#ID = new IDImpl( system.newIDValue()( this ))
       def newPartialID(): S#ID = newID()
@@ -495,6 +507,7 @@ object Durable {
 
       def numUserRecords( implicit tx: S#Tx ): Int = math.max( 0, numRecords - 1 )
 
+      // this increases a durable variable, thus ensures markDirty() already
       def newIDValue()( implicit tx: S#Tx ) : Int = {
          val id = idCntVar.get + 1
          logSTM( "new   <" + id + ">" )
@@ -505,21 +518,25 @@ object Durable {
       def write( id: Long )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
          logSTM( "writeL <" + id + ">" )
          store.put( _.writeLong( id ))( valueFun )
+         tx.markDirty()
       }
 
       def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
          logSTM( "write <" + id + ">" )
          store.put( _.writeInt( id ))( valueFun )
+         tx.markDirty()
       }
 
       def remove( id: Long )( implicit tx: S#Tx ) {
          logSTM( "removL <" + id + ">" )
          store.remove( _.writeLong( id ))
+         tx.markDirty()
       }
 
       def remove( id: Int )( implicit tx: S#Tx ) {
          logSTM( "remov <" + id + ">" )
          store.remove( _.writeInt( id ))
+         tx.markDirty()
       }
 
       def tryRead[ A ]( id: Long )( valueFun: DataInput => A )( implicit tx: S#Tx ) : Option[ A ]= {

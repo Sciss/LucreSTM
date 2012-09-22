@@ -60,7 +60,9 @@ object ConfluentSkel {
          }
    }
 
-   sealed trait Txn extends stm.Txn[ S ]
+   sealed trait Txn extends stm.Txn[ S ] {
+      private [ConfluentSkel] def markDirty() : Unit
+   }
 
    sealed trait Var[ @specialized A ] extends stm.Var[ Txn, A ] {
       //      private[ConfluentSkel] def access( path: S#Acc )( implicit tx: S#Tx ) : A
@@ -255,6 +257,12 @@ object ConfluentSkel {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       lazy val inMemory: InMemory#Tx = system.inMem.wrap( peer )
 
+      private var dirty = false
+
+      def isDirty = dirty
+
+      def markDirty() { dirty = true }
+
       def newID(): ID = system.newID()( this )
 
       def newPartialID(): S#ID = sys.error( "TODO" )
@@ -268,7 +276,7 @@ object ConfluentSkel {
       def newVar[ A ]( pid: ID, init: A )( implicit ser: Serializer[ Txn, Acc, A ]): Var[ A ] = {
          val id = alloc( pid )
          val res = new VarImpl[ A ]( id, system, ser )
-         res.store( init )
+         res.store( init )( this )
          res
       }
 
@@ -347,12 +355,13 @@ object ConfluentSkel {
 
       protected def readValue( in: DataInput, postfix: Acc )( implicit tx: Txn ): A
 
-      final def store( v: A ) {
+      final def store( v: A )( implicit tx: Txn ) {
          val out = new DataOutput()
          writeValue( v, out )
          val bytes = out.toByteArray
          system.storage += id.id -> (system.storage.getOrElse( id.id,
             Map.empty[ Acc, Array[ Byte ]]) + (id.path -> bytes))
+         tx.markDirty()
       }
 
       final def get( implicit tx: Txn ): A = access( id.path )
