@@ -42,6 +42,11 @@ trait Txn[ S <: Sys[ S ]] {
     */
    def peer: InTxn
 
+   /**
+    * Every transaction has an in-memory peer attached to it.
+    */
+   def inMemory : InMemory#Tx
+
    def newID() : S#ID
 
    /**
@@ -58,6 +63,8 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newPartialID() : S#ID
    def newPartialVar[ A ]( id: S#ID, init: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+
+   def newLocalVar[ A ]( init: S#Tx => A ) : LocalVar[ S#Tx, A ]
 
    /**
     * Creates a new durable transactional map for storing and retrieving values based on a mutable's identifier

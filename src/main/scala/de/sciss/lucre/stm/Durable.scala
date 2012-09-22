@@ -305,6 +305,8 @@ object Durable {
    extends Txn {
       //      private var id = -1L
 
+      lazy val inMemory: InMemory#Tx = system.inMem.wrap( peer )
+
       def newID(): S#ID = new IDImpl( system.newIDValue()( this ))
       def newPartialID(): S#ID = newID()
 
@@ -317,6 +319,8 @@ object Durable {
          res.setInit( init )( this )
          res
       }
+
+      def newLocalVar[ A ]( init: S#Tx => A ) : LocalVar[ S#Tx, A ] = new impl.LocalVarImpl[ S, A ]( init )
 
       def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
          newVar( id, init )
@@ -423,6 +427,8 @@ object Durable {
    private final class System( /* private[stm] val */ store: DataStore ) // , idCnt0: Int, reactCnt0: Int
    extends Durable {
       system =>
+
+      val inMem = InMemory()
 
       private val (idCntVar, reactCntVar) = step { implicit tx =>
          val _id        = store.get( _.writeInt( 0 ))( _.readInt() ).getOrElse( 1 )

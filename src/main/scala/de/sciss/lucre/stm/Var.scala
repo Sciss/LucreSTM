@@ -65,6 +65,10 @@ trait Source[ -Tx, @specialized +A ] /* extends Writable with Disposable[ Tx ] *
 //   def transform( f: A => A )( implicit tx: Tx ) : Unit
 //}
 
+trait LocalVar[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] {
+   def isInitialized( implicit tx: Tx ) : Boolean
+}
+
 trait Var[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] with Writable with Disposable[ Tx ] {
    def transform( f: A => A )( implicit tx: Tx ) : Unit
    def isFresh( implicit tx: Tx ) : Boolean

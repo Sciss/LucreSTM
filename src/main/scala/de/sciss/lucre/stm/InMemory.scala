@@ -26,28 +26,29 @@
 package de.sciss.lucre
 package stm
 
-import stm.{Var => _Var}
+import stm.{Var => _Var, Txn => _Txn}
 import event.ReactionMap
-import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
+import concurrent.stm.{Ref => ScalaRef, TxnExecutor, InTxn}
 
 object InMemory {
    private type S = InMemory
 
    sealed trait Var[ @specialized A ] extends _Var[ S#Tx, A ]
 
-   private sealed trait SourceImpl[ @specialized A ] {
-      protected def peer: ScalaRef[ A ]
-
-      final def get( implicit tx: S#Tx ) : A = peer.get( tx.peer )
-
-//      final def getFresh( implicit tx: S#Tx ) : A = get
-
-      final def write( out: DataOutput ) {}
+   sealed trait Txn extends _Txn[ S ] {
+//      def newLocal[ A ]( init: S#Tx => A ) : _Var[ S#Tx, A ]
    }
 
-   private final class VarImpl[ @specialized A ](protected val peer: ScalaRef[ A ])
-   extends Var[ A ] with SourceImpl[ A ] {
+//   private sealed trait VarLike[ @specialized A, Context >: InTxn <: InTxnEnd ] {
+//      protected def peer: RefLike[ A, Context ]
+//
+//   }
+
+   private final class VarImpl[ @specialized A ]( peer: ScalaRef[ A ])
+   extends Var[ A ] /* with VarLike[ A, InTxn ] */ {
       override def toString = "Var<" + hashCode().toHexString + ">"
+
+      def get( implicit tx: S#Tx ) : A = peer.get( tx.peer )
 
       def set( v: A )( implicit tx: S#Tx ) {
          peer.set( v )( tx.peer )
@@ -56,6 +57,8 @@ object InMemory {
       def transform( f: A => A )( implicit tx: S#Tx ) {
          peer.transform( f )( tx.peer )
       }
+
+      def write( out: DataOutput ) {}
 
       def dispose()( implicit tx: S#Tx ) {
          peer.set( null.asInstanceOf[ A ])( tx.peer )
@@ -82,7 +85,9 @@ object InMemory {
          (that.asInstanceOf[ ID ].id == id)
    }
 
-   private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn[ S ] {
+   private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
+      def inMemory: InMemory#Tx = this
+
       def newID() : S#ID = new IDImpl( system.newIDValue( peer ))
       def newPartialID(): S#ID = newID()
 
@@ -92,6 +97,8 @@ object InMemory {
          val peer = ScalaRef( init )
          new VarImpl( peer )
       }
+
+      def newLocalVar[ A ]( init: S#Tx => A ) : LocalVar[ S#Tx, A ] = new impl.LocalVarImpl[ S, A ]( init )
 
       def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
          newVar( id, init )
@@ -204,7 +211,7 @@ object InMemory {
 sealed trait InMemory extends Sys[ InMemory ] with Cursor[ InMemory ] {
    final type Var[ @specialized A ] = InMemory.Var[ A ]
    final type ID = InMemory.ID
-   final type Tx = Txn[ InMemory ]
+   final type Tx = InMemory.Txn // Txn[ InMemory ]
    final type Acc = Unit
    final type Entry[ A ] = InMemory.Var[ A ]
 
