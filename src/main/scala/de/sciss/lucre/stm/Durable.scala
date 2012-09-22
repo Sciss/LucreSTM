@@ -311,7 +311,7 @@ object Durable {
 
       private var dirty = false
 
-      lazy val inMemory: InMemory#Tx = system.inMem.wrap( peer )
+      lazy val inMemory: InMemory#Tx = system.inMemory.wrap( peer )
 
       def markDirty() {
          dirty = true
@@ -440,7 +440,7 @@ object Durable {
    extends Durable {
       system =>
 
-      val inMem = InMemory()
+      val inMemory : InMemory = InMemory()
 
       private val (idCntVar, reactCntVar) = step { implicit tx =>
          val _id        = store.get( _.writeInt( 0 ))( _.readInt() ).getOrElse( 1 )
@@ -597,4 +597,6 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
    private[stm] def newIDValue()( implicit tx: Tx ) : Int
 
    def wrap( peer: InTxn ) : Tx  // XXX TODO this might go in Cursor?
+
+   def inMemory : InMemory
 }
