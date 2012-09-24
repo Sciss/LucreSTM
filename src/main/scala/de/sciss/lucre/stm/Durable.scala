@@ -30,7 +30,6 @@ import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import annotation.elidable
 import elidable.CONFIG
-import LucreSTM.logSTM
 
 object Durable {
    private type S = Durable
@@ -509,42 +508,42 @@ object Durable {
       // this increases a durable variable, thus ensures markDirty() already
       def newIDValue()( implicit tx: S#Tx ) : Int = {
          val id = idCntVar.get + 1
-         logSTM( "new   <" + id + ">" )
+         log( "new   <" + id + ">" )
          idCntVar.set( id )
          id
       }
 
       def write( id: Long )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
-         logSTM( "writeL <" + id + ">" )
+         log( "writeL <" + id + ">" )
          store.put( _.writeLong( id ))( valueFun )
 //         tx.markDirty()
       }
 
       def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
-         logSTM( "write <" + id + ">" )
+         log( "write <" + id + ">" )
          store.put( _.writeInt( id ))( valueFun )
 //         tx.markDirty()
       }
 
       def remove( id: Long )( implicit tx: S#Tx ) {
-         logSTM( "removL <" + id + ">" )
+         log( "removL <" + id + ">" )
          store.remove( _.writeLong( id ))
 //         tx.markDirty()
       }
 
       def remove( id: Int )( implicit tx: S#Tx ) {
-         logSTM( "remov <" + id + ">" )
+         log( "remov <" + id + ">" )
          store.remove( _.writeInt( id ))
 //         tx.markDirty()
       }
 
       def tryRead[ A ]( id: Long )( valueFun: DataInput => A )( implicit tx: S#Tx ) : Option[ A ]= {
-         logSTM( "readL  <" + id + ">" )
+         log( "readL  <" + id + ">" )
          store.get( _.writeLong( id ))( valueFun )
       }
 
       def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: S#Tx ) : A = {
-         logSTM( "read  <" + id + ">" )
+         log( "read  <" + id + ">" )
          store.get( _.writeInt( id ))( valueFun ).getOrElse( sys.error( "Key not found " + id ))
       }
 

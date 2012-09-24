@@ -1,5 +1,5 @@
 /*
- *  LucreSTM.scala
+ *  package.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
@@ -25,10 +25,18 @@
 
 package de.sciss.lucre
 
-import annotation.elidable
-import elidable.CONFIG
 import java.text.SimpleDateFormat
 import java.util.{Date, Locale}
+import annotation.elidable
+import annotation.elidable.CONFIG
 
-object LucreSTM {
+package object stm {
+   private lazy val logHeader = new SimpleDateFormat( "[d MMM yyyy, HH:mm''ss.SSS] 'Lucre' - 'stm' ", Locale.US )
+   var showLog = false
+
+   @elidable(CONFIG) private[lucre] def log( what: => String ) {
+      if( showLog ) {
+         println( logHeader.format( new Date() ) + what )
+      }
+   }
 }
