@@ -36,8 +36,7 @@ object InMemory {
    sealed trait Var[ @specialized A ] extends _Var[ S#Tx, A ]
 
    sealed trait Txn extends _Txn[ S ] {
-      private[InMemory] def markDirty() : Unit
-//      def newLocal[ A ]( init: S#Tx => A ) : _Var[ S#Tx, A ]
+//      private[InMemory] def markDirty() : Unit
    }
 
 //   private sealed trait VarLike[ @specialized A, Context >: InTxn <: InTxnEnd ] {
@@ -53,19 +52,19 @@ object InMemory {
 
       def set( v: A )( implicit tx: S#Tx ) {
          peer.set( v )( tx.peer )
-         tx.markDirty()
+//         tx.markDirty()
       }
 
       def transform( f: A => A )( implicit tx: S#Tx ) {
          peer.transform( f )( tx.peer )
-         tx.markDirty()
+//         tx.markDirty()
       }
 
       def write( out: DataOutput ) {}
 
       def dispose()( implicit tx: S#Tx ) {
          peer.set( null.asInstanceOf[ A ])( tx.peer )
-         tx.markDirty()
+//         tx.markDirty()
       }
 
       def isFresh( implicit tx: S#Tx ) : Boolean = true
@@ -90,17 +89,17 @@ object InMemory {
    }
 
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
-      private var dirty = false
-
-      def isDirty = dirty
-
-      def markDirty() { dirty = true }
+//      private var dirty = false
+//
+//      def isDirty = dirty
+//
+//      def markDirty() { dirty = true }
 
       def inMemory: InMemory#Tx = this
 
       def newID() : S#ID = {
-         // since idCnt is a ScalaRef and not InMemory#Var, make sure we don't forget to mark the txn dirty!
-         dirty = true
+//         // since idCnt is a ScalaRef and not InMemory#Var, make sure we don't forget to mark the txn dirty!
+//         dirty = true
          new IDImpl( system.newIDValue( peer ))
       }
       def newPartialID(): S#ID = newID()

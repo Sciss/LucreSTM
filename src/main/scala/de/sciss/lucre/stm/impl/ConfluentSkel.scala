@@ -61,7 +61,7 @@ object ConfluentSkel {
    }
 
    sealed trait Txn extends stm.Txn[ S ] {
-      private [ConfluentSkel] def markDirty() : Unit
+//      private [ConfluentSkel] def markDirty() : Unit
    }
 
    sealed trait Var[ @specialized A ] extends stm.Var[ Txn, A ] {
@@ -257,11 +257,11 @@ object ConfluentSkel {
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
       lazy val inMemory: InMemory#Tx = system.inMem.wrap( peer )
 
-      private var dirty = false
-
-      def isDirty = dirty
-
-      def markDirty() { dirty = true }
+//      private var dirty = false
+//
+//      def isDirty = dirty
+//
+//      def markDirty() { dirty = true }
 
       def newID(): ID = system.newID()( this )
 
@@ -361,7 +361,7 @@ object ConfluentSkel {
          val bytes = out.toByteArray
          system.storage += id.id -> (system.storage.getOrElse( id.id,
             Map.empty[ Acc, Array[ Byte ]]) + (id.path -> bytes))
-         tx.markDirty()
+//         tx.markDirty()
       }
 
       final def get( implicit tx: Txn ): A = access( id.path )

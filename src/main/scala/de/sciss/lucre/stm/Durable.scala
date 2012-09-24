@@ -302,22 +302,22 @@ object Durable {
       def readCachedIntVar( in: DataInput ) : S#Var[ Int ]
       def readCachedLongVar( in: DataInput ) : S#Var[ Long ]
 
-      private[Durable] def markDirty() : Unit
+//      private[Durable] def markDirty() : Unit
    }
 
    private final class TxnImpl( val system: System, val peer: InTxn )
    extends Txn {
       //      private var id = -1L
 
-      private var dirty = false
-
       lazy val inMemory: InMemory#Tx = system.inMemory.wrap( peer )
 
-      def markDirty() {
-         dirty = true
-      }
-
-      def isDirty = dirty
+//      private var dirty = false
+//
+//      def markDirty() {
+//         dirty = true
+//      }
+//
+//      def isDirty = dirty
 
       def newID(): S#ID = new IDImpl( system.newIDValue()( this ))
       def newPartialID(): S#ID = newID()
@@ -518,25 +518,25 @@ object Durable {
       def write( id: Long )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
          logSTM( "writeL <" + id + ">" )
          store.put( _.writeLong( id ))( valueFun )
-         tx.markDirty()
+//         tx.markDirty()
       }
 
       def write( id: Int )( valueFun: DataOutput => Unit )( implicit tx: S#Tx ) {
          logSTM( "write <" + id + ">" )
          store.put( _.writeInt( id ))( valueFun )
-         tx.markDirty()
+//         tx.markDirty()
       }
 
       def remove( id: Long )( implicit tx: S#Tx ) {
          logSTM( "removL <" + id + ">" )
          store.remove( _.writeLong( id ))
-         tx.markDirty()
+//         tx.markDirty()
       }
 
       def remove( id: Int )( implicit tx: S#Tx ) {
          logSTM( "remov <" + id + ">" )
          store.remove( _.writeInt( id ))
-         tx.markDirty()
+//         tx.markDirty()
       }
 
       def tryRead[ A ]( id: Long )( valueFun: DataInput => A )( implicit tx: S#Tx ) : Option[ A ]= {

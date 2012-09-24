@@ -20,7 +20,7 @@ LucreSTM builds with sbt 0.12 against Scala 2.9.2. It depends on [Scala-STM](htt
 
 The following dependency is necessary:
 
-    "de.sciss" %% "lucrestm" % "1.0.+"
+    "de.sciss" %% "lucrestm" % "1.2.+"
 
 ## documentation
 
@@ -145,6 +145,6 @@ To develop the sources of LucreSTM, we recommend IntelliJ IDEA. If you haven't g
 
     resolvers += "sbt-idea-repo" at "http://mpeltonen.github.com/maven/"
 
-    addSbtPlugin("com.github.mpeltonen" % "sbt-idea" % "1.0.0")
+    addSbtPlugin("com.github.mpeltonen" % "sbt-idea" % "1.1.0")
 
 Then to create the IDEA project, run `sbt gen-idea`.

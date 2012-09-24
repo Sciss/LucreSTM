@@ -117,10 +117,10 @@ trait Txn[ S <: Sys[ S ]] {
     */
    def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A
 
-   /**
-    * Whether variables have been written during this transaction
-    */
-   def isDirty : Boolean
+//   /**
+//    * Whether variables have been written during this transaction
+//    */
+//   def isDirty : Boolean
 
 // MMM
 //   /**
