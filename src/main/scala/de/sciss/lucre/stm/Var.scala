@@ -38,7 +38,7 @@ object Sink {
    }
 }
 
-sealed trait Sink[ -Tx, @specialized -A ] {
+/* sealed */ trait Sink[ -Tx, @specialized -A ] {
    def set( v: A )( implicit tx: Tx ) : Unit
 }
 
