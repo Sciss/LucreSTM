@@ -4,7 +4,6 @@ package impl
 
 import collection.immutable.{IndexedSeq => IIdxSeq, IntMap}
 import util.MurmurHash
-import event.ReactionMap
 import concurrent.stm.{InTxn, TxnExecutor}
 
 /**
@@ -97,9 +96,9 @@ object ConfluentSkel {
       var storage = IntMap.empty[ M ]
       val inMem = InMemory()
 
-      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.step { implicit tx =>
-         tx.newIntVar( tx.newID(), 0 )
-      })( ctx => inMem.wrap( ctx.peer ))
+//      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.step { implicit tx =>
+//         tx.newIntVar( tx.newID(), 0 )
+//      })( ctx => inMem.wrap( ctx.peer ))
 
       //      def manifest: Manifest[ S ] = Manifest.classType( classOf[ ConfluentSkel ])
       //      def idOrdering : Ordering[ S#ID ] = IDOrdering
@@ -269,7 +268,7 @@ object ConfluentSkel {
 
       override def toString = "ConfluentSkel#Tx" // + system.path.mkString( "<", ",", ">" )
 
-      def reactionMap: ReactionMap[ S ] = system.reactionMap
+//      def reactionMap: ReactionMap[ S ] = system.reactionMap
 
       def alloc( pid: ID ): ID = new IDImpl( system.newIDCnt()( this ), pid.path )
 

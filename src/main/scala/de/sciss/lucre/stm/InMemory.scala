@@ -27,7 +27,6 @@ package de.sciss.lucre
 package stm
 
 import stm.{Var => _Var, Txn => _Txn}
-import event.ReactionMap
 import concurrent.stm.{Ref => ScalaRef, TxnExecutor, InTxn}
 
 object InMemory {
@@ -104,7 +103,7 @@ object InMemory {
       }
       def newPartialID(): S#ID = newID()
 
-      def reactionMap: ReactionMap[ S ] = system.reactionMap
+//      def reactionMap: ReactionMap[ S ] = system.reactionMap
 
       def newVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val peer = ScalaRef( init )
@@ -183,7 +182,7 @@ object InMemory {
 //      def manifest : Manifest[ S ] = Manifest.classType(classOf[ InMemory ])
 //      def idOrdering : Ordering[ S#ID ] = IDOrdering
 
-      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
+//      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
       private val idCnt = ScalaRef( 0 )
 
       private[InMemory] def newIDValue( implicit tx: InTxn ) : Int = {

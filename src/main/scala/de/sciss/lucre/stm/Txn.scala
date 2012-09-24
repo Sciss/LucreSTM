@@ -27,7 +27,6 @@ package de.sciss.lucre
 package stm
 
 import concurrent.stm.InTxn
-import event.ReactionMap
 
 trait Txn[ S <: Sys[ S ]] {
    /**
@@ -49,10 +48,10 @@ trait Txn[ S <: Sys[ S ]] {
 
    def newID() : S#ID
 
-   /**
-    * The event system hook. Eventually this should be separated into a `Txn` sub type.
-    */
-   def reactionMap : ReactionMap[ S ]
+//   /**
+//    * The event system hook. Eventually this should be separated into a `Txn` sub type.
+//    */
+//   def reactionMap : ReactionMap[ S ]
 
    def newVar[ A ]( id: S#ID, init: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
    def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]

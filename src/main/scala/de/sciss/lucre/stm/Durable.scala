@@ -30,7 +30,6 @@ import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.{TxnExecutor, InTxn, Ref => ScalaRef}
 import annotation.elidable
 import elidable.CONFIG
-import event.ReactionMap
 import LucreSTM.logSTM
 
 object Durable {
@@ -322,7 +321,7 @@ object Durable {
       def newID(): S#ID = new IDImpl( system.newIDValue()( this ))
       def newPartialID(): S#ID = newID()
 
-      def reactionMap: ReactionMap[ S ] = system.reactionMap
+//      def reactionMap: ReactionMap[ S ] = system.reactionMap
 
       override def toString = "Txn" // <" + id + ">"
 
@@ -451,7 +450,7 @@ object Durable {
           new CachedIntVar( 1, _reactCnt ))
       }
 
-      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
+//      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( reactCntVar )
 
 //      def manifest: Manifest[ S ] = Manifest.classType( classOf[ Durable ])
 //      def idOrdering : Ordering[ S#ID ] = IDOrdering

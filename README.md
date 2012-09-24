@@ -2,7 +2,7 @@
 
 ## statement
 
-LucreSTM provides a software transactional memory with persistent backend and a reactive observer system for the Scala programming language. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project. The reactive system implements event graphs which also can be persistent, along with live observers.
+LucreSTM provides a software transactional memory with persistent backend for the Scala programming language. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project.
 
 LucreSTM is (C)opyright 2011&ndash;2012 by Hanns Holger Rutz. All rights reserved. It is released under the [GNU General Public License](https://raw.github.com/Sciss/LucreSTM/master/licenses/LucreSTM-License.txt) and comes with absolutely no warranties. To contact the author, send an email to `contact at sciss.de`
 
@@ -10,7 +10,6 @@ Further reading:
 
  - Rutz, H.H., "A Reactive, Confluently Persistent Framework for the Design of Computer Music Systems," in Proceedings of the 9th Sound and Music Computing Conference (SMC), Copenhagen 2012.
  - Bronson, N.G. and Chafi, H. and Olukotun, K., "CCSTM: A library-based STM for Scala," in Proceedings of the First Scala Workshop, 2010.
- - Gasiunas, V. and Satabin, L. and Mezini, M. and Núñez, A. and Noyé, J., "EScala: Modular Event-Driven Object Interactions in Scala," in Proceedings of the tenth international conference on Aspect-oriented software development, pp. 227--240, 2011.
 
 ## requirements / installation
 
@@ -20,13 +19,11 @@ LucreSTM builds with sbt 0.12 against Scala 2.9.2. It depends on [Scala-STM](htt
 
 The following dependency is necessary:
 
-    "de.sciss" %% "lucrestm" % "1.2.+"
+    "de.sciss" %% "lucrestm" % "1.3.+"
 
 ## documentation
 
 At the moment, there are only sparse scaladocs, I'm afraid (run `sbt doc`). The basic concept:
-
-### STM
 
 An STM implementations uses the trait `Sys` which defines the actual transaction `Tx` and reference `Var` types, as well as identifiers `ID` which are used for persistence, and an access type `Acc` which is used by the confluent implementation. Actual implementations are in package `de.sciss.lucre.stm.impl`, they include a ephemeral but persisted database STM `BerkeleyDB`, an ephemeral in-memory implementation `InMemory`, and a confluent implementation `Confluent` which is not optimised or persisted to disk, but merely included as a proof of concept. (A fully fledged confluent STM is in project TemporalObjects).
 
@@ -49,7 +46,7 @@ Continuing in the life cycle, once you have create a Var, you can read and write
 
 Finally, objects must be disposed. We require explicit garbage disposal instead of superimposing something like weak reference sets. Therefore, it is necessary to call `dispose` on refs once they are not used any more. This requires some thinking about their visibility, but should improve performance compared to automatic garbage collection (also, GC would imply that the system initiates transactions itself, something considered highly problematic).
 
-#### STM Example
+### Example
 
 This is taken from the test sources. For conciseness, disposal is not demonstrated. Note how we use `Mutable` and `MutableSerializer` to minimise implementation costs. `Mutable.Impl` makes sure we have an `id` field, it also provides a `write` method which writes out that id and then calls `writeData`, similarly with `dispose` and `disposeData`. More importantly, it provides `hashCode` and `equals` based on the identifier. `MutableSerializer` has a convenient `write` method implementation, and reads the identifier, passing it into the only method left to implement, `readData`.
 
@@ -125,13 +122,6 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
 
 Now re-run the program to verify the persons have been persisted.
 
-### Events
-
-TODO!
-
- - The only knowledge that a system (`Sys`) has of the reaction framework is to keep track of 'live' objects.
- - The reaction framework is otherwise an independent part on top of the STM. It distinguishes between persisted and live references (even with a pure in-memory system), where a change in an observed object is propagated through a mechanism called 'tunnelling', pushing along stub nodes until a live node is found, which in turn evaluates the path in pull fashion.
-
 ## limitations, future ideas
 
  - This project is not yet optimized for best possible performance, but rather for simplicity!
@@ -141,7 +131,7 @@ TODO!
 
 ## creating an IntelliJ IDEA project
 
-To develop the sources of LucreSTM, we recommend IntelliJ IDEA. If you haven't globally installed the sbt-idea plugin yet, create the following contents in `~/.sbt/plugins/build.sbt`:
+To develop the sources of this library, we recommend IntelliJ IDEA. If you haven't globally installed the sbt-idea plugin yet, create the following contents in `~/.sbt/plugins/build.sbt`:
 
     resolvers += "sbt-idea-repo" at "http://mpeltonen.github.com/maven/"
 
