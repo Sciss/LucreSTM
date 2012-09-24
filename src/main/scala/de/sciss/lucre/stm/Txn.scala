@@ -41,10 +41,11 @@ trait Txn[ S <: Sys[ S ]] {
     */
    def peer: InTxn
 
-   /**
-    * Every transaction has an in-memory peer attached to it.
-    */
-   def inMemory : InMemory#Tx
+// XXX TODO - probalby S#InMemory#Tx
+//   /**
+//    * Every transaction has an in-memory peer attached to it.
+//    */
+//   def inMemory : InMemory#Tx
 
    def newID() : S#ID
 
