@@ -4,7 +4,7 @@
  *
  * - move to package de.sciss.lucre
  * - renamed from TupleInput to DataInput
- * - imports utilities from de.sciss.lucre.aux
+ * - imports utilities from de.sciss.lucre.io
  */
 
 /*-
@@ -18,9 +18,9 @@ package de.sciss.lucre;
 
 import java.math.BigInteger;
 
-import de.sciss.lucre.aux.FastInputStream;
-import de.sciss.lucre.aux.PackedInteger;
-import de.sciss.lucre.aux.UtfOps;
+import de.sciss.lucre.io.FastInputStream;
+import de.sciss.lucre.io.PackedInteger;
+import de.sciss.lucre.io.UtfOps;
 
 /**
  * An <code>InputStream</code> with <code>DataInput</code>-like methods for

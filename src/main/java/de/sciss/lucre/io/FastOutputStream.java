@@ -2,7 +2,7 @@
  * This file originally from Berkeley DB JE 4.10, licensed under BSD style license,
  * has been modified in the following way:
  *
- * - move to package de.sciss.lucre.aux
+ * - move to package de.sciss.lucre.io
  */
 
 /*-
@@ -12,7 +12,7 @@
  *
  */
 
-package de.sciss.lucre.aux;
+package de.sciss.lucre.io;
 
 import java.io.IOException;
 import java.io.OutputStream;

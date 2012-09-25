@@ -18,9 +18,9 @@ package de.sciss.lucre;
 
 import java.math.BigInteger;
 
-import de.sciss.lucre.aux.FastOutputStream;
-import de.sciss.lucre.aux.PackedInteger;
-import de.sciss.lucre.aux.UtfOps;
+import de.sciss.lucre.io.FastOutputStream;
+import de.sciss.lucre.io.PackedInteger;
+import de.sciss.lucre.io.UtfOps;
 
 /**
  * An <code>OutputStream</code> with <code>DataOutput</code>-like methods for
