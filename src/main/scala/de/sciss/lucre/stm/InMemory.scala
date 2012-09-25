@@ -65,5 +65,6 @@ trait InMemoryLike[ S <: InMemoryLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
  */
 trait InMemory extends InMemoryLike[ InMemory ] {
 //   final type ID = InMemory.ID
-   final type Tx = _Txn[ InMemory ] // InMemory.Txn
+   final type Tx  = _Txn[ InMemory ] // InMemory.Txn
+   final type IM  = InMemory
 }

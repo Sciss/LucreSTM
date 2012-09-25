@@ -90,7 +90,9 @@ object InMemoryImpl {
    }
 
    private final class TxnImpl( val system: InMemory, val peer: InTxn )
-   extends TxnMixin[ InMemory ] // with InMemory.Txn
+   extends TxnMixin[ InMemory ] {
+      def inMemory: InMemory#Tx = this
+   }
 
    trait TxnMixin[ S <: InMemoryLike[ S ]] extends _Txn[ S ] {
 //      this: S#Tx =>

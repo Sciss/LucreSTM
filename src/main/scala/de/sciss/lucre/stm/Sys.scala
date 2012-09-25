@@ -100,6 +100,18 @@ trait Sys[ S <: Sys[ S ]] {
 //   def idOrdering: Ordering[ S#ID ]
 
    /**
+    * The type of in-memory like peer structure for this
+    * (possibly durable) system.
+    */
+   type IM <: InMemoryLike[ IM ]
+
+//   /**
+//    * A peer structure required to be maintained by each system,
+//    * offering in-memory semantics.
+//    */
+//   def inMemory : IM
+
+   /**
     * Reads the root object representing the stored data structure,
     * or provides a newly initialized one via the `init` argument,
     * if no root has been stored yet.

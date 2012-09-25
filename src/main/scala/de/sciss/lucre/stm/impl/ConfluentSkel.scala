@@ -22,6 +22,8 @@ sealed trait ConfluentSkel extends Sys[ ConfluentSkel ] with Cursor[ ConfluentSk
    final type Acc                   = IIdxSeq[ Int ]
    final type Entry[ A ]            = ConfluentSkel.Var[ A ]
 
+   final type IM                    = InMemory
+
    def inPath[ A ]( _path: Acc )( fun: Tx => A ) : A
    def fromPath[ A ]( _path: Acc )( fun: Tx => A ) : A
 //   def path( implicit tx: Tx ) : Acc

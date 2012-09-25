@@ -560,6 +560,8 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
    final type Acc                   = Unit
    final type Entry[ A ]            = Durable.Var[ A ]
 
+   final type IM                    = InMemory
+
    /**
     * Reports the current number of records stored in the database.
     */
