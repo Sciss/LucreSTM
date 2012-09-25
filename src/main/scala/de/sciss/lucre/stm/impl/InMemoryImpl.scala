@@ -74,7 +74,7 @@ object InMemoryImpl {
 //         tx.markDirty()
       }
 
-      def isFresh( implicit tx: S#Tx ) : Boolean = true
+//      def isFresh( implicit tx: S#Tx ) : Boolean = true
    }
 
    private final class IDImpl[ S <: InMemoryLike[ S ]]( val id: Int ) extends InMemoryLike.ID[ S ] {

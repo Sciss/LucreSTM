@@ -391,10 +391,10 @@ object ConfluentSkel {
          ser.read( in, postfix )
       }
 
-      def isFresh( implicit tx: S#Tx ): Boolean = {
-         sys.error( "TODO" )
-         //         val (_, acc) = system.access( id.id, id.path )
-         //         acc.last == id.path.last   // XXX overly pessimistic, but we haven't implemented meld or tree levels here, anyway
-      }
+//      def isFresh( implicit tx: S#Tx ): Boolean = {
+//         sys.error( "TODO" )
+//         //         val (_, acc) = system.access( id.id, id.path )
+//         //         acc.last == id.path.last   // XXX overly pessimistic, but we haven't implemented meld or tree levels here, anyway
+//      }
    }
 }

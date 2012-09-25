@@ -118,7 +118,7 @@ object Durable {
          require( tx.system.exists( id ), "trying to write disposed ref " + id )
       }
 
-      final def isFresh( implicit tx: S#Tx ) : Boolean = true
+//      final def isFresh( implicit tx: S#Tx ) : Boolean = true
    }
 
    private sealed trait BasicVar[ A ] extends Var[ A ] with BasicSource {

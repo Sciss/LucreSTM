@@ -71,6 +71,6 @@ trait LocalVar[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ]
 
 trait Var[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] with Writable with Disposable[ Tx ] {
    def transform( f: A => A )( implicit tx: Tx ) : Unit
-   def isFresh( implicit tx: Tx ) : Boolean
+//   def isFresh( implicit tx: Tx ) : Boolean
 //   def getFresh( implicit tx: Tx ) : A
 }
