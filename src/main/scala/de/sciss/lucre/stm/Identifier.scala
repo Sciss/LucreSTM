@@ -26,4 +26,4 @@
 package de.sciss.lucre
 package stm
 
-trait Identifier[ Tx ] extends Disposable[ Tx ] with Writable
+trait Identifier[ -Tx ] extends Disposable[ Tx ] with Writable
