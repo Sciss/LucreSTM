@@ -57,7 +57,7 @@ trait InMemoryLike[ S <: InMemoryLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
    final type Entry[ A ]            = _Var[ S#Tx, A ] // InMemory.Var[ A ]
 
    private[stm] def newID( peer: InTxn ) : S#ID
-   private[stm] def wrap( peer: InTxn ) : S#Tx
+   private[lucre] def wrap( peer: InTxn ) : S#Tx
 }
 
 /**
