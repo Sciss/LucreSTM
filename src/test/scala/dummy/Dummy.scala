@@ -11,12 +11,17 @@ package dummy
        // 'pop' the representation type ?!
        def fix[ A ]( v: S#Peer#Var[ A ]) : Peer#Var[ A ]
        def peer( tx: S#Tx ) : Peer#Tx
+
+       def use[ A, B ]( v: S#Peer#Var[ A ])( fun: Peer#Tx => Peer#Var[ A ] => B )( implicit tx: S#Tx ) : B =
+         fun( peer( tx ))( fix( v ))
     }
 
     trait Txn[ S <: Sys[ S ]] {
        def newID() : S#ID
        def newVar[ A ]( id: S#ID, init: A ) : S#Var[ A ]
        def system: S
+
+//       def use[ A, B ]( v: S#Peer#Var[ A ])( fun: S#Peer#Tx => S#Peer#Var[ A ] => B ) : B
     }
 
     // let's make sure we can implement actual systems
@@ -26,6 +31,8 @@ package dummy
           new VarLike[ InMemTx, A ] {
              def update( v: A )( implicit tx: InMemTx ) {}
           }
+//       def use[ A, B ]( v: InMem#Var[ A ])( fun: InMem#Tx => InMem#Var[ A ] => B ) : B =
+//         fun( this )( v )
     }
     class InMem extends Sys[ InMem ] {
        type Tx       = InMemTx
@@ -43,6 +50,8 @@ package dummy
           new VarLike[ DurableTx, A ] {
             def update( v: A )( implicit tx: DurableTx ) {}
           }
+//       def use[ A, B ]( v: InMem#Var[ A ])( fun: InMem#Tx => InMem#Var[ A ] => B ) : B =
+//         fun( peer )( v )
     }
     class Durable extends Sys[ Durable ] {
        type Tx       = DurableTx
@@ -63,6 +72,10 @@ package dummy
           implicit val p = s.peer( tx )
           val vf         = s.fix( v ) // not cool...
           vf()           = 1
+
+          tx.system.use( v ) { implicit tx => _.update( 2 )}
+
+//          tx.use( v ) { implicit tx => _.update( 3 )}
        }
     }
 

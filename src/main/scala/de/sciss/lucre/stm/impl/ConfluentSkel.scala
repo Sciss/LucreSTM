@@ -96,7 +96,9 @@ object ConfluentSkel {
       private var pathVar = IIdxSeq.empty[ Int ]
 
       var storage = IntMap.empty[ M ]
-      val inMem = InMemory()
+      val inMemory = InMemory()
+
+
 
 //      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, InMemory ]( inMem.step { implicit tx =>
 //         tx.newIntVar( tx.newID(), 0 )
@@ -106,6 +108,10 @@ object ConfluentSkel {
       //      def idOrdering : Ordering[ S#ID ] = IDOrdering
 
       //      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
+
+      //   def peer( tx: S#Tx ) : IM#Tx
+
+      def inMemory[ A ]( fun: System#IM#Tx => A )( implicit tx: ConfluentSkel#Tx ) : A = fun( tx.inMemory )
 
       def root[ A ]( init: S#Tx => A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]): S#Entry[ A ] = {
          step {implicit tx =>
@@ -256,7 +262,7 @@ object ConfluentSkel {
    }
 
    private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
-      lazy val inMemory: InMemory#Tx = system.inMem.wrap( peer )
+      lazy val inMemory: InMemory#Tx = system.inMemory.wrap( peer )
 
 //      private var dirty = false
 //

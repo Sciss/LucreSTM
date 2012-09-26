@@ -181,5 +181,12 @@ object InMemoryImpl {
       override def toString = "InMemory@" + hashCode.toHexString
 
       def wrap( itx: InTxn ) : S#Tx = new TxnImpl( this, itx )
+
+
+//      final def inMemory[ A ]( fun: IM#Tx => A )( implicit tx: Tx ) : A = fun( tx )
+//      final protected def fix[ A ]( v: IM#Var[ A ]) : IM#Var[ A ] = v
+      // 'pop' the representation type ?!
+
+//      protected def fix[ A ](v: InMemory#Var[ A ]) : InMemory#Var[ A ] = v
    }
 }

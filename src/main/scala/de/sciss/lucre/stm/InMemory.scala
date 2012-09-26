@@ -48,16 +48,19 @@ object InMemoryLike {
    trait ID[ S <: InMemoryLike[ S ]] extends Identifier[ S#Tx ] {
       private[stm] def id: Int
    }
+
+//   trait Var[ S <: InMemoryLike[ S ], Tx <: Txn[ S ], A ] extends _Var[ Tx, A ]
 }
 trait InMemoryLike[ S <: InMemoryLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
 //   final type Var[ @specialized A ] = InMemory.Var[ A ]
-   final type Var[ @specialized A ] = _Var[ S#Tx, A ]
-   final type ID                    = InMemoryLike.ID[ S ]
-   final type Acc                   = Unit
-   final type Entry[ A ]            = _Var[ S#Tx, A ] // InMemory.Var[ A ]
 
-   private[stm] def newID( peer: InTxn ) : S#ID
-   private[lucre] def wrap( peer: InTxn ) : S#Tx
+   type Var[ @specialized A ] = _Var[ S#Tx, A ]
+   type Entry[ A ]            = _Var[ S#Tx, A ] // InMemory.Var[ A ]
+   final type ID              = InMemoryLike.ID[ S ]
+   final type Acc             = Unit
+
+   private[stm]   def newID( peer: InTxn ) : S#ID
+   private[lucre] def wrap(  peer: InTxn ) : S#Tx
 }
 
 /**
@@ -67,4 +70,12 @@ trait InMemory extends InMemoryLike[ InMemory ] {
 //   final type ID = InMemory.ID
    final type Tx  = _Txn[ InMemory ] // InMemory.Txn
    final type IM  = InMemory
+
+//   override final type Var[ @specialized A ] = _Var[ /* S#*/ Tx, A ]
+//   override final type Entry[ A ]            = _Var[ /* S# */ Tx, A ] // InMemory.Var[ A ]
+
+//   // 'pop' the representation type ?!
+//   protected def fix[ A ](v: _Var[ InMemory#IM#Tx, A ]) : _Var[ IM#Tx, A ] = v
+   //   def peer( tx: S#Tx ) : IM#Tx
+   def inMemory[ A ]( fun: InMemory#IM#Tx => A )( implicit tx: InMemory#Tx ) : A = fun( tx )
 }

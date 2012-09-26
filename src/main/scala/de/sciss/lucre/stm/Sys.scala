@@ -123,4 +123,15 @@ trait Sys[ S <: Sys[ S ]] {
     * An in-memory system should have a no-op implementation.
     */
    def close() : Unit
+
+//   def peer( tx: S#Tx ) : IM#Tx
+   def inMemory[ A ]( fun: IM#Tx => A )( implicit tx: S#Tx ) : A
+
+//   // 'pop' the representation type ?!
+//   protected def fix[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ]
+
+//   final def inMemory[ A, B ]( v: S#IM#Var[ A ])( fun: IM#Tx => IM#Var[ A ] => B )( implicit tx: S#Tx ) : B = {
+////      fun( peer( tx ))( fix( v ))
+//      inMemory { itx => fun( itx )( fix( v ))}
+//   }
 }
