@@ -2,6 +2,18 @@ package dummy
 
     trait VarLike[ -Tx, A ] { def update( value: A )( implicit tx: Tx ) : Unit }
 
+//    trait Test[ S <: Sys2[ S ]] {
+//       def make[ T <: Sys2[ T ]]() : Unit
+//
+//       make[ S#Peer ]()
+//    }
+//
+//    trait Sys2[ S <: Sys2[ S ]] {
+//       type Peer <: Sys2[ Peer ]
+//    }
+
+//    trait ExtendedSys[ S <: ExtendedSys[ S ]] extends Sys[ S ]
+
     trait Sys[ S <: Sys[ S ]] {
        type Tx       <: Txn[ S ]
        type Var[ A ] <: VarLike[ S#Tx, A ]
