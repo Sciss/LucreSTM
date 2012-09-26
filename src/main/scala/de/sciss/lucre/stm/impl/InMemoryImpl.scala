@@ -1,3 +1,28 @@
+/*
+ *  InMemoryImpl.scala
+ *  (LucreSTM)
+ *
+ *  Copyright (c) 2011-2012 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License
+ *  as published by the Free Software Foundation; either
+ *  version 2, june 1991 of the License, or (at your option) any later version.
+ *
+ *  This software is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *  General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public
+ *  License (gpl.txt) along with this software; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.lucre
 package stm
 package impl
@@ -15,7 +40,8 @@ object InMemoryImpl {
 //   def ??? : Nothing = sys.error( "TODO" )
 
    trait Mixin[ S <: InMemoryLike[ S ]] extends InMemoryLike[ S ] {
-      _:S =>
+//      _:S =>
+
 //      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
       private val idCnt = ScalaRef( 0 )
 
@@ -92,7 +118,8 @@ object InMemoryImpl {
 
    private final class TxnImpl( val system: InMemory, val peer: InTxn )
    extends TxnMixin[ InMemory ] {
-      def inMemory: InMemory#Tx = this
+//      def inMemory: InMemory#Tx = this
+      override def toString = "InMemory.Txn@" + hashCode.toHexString
    }
 
    trait TxnMixin[ S <: InMemoryLike[ S ]] extends _Txn[ S ] {
@@ -106,42 +133,42 @@ object InMemoryImpl {
 
 //      def inMemory: InMemory#Tx = this
 
-      def newID() : S#ID = system.newID( peer )
-      def newPartialID(): S#ID = newID()
+      final def newID() : S#ID = system.newID( peer )
+      final def newPartialID(): S#ID = newID()
 
 //      def reactionMap: ReactionMap[ S ] = system.reactionMap
 
-      def newVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
+      final def newVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
       }
 
-      def newLocalVar[ A ]( init: S#Tx => A ) : LocalVar[ S#Tx, A ] = new impl.LocalVarImpl[ S, A ]( init )
+      final def newLocalVar[ A ]( init: S#Tx => A ) : LocalVar[ S#Tx, A ] = new impl.LocalVarImpl[ S, A ]( init )
 
-      def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
+      final def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
          newVar( id, init )
 
-      def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ] = {
+      final def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
       }
 
-      def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ] = {
+      final def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
       }
 
-      def newLongVar( id: S#ID, init: Long ) : S#Var[ Long ] = {
+      final def newLongVar( id: S#ID, init: Long ) : S#Var[ Long ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
       }
 
-      def newVarArray[ A ]( size: Int ) = new Array[ S#Var[ A ] ]( size )
+      final def newVarArray[ A ]( size: Int ) = new Array[ S#Var[ A ] ]( size )
 
-      def newInMemoryIDMap[ A ] : IdentifierMap[ S#ID, S#Tx, A ] =
+      final def newInMemoryIDMap[ A ] : IdentifierMap[ S#ID, S#Tx, A ] =
          IdentifierMap.newInMemoryIntMap[ S#ID, S#Tx, A ]( new IDImpl( 0 ))( _.id )
 
-      def newDurableIDMap[ A ]( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
+      final def newDurableIDMap[ A ]( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
          IdentifierMap.newInMemoryIntMap[ S#ID, S#Tx, A ]( new IDImpl( 0 ))( _.id )
 
 //      def readVal[ A ]( id: S#ID )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = opNotSupported( "readVal" )
@@ -173,7 +200,7 @@ object InMemoryImpl {
       def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
          opNotSupported( "readDurableIDMap" )
 
-      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = value
+      final def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = value
    }
 
    private final class System extends Mixin[ InMemory ] with InMemory {

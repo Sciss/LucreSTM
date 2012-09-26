@@ -32,7 +32,7 @@ trait Txn[ S <: Sys[ S ]] {
    /**
     * Back link to the underlying system
     */
-   val /* def */ system: S
+   def system: S
 
    /**
     * Every transaction has a plain Scala-STM transaction as a peer. This comes handy for
