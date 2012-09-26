@@ -111,7 +111,14 @@ object ConfluentSkel {
 
       //   def peer( tx: S#Tx ) : IM#Tx
 
-      def inMemory[ A ]( fun: System#IM#Tx => A )( implicit tx: ConfluentSkel#Tx ) : A = fun( tx.inMemory )
+//      def inMemory[ A ]( fun: System#IM#Tx => A )( implicit tx: ConfluentSkel#Tx ) : A = fun( tx.inMemory )
+
+      def im( tx: S#Tx ) : IM#Tx = tx.inMemory
+      def imVar[ A ]( v: InMemory#Var[ A ]) : InMemory#Var[ A ] = v
+//      def fixIM( id: IM#ID ) : IM#ID = id
+//      def fixIM[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ] = v
+
+//      def fixIM[ A[ _ <: S#IM ]]( a: A[ S#IM ]) : A[ IM ] = a
 
       def root[ A ]( init: S#Tx => A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]): S#Entry[ A ] = {
          step {implicit tx =>

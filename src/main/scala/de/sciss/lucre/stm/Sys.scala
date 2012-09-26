@@ -42,6 +42,8 @@ import stm.{Var => _Var}
  * @tparam S   the representation type of the system
  */
 trait Sys[ S <: Sys[ S ]] {
+   _: S =>
+
    /**
     * The variable type of the system. Variables allow transactional storage and
     * retrieval both of immutable and mutable values. Specific systems may extend
@@ -103,7 +105,7 @@ trait Sys[ S <: Sys[ S ]] {
     * The type of in-memory like peer structure for this
     * (possibly durable) system.
     */
-   type IM <: InMemoryLike[ IM ]
+   type IM <: Sys[ IM ] // InMemoryLike[ IM ] -- makes Scala puke
 
 //   /**
 //    * A peer structure required to be maintained by each system,
@@ -125,10 +127,18 @@ trait Sys[ S <: Sys[ S ]] {
    def close() : Unit
 
 //   def peer( tx: S#Tx ) : IM#Tx
-   def inMemory[ A ]( fun: IM#Tx => A )( implicit tx: S#Tx ) : A
+//   def inMemory[ A ]( fun: IM#Tx => A )( implicit tx: S#Tx ) : A
 
-//   // 'pop' the representation type ?!
-//   protected def fix[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ]
+   // 'pop' the representation type ?!
+//   def fixIM[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ]
+   def im( tx: S#Tx ) : IM#Tx
+//   def fixIM( id: IM#ID ) : IM#ID
+
+   def imVar[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ] // = sys.error( "TODO" )
+
+//   def fixVar[ A ]( v: S#Var[ A ]) : Var[ A ] = sys.error( "TODO" )
+
+//   def fixIM[ A[ _ <: S#IM ]]( a: A[ S#IM ]) : A[ IM ]
 
 //   final def inMemory[ A, B ]( v: S#IM#Var[ A ])( fun: IM#Tx => IM#Var[ A ] => B )( implicit tx: S#Tx ) : B = {
 ////      fun( peer( tx ))( fix( v ))

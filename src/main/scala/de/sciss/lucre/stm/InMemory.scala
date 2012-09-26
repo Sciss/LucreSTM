@@ -52,6 +52,7 @@ object InMemoryLike {
 //   trait Var[ S <: InMemoryLike[ S ], Tx <: Txn[ S ], A ] extends _Var[ Tx, A ]
 }
 trait InMemoryLike[ S <: InMemoryLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
+   _:S =>
 //   final type Var[ @specialized A ] = InMemory.Var[ A ]
 
    type Var[ @specialized A ] = _Var[ S#Tx, A ]
@@ -77,5 +78,16 @@ trait InMemory extends InMemoryLike[ InMemory ] {
 //   // 'pop' the representation type ?!
 //   protected def fix[ A ](v: _Var[ InMemory#IM#Tx, A ]) : _Var[ IM#Tx, A ] = v
    //   def peer( tx: S#Tx ) : IM#Tx
-   def inMemory[ A ]( fun: InMemory#IM#Tx => A )( implicit tx: InMemory#Tx ) : A = fun( tx )
+//   final def inMemory[ A ]( fun: InMemory#IM#Tx => A )( implicit tx: InMemory#Tx ) : A = fun( tx )
+
+   private type S = InMemory
+
+//   final def fixIM[ A ]( v: InMemory#IM#Var[ A ]) : IM#Var[ A ] = v
+//   final def fixIM( id: InMemory#IM#ID ) : IM#ID = id
+
+   final def im( tx: S#Tx ) : IM#Tx = tx.inMemory
+//   final def fixIM( id: IM#ID ) : IM#ID = id
+   final def imVar[ A ]( v: Var[ A ]) : Var[ A ] = v
+//
+//   final def fixIM[ A[ _ <: S#IM ]]( a: A[ S#IM ]) : A[ IM ] = a
 }

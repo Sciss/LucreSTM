@@ -598,8 +598,17 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
 
    def wrap( peer: InTxn ) : Tx  // XXX TODO this might go in Cursor?
 
-   def inMemory : InMemory
+//   def inMemory : InMemory
 
-   final def inMemory[ A ]( fun: IM#Tx => A )( implicit tx: Tx ) : A = fun( tx.inMemory )
-   final protected def fix[ A ]( v: Durable#IM#Var[ A ]) : IM#Var[ A ] = v
+//   final def inMemory[ A ]( fun: IM#Tx => A )( implicit tx: Tx ) : A = fun( tx.inMemory )
+//   // final protected def fix[ A ]( v: Durable#IM#Var[ A ]) : IM#Var[ A ] = v
+
+   private type S = Durable
+
+   final def im( tx: S#Tx ) : IM#Tx = tx.inMemory
+   final def imVar[ A ]( v: InMemory#Var[ A ]) : InMemory#Var[ A ] = v
+//   final def fixIM( id: S#IM#ID ) : IM#ID = id
+//   final def fixIM[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ] = v
+
+//   final def fixIM[ A[ _ <: S#IM ]]( a: A[ S#IM ]) : A[ IM ] = a
 }

@@ -15,6 +15,7 @@ object InMemoryImpl {
 //   def ??? : Nothing = sys.error( "TODO" )
 
    trait Mixin[ S <: InMemoryLike[ S ]] extends InMemoryLike[ S ] {
+      _:S =>
 //      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
       private val idCnt = ScalaRef( 0 )
 
