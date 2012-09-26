@@ -41,6 +41,10 @@ object Durable {
 
    // a rare moment of love for Scala today ... this view is automatically found. at least something...
    implicit def inMemory( tx: Durable#Tx ) : InMemory#Tx = tx.inMemory
+
+   trait Txn extends DurableLike.Txn[ Durable ] {
+      private[Durable] def inMemory : InMemory#Tx
+   }
 }
 
 object DurableLike {
@@ -58,7 +62,7 @@ object DurableLike {
 
 //      private[Durable] def markDirty() : Unit
 
-      private[stm] def inMemory : InMemory#Tx
+//      private[stm] def inMemory : InMemory#Tx
    }
 }
 trait DurableLike[ S <: DurableLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
@@ -101,12 +105,10 @@ trait DurableLike[ S <: DurableLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
    private[stm] def newIDValue()( implicit tx: S#Tx ) : Int
 
    private[lucre] def wrap( peer: InTxn ) : S#Tx  // XXX TODO this might go in Cursor?
-
-   def inMemory : InMemory
 }
 
 trait Durable extends DurableLike[ Durable ] {
-   final type Tx                    = DurableLike.Txn[ Durable ] // Txn[ Durable ]
+   final type Tx                    = Durable.Txn // Txn[ Durable ]
 
 //   final type IM                    = InMemory
 

@@ -38,12 +38,13 @@ object DurableImpl {
    def apply( factory: DataStoreFactory[ DataStore ], name: String = "data" ) : Durable =
       apply( factory.open( name ))
 
-   trait Mixin[ S <: D[ S ]] extends DurableLike[ S ] {
+   trait Mixin[ S <: D[ S ], I <: Sys[ I ]] extends DurableLike[ S ] {
       system =>
 
       protected def store: DataStore
 
-      val inMemory: InMemory = InMemory()
+//      val inMemory: InMemory = InMemory()
+      def inMemory: I
 
       private val idCntVar = step { implicit tx =>
          val _id        = store.get( _.writeInt( 0 ))( _.readInt() ).getOrElse( 1 )
@@ -519,14 +520,16 @@ object DurableImpl {
    }
 
    private final class TxnImpl( val system: System, val peer: InTxn )
-   extends TxnMixin[ Durable ] {
+   extends TxnMixin[ Durable ] with Durable.Txn {
       lazy val inMemory: InMemory#Tx = system.inMemory.wrap( peer )
       override def toString = "Durable.Txn@" + hashCode.toHexString
    }
 
    private final class System( protected val store: DataStore ) // , idCnt0: Int, reactCnt0: Int
-   extends Mixin[ Durable ] with Durable {
+   extends Mixin[ Durable, InMemory ] with Durable {
       private type S = Durable
+
+      val inMemory: InMemory = InMemory()
 
       override def toString = "Durable@" + hashCode.toHexString
 
