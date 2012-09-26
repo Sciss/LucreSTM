@@ -101,11 +101,11 @@ trait Sys[ S <: Sys[ S ]] {
 //    */
 //   def idOrdering: Ordering[ S#ID ]
 
-   /**
-    * The type of in-memory like peer structure for this
-    * (possibly durable) system.
-    */
-   type IM <: Sys[ IM ] // InMemoryLike[ IM ] -- makes Scala puke
+//   /**
+//    * The type of in-memory like peer structure for this
+//    * (possibly durable) system.
+//    */
+//   type IM <: Sys[ IM ] // InMemoryLike[ IM ] -- makes Scala puke
 
 //   /**
 //    * A peer structure required to be maintained by each system,
@@ -131,10 +131,10 @@ trait Sys[ S <: Sys[ S ]] {
 
    // 'pop' the representation type ?!
 //   def fixIM[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ]
-   def im( tx: S#Tx ) : IM#Tx
+//   def im( tx: S#Tx ) : IM#Tx
 //   def fixIM( id: IM#ID ) : IM#ID
 
-   def imVar[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ] // = sys.error( "TODO" )
+//   def imVar[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ] // = sys.error( "TODO" )
 
 //   def fixVar[ A ]( v: S#Var[ A ]) : Var[ A ] = sys.error( "TODO" )
 

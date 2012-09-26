@@ -22,7 +22,7 @@ sealed trait ConfluentSkel extends Sys[ ConfluentSkel ] with Cursor[ ConfluentSk
    final type Acc                   = IIdxSeq[ Int ]
    final type Entry[ A ]            = ConfluentSkel.Var[ A ]
 
-   final type IM                    = InMemory
+//   final type IM                    = InMemory
 
    def inPath[ A ]( _path: Acc )( fun: Tx => A ) : A
    def fromPath[ A ]( _path: Acc )( fun: Tx => A ) : A
@@ -36,6 +36,8 @@ object ConfluentSkel {
    private type S = ConfluentSkel
 
    private type M = Map[ Acc, Array[ Byte ] ]
+
+   implicit def inMemory( tx: ConfluentSkel#Tx ) : InMemory#Tx = tx.inMemory
 
    sealed trait ID extends Identifier[ Txn ] {
       private[ ConfluentSkel ] def id: Int
@@ -63,7 +65,7 @@ object ConfluentSkel {
 
    sealed trait Txn extends stm.Txn[ S ] {
 //      private [ConfluentSkel] def markDirty() : Unit
-//      private[stm] def inMemory: InMemory#Tx
+      private[stm] def inMemory: InMemory#Tx
    }
 
    sealed trait Var[ @specialized A ] extends stm.Var[ Txn, A ] {
@@ -114,8 +116,8 @@ object ConfluentSkel {
 
 //      def inMemory[ A ]( fun: System#IM#Tx => A )( implicit tx: ConfluentSkel#Tx ) : A = fun( tx.inMemory )
 
-      def im( tx: S#Tx ) : IM#Tx = tx.inMemory
-      def imVar[ A ]( v: InMemory#Var[ A ]) : InMemory#Var[ A ] = v
+//      def im( tx: S#Tx ) : IM#Tx = tx.inMemory
+//      def imVar[ A ]( v: InMemory#Var[ A ]) : InMemory#Var[ A ] = v
 //      def fixIM( id: IM#ID ) : IM#ID = id
 //      def fixIM[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ] = v
 

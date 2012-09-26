@@ -302,7 +302,7 @@ object Durable {
 
 //      private[Durable] def markDirty() : Unit
 
-//      private[stm] def inMemory : InMemory#Tx
+      private[stm] def inMemory : InMemory#Tx
    }
 
    private final class TxnImpl( val system: System, val peer: InTxn )
@@ -553,6 +553,9 @@ object Durable {
 
       def exists( id: Long )( implicit tx: S#Tx ) : Boolean = store.contains( _.writeLong( id ))
    }
+
+   // a rare moment of love for Scala today ... this view is automatically found. at least something...
+   implicit def inMemory( tx: Durable#Tx ) : InMemory#Tx = tx.inMemory
 }
 
 sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
@@ -562,7 +565,7 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
    final type Acc                   = Unit
    final type Entry[ A ]            = Durable.Var[ A ]
 
-   final type IM                    = InMemory
+//   final type IM                    = InMemory
 
    /**
     * Reports the current number of records stored in the database.
@@ -607,8 +610,8 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
 
    private type S = Durable
 
-   final def im( tx: S#Tx ) : IM#Tx = tx.inMemory
-   final def imVar[ A ]( v: InMemory#Var[ A ]) : InMemory#Var[ A ] = v
+//   final def im( tx: S#Tx ) : IM#Tx = tx.inMemory
+//   final def imVar[ A ]( v: InMemory#Var[ A ]) : InMemory#Var[ A ] = v
 //   final def fixIM( id: S#IM#ID ) : IM#ID = id
 //   final def fixIM[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ] = v
 

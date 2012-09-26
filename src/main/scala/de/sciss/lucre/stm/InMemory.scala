@@ -30,20 +30,6 @@ import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.InTxn
 import impl.{InMemoryImpl => Impl}
 
-object InMemory {
-   private type S = InMemory
-
-//   trait Txn extends _Txn[ S ]
-//   trait Var[ @specialized A ] extends _Var[ S#Tx, A ]
-//   trait ID extends Identifier[ S#Tx ] {
-//      private[stm] def id: Int
-//   }
-
-//   type ID = InMemoryLike.ID[ InMemory ]
-
-   def apply() : S = Impl()
-}
-
 object InMemoryLike {
    trait ID[ S <: InMemoryLike[ S ]] extends Identifier[ S#Tx ] {
       private[stm] def id: Int
@@ -64,13 +50,28 @@ trait InMemoryLike[ S <: InMemoryLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
    private[lucre] def wrap(  peer: InTxn ) : S#Tx
 }
 
+object InMemory {
+   private type S = InMemory
+
+//   trait Txn extends _Txn[ S ]
+//   trait Var[ @specialized A ] extends _Var[ S#Tx, A ]
+//   trait ID extends Identifier[ S#Tx ] {
+//      private[stm] def id: Int
+//   }
+
+//   type ID = InMemoryLike.ID[ InMemory ]
+
+   def apply() : S = Impl()
+
+//   implicit def
+}
 /**
  * A thin in-memory (non-durable) wrapper around Scala-STM.
  */
 trait InMemory extends InMemoryLike[ InMemory ] {
 //   final type ID = InMemory.ID
    final type Tx  = _Txn[ InMemory ] // InMemory.Txn
-   final type IM  = InMemory
+//   final type IM  = InMemory
 
 //   override final type Var[ @specialized A ] = _Var[ /* S#*/ Tx, A ]
 //   override final type Entry[ A ]            = _Var[ /* S# */ Tx, A ] // InMemory.Var[ A ]
@@ -85,9 +86,9 @@ trait InMemory extends InMemoryLike[ InMemory ] {
 //   final def fixIM[ A ]( v: InMemory#IM#Var[ A ]) : IM#Var[ A ] = v
 //   final def fixIM( id: InMemory#IM#ID ) : IM#ID = id
 
-   final def im( tx: S#Tx ) : IM#Tx = tx // .inMemory
-//   final def fixIM( id: IM#ID ) : IM#ID = id
-   final def imVar[ A ]( v: Var[ A ]) : Var[ A ] = v
+//   final def im( tx: S#Tx ) : IM#Tx = tx // .inMemory
+////   final def fixIM( id: IM#ID ) : IM#ID = id
+//   final def imVar[ A ]( v: Var[ A ]) : Var[ A ] = v
 //
 //   final def fixIM[ A[ _ <: S#IM ]]( a: A[ S#IM ]) : A[ IM ] = a
 }
