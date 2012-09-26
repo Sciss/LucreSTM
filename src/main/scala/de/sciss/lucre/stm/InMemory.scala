@@ -52,7 +52,7 @@ object InMemoryLike {
 //   trait Var[ S <: InMemoryLike[ S ], Tx <: Txn[ S ], A ] extends _Var[ Tx, A ]
 }
 trait InMemoryLike[ S <: InMemoryLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
-   _:S =>
+//   _:S =>
 //   final type Var[ @specialized A ] = InMemory.Var[ A ]
 
    type Var[ @specialized A ] = _Var[ S#Tx, A ]
@@ -85,7 +85,7 @@ trait InMemory extends InMemoryLike[ InMemory ] {
 //   final def fixIM[ A ]( v: InMemory#IM#Var[ A ]) : IM#Var[ A ] = v
 //   final def fixIM( id: InMemory#IM#ID ) : IM#ID = id
 
-   final def im( tx: S#Tx ) : IM#Tx = tx.inMemory
+   final def im( tx: S#Tx ) : IM#Tx = tx // .inMemory
 //   final def fixIM( id: IM#ID ) : IM#ID = id
    final def imVar[ A ]( v: Var[ A ]) : Var[ A ] = v
 //

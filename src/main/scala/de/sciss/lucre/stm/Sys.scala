@@ -42,7 +42,7 @@ import stm.{Var => _Var}
  * @tparam S   the representation type of the system
  */
 trait Sys[ S <: Sys[ S ]] {
-   _: S =>
+//   _: S =>
 
    /**
     * The variable type of the system. Variables allow transactional storage and

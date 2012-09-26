@@ -301,6 +301,8 @@ object Durable {
       def readCachedLongVar( in: DataInput ) : S#Var[ Long ]
 
 //      private[Durable] def markDirty() : Unit
+
+//      private[stm] def inMemory : InMemory#Tx
    }
 
    private final class TxnImpl( val system: System, val peer: InTxn )
@@ -438,7 +440,7 @@ object Durable {
    extends Durable {
       system =>
 
-      val inMemory : InMemory = InMemory()
+      val inMemory: InMemory = InMemory()
 
       private val (idCntVar, reactCntVar) = step { implicit tx =>
          val _id        = store.get( _.writeInt( 0 ))( _.readInt() ).getOrElse( 1 )
@@ -598,7 +600,7 @@ sealed trait Durable extends Sys[ Durable ] with Cursor[ Durable ] {
 
    def wrap( peer: InTxn ) : Tx  // XXX TODO this might go in Cursor?
 
-//   def inMemory : InMemory
+   def inMemory : InMemory
 
 //   final def inMemory[ A ]( fun: IM#Tx => A )( implicit tx: Tx ) : A = fun( tx.inMemory )
 //   // final protected def fix[ A ]( v: Durable#IM#Var[ A ]) : IM#Var[ A ] = v

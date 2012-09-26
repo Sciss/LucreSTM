@@ -63,6 +63,7 @@ object ConfluentSkel {
 
    sealed trait Txn extends stm.Txn[ S ] {
 //      private [ConfluentSkel] def markDirty() : Unit
+//      private[stm] def inMemory: InMemory#Tx
    }
 
    sealed trait Var[ @specialized A ] extends stm.Var[ Txn, A ] {
