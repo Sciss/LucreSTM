@@ -44,7 +44,7 @@ object DurableImpl {
       protected def store: DataStore
 
 //      val inMemory: InMemory = InMemory()
-      def inMemory: I
+//      def inMemory: I
 
       private val idCntVar = step { implicit tx =>
          val _id        = store.get( _.writeInt( 0 ))( _.readInt() ).getOrElse( 1 )

@@ -71,6 +71,7 @@ trait DurableLike[ S <: DurableLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
    final type Acc                   = Unit
    final type Entry[ A ]            = _Var[ S#Tx, A ] // Durable.Var[ A ]
    type Tx                         <: DurableLike.Txn[ S ]
+   type I                          <: InMemoryLike[ I ]
 
    /**
     * Reports the current number of records stored in the database.
@@ -105,24 +106,11 @@ trait DurableLike[ S <: DurableLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
    private[stm] def newIDValue()( implicit tx: S#Tx ) : Int
 
    private[lucre] def wrap( peer: InTxn ) : S#Tx  // XXX TODO this might go in Cursor?
+
+   private[lucre] def inMemory: I
 }
 
 trait Durable extends DurableLike[ Durable ] {
-   final type Tx                    = Durable.Txn // Txn[ Durable ]
-
-//   final type IM                    = InMemory
-
-//   private[stm] def store : DataStore
-
-//   final def inMemory[ A ]( fun: IM#Tx => A )( implicit tx: Tx ) : A = fun( tx.inMemory )
-//   // final protected def fix[ A ]( v: Durable#IM#Var[ A ]) : IM#Var[ A ] = v
-
-//   private type S = Durable
-//
-//   final def im( tx: S#Tx ) : IM#Tx = tx.inMemory
-//   final def imVar[ A ]( v: InMemory#Var[ A ]) : InMemory#Var[ A ] = v
-//   final def fixIM( id: S#IM#ID ) : IM#ID = id
-//   final def fixIM[ A ]( v: S#IM#Var[ A ]) : IM#Var[ A ] = v
-
-//   final def fixIM[ A[ _ <: S#IM ]]( a: A[ S#IM ]) : A[ IM ] = a
+   final type Tx = Durable.Txn
+   final type I  = InMemory
 }
