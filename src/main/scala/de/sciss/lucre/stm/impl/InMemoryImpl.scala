@@ -138,6 +138,9 @@ object InMemoryImpl {
 
 //      def reactionMap: ReactionMap[ S ] = system.reactionMap
 
+      final def newHandle[ A ]( value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : Source[ S#Tx, A ] =
+         new EphemeralHandle( value )
+
       final def newVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
          val peer = ScalaRef( init )
          new VarImpl( peer )
@@ -200,7 +203,7 @@ object InMemoryImpl {
       def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
          opNotSupported( "readDurableIDMap" )
 
-      final def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = value
+//      final def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = value
    }
 
    private final class System extends Mixin[ InMemory ] with InMemory {

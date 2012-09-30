@@ -277,7 +277,10 @@ object DurableImpl {
          new IDMapImpl[ S, A ]( mapID )
       }
 
-      final def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = value
+      final def newHandle[ A ]( value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : Source[ S#Tx, A ] =
+         new EphemeralHandle( value )
+
+//      final def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = value
    }
 
    private final class IDImpl[ S <: D[ S ]]( val id: Int ) extends DurableLike.ID[ S ] {

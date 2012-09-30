@@ -341,15 +341,18 @@ object ConfluentSkel {
       def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
          sys.error( "TODO" )
 
-      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]): A = {
-         val out = new DataOutput()
-         serializer.write( value, out )
-         val newAcc = system.position( this )
-         val len = access.zip( newAcc ).segmentLength({ case (a, b) => a == b }, 0 )
-         val in = new DataInput( out )
-         val postfix = newAcc.drop( len )
-         serializer.read( in, postfix )( this )
-      }
+      def newHandle[ A ]( value: A )( implicit serializer: Serializer[ ConfluentSkel.S#Tx, ConfluentSkel.S#Acc, A ]) : Source[ S#Tx, A ] =
+         sys.error( "TODO" )
+
+//      def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]): A = {
+//         val out = new DataOutput()
+//         serializer.write( value, out )
+//         val newAcc = system.position( this )
+//         val len = access.zip( newAcc ).segmentLength({ case (a, b) => a == b }, 0 )
+//         val in = new DataInput( out )
+//         val postfix = newAcc.drop( len )
+//         serializer.read( in, postfix )( this )
+//      }
    }
 
    private sealed trait SourceImpl[ @specialized A ] {

@@ -104,17 +104,16 @@ trait Txn[ S <: Sys[ S ]] {
    def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]
 
    /**
-    * Refreshes a stale version of an object, assuming that the current transaction is issued
-    * from the same cursor that was used to access the stale version, except for potentially having advanced.
+    * Creates a handle (in-memory) to refresh a stale version of an object, assuming that the future transaction is issued
+    * from the same cursor that is used to create the handle, except for potentially having advanced.
     * This is a mechanism that can be used in live views to gain valid access to a referenced object
     * (e.g. self access).
     *
-    * @param access        the ancestral position within the current transaction's access path (e.g. taken from cursor.position)
-    * @param value         the object at an ancestral position within the current transaction's access path
+    * @param value         the object which will be refreshed when calling `get` on the returned handle
     * @param serializer    used to write and freshly read the object
-    * @return              the refreshed object (as if accessed from within the current transaction)
+    * @return              the handle
     */
-   def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A
+   def newHandle[ A ]( value: A )( implicit serializer: stm.Serializer[ S#Tx, S#Acc, A ]) : Source[ S#Tx, A ]
 
 //   /**
 //    * Whether variables have been written during this transaction
