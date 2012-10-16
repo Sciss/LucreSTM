@@ -128,10 +128,16 @@ object BerkeleyDB {
          val res  = env.beginTransaction( null, txnCfg )
          val id   = res.getId
          log( "txn begin  <" + id + ">" )
-         ScalaTxn.afterRollback({ status =>
-            log( "txn rollback <" + id + ">" )
-            res.abort()
-         })
+         ScalaTxn.afterRollback {
+            case ScalaTxn.RolledBack( cause ) =>
+               log( "txn rollback <" + id + ">" )
+               cause match {
+                  case ScalaTxn.UncaughtExceptionCause( e ) => e.printStackTrace()
+                  case _ =>
+               }
+               res.abort()
+            case _ =>   // shouldn't happen since this is afterRollback?
+         }
          res
       })
 
