@@ -131,6 +131,9 @@ object BerkeleyDB {
          ScalaTxn.afterRollback {
             case ScalaTxn.RolledBack( cause ) =>
                log( "txn rollback <" + id + ">" )
+               // currently, it seems Scala-STM swallows the uncaught exception as soon
+               // as we have registered this afterRollback handler. As a remedy, we'll
+               // explicitly print that exception trace.
                cause match {
                   case ScalaTxn.UncaughtExceptionCause( e ) => e.printStackTrace()
                   case _ =>
