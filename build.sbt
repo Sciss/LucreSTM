@@ -1,10 +1,10 @@
 name := "LucreSTM"
 
-version := "1.3.0-SNAPSHOT"
+version := "1.3.0"
 
 organization := "de.sciss"
 
-description := "Combination of Scala-STM, a persistent key-value store, and observer-pattern based reactors"
+description := "Extension of Scala-STM, adding optional durability layer, and providing API for confluent and reactive event layers"
 
 homepage := Some( url( "https://github.com/Sciss/LucreSTM" ))
 
@@ -80,7 +80,7 @@ pomExtra :=
 
 seq( lsSettings :_* )
 
-(LsKeys.tags in LsKeys.lsync) := Seq( "stm", "software-transactional-memory", "reactive", "event", "persistent" )
+(LsKeys.tags in LsKeys.lsync) := Seq( "stm", "software-transactional-memory", "persistent" )
 
 (LsKeys.ghUser in LsKeys.lsync) := Some( "Sciss" )
 
