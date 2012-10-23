@@ -120,6 +120,8 @@ trait Txn[ S <: Sys[ S ]] {
 //    */
 //   def isDirty : Boolean
 
+   def beforeCommit( fun: S#Tx => Unit ) : Unit
+
 // MMM
 //   /**
 //    * XXX TODO: this is called from Targets.readAndExpand

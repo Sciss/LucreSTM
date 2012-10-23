@@ -27,7 +27,7 @@ package de.sciss.lucre
 package stm
 package impl
 
-import concurrent.stm.{Ref, InTxn, TxnExecutor}
+import concurrent.stm.{Txn => ScalaTxn, Ref, InTxn, TxnExecutor}
 import annotation.elidable
 
 object DurableImpl {
@@ -162,6 +162,10 @@ object DurableImpl {
 //      }
 //
 //      def isDirty = dirty
+
+      def beforeCommit( fun: S#Tx => Unit ) {
+         ScalaTxn.beforeCommit( _ => fun( this ))( peer )
+      }
 
       final def newID(): S#ID = new IDImpl[ S ]( system.newIDValue()( this ))
       final def newPartialID(): S#ID = newID()

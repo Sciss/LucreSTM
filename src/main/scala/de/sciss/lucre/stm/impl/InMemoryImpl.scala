@@ -27,7 +27,7 @@ package de.sciss.lucre
 package stm
 package impl
 
-import concurrent.stm.{Ref => ScalaRef, TxnExecutor, InTxn}
+import concurrent.stm.{Ref => ScalaRef, Txn => ScalaTxn, TxnExecutor, InTxn}
 import stm.{Txn => _Txn, Var => _Var}
 
 object InMemoryImpl {
@@ -123,7 +123,7 @@ object InMemoryImpl {
    }
 
    trait TxnMixin[ S <: InMemoryLike[ S ]] extends _Txn[ S ] {
-//      this: S#Tx =>
+      this: S#Tx =>
 
 //      private var dirty = false
 //
@@ -132,6 +132,10 @@ object InMemoryImpl {
 //      def markDirty() { dirty = true }
 
 //      def inMemory: InMemory#Tx = this
+
+      def beforeCommit( fun: S#Tx => Unit ) {
+         ScalaTxn.beforeCommit( _ => fun( this ))( peer )
+      }
 
       final def newID() : S#ID = system.newID( peer )
       final def newPartialID(): S#ID = newID()

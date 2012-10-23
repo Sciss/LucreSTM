@@ -4,7 +4,7 @@ package impl
 
 import collection.immutable.{IndexedSeq => IIdxSeq, IntMap}
 import util.MurmurHash
-import concurrent.stm.{InTxn, TxnExecutor}
+import concurrent.stm.{Txn => ScalaTxn, InTxn, TxnExecutor}
 
 /**
  * A simple confluent system implementation for testing purposes only. It is not really
@@ -279,6 +279,11 @@ object ConfluentSkel {
 //      def isDirty = dirty
 //
 //      def markDirty() { dirty = true }
+
+
+      def beforeCommit( fun: S#Tx => Unit ) {
+         ScalaTxn.beforeCommit( _ => fun( this ))( peer )
+      }
 
       def newID(): ID = system.newID()( this )
 
