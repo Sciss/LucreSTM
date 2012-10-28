@@ -58,7 +58,7 @@ object BerkeleyDB {
          new Env( env, txnCfg )
       }
 
-      def open( name: String ) : BerkeleyDB = {
+      def open( name: String, overwrite: Boolean ) : BerkeleyDB = {
          val exists = dir.isDirectory
          if( !exists && !createIfNecessary ) throw new FileNotFoundException( dir.toString )
          if( !exists ) dir.mkdirs()
@@ -67,28 +67,20 @@ object BerkeleyDB {
          dbCfg.setTransactional( true )
          dbCfg.setAllowCreate( createIfNecessary )
 
-         val txn = env.env.beginTransaction( null, env.txnCfg )
+         val e    = env.env
+         val txn  = e.beginTransaction( null, env.txnCfg )
          try {
             txn.setName( "Open '" + name + "'" )
-            val db      = env.env.openDatabase( txn, name, dbCfg )
-   //         val kea     = Array[ Byte ]( 0, 0, 0, 0 )
-   //         val ke      = new DatabaseEntry( kea )  // slot for last-slot
-   //         val ve      = new DatabaseEntry()
-   //         val idCnt   = if( db.get( txn, ke, ve, null ) == SUCCESS ) {
-   //            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
-   //            in.readInt()
-   //         } else 1
-   //         kea( 3 )    = 1.toByte   // slot for react-last-slot
-   //         val reactCnt = if( db.get( txn, ke, ve, null ) == SUCCESS ) {
-   //            val in   = new DataInput( ve.getData, ve.getOffset, ve.getSize )
-   //            in.readInt()
-   //         } else 0
+            if( overwrite && e.getDatabaseNames.contains( name )) {
+              e.truncateDatabase( txn, name, false )
+            }
+            val db = e.openDatabase( txn, name, dbCfg )
             txn.commit()
             new Impl( env, db )
          } catch {
-            case e: Throwable =>
+            case err: Throwable =>
                txn.abort()
-               throw e
+               throw err
          }
       }
    }
