@@ -1,6 +1,6 @@
 name := "LucreSTM"
 
-version := "1.4.0-SNAPSHOT"
+version := "1.4.0"
 
 organization := "de.sciss"
 
@@ -12,16 +12,11 @@ licenses := Seq( "GPL v2+" -> url( "http://www.gnu.org/licenses/gpl-2.0.txt" ))
 
 scalaVersion := "2.9.2"
 
-// crossScalaVersions := Seq( "2.10.0-M6", "2.9.2" )
-
-resolvers ++= Seq(
-   "Oracle Repository" at "http://download.oracle.com/maven",
-   "Sonatype OSS Releases" at "https://oss.sonatype.org/content/groups/public"
-)
+resolvers += "Oracle Repository" at "http://download.oracle.com/maven"  // required for sleepycat
 
 libraryDependencies ++= Seq(
-   "org.scala-tools" %% "scala-stm" % "0.6",
-   "com.sleepycat" % "je" % "5.0.58"
+   "org.scala-stm" %% "scala-stm" % "0.6",
+   "com.sleepycat" % "je" % "5.0.58" // = Berkeley DB Java Edition
 )
 
 retrieveManaged := true
