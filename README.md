@@ -13,15 +13,25 @@ Further reading:
 
 ## requirements / installation
 
-LucreSTM builds with sbt 0.12 against Scala 2.9.2. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.6 and currently includes a Berkeley DB JE 5 based database backend.
+LucreSTM builds with sbt 0.12 against Scala 2.10 (default) and 2.9.2. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.7.
 
 ## linking to LucreSTM
 
+LucreSTM comes with two modules, `core` and `bdb`, where the latter depends on the former. The `bdb` module adds a durable store implementation based on Oracle BerkeleyDB Java Edition 5.
+
 The following dependency is necessary:
+
+    "de.sciss" %% "lucrestm" % "1.5.+"
+
+Or just for the core module:
+
+    "de.sciss" %% "lucrestm-core" % "1.5.+"
+
+And for the database backend:
 
     resolvers += "Oracle Repository" at "http://download.oracle.com/maven"
     
-    "de.sciss" %% "lucrestm" % "1.4.+"
+    "de.sciss" %% "lucrestm-bdb" % "1.5.+"
 
 ## documentation
 
@@ -88,7 +98,7 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
 
     val dir  = new java.io.File( sys.props( "user.home" ), "person_db" )
     dir.mkdirs()
-    val s    = S( impl.BerkeleyDB.open( dir ))
+    val s    = S( store.BerkeleyDB.open( dir ))
     // read the root data set, or create a new one if the database does not exist
     val root = s.root { implicit tx => newPerson() }
 
@@ -134,8 +144,6 @@ Now re-run the program to verify the persons have been persisted.
 ## creating an IntelliJ IDEA project
 
 To develop the sources of this library, we recommend IntelliJ IDEA. If you haven't globally installed the sbt-idea plugin yet, create the following contents in `~/.sbt/plugins/build.sbt`:
-
-    resolvers += "sbt-idea-repo" at "http://mpeltonen.github.com/maven/"
 
     addSbtPlugin("com.github.mpeltonen" % "sbt-idea" % "1.1.0")
 

@@ -1,4 +1,5 @@
 package de.sciss.lucre.stm
+package store
 
 object Example extends App {
    import de.sciss.lucre._
@@ -36,7 +37,7 @@ object Example extends App {
 
    val dir  = new java.io.File( sys.props( "user.home" ), "person_db" )
    dir.mkdirs()
-   val s    = S( impl.BerkeleyDB.open( dir ))
+   val s    = S( BerkeleyDB.open( dir ))
    // read the root data set, or create a new one if the database does not exist
    val root = s.root { implicit tx => newPerson() }
 

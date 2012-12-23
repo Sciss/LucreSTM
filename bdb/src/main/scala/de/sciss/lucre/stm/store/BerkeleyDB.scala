@@ -25,7 +25,7 @@
 
 package de.sciss.lucre
 package stm
-package impl
+package store
 
 import de.sciss.lucre.stm.DataStore
 import java.util.concurrent.ConcurrentLinkedQueue
