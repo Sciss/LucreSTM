@@ -30,7 +30,7 @@ package store
 import de.sciss.lucre.stm.DataStore
 import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
-import com.sleepycat.je.{OperationStatus, LockMode, DatabaseEntry, Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
+import com.sleepycat.je.{Transaction, OperationStatus, LockMode, DatabaseEntry, Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
 import java.io.{File, FileNotFoundException}
 import OperationStatus.SUCCESS
 
@@ -92,31 +92,106 @@ object BerkeleyDB {
    private final class Impl( env: Env, db: Database )
    extends BerkeleyDB {
       def put( keyFun: DataOutput => Unit )( valueFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) {
-         env.put( keyFun, valueFun, db )
+         env.withIO { (io, dbTxn) =>
+            val out        = io.out
+            val keyE       = io.keyE
+            val valueE     = io.valueE
+
+            out.reset()
+            keyFun( out )
+            val keySize    = out.getBufferLength
+            valueFun( out )
+            val valueSize  = out.getBufferLength - keySize
+            val data       = out.getBufferBytes
+            keyE.setData(   data, 0,       keySize   )
+            valueE.setData( data, keySize, valueSize )
+            db.put( dbTxn, keyE, valueE )
+         }
       }
 
-      def get[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => A )( implicit tx: Txn[ _ ]) : Option[ A ] =
-         env.get[ A ]( keyFun, valueFun, db )
+      def get[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => A )( implicit tx: Txn[ _ ]) : Option[ A ] = {
+         env.withIO { (io, dbTxn) =>
+            val out        = io.out
+            val keyE       = io.keyE
+            val valueE     = io.valueE
 
-      def flatGet[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => Option[ A ])( implicit tx: Txn[ _ ]) : Option[ A ] =
-         env.flatGet[ A ]( keyFun, valueFun, db )
+            out.reset()
+            keyFun( out )
+            val keySize    = out.getBufferLength
+            val data       = out.getBufferBytes
+            keyE.setData( data, 0, keySize )
+            if( db.get( dbTxn, keyE, valueE, LockMode.DEFAULT ) == SUCCESS ) {
+               val in = new DataInput( valueE.getData, valueE.getOffset, valueE.getSize )
+               Some( valueFun( in ))
+            } else {
+               None
+            }
+         }
+      }
 
-      def contains( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean =
-         env.contains( keyFun, db )
+      def flatGet[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => Option[ A ])( implicit tx: Txn[ _ ]) : Option[ A ] = {
+         env.withIO { (io, dbTxn) =>
+            val out        = io.out
+            val keyE       = io.keyE
+            val valueE     = io.valueE
 
-      def remove( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean =
-         env.remove( keyFun, db )
+            out.reset()
+            keyFun( out )
+            val keySize    = out.getBufferLength
+            val data       = out.getBufferBytes
+            keyE.setData( data, 0, keySize )
+            if( db.get( dbTxn, keyE, valueE, LockMode.DEFAULT ) == SUCCESS ) {
+               val in = new DataInput( valueE.getData, valueE.getOffset, valueE.getSize )
+               valueFun( in )
+            } else {
+               None
+            }
+         }
+      }
+
+      def contains( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean = {
+         env.withIO { (io, dbTxn) =>
+            val out        = io.out
+            val keyE       = io.keyE
+            val partialE   = io.partialE
+
+            out.reset()
+            keyFun( out )
+            val keySize    = out.getBufferLength
+            val data       = out.getBufferBytes
+            keyE.setData( data, 0, keySize )
+            db.get( dbTxn, keyE, partialE, LockMode.READ_UNCOMMITTED ) == SUCCESS
+         }
+      }
+
+      def remove( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean = {
+         env.withIO { (io, dbTxn) =>
+            val out        = io.out
+            val keyE       = io.keyE
+
+            out.reset()
+            keyFun( out )
+            val keySize    = out.getBufferLength
+            val data       = out.getBufferBytes
+            keyE.setData( data, 0, keySize )
+            db.delete( dbTxn, keyE ) == SUCCESS
+         }
+      }
 
       def close() { db.close() }
 
       def numEntries( implicit tx: Txn[ _ ]) : Int = db.count().toInt
+
+      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
+         env.flush()
+      }
    }
 
-   private final class Env( val env: Environment, val txnCfg: TransactionConfig )
-   extends ScalaTxn.ExternalDecider {
+   private final class Env( val env: Environment, val txnCfg: TransactionConfig ) {
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
+      private val dbTxnInit   = TxnLocal( false )
       private val dbTxnRef    = TxnLocal( initialValue = { implicit tx =>
-         ScalaTxn.setExternalDecider( this )
+//         ScalaTxn.setExternalDecider( this )
          val res  = env.beginTransaction( null, txnCfg )
          val id   = res.getId
          log( "txn begin  <" + id + ">" )
@@ -133,11 +208,16 @@ object BerkeleyDB {
                res.abort()
             case _ =>   // shouldn't happen since this is afterRollback?
          }
+         dbTxnInit.set( true )
          res
       })
 
-      // ---- ExternalDecider ----
-      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
+      def flush()( implicit txn: InTxnEnd ) : Boolean = {
+//         if( !dbTxnRef.isInitialized ) return true // wasn't touched
+         if( !dbTxnInit.get ) {
+            return true
+         }  // wasn't touched
+
          val dbTxn = dbTxnRef()
          try {
             log( "txn commit <" + dbTxn.getId + ">" )
@@ -156,100 +236,14 @@ object BerkeleyDB {
          }
       }
 
-      private def withIO[ A ]( fun: IO => A ) : A = {
+      def withIO[ A ]( fun: (IO, Transaction) => A )( implicit tx: Txn[ _ ]) : A = {
          val ioOld   = ioQueue.poll()
          val io      = if( ioOld != null ) ioOld else new IO
+         val dbTxn   = dbTxnRef()( tx.peer )
          try {
-            fun( io )
+            fun( io, dbTxn )
          } finally {
             ioQueue.offer( io )
-         }
-      }
-
-      def put( keyFun: DataOutput => Unit, valueFun: DataOutput => Unit, db: Database )( implicit tx: Txn[ _ ]) {
-         withIO { io =>
-            val out        = io.out
-            val keyE       = io.keyE
-            val valueE     = io.valueE
-
-            out.reset()
-            keyFun( out )
-            val keySize    = out.getBufferLength
-            valueFun( out )
-            val valueSize  = out.getBufferLength - keySize
-            val data       = out.getBufferBytes
-            keyE.setData(   data, 0,       keySize   )
-            valueE.setData( data, keySize, valueSize )
-            db.put( dbTxnRef()( tx.peer ), keyE, valueE )
-         }
-      }
-
-      def get[ A ]( keyFun: DataOutput => Unit, valueFun: DataInput => A, db: Database )( implicit tx: Txn[ _ ]) : Option[ A ] = {
-         withIO { io =>
-            val out        = io.out
-            val keyE       = io.keyE
-            val valueE     = io.valueE
-
-            out.reset()
-            keyFun( out )
-            val keySize    = out.getBufferLength
-            val data       = out.getBufferBytes
-            keyE.setData( data, 0, keySize )
-            if( db.get( dbTxnRef()( tx.peer ), keyE, valueE, LockMode.DEFAULT ) == SUCCESS ) {
-               val in = new DataInput( valueE.getData, valueE.getOffset, valueE.getSize )
-               Some( valueFun( in ))
-            } else {
-               None
-            }
-         }
-      }
-
-      def flatGet[ A ]( keyFun: DataOutput => Unit, valueFun: DataInput => Option[ A ], db: Database )( implicit tx: Txn[ _ ]) : Option[ A ] = {
-         withIO { io =>
-            val out        = io.out
-            val keyE       = io.keyE
-            val valueE     = io.valueE
-
-            out.reset()
-            keyFun( out )
-            val keySize    = out.getBufferLength
-            val data       = out.getBufferBytes
-            keyE.setData( data, 0, keySize )
-            if( db.get( dbTxnRef()( tx.peer ), keyE, valueE, LockMode.DEFAULT ) == SUCCESS ) {
-               val in = new DataInput( valueE.getData, valueE.getOffset, valueE.getSize )
-               valueFun( in )
-            } else {
-               None
-            }
-         }
-      }
-
-      def contains( keyFun: DataOutput => Unit, db: Database )( implicit tx: Txn[ _ ]) : Boolean = {
-         withIO { io =>
-            val out        = io.out
-            val keyE       = io.keyE
-            val partialE   = io.partialE
-
-            out.reset()
-            keyFun( out )
-            val keySize    = out.getBufferLength
-            val data       = out.getBufferBytes
-            keyE.setData( data, 0, keySize )
-            db.get( dbTxnRef()( tx.peer ), keyE, partialE, LockMode.READ_UNCOMMITTED ) == SUCCESS
-         }
-      }
-
-      def remove( keyFun: DataOutput => Unit, db: Database )( implicit tx: Txn[ _ ]) : Boolean = {
-         withIO { io =>
-            val out        = io.out
-            val keyE       = io.keyE
-
-            out.reset()
-            keyFun( out )
-            val keySize    = out.getBufferLength
-            val data       = out.getBufferBytes
-            keyE.setData( data, 0, keySize )
-            db.delete( dbTxnRef()( tx.peer ), keyE ) == SUCCESS
          }
       }
    }

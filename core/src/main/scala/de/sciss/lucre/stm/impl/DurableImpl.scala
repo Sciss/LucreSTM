@@ -27,8 +27,9 @@ package de.sciss.lucre
 package stm
 package impl
 
-import concurrent.stm.{Txn => ScalaTxn, Ref, InTxn, TxnExecutor}
+import concurrent.stm.{Txn => ScalaTxn, InTxnEnd, Ref, InTxn, TxnExecutor}
 import annotation.elidable
+import concurrent.stm.Txn.ExternalDecider
 
 object DurableImpl {
    private type D[ S <: DurableLike[ S ]] = DurableLike[ S ]
@@ -53,6 +54,10 @@ object DurableImpl {
 //         val _reactCnt  = ScalaRef( _react )
          new CachedIntVar[ S ]( 0, _idCnt )
           // new CachedIntVar( 1, _reactCnt )
+      }
+
+      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
+         store.shouldCommit
       }
 
       def root[ A ]( init: S#Tx => A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
@@ -151,8 +156,10 @@ object DurableImpl {
       def exists( id: Long )( implicit tx: S#Tx ) : Boolean = store.contains( _.writeLong( id ))
    }
 
-   trait TxnMixin[ S <: D[ S ]] extends DurableLike.Txn[ S ] {
+   trait TxnMixin[ S <: D[ S ]] extends DurableLike.Txn[ S ] with ExternalDecider {
       _: S#Tx =>
+
+      ScalaTxn.setExternalDecider( this )( peer )
 //      lazy val inMemory: InMemory#Tx = system.inMemory.wrap( peer )
 
 //      private var dirty = false
@@ -162,6 +169,14 @@ object DurableImpl {
 //      }
 //
 //      def isDirty = dirty
+
+      /**
+       * Subclasses may wish to override this by performing their own external decision making first,
+       * but must make sure to call into `super.shouldCommit` is their own decider yields `true`.
+       */
+      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
+         system.shouldCommit
+      }
 
       def beforeCommit( fun: S#Tx => Unit ) {
          ScalaTxn.beforeCommit( _ => fun( this ))( peer )
