@@ -39,6 +39,12 @@ object BerkeleyDB {
    case object LogOff extends LogLevel { override def toString = "OFF" }
    case object LogAll extends LogLevel { override def toString = "ALL" }
 
+   def tmp( logLevel: LogLevel = LogOff ) : DataStoreFactory[ BerkeleyDB ] = {
+      val dir = File.createTempFile( "sleepycat_", "db" )
+      dir.delete()
+      BerkeleyDB.factory( dir, logLevel = logLevel )
+   }
+
    def factory( dir: File, createIfNecessary: Boolean = true,
                 logLevel: LogLevel = LogOff ) : DataStoreFactory[ BerkeleyDB ] =
       new Factory( dir, createIfNecessary, logLevel )

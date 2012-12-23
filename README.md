@@ -21,17 +21,17 @@ LucreSTM comes with two modules, `core` and `bdb`, where the latter depends on t
 
 The following dependency is necessary:
 
-    "de.sciss" %% "lucrestm" % "1.5.+"
+    "de.sciss" %% "lucrestm" % "1.6.+"
 
 Or just for the core module:
 
-    "de.sciss" %% "lucrestm-core" % "1.5.+"
+    "de.sciss" %% "lucrestm-core" % "1.6.+"
 
 And for the database backend:
 
     resolvers += "Oracle Repository" at "http://download.oracle.com/maven"
     
-    "de.sciss" %% "lucrestm-bdb" % "1.5.+"
+    "de.sciss" %% "lucrestm-bdb" % "1.6.+"
 
 ## documentation
 
