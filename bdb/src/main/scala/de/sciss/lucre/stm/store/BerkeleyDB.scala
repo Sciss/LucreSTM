@@ -33,6 +33,7 @@ import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
 import com.sleepycat.je.{Transaction, OperationStatus, LockMode, DatabaseEntry, Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
 import java.io.{File, FileNotFoundException}
 import OperationStatus.SUCCESS
+import concurrent.stm.Txn.ExternalDecider
 
 object BerkeleyDB {
    sealed trait LogLevel
@@ -188,16 +189,16 @@ object BerkeleyDB {
 
       def numEntries( implicit tx: Txn[ _ ]) : Int = db.count().toInt
 
-      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
-         env.flush()
-      }
+//      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
+//         env.flush()
+//      }
    }
 
-   private final class Env( val env: Environment, val txnCfg: TransactionConfig ) {
+   private final class Env( val env: Environment, val txnCfg: TransactionConfig ) extends ExternalDecider {
       private val ioQueue     = new ConcurrentLinkedQueue[ IO ]
-      private val dbTxnInit   = TxnLocal( false )
+//      private val dbTxnInit   = TxnLocal( false )
       private val dbTxnRef    = TxnLocal( initialValue = { implicit tx =>
-//         ScalaTxn.setExternalDecider( this )
+         ScalaTxn.setExternalDecider( this )
          val res  = env.beginTransaction( null, txnCfg )
          val id   = res.getId
          log( "txn begin  <" + id + ">" )
@@ -214,15 +215,16 @@ object BerkeleyDB {
                res.abort()
             case _ =>   // shouldn't happen since this is afterRollback?
          }
-         dbTxnInit.set( true )
+//         dbTxnInit.set( true )
          res
       })
 
-      def flush()( implicit txn: InTxnEnd ) : Boolean = {
-//         if( !dbTxnRef.isInitialized ) return true // wasn't touched
-         if( !dbTxnInit.get ) {
-            return true
-         }  // wasn't touched
+
+      def shouldCommit( implicit txn: InTxnEnd ) : Boolean = {
+////         if( !dbTxnRef.isInitialized ) return true // wasn't touched
+//         if( !dbTxnInit.get ) {
+//            return true
+//         }  // wasn't touched
 
          val dbTxn = dbTxnRef()
          try {

@@ -27,7 +27,7 @@ package de.sciss.lucre
 package stm
 
 import stm.{Var => _Var, Txn => _Txn}
-import concurrent.stm.{InTxnEnd, InTxn}
+import concurrent.stm.InTxn
 import impl.{DurableImpl => Impl}
 
 object Durable {
@@ -87,7 +87,7 @@ trait DurableLike[ S <: DurableLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
 
    def debugListUserRecords()( implicit tx: S#Tx ) : Seq[ ID ]
 
-   private[stm] def shouldCommit( implicit txn: InTxnEnd ) : Boolean
+//   private[stm] def shouldCommit( implicit txn: InTxnEnd ) : Boolean
 
    private[stm] def read[ @specialized A ]( id: Int )( valueFun: DataInput => A )( implicit tx: S#Tx ): A
 
