@@ -46,8 +46,8 @@ trait InMemoryLike[ S <: InMemoryLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
    final type ID                    = InMemoryLike.ID[ S ]
    final type Acc                   = Unit
 
-   private[stm]   def newID( peer: InTxn ) : S#ID
-   private[lucre] def wrap(  peer: InTxn ) : S#Tx
+   private[stm] def newID( peer: InTxn ) : S#ID
+   /* private[lucre] */ def wrap( peer: InTxn ) : S#Tx
 }
 
 object InMemory {

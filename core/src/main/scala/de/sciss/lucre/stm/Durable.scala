@@ -107,9 +107,9 @@ trait DurableLike[ S <: DurableLike[ S ]] extends Sys[ S ] with Cursor[ S ] {
 
    private[stm] def newIDValue()( implicit tx: S#Tx ) : Int
 
-   private[lucre] def wrap( peer: InTxn ) : S#Tx  // XXX TODO this might go in Cursor?
+   /* private[lucre] */ def wrap( peer: InTxn ) : S#Tx  // XXX TODO this might go in Cursor?
 
-   private[lucre] def inMemory: I
+   /* private[lucre] */ def inMemory: I
 }
 
 trait Durable extends DurableLike[ Durable ] {
