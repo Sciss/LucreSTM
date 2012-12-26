@@ -4,7 +4,7 @@ package impl
 
 import collection.immutable.{IndexedSeq => IIdxSeq, IntMap}
 import util.MurmurHash
-import concurrent.stm.{Txn => ScalaTxn, InTxn, TxnExecutor}
+import concurrent.stm.{InTxn, TxnExecutor}
 
 /**
  * A simple confluent system implementation for testing purposes only. It is not really
@@ -14,8 +14,6 @@ import concurrent.stm.{Txn => ScalaTxn, InTxn, TxnExecutor}
  * TemporalObjects project instead.
  */
 sealed trait ConfluentSkel extends Sys[ ConfluentSkel ] with Cursor[ ConfluentSkel ] {
-   import ConfluentSkel._
-
    final type Var[ @specialized A ] = ConfluentSkel.Var[ A ]
    final type ID                    = ConfluentSkel.ID
    final type Tx                    = ConfluentSkel.Txn
@@ -271,7 +269,7 @@ object ConfluentSkel {
       override def toString = "IdentifierMap" + id // <" + id + ">"
    }
 
-   private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn {
+   private final class TxnImpl( val system: System, val peer: InTxn ) extends Txn with BasicTxnImpl[ S ] {
       lazy val inMemory: InMemory#Tx = system.inMemory.wrap( peer )
 
 //      private var dirty = false
@@ -280,10 +278,6 @@ object ConfluentSkel {
 //
 //      def markDirty() { dirty = true }
 
-
-      def beforeCommit( fun: S#Tx => Unit ) {
-         ScalaTxn.beforeCommit( _ => fun( this ))( peer )
-      }
 
       def newID(): ID = system.newID()( this )
 

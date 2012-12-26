@@ -27,7 +27,7 @@ package de.sciss.lucre
 package stm
 package impl
 
-import concurrent.stm.{Txn => ScalaTxn, Ref, InTxn, TxnExecutor}
+import concurrent.stm.{Ref, InTxn, TxnExecutor}
 import annotation.elidable
 
 object DurableImpl {
@@ -159,7 +159,7 @@ object DurableImpl {
 //      setExternalDecider
 //   })
 
-   trait TxnMixin[ S <: D[ S ]] extends DurableLike.Txn[ S ] /* with ExternalDecider */ {
+   trait TxnMixin[ S <: D[ S ]] extends DurableLike.Txn[ S ] with BasicTxnImpl[ S ] {
       _: S#Tx =>
 
 //      ScalaTxn.setExternalDecider( this )( peer )
@@ -181,9 +181,9 @@ object DurableImpl {
 //         system.shouldCommit
 //      }
 
-      def beforeCommit( fun: S#Tx => Unit ) {
-         ScalaTxn.beforeCommit( _ => fun( this ))( peer )
-      }
+//      def beforeCommit( fun: S#Tx => Unit ) {
+//         ScalaTxn.beforeCommit( _ => fun( this ))( peer )
+//      }
 
       final def newID(): S#ID = new IDImpl[ S ]( system.newIDValue()( this ))
       final def newPartialID(): S#ID = newID()

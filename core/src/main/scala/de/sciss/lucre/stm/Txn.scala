@@ -122,6 +122,8 @@ trait Txn[ S <: Sys[ S ]] {
 
    def beforeCommit( fun: S#Tx => Unit ) : Unit
 
+   def afterCommit( code: => Unit ) : Unit
+
 // MMM
 //   /**
 //    * XXX TODO: this is called from Targets.readAndExpand
