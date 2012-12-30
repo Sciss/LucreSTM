@@ -1,6 +1,6 @@
 name := "LucreSTM"
 
-version in ThisBuild := "1.6.0-SNAPSHOT"
+version in ThisBuild := "1.6.0"
 
 organization in ThisBuild := "de.sciss"
 
