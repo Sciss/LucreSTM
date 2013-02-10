@@ -48,8 +48,17 @@ object BerkeleyDB {
   }
 
   def factory(dir: File, createIfNecessary: Boolean = true,
-              logLevel: LogLevel = LogOff): DataStoreFactory[BerkeleyDB] =
+              logLevel: LogLevel = LogOff): DataStoreFactory[BerkeleyDB] = {
+
+    val exists = dir.isDirectory
+    if (!exists && !createIfNecessary) throw new FileNotFoundException(dir.toString)
+    if (!exists) dir.mkdirs()
     new Factory(dir, createIfNecessary, logLevel)
+  }
+
+  def open(dir: File, name: String = "data", createIfNecessary: Boolean = true,
+           logLevel: LogLevel = LogOff): BerkeleyDB =
+    factory(dir, createIfNecessary, logLevel).open(name)
 
   private final class Factory(dir: File, createIfNecessary: Boolean, logLevel: LogLevel)
     extends DataStoreFactory[BerkeleyDB] {
@@ -68,9 +77,9 @@ object BerkeleyDB {
     }
 
     def open(name: String, overwrite: Boolean): BerkeleyDB = {
-      val exists = dir.isDirectory
-      if (!exists && !createIfNecessary) throw new FileNotFoundException(dir.toString)
-      if (!exists) dir.mkdirs()
+//      val exists = dir.isDirectory
+//      if (!exists && !createIfNecessary) throw new FileNotFoundException(dir.toString)
+//      if (!exists) dir.mkdirs()
 
       val dbCfg = new DatabaseConfig()
       dbCfg.setTransactional(true)
@@ -93,10 +102,6 @@ object BerkeleyDB {
       }
     }
   }
-
-  def open(dir: File, name: String = "data", createIfNecessary: Boolean = true,
-           logLevel: LogLevel = LogOff): BerkeleyDB =
-    factory(dir, createIfNecessary, logLevel).open(name)
 
   private final class Impl(txe: TxEnv, db: Database)
     extends BerkeleyDB {

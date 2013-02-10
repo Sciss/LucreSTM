@@ -70,7 +70,7 @@ object ConfluentSkel {
       import MurmurHash3._
       val h0  = productSeed
       val h1  = mix(h0, seminal)
-      val h2  = mix(h1, path.##)
+      val h2  = mixLast(h1, path.##)
       finalizeHash(h2, 2)
     }
 

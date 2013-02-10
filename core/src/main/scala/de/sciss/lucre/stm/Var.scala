@@ -45,7 +45,7 @@ object Sink {
 
 trait Sink[-Tx, @spec(ialized) -A] {
   def update(v: A)(implicit tx: Tx): Unit
-  final def set(v: A)(implicit tx: Tx) { update(v) }
+//  final def set(v: A)(implicit tx: Tx) { update(v) }
 }
 
 object Source {
@@ -61,7 +61,7 @@ object Source {
 
 trait Source[-Tx, @spec(ialized) +A] {
   def apply()(implicit tx: Tx): A
-  final def get(implicit tx: Tx): A = apply()
+//  final def get(implicit tx: Tx): A = apply()
 }
 
 trait LocalVar[-Tx, @spec(ialized) A] extends Sink[Tx, A] with Source[Tx, A] {
