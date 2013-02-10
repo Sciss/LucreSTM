@@ -28,24 +28,26 @@ package impl
 
 import concurrent.stm.TxnLocal
 
-final class LocalVarImpl[ S <: Sys[ S ], A ]( init: S#Tx => A )
-extends LocalVar[ S#Tx, A ] {
-   private val peer = TxnLocal[ A ]()
+final class LocalVarImpl[S <: Sys[S], A](init: S#Tx => A)
+  extends LocalVar[S#Tx, A] {
 
-   override def toString = "TxnLocal<" + hashCode().toHexString + ">"
+  private val peer = TxnLocal[A]()
 
-   def get( implicit tx: S#Tx ) : A = {
-      implicit val itx = tx.peer
-      if( peer.isInitialized ) peer.get else {
-         val initVal = init( tx )
-         peer.set( initVal )
-         initVal
-      }
-   }
+  override def toString = "TxnLocal<" + hashCode().toHexString + ">"
 
-   def set( v: A )( implicit tx: S#Tx ) {
-      peer.set( v )( tx.peer )
-   }
+  def apply()(implicit tx: S#Tx): A = {
+    implicit val itx = tx.peer
+    if (peer.isInitialized) peer.get
+    else {
+      val initVal = init(tx)
+      peer.set(initVal)
+      initVal
+    }
+  }
 
-   def isInitialized( implicit tx: S#Tx ) : Boolean = peer.isInitialized( tx.peer )
+  def update(v: A)(implicit tx: S#Tx) {
+    peer.set(v)(tx.peer)
+  }
+
+  def isInitialized(implicit tx: S#Tx): Boolean = peer.isInitialized(tx.peer)
 }

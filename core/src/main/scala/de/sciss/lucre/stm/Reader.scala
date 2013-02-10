@@ -26,6 +26,9 @@
 package de.sciss.lucre
 package stm
 
-trait Reader[ -Txn, @specialized( Unit ) -Access, @specialized +A ] {
-   def read( in: DataInput, access: Access )( implicit tx: Txn ) : A
+import scala.{specialized => spec}
+import stm.{SpecGroup => ialized}
+
+trait Reader[-Tx, @spec(Unit) -Acc, @spec(ialized) +A] {
+  def read(in: DataInput, access: Acc)(implicit tx: Tx): A
 }

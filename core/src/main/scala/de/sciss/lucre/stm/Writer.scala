@@ -26,6 +26,9 @@
 package de.sciss.lucre
 package stm
 
-trait Writer[ @specialized -A ] {
-   def write( v: A, out: DataOutput ) : Unit
+import scala.{specialized => spec}
+import stm.{SpecGroup => ialized}
+
+trait Writer[@spec(ialized) -A] {
+  def write(v: A, out: DataOutput): Unit
 }

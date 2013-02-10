@@ -27,42 +27,29 @@ package de.sciss.lucre
 package stm
 
 object Mutable {
-   trait Impl[ S <: Sys[ S ]] extends Mutable[ S#ID, S#Tx ] {
-      final def dispose()( implicit tx: S#Tx ) {
-         id.dispose()
-         disposeData()
-      }
+  trait Impl[S <: Sys[S]] extends Mutable[S#ID, S#Tx] {
+    final def dispose()(implicit tx: S#Tx) {
+      id.dispose()
+      disposeData()
+    }
 
-      final def write( out: DataOutput ) {
-         id.write( out )
-         writeData( out )
-      }
+    final def write(out: DataOutput) {
+      id.write(out)
+      writeData(out)
+    }
 
-      protected def disposeData()( implicit tx: S#Tx ) : Unit
-      protected def writeData( out: DataOutput ) : Unit
+    protected def disposeData()(implicit tx: S#Tx): Unit
+    protected def writeData(out: DataOutput): Unit
 
-      override def equals( that: Any ) : Boolean = {
-         // note: microbenchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
-         /* (that != null) && */ (if( that.isInstanceOf[ Mutable[ _, _ ]]) {
-            id == that.asInstanceOf[ Mutable[ _, _ ]].id
-         } else super.equals( that ))
-      }
+    // note: microbenchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
+    override def equals(that: Any): Boolean =
+       if     (that.isInstanceOf[Mutable[_, _]]) {
+         id == that.asInstanceOf[Mutable[_, _]].id
+       } else super.equals(that)
 
-      override def hashCode = id.hashCode()
+     override def hashCode = id.hashCode()
 
-      override def toString = super.toString + id.toString
+     override def toString = super.toString + id.toString
    }
 }
-trait Mutable[ +ID, -Tx ] extends Identifiable[ ID ] with Writable with Disposable[ Tx ]
-
-///**
-// * Note: Since a reader goes along with `A` implementing the writer,
-// * it does not make sense to make `MutableReader` covariant in `A`.
-// */
-//trait MutableReader[ -ID, -Txn, A ] {
-//   def readData( in: DataInput, id: ID )( implicit tx: Txn ) : A
-//}
-
-//trait MutableOptionReader[ -ID, -Txn, A ] extends MutableReader[ ID, Txn, A ] {
-//   def empty: A
-//}
+trait Mutable[+ID, -Tx] extends Identifiable[ID] with Writable with Disposable[Tx]

@@ -1,5 +1,7 @@
 package dummy
 
+import language.higherKinds
+
     trait VarLike[ -Tx, A ] { def update( value: A )( implicit tx: Tx ) : Unit }
 
 //    trait Test[ S <: Sys2[ S ]] {

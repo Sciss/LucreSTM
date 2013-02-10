@@ -26,51 +26,48 @@
 package de.sciss.lucre
 package stm
 
-object Sink {
-   def map[ Tx, A, B ]( in: Sink[ Tx, A ])( fun: B => A ) : Sink[ Tx, B ] = new Map( in, fun )
+import scala.{specialized => spec}
+import stm.{SpecGroup => ialized}
 
-   private final class Map[ Tx, A, B ]( in: Sink[ Tx, A ], fun: B => A )
-   extends Sink[ Tx, B ] {
-      override def toString = "Sink.map(" + in + ")"
-      def set( v: B )( implicit tx: Tx ) { in.set( fun( v ))}
-//      def write( out: DataOutput ) { in.write( out )}
-//      def dispose()( implicit tx: Tx ) { in.dispose() }
-   }
+object Sink {
+  def map[Tx, A, B](in: Sink[Tx, A])(fun: B => A): Sink[Tx, B] = new Map(in, fun)
+
+  private final class Map[Tx, A, B](in: Sink[Tx, A], fun: B => A)
+    extends Sink[Tx, B] {
+
+    override def toString = "Sink.map(" + in + ")"
+
+    def update(v: B)(implicit tx: Tx) {
+      in() = fun(v)
+    }
+  }
 }
 
-/* sealed */ trait Sink[ -Tx, @specialized -A ] {
-   def set( v: A )( implicit tx: Tx ) : Unit
+trait Sink[-Tx, @spec(ialized) -A] {
+  def update(v: A)(implicit tx: Tx): Unit
+  final def set(v: A)(implicit tx: Tx) { update(v) }
 }
 
 object Source {
-   def map[ Tx, A, B ]( in: Source[ Tx, A ])( fun: A => B ) : Source[ Tx, B ] = new Map( in, fun )
+  def map[Tx, A, B](in: Source[Tx, A])(fun: A => B): Source[Tx, B] = new Map(in, fun)
 
-   private final class Map[ Tx, A, B ]( in: Source[ Tx, A ], fun: A => B )
-   extends Source[ Tx, B ] {
-      override def toString = "Source.map(" + in + ")"
-      def get( implicit tx: Tx ) : B = fun( in.get )
-//      def write( out: DataOutput ) { in.write( out )}
-//      def dispose()( implicit tx: Tx ) { in.dispose() }
-   }
+  private final class Map[Tx, A, B](in: Source[Tx, A], fun: A => B)
+    extends Source[Tx, B] {
+    override def toString = "Source.map(" + in + ")"
+
+    def apply()(implicit tx: Tx): B = fun(in())
+  }
 }
 
-/* sealed */
-trait Source[ -Tx, @specialized +A ] /* extends Writable with Disposable[ Tx ] */ {
-   def get( implicit tx: Tx ) : A
+trait Source[-Tx, @spec(ialized) +A] {
+  def apply()(implicit tx: Tx): A
+  final def get(implicit tx: Tx): A = apply()
 }
 
-//sealed trait RefLike[ -Tx, A ] extends Sink[ Tx, A ] with Source[ Tx, A ]
-//
-//trait Var[ -Tx, @specialized A ] extends RefLike[ Tx, A ] {
-//   def transform( f: A => A )( implicit tx: Tx ) : Unit
-//}
-
-trait LocalVar[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] {
-   def isInitialized( implicit tx: Tx ) : Boolean
+trait LocalVar[-Tx, @spec(ialized) A] extends Sink[Tx, A] with Source[Tx, A] {
+  def isInitialized(implicit tx: Tx): Boolean
 }
 
-trait Var[ -Tx, @specialized A ] extends Sink[ Tx, A ] with Source[ Tx, A ] with Writable with Disposable[ Tx ] {
-   def transform( f: A => A )( implicit tx: Tx ) : Unit
-//   def isFresh( implicit tx: Tx ) : Boolean
-//   def getFresh( implicit tx: Tx ) : A
+trait Var[-Tx, @spec(ialized) A] extends Sink[Tx, A] with Source[Tx, A] with Writable with Disposable[Tx] {
+  def transform(f: A => A)(implicit tx: Tx): Unit
 }

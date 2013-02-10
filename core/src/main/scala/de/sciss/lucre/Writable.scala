@@ -26,5 +26,5 @@
 package de.sciss.lucre
 
 trait Writable {
-   def write( out: DataOutput ) : Unit
+  def write(out: DataOutput): Unit
 }

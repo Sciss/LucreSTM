@@ -28,14 +28,14 @@ package impl
 
 import concurrent.stm.Txn
 
-trait BasicTxnImpl[ S <: Sys[ S ]] extends Txn[ S ] {
-   _: S#Tx =>
+trait BasicTxnImpl[S <: Sys[S]] extends Txn[S] {
+  _: S#Tx =>
 
-   def beforeCommit( fun: S#Tx => Unit ) {
-      Txn.beforeCommit( _ => fun( this ))( peer )
-   }
+  def beforeCommit(fun: S#Tx => Unit) {
+    Txn.beforeCommit(_ => fun(this))(peer)
+  }
 
-   def afterCommit( code: => Unit ) {
-      Txn.afterCommit( _ => code )( peer )
-   }
+  def afterCommit(code: => Unit) {
+    Txn.afterCommit(_ => code)(peer)
+  }
 }

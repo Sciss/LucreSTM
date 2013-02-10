@@ -28,25 +28,34 @@ package stm
 package impl
 
 import concurrent.stm.TMap
-import stm.{ Txn => _Txn }
 
 object IdentifierMapImpl {
-   def newInMemoryIntMap[ ID, Txn <: _Txn[ _ ], A ]( id: ID )( implicit intView: ID => Int ) : IdentifierMap[ ID, Txn, A ] =
-      new InMemoryInt[ ID, Txn, A ]( id, intView )
+  def newInMemoryIntMap[ID, Tx <: TxnLike, A](id: ID)(implicit intView: ID => Int): IdentifierMap[ID, Tx, A] =
+    new InMemoryInt[ID, Tx, A](id, intView)
 
-   private final class InMemoryInt[ ID, Txn <: _Txn[ _ ], A ]( val id: ID, intView: ID => Int )
-   extends IdentifierMap[ ID, Txn, A ] {
-      private val peer = TMap.empty[ Int, A ]
+  private final class InMemoryInt[ID, Tx <: TxnLike, A](val id: ID, intView: ID => Int)
+    extends IdentifierMap[ID, Tx, A] {
 
-      def get( id: ID )( implicit tx: Txn ) : Option[ A ] = peer.get( intView( id ))( tx.peer )
-      def getOrElse( id: ID, default: => A )( implicit tx: Txn ) : A = get( id ).getOrElse( default )
-      def put( id: ID, value: A )( implicit tx: Txn ) { peer.put( intView( id ), value )( tx.peer )}
-      def contains( id: ID )( implicit tx: Txn ) : Boolean = peer.contains( intView( id ))( tx.peer )
-      def remove( id: ID )( implicit tx: Txn ) { peer.remove( intView( id ))( tx.peer )}
+    private val peer = TMap.empty[Int, A]
 
-      override def toString = "IdentifierMap"
+    def get(id: ID)(implicit tx: Tx): Option[A] = peer.get(intView(id))(tx.peer)
 
-      def write( out: DataOutput ) {}
-      def dispose()( implicit tx: Txn ) {}
-   }
+    def getOrElse(id: ID, default: => A)(implicit tx: Tx): A = get(id).getOrElse(default)
+
+    def put(id: ID, value: A)(implicit tx: Tx) {
+      peer.put(intView(id), value)(tx.peer)
+    }
+
+    def contains(id: ID)(implicit tx: Tx): Boolean = peer.contains(intView(id))(tx.peer)
+
+    def remove(id: ID)(implicit tx: Tx) {
+      peer.remove(intView(id))(tx.peer)
+    }
+
+    override def toString = "IdentifierMap"
+
+    def write(out: DataOutput) {}
+    def dispose()(implicit tx: Tx) {}
+  }
+
 }

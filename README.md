@@ -13,7 +13,7 @@ Further reading:
 
 ## requirements / installation
 
-LucreSTM builds with sbt 0.12 against Scala 2.10 (default) and 2.9.2. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.7.
+LucreSTM builds with sbt 0.12 against Scala 2.10. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.7.
 
 ## linking to LucreSTM
 
@@ -21,17 +21,13 @@ LucreSTM comes with two modules, `core` and `bdb`, where the latter depends on t
 
 The following dependency is necessary:
 
-    "de.sciss" %% "lucrestm" % "1.6.+"
-
-Or just for the core module:
-
-    "de.sciss" %% "lucrestm-core" % "1.6.+"
+    "de.sciss" %% "lucrestm-core" % "1.7.+"
 
 And for the database backend:
 
     resolvers += "Oracle Repository" at "http://download.oracle.com/maven"
     
-    "de.sciss" %% "lucrestm-bdb" % "1.6.+"
+    "de.sciss" %% "lucrestm-bdb" % "1.7.+"
 
 ## documentation
 
@@ -46,9 +42,9 @@ The __life cycle__ of a reference, in following just called Var, is as follows: 
 The serializer has a non-transactional `write` method, and a transactional `read` method:
 
 ```scala
-    trait Serializer[ -Txn, -Access, A ] {
-       def write( v: A, out: DataOutput ) : Unit
-       def read( in: DataInput, access: Access )( implicit tx: Txn ) : A
+    trait Serializer[-Txn, -Access, A] {
+      def write(v: A, out: DataOutput): Unit
+      def read(in: DataInput, access: Access)(implicit tx: Txn): A
     }
 ```
 
@@ -67,68 +63,68 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
     import stm.{Durable => S, _}
 
     object Person {
-       implicit object ser extends MutableSerializer[ S, Person ] {
-          def readData( in: DataInput, _id: S#ID )( implicit tx: S#Tx ) : Person = new Person with Mutable.Impl[ S ] {
-             val id      = _id
-             val name    = in.readString()
-             val friends = tx.readVar[ List[ Person ]]( id, in )
-          }
-       }
+      implicit object ser extends MutableSerializer[S, Person] {
+        def readData(in: DataInput, _id: S#ID)(implicit tx: S#Tx): Person = new Person with Mutable.Impl[S] {
+          val id      = _id
+          val name    = in.readString()
+          val friends = tx.readVar[List[Person]](id, in)
+        }
+      }
     }
-    trait Person extends Mutable[ S ] {
-       def name: String
-       def friends: S#Var[ List[ Person ]]
-       protected def disposeData()( implicit tx: S#Tx ) { friends.dispose() }
-       protected def writeData( out: DataOutput ) {
-          out.writeString( name )
-          friends.write( out )
-       }
+    trait Person extends Mutable[S] {
+      def name: String
+      def friends: S#Var[List[Person]]
+      protected def disposeData()(implicit tx: S#Tx) { friends.dispose() }
+      protected def writeData(out: DataOutput) {
+        out.writeString(name)
+        friends.write(out)
+      }
     }
 
-    val pre  = IndexedSeq( "Adal", "Bern", "Chlod", "Diet", "Eg",   "Fried" )
-    val post = IndexedSeq( "bert", "hard", "wig",   "mar",  "mund", "helm"  )
+    val pre  = IndexedSeq("Adal", "Bern", "Chlod", "Diet", "Eg",   "Fried")
+    val post = IndexedSeq("bert", "hard", "wig",   "mar",  "mund", "helm" )
     val rnd  = new util.Random()
 
     // create a person with random name and no friends
-    def newPerson()( implicit tx: S#Tx ): Person = new Person with Mutable.Impl[ S ] {
-       val id      = tx.newID()
-       val name    = pre( rnd.nextInt( pre.size )) + post( rnd.nextInt( post.size ))
-       val friends = tx.newVar[ List[ Person ]]( id, Nil )
+    def newPerson()(implicit tx: S#Tx): Person = new Person with Mutable.Impl[S] {
+      val id      = tx.newID()
+      val name    = pre(rnd.nextInt(pre.size)) + post(rnd.nextInt(post.size))
+      val friends = tx.newVar[List[Person]](id, Nil)
     }
 
-    val dir  = new java.io.File( sys.props( "user.home" ), "person_db" )
+    val dir  = new java.io.File(sys.props("user.home"), "person_db")
     dir.mkdirs()
-    val s    = S( store.BerkeleyDB.open( dir ))
+    val s    = S(store.BerkeleyDB.open(dir))
     // read the root data set, or create a new one if the database does not exist
     val root = s.root { implicit tx => newPerson() }
 
-    def gather( p: Person, set: Set[ Person ])( implicit tx: S#Tx ) : Set[ Person ] = {
-       if( !set.contains( p )) {
-          val set1 = set + p
-          p.friends.get.foldLeft( set1 )( (s2, p1) => gather( p1, s2 ))
-       } else set
+    def gather(p: Person, set: Set[Person])(implicit tx: S#Tx): Set[Person] = {
+      if (!set.contains(p)) {
+        val set1 = set + p
+        p.friends().foldLeft(set1) { (s2, p1) => gather(p1, s2) }
+      } else set
     }
 
     // see who is in the database so far
-    val found = s.step { implicit tx => gather( root.get, Set.empty )}
+    val found = s.step { implicit tx => gather(root(), Set.empty) }
     val infos = s.step { implicit tx => found.map { p =>
-       "Remember " + p.name + "? He's " + (p.friends.get match {
-          case Nil => "lonely"
-          case fs  => fs.map( _.name ).mkString( "friend of ", " and ", "" )
-       })
+      "Remember " + p.name + "? He's " + (p.friends() match {
+        case Nil => "lonely"
+        case fs  => fs.map(_.name).mkString("friend of ", " and ", "")
+      })
     }}
-    infos.foreach( println )
+    infos foreach println
 
     // create a new person and make it friend of half of the population
     s.step { implicit tx =>
-       val p = newPerson()
-       val friends0 = found.filter( _ => rnd.nextBoolean() )
-       val friends = if( friends0.isEmpty ) Seq( root.get ) else friends0
-       friends.foreach { f =>
-          p.friends.transform( f :: _ )
-          f.friends.transform( p :: _ )
-       }
-       println( "Say hi to " + p.name + ". He's friend of " + friends.map( _.name ).mkString( " and " ))
+      val p = newPerson()
+      val friends0 = found.filter(_ => rnd.nextBoolean())
+      val friends  = if (friends0.isEmpty) Seq(root()) else friends0
+      friends.foreach { f =>
+        p.friends.transform(f :: _)
+        f.friends.transform(p :: _)
+      }
+      println(s"Say hi to ${p.name}. He's friend of ${friends.map(_.name).mkString(" and ")}")
     }
 ```
 

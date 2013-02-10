@@ -28,200 +28,161 @@ package stm
 package impl
 
 import concurrent.stm.{Ref => ScalaRef, TxnExecutor, InTxn}
-import stm.{Var => _Var}
+import scala.{specialized => spec}
+import stm.{Var => _Var, SpecGroup => ialized}
 
 object InMemoryImpl {
-   private type S = InMemory
+  private type S = InMemory
 
-//   import InMemory.{ID, Var, Txn}
+  def apply(): InMemory = new System
 
-   def apply() : InMemory = new System
+  trait Mixin[S <: InMemoryLike[S]] extends InMemoryLike[S] {
+    private final val idCnt = ScalaRef(0)
 
-//   def ??? : Nothing = sys.error( "TODO" )
+    final def newID(peer: InTxn): S#ID = {
+      // // since idCnt is a ScalaRef and not InMemory#Var, make sure we don't forget to mark the txn dirty!
+      // dirty = true
+      val res = idCnt.get(peer) + 1
+      idCnt.set(res)(peer)
+      new IDImpl[S](res)
+    }
 
-   trait Mixin[ S <: InMemoryLike[ S ]] extends InMemoryLike[ S ] {
-//      _:S =>
-
-//      val reactionMap: ReactionMap[ S ] = ReactionMap[ S, S ]( new VarImpl( ScalaRef( 0 )))
-      private val idCnt = ScalaRef( 0 )
-
-      final def newID( peer: InTxn ) : S#ID = {
-//         // since idCnt is a ScalaRef and not InMemory#Var, make sure we don't forget to mark the txn dirty!
-//         dirty = true
-         val res = idCnt.get( peer ) + 1
-         idCnt.set( res )( peer )
-         new IDImpl[ S ]( res )
+    final def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Entry[A] = {
+      step { implicit tx =>
+        tx.newVar[A](tx.newID(), init(tx))
       }
+    }
 
-//      def asEntry[ A ]( v: S#Var[ A ]) : S#Entry[ A ] = v
+    final def close() {}
 
-      final def root[ A ]( init: S#Tx => A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Entry[ A ] = {
-         step { implicit tx =>
-            tx.newVar[ A ]( tx.newID(), init( tx ))
-         }
-      }
+    // ---- cursor ----
 
-      final def close() {}
+    final def step[A](fun: S#Tx => A): A = {
+      TxnExecutor.defaultAtomic(itx => fun(wrap(itx))) // new TxnImpl( this, itx )))
+    }
 
-      // ---- cursor ----
+    final def position(implicit tx: S#Tx): S#Acc = ()
+  }
 
-      final def step[ A ]( fun: S#Tx => A ): A = {
-         TxnExecutor.defaultAtomic( itx => fun( wrap( itx ))) // new TxnImpl( this, itx )))
-      }
+  private def opNotSupported(name: String): Nothing = sys.error("Operation not supported: " + name)
 
-      final def position( implicit tx: S#Tx ) : S#Acc = ()
+  private final class VarImpl[S <: InMemoryLike[S], @spec(ialized) A](peer: ScalaRef[A])
+    extends _Var[S#Tx, A] {
 
-//      def position_=( path: S#Acc )( implicit tx: S#Tx ) {}
-//
-//      def wrap( itx: InTxn ) : S#Tx // = new TxnImpl( this, itx )
-   }
+    override def toString = "Var<" + hashCode().toHexString + ">"
 
-   private def opNotSupported( name: String ) : Nothing = sys.error( "Operation not supported: " + name )
+    def apply()(implicit tx: S#Tx): A = peer.get(tx.peer)
 
-   private final class VarImpl[ S <: InMemoryLike[ S ], @specialized A ]( peer: ScalaRef[ A ])
-   extends _Var[ S#Tx, A ] /* with VarLike[ A, InTxn ] */ {
-      override def toString = "Var<" + hashCode().toHexString + ">"
+    def update(v: A)(implicit tx: S#Tx) {
+      peer.set(v)(tx.peer)
+      // tx.markDirty()
+    }
 
-      def get( implicit tx: S#Tx ) : A = peer.get( tx.peer )
+    def transform(f: A => A)(implicit tx: S#Tx) {
+      peer.transform(f)(tx.peer)
+      // tx.markDirty()
+    }
 
-      def set( v: A )( implicit tx: S#Tx ) {
-         peer.set( v )( tx.peer )
-//         tx.markDirty()
-      }
+    def write(out: DataOutput) {}
 
-      def transform( f: A => A )( implicit tx: S#Tx ) {
-         peer.transform( f )( tx.peer )
-//         tx.markDirty()
-      }
+    def dispose()(implicit tx: S#Tx) {
+      peer.set(null.asInstanceOf[A])(tx.peer)
+      // tx.markDirty()
+    }
+  }
 
-      def write( out: DataOutput ) {}
+  private final class IDImpl[S <: InMemoryLike[S]](val id: Int) extends InMemoryLike.ID[S] {
+    def write(out: DataOutput) {}
+    def dispose()(implicit tx: S#Tx) {}
 
-      def dispose()( implicit tx: S#Tx ) {
-         peer.set( null.asInstanceOf[ A ])( tx.peer )
-//         tx.markDirty()
-      }
+    override def toString = "<" + id + ">"
+    override def hashCode: Int = id.##
 
-//      def isFresh( implicit tx: S#Tx ) : Boolean = true
-   }
+    override def equals(that: Any) = that.isInstanceOf[InMemoryLike.ID[_]] &&
+      (that.asInstanceOf[InMemoryLike.ID[_]].id == id)
+  }
 
-   private final class IDImpl[ S <: InMemoryLike[ S ]]( val id: Int ) extends InMemoryLike.ID[ S ] {
-      def write( out: DataOutput ) {}
+  private final class TxnImpl(val system: InMemory, val peer: InTxn)
+    extends TxnMixin[InMemory] {
+    override def toString = "InMemory.Txn@" + hashCode.toHexString
+  }
 
-      def dispose()( implicit tx: S#Tx ) {}
+  trait TxnMixin[S <: InMemoryLike[S]] extends BasicTxnImpl[S] {
+    _: S#Tx =>
 
-      override def toString = "<" + id + ">"
+    final def newID(): S#ID = system.newID(peer)
 
-      override def hashCode : Int = id.##
-      override def equals( that: Any ) = that.isInstanceOf[ InMemoryLike.ID[ _ ]] &&
-         (that.asInstanceOf[ InMemoryLike.ID[ _ ]].id == id)
-   }
+    final def newPartialID(): S#ID = newID()
 
-   private final class TxnImpl( val system: InMemory, val peer: InTxn )
-   extends TxnMixin[ InMemory ] {
-//      def inMemory: InMemory#Tx = this
-      override def toString = "InMemory.Txn@" + hashCode.toHexString
-   }
+    final def newHandle[A](value: A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] =
+      new EphemeralHandle(value)
 
-   trait TxnMixin[ S <: InMemoryLike[ S ]] extends BasicTxnImpl[ S ] {
-      this: S#Tx =>
+    final def newVar[A](id: S#ID, init: A)(implicit ser: Serializer[S#Tx, S#Acc, A]): S#Var[A] = {
+      val peer = ScalaRef(init)
+      new VarImpl(peer)
+    }
 
-//      private var dirty = false
-//
-//      def isDirty = dirty
-//
-//      def markDirty() { dirty = true }
+    final def newLocalVar[A](init: S#Tx => A): LocalVar[S#Tx, A] = new impl.LocalVarImpl[S, A](init)
 
-//      def inMemory: InMemory#Tx = this
+    final def newPartialVar[A](id: S#ID, init: A)(implicit ser: Serializer[S#Tx, S#Acc, A]): S#Var[A] =
+      newVar(id, init)
 
-//      def beforeCommit( fun: S#Tx => Unit ) {
-//         ScalaTxn.beforeCommit( _ => fun( this ))( peer )
-//      }
+    final def newIntVar(id: S#ID, init: Int): S#Var[Int] = {
+      val peer = ScalaRef(init)
+      new VarImpl(peer)
+    }
 
-      final def newID() : S#ID = system.newID( peer )
-      final def newPartialID(): S#ID = newID()
+    final def newBooleanVar(id: S#ID, init: Boolean): S#Var[Boolean] = {
+      val peer = ScalaRef(init)
+      new VarImpl(peer)
+    }
 
-//      def reactionMap: ReactionMap[ S ] = system.reactionMap
+    final def newLongVar(id: S#ID, init: Long): S#Var[Long] = {
+      val peer = ScalaRef(init)
+      new VarImpl(peer)
+    }
 
-      final def newHandle[ A ]( value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : Source[ S#Tx, A ] =
-         new EphemeralHandle( value )
+    final def newVarArray[A](size: Int) = new Array[S#Var[A]](size)
 
-      final def newVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
-         val peer = ScalaRef( init )
-         new VarImpl( peer )
-      }
+    final def newInMemoryIDMap[A]: IdentifierMap[S#ID, S#Tx, A] =
+      IdentifierMap.newInMemoryIntMap[S#ID, S#Tx, A](new IDImpl(0))(_.id)
 
-      final def newLocalVar[ A ]( init: S#Tx => A ) : LocalVar[ S#Tx, A ] = new impl.LocalVarImpl[ S, A ]( init )
+    final def newDurableIDMap[A](implicit serializer: Serializer[S#Tx, S#Acc, A]): IdentifierMap[S#ID, S#Tx, A] =
+      IdentifierMap.newInMemoryIntMap[S#ID, S#Tx, A](new IDImpl(0))(_.id)
 
-      final def newPartialVar[ A ]( id: S#ID, init: A )( implicit ser: Serializer[ S#Tx, S#Acc, A ]): S#Var[ A ] =
-         newVar( id, init )
+    def readVar[A](id: S#ID, in: DataInput)(implicit ser: Serializer[S#Tx, S#Acc, A]): S#Var[A] = {
+      opNotSupported("readVar")
+    }
 
-      final def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ] = {
-         val peer = ScalaRef( init )
-         new VarImpl( peer )
-      }
+    def readPartialVar[A](pid: S#ID, in: DataInput)(implicit ser: Serializer[S#Tx, S#Acc, A]): S#Var[A] =
+      readVar(pid, in)
 
-      final def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ] = {
-         val peer = ScalaRef( init )
-         new VarImpl( peer )
-      }
+    def readBooleanVar(id: S#ID, in: DataInput): S#Var[Boolean] = {
+      opNotSupported("readBooleanVar")
+    }
 
-      final def newLongVar( id: S#ID, init: Long ) : S#Var[ Long ] = {
-         val peer = ScalaRef( init )
-         new VarImpl( peer )
-      }
+    def readIntVar(id: S#ID, in: DataInput): S#Var[Int] = {
+      opNotSupported("readIntVar")
+    }
 
-      final def newVarArray[ A ]( size: Int ) = new Array[ S#Var[ A ] ]( size )
+    def readLongVar(id: S#ID, in: DataInput): S#Var[Long] = {
+      opNotSupported("readLongVar")
+    }
 
-      final def newInMemoryIDMap[ A ] : IdentifierMap[ S#ID, S#Tx, A ] =
-         IdentifierMap.newInMemoryIntMap[ S#ID, S#Tx, A ]( new IDImpl( 0 ))( _.id )
+    def readID(in: DataInput, acc: S#Acc): S#ID = opNotSupported("readID")
 
-      final def newDurableIDMap[ A ]( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
-         IdentifierMap.newInMemoryIntMap[ S#ID, S#Tx, A ]( new IDImpl( 0 ))( _.id )
+    def readPartialID(in: DataInput, acc: S#Acc): S#ID = readID(in, acc)
 
-//      def readVal[ A ]( id: S#ID )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = opNotSupported( "readVal" )
-//
-//      def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) {}
+    def readDurableIDMap[A](in: DataInput)
+                           (implicit serializer: Serializer[S#Tx, S#Acc, A]): IdentifierMap[S#ID, S#Tx, A] =
+      opNotSupported("readDurableIDMap")
+  }
 
-      def readVar[ A ]( id: S#ID, in: DataInput )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] = {
-         opNotSupported( "readVar" )
-      }
+  private final class System extends Mixin[InMemory] with InMemory {
+    private type S = InMemory
 
-      def readPartialVar[ A ]( pid: S#ID, in: DataInput )( implicit ser: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ] =
-         readVar( pid, in )
+    override def toString = "InMemory@" + hashCode.toHexString
 
-      def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ] = {
-         opNotSupported( "readBooleanVar" )
-      }
-
-      def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ] = {
-         opNotSupported( "readIntVar" )
-      }
-
-      def readLongVar( id: S#ID, in: DataInput ) : S#Var[ Long ] = {
-         opNotSupported( "readLongVar" )
-      }
-
-      def readID( in: DataInput, acc: S#Acc ) : S#ID = opNotSupported( "readID" )
-      def readPartialID( in: DataInput, acc: S#Acc ) : S#ID = readID( in, acc )
-
-      def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ] =
-         opNotSupported( "readDurableIDMap" )
-
-//      final def refresh[ A ]( access: S#Acc, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A = value
-   }
-
-   private final class System extends Mixin[ InMemory ] with InMemory {
-      private type S = InMemory
-
-      override def toString = "InMemory@" + hashCode.toHexString
-
-      def wrap( itx: InTxn ) : S#Tx = new TxnImpl( this, itx )
-
-
-//      final def inMemory[ A ]( fun: IM#Tx => A )( implicit tx: Tx ) : A = fun( tx )
-//      final protected def fix[ A ]( v: IM#Var[ A ]) : IM#Var[ A ] = v
-      // 'pop' the representation type ?!
-
-//      protected def fix[ A ](v: InMemory#Var[ A ]) : InMemory#Var[ A ] = v
-   }
+    def wrap(itx: InTxn): S#Tx = new TxnImpl(this, itx)
+  }
 }

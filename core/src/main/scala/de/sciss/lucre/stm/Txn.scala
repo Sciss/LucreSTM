@@ -28,114 +28,89 @@ package stm
 
 import concurrent.stm.InTxn
 
-trait Txn[ S <: Sys[ S ]] {
-   /**
-    * Back link to the underlying system
-    */
-   def system: S
+sealed trait TxnLike {
+  /**
+   * Every transaction has a plain Scala-STM transaction as a peer. This comes handy for
+   * seting up custom things like `TxnLocal`, `TMap`, or calling into the hooks of `concurrent.stm.Txn`.
+   * It is also needed when re-wrapping the transaction of one system into another.
+   */
+  def peer: InTxn
 
-   /**
-    * Every transaction has a plain Scala-STM transaction as a peer. This comes handy for
-    * seting up custom things like `TxnLocal`, `TMap`, or calling into the hooks of `concurrent.stm.Txn`.
-    * It is also needed when re-wrapping the transaction of one system into another.
-    */
-   def peer: InTxn
+  /**
+   * Registers a thunk to be executed after the transaction successfully committed.
+   */
+  def afterCommit(code: => Unit): Unit
+}
 
-//   /**
-//    * Every transaction has an in-memory peer attached to it.
-//    */
-//   def inMemory : S#IM#Tx
+trait Txn[S <: Sys[S]] extends TxnLike {
+  /**
+   * Back link to the underlying system
+   */
+  def system: S
 
-   def newID() : S#ID
+  def newID(): S#ID
 
-//   /**
-//    * The event system hook. Eventually this should be separated into a `Txn` sub type.
-//    */
-//   def reactionMap : ReactionMap[ S ]
+  def newVar[A](id: S#ID, init: A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
+  def newBooleanVar(id: S#ID, init: Boolean): S#Var[Boolean]
+  def newIntVar(id: S#ID, init: Int): S#Var[Int]
+  def newLongVar(id: S#ID, init: Long): S#Var[Long]
 
-   def newVar[ A ]( id: S#ID, init: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
-   def newBooleanVar( id: S#ID, init: Boolean ) : S#Var[ Boolean ]
-   def newIntVar( id: S#ID, init: Int ) : S#Var[ Int ]
-   def newLongVar( id: S#ID, init: Long ) : S#Var[ Long ]
+  def newVarArray[A](size: Int): Array[S#Var[A]]
 
-   def newVarArray[ A ]( size: Int ) : Array[ S#Var[ A ]]
+  def newPartialID(): S#ID
+  def newPartialVar[A](id: S#ID, init: A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
 
-   def newPartialID() : S#ID
-   def newPartialVar[ A ]( id: S#ID, init: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+  def newLocalVar[A](init: S#Tx => A): LocalVar[S#Tx, A]
 
-   def newLocalVar[ A ]( init: S#Tx => A ) : LocalVar[ S#Tx, A ]
+  /**
+   * Creates a new durable transactional map for storing and retrieving values based on a mutable's identifier
+   * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
+   * matches the search key.
+   *
+   * ID maps can be used by observing views to look up associated view meta data even though they may be
+   * presented with a more recent access path of the model peer (e.g. when a recent event is fired and observed).
+   *
+   * @param serializer the serializer for values in the map
+   * @tparam A         the value type in the map
+   */
+  def newDurableIDMap[A](implicit serializer: Serializer[S#Tx, S#Acc, A]): IdentifierMap[S#ID, S#Tx, A]
 
-   /**
-    * Creates a new durable transactional map for storing and retrieving values based on a mutable's identifier
-    * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
-    * matches the search key.
-    *
-    * ID maps can be used by observing views to look up associated view meta data even though they may be
-    * presented with a more recent access path of the model peer (e.g. when a recent event is fired and observed).
-    *
-    * @param serializer the serializer for values in the map
-    * @tparam A         the value type in the map
-    */
-   def newDurableIDMap[ A ]( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]
+  /**
+   * Creates a new in-memory transactional map for storing and retrieving values based on a mutable's identifier
+   * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
+   * matches the search key. Objects are not serialized but kept live in memory.
+   *
+   * ID maps can be used by observing views to look up associated view meta data even though they may be
+   * presented with a more recent access path of the model peer (e.g. when a recent event is fired and observed).
+   *
+   * @tparam A         the value type in the map
+   */
+  def newInMemoryIDMap[A]: IdentifierMap[S#ID, S#Tx, A]
 
-   /**
-    * Creates a new in-memory transactional map for storing and retrieving values based on a mutable's identifier
-    * as key. If a system is confluently persistent, the `get` operation will find the most recent key that
-    * matches the search key. Objects are not serialized but kept live in memory.
-    *
-    * ID maps can be used by observing views to look up associated view meta data even though they may be
-    * presented with a more recent access path of the model peer (e.g. when a recent event is fired and observed).
-    *
-    * @tparam A         the value type in the map
-    */
-   def newInMemoryIDMap[ A ] : IdentifierMap[ S#ID, S#Tx, A ]
+  def readVar[A](id: S#ID, in: DataInput)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
+  def readBooleanVar(id: S#ID, in: DataInput): S#Var[Boolean]
+  def readIntVar(id: S#ID, in: DataInput): S#Var[Int]
+  def readLongVar(id: S#ID, in: DataInput): S#Var[Long]
 
-   def readVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
-   def readBooleanVar( id: S#ID, in: DataInput ) : S#Var[ Boolean ]
-   def readIntVar( id: S#ID, in: DataInput ) : S#Var[ Int ]
-   def readLongVar( id: S#ID, in: DataInput ) : S#Var[ Long ]
+  def readPartialVar[A](id: S#ID, in: DataInput)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
 
-   def readPartialVar[ A ]( id: S#ID, in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : S#Var[ A ]
+  def readID(in: DataInput, acc: S#Acc): S#ID
 
-   def readID( in: DataInput, acc: S#Acc ) : S#ID
+  def readPartialID(in: DataInput, acc: S#Acc): S#ID
 
-   def readPartialID( in: DataInput, acc: S#Acc ) : S#ID
+  def readDurableIDMap[A](in: DataInput)(implicit serializer: Serializer[S#Tx, S#Acc, A]): IdentifierMap[S#ID, S#Tx, A]
 
-   def readDurableIDMap[ A ]( in: DataInput )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : IdentifierMap[ S#ID, S#Tx, A ]
+  /**
+   * Creates a handle (in-memory) to refresh a stale version of an object, assuming that the future transaction is issued
+   * from the same cursor that is used to create the handle, except for potentially having advanced.
+   * This is a mechanism that can be used in live views to gain valid access to a referenced object
+   * (e.g. self access).
+   *
+   * @param value         the object which will be refreshed when calling `get` on the returned handle
+   * @param serializer    used to write and freshly read the object
+   * @return              the handle
+   */
+  def newHandle[A](value: A)(implicit serializer: stm.Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A]
 
-   /**
-    * Creates a handle (in-memory) to refresh a stale version of an object, assuming that the future transaction is issued
-    * from the same cursor that is used to create the handle, except for potentially having advanced.
-    * This is a mechanism that can be used in live views to gain valid access to a referenced object
-    * (e.g. self access).
-    *
-    * @param value         the object which will be refreshed when calling `get` on the returned handle
-    * @param serializer    used to write and freshly read the object
-    * @return              the handle
-    */
-   def newHandle[ A ]( value: A )( implicit serializer: stm.Serializer[ S#Tx, S#Acc, A ]) : Source[ S#Tx, A ]
-
-//   /**
-//    * Whether variables have been written during this transaction
-//    */
-//   def isDirty : Boolean
-
-   def beforeCommit( fun: S#Tx => Unit ) : Unit
-
-   def afterCommit( code: => Unit ) : Unit
-
-// MMM
-//   /**
-//    * XXX TODO: this is called from Targets.readAndExpand
-//    */
-//   def readVal[ A ]( id: S#ID )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : A
-//
-//   /**
-//    * XXX TODO: this is called from NodeSelector.writeValue which is turn is called from Targets
-//    */
-//   def writeVal[ A ]( id: S#ID, value: A )( implicit serializer: Serializer[ S#Tx, S#Acc, A ]) : Unit
-//
-//   // XXX TODO: this merely used by ReactionTest2
-//   // it should be replaced by a general mechanism to turn any S#Var into a read access
-//   def access[ A ]( source: S#Var[ A ]) : A
+  def beforeCommit(fun: S#Tx => Unit): Unit
 }

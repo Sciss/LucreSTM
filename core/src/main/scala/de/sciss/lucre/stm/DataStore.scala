@@ -26,14 +26,14 @@
 package de.sciss.lucre
 package stm
 
-trait DataStore /* extends ExternalDecider */ {
-   def put(      keyFun: DataOutput => Unit )( valueFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Unit
-   def get[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => A )(     implicit tx: Txn[ _ ]) : Option[ A ]
-   def contains( keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean
-   def remove(   keyFun: DataOutput => Unit )( implicit tx: Txn[ _ ]) : Boolean
+trait DataStore {
+  def put(   keyFun: DataOutput => Unit)(valueFun: DataOutput => Unit)(implicit tx: TxnLike): Unit
+  def get[A](keyFun: DataOutput => Unit)(valueFun: DataInput => A)(    implicit tx: TxnLike): Option[A]
+  def contains(keyFun: DataOutput => Unit)(implicit tx: TxnLike): Boolean
+  def remove(  keyFun: DataOutput => Unit)(implicit tx: TxnLike): Boolean
 
-   def flatGet[ A ]( keyFun: DataOutput => Unit )( valueFun: DataInput => Option[ A ])( implicit tx: Txn[ _ ]) : Option[ A ]
+  def flatGet[A](keyFun: DataOutput => Unit)(valueFun: DataInput => Option[A])(implicit tx: TxnLike) : Option[A]
 
-   def numEntries( implicit tx: Txn[ _ ]) : Int
-   def close() : Unit
+  def numEntries(implicit tx: TxnLike): Int
+  def close(): Unit
 }

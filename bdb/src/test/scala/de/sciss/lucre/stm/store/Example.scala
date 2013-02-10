@@ -44,14 +44,14 @@ object Example extends App {
    def gather( p: Person, set: Set[ Person ])( implicit tx: S#Tx ) : Set[ Person ] = {
       if( !set.contains( p )) {
          val set1 = set + p
-         p.friends.get.foldLeft( set1 )( (s2, p1) => gather( p1, s2 ))
+         p.friends().foldLeft( set1 )( (s2, p1) => gather( p1, s2 ))
       } else set
    }
 
    // see who is in the database so far
-   val found = s.step { implicit tx => gather( root.get, Set.empty )}
+   val found = s.step { implicit tx => gather( root(), Set.empty )}
    val infos = s.step { implicit tx => found.map { p =>
-      "Remember " + p.name + "? He's " + (p.friends.get match {
+      "Remember " + p.name + "? He's " + (p.friends() match {
          case Nil => "lonely"
          case fs  => fs.map( _.name ).mkString( "friend of ", " and ", "" )
       })
@@ -62,7 +62,7 @@ object Example extends App {
    s.step { implicit tx =>
       val p = newPerson()
       val friends0 = found.filter( _ => rnd.nextBoolean() )
-      val friends = if( friends0.isEmpty ) Seq( root.get ) else friends0
+      val friends = if( friends0.isEmpty ) Seq( root() ) else friends0
       friends.foreach { f =>
          p.friends.transform( f :: _ )
          f.friends.transform( p :: _ )

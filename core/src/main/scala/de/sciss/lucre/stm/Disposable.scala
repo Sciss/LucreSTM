@@ -26,6 +26,6 @@
 package de.sciss.lucre
 package stm
 
-trait Disposable[ -Tx ] {
-   def dispose()( implicit tx: Tx ) : Unit
+trait Disposable[-Tx] {
+  def dispose()(implicit tx: Tx): Unit
 }

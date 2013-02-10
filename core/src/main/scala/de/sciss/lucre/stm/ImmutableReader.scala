@@ -26,7 +26,11 @@
 package de.sciss.lucre
 package stm
 
-trait ImmutableReader[ @specialized +A ] extends Reader[ Any, Any, A ] {
-   def read( in: DataInput ) : A
-   final def read( in: DataInput, access: Any )( implicit tx: Any ) : A = read( in )
+import scala.{specialized => spec}
+import stm.{SpecGroup => ialized}
+
+trait ImmutableReader[@spec(ialized) +A] extends Reader[Any, Any, A] {
+  def read(in: DataInput): A
+
+  final def read(in: DataInput, access: Any)(implicit tx: Any): A = read(in)
 }
