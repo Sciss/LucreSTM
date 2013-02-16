@@ -1,0 +1,17 @@
+{
+  "organization" : "de.sciss",
+  "name" : "LucreSTM",
+  "version" : "1.7.0",
+  "description" : "Extension of Scala-STM, adding optional durability layer, and providing API for confluent and reactive event layers",
+  "site" : "https://github.com/Sciss/LucreSTM",
+  "tags" : [ "stm", "software-transactional-memory", "persistent" ],
+  "docs" : "",
+  "resolvers" : [ "https://oss.sonatype.org/content/repositories/releases" ],
+  "dependencies" : [ ],
+  "scalas" : [ "2.10.+" ],
+  "licenses" : [ {
+    "name" : "GPL v2+",
+    "url" : "http://www.gnu.org/licenses/gpl-2.0.txt"
+  } ],
+  "sbt" : false
+}
