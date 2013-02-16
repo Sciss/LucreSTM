@@ -1,6 +1,6 @@
 name := "LucreSTM"
 
-version in ThisBuild := "1.7.0-SNAPSHOT"
+version in ThisBuild := "1.7.0"
 
 organization in ThisBuild := "de.sciss"
 
@@ -16,7 +16,11 @@ scalaVersion in ThisBuild := "2.10.+"
 
 retrieveManaged in ThisBuild := true
 
-scalacOptions in ThisBuild ++= Seq("-deprecation", "-unchecked", "-feature") // , "-Xelide-below", "INFO" ) // elide debug logging!
+scalacOptions in ThisBuild ++= Seq("-deprecation", "-unchecked", "-feature")
+
+scalacOptions in ThisBuild += "-no-specialization"  // never use this shit. will give you runtime IllegalAccessErrors in random places of the future. do _not_ use specialization. ever. don't diminish your life expectancy.
+
+scalacOptions in ThisBuild ++= Seq("-Xelide-below", "INFO")     // elide debug logging!
 
 testOptions in Test += Tests.Argument("-oDF")   // ScalaTest: durations and full stack traces
 
