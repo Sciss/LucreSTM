@@ -4,19 +4,19 @@
  *
  *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
  *
- *  This software is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either
- *  version 2, june 1991 of the License, or (at your option) any later version.
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2.1 of the License, or (at your option) any later version.
  *
- *  This software is distributed in the hope that it will be useful,
+ *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- *  General Public License for more details.
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public
- *  License (gpl.txt) along with this software; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  For further information, please contact Hanns Holger Rutz at
@@ -24,13 +24,13 @@
  */
 
 package de.sciss.lucre
-package stm
+package io
 
 import collection.immutable.{IndexedSeq => IIdxSeq}
 import collection.mutable
 import annotation.switch
 import scala.{specialized => spec}
-import stm.{SpecGroup => ialized}
+import io.{SpecGroup => ialized}
 
 object Serializer {
   implicit final val Unit    = ImmutableSerializer.Unit
@@ -42,7 +42,7 @@ object Serializer {
   implicit final val Double  = ImmutableSerializer.Double
   implicit final val String  = ImmutableSerializer.String
 
-  implicit def fromSerializer[A](implicit peer: ImmutableSerializer[A]): Serializer[Any, Any, A] = peer
+  implicit def immutable[A](implicit peer: ImmutableSerializer[A]): Serializer[Any, Any, A] = peer
 
   // ---- higher-kinded ----
 
@@ -55,12 +55,12 @@ object Serializer {
 
     def write(opt: Option[A], out: DataOutput) {
       opt match {
-        case Some(v)  => out.writeUnsignedByte(1); peer.write(v, out)
-        case _        => out.writeUnsignedByte(0)
+        case Some(v)  => out.writeByte(1); peer.write(v, out)
+        case _        => out.writeByte(0)
       }
     }
 
-    def read(in: DataInput, acc: Acc)(implicit tx: Tx): Option[A] = (in.readUnsignedByte(): @switch) match {
+    def read(in: DataInput, acc: Acc)(implicit tx: Tx): Option[A] = (in.readByte(): @switch) match {
       case 1 => Some(peer.read(in, acc))
       case 0 => None
     }
@@ -76,12 +76,12 @@ object Serializer {
 
     def write(eith: Either[A, B], out: DataOutput) {
       eith match {
-        case Left (a) => out.writeUnsignedByte(0); peer1.write(a, out)
-        case Right(b) => out.writeUnsignedByte(1); peer2.write(b, out)
+        case Left (a) => out.writeByte(0); peer1.write(a, out)
+        case Right(b) => out.writeByte(1); peer2.write(b, out)
       }
     }
 
-    def read(in: DataInput, acc: Acc)(implicit tx: Tx): Either[A, B] = (in.readUnsignedByte(): @switch) match {
+    def read(in: DataInput, acc: Acc)(implicit tx: Tx): Either[A, B] = (in.readByte(): @switch) match {
       case 0 => Left (peer1.read(in, acc))
       case 1 => Right(peer2.read(in, acc))
     }
@@ -190,18 +190,3 @@ object Serializer {
 
 trait Serializer[-Tx, @spec(Unit) -Acc, @spec(ialized) A]
 extends Reader[Tx, Acc, A ] with Writer[ A ]
-
-trait MutableSerializer[S <: Sys[S], M <: Mutable[S#ID, S#Tx]]
-  extends Serializer[S#Tx, S#Acc, M] {
-
-  final def write(m: M, out: DataOutput) {
-    m.write(out)
-  }
-
-  final def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): M = {
-    val id = tx.readID(in, access)
-    readData(in, id)
-  }
-
-  protected def readData(in: DataInput, id: S#ID)(implicit tx: S#Tx): M
-}

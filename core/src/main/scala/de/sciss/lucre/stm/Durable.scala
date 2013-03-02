@@ -27,6 +27,7 @@ package de.sciss.lucre
 package stm
 
 import stm.{Var => _Var, Txn => _Txn, SpecGroup => ialized}
+import io.{DataInput, DataOutput, Serializer}
 import concurrent.stm.InTxn
 import impl.{DurableImpl => Impl}
 import language.implicitConversions

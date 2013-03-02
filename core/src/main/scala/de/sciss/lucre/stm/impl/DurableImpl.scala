@@ -31,6 +31,7 @@ import concurrent.stm.{Ref, InTxn, TxnExecutor}
 import annotation.elidable
 import scala.{specialized => spec}
 import stm.{SpecGroup => ialized}
+import io.{DataInput, DataOutput, Serializer}
 
 object DurableImpl {
   private type D[S <: DurableLike[S]] = DurableLike[S]

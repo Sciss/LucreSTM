@@ -27,6 +27,7 @@ package de.sciss.lucre
 package stm
 
 import concurrent.stm.InTxn
+import io.{DataInput, Serializer}
 
 sealed trait TxnLike {
   /**
@@ -110,7 +111,7 @@ trait Txn[S <: Sys[S]] extends TxnLike {
    * @param serializer    used to write and freshly read the object
    * @return              the handle
    */
-  def newHandle[A](value: A)(implicit serializer: stm.Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A]
+  def newHandle[A](value: A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A]
 
   def beforeCommit(fun: S#Tx => Unit): Unit
 }

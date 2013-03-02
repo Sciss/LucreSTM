@@ -27,9 +27,9 @@ package de.sciss.lucre
 package stm
 package store
 
-import de.sciss.lucre.stm.DataStore
 import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
+import io.{DataInput, DataOutput}
 import com.sleepycat.je.{Transaction, OperationStatus, LockMode, DatabaseEntry, Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
 import java.io.{File, FileNotFoundException}
 import OperationStatus.SUCCESS
@@ -113,10 +113,10 @@ object BerkeleyDB {
 
         out.reset()
         keyFun(out)
-        val keySize = out.getBufferLength
+        val keySize = out.size
         valueFun(out)
-        val valueSize = out.getBufferLength - keySize
-        val data = out.getBufferBytes
+        val valueSize = out.size - keySize
+        val data = out.buffer
         keyE.setData(data, 0, keySize)
         valueE.setData(data, keySize, valueSize)
         db.put(dbTxn, keyE, valueE)
@@ -131,11 +131,11 @@ object BerkeleyDB {
 
         out.reset()
         keyFun(out)
-        val keySize = out.getBufferLength
-        val data = out.getBufferBytes
+        val keySize = out.size
+        val data = out.buffer
         keyE.setData(data, 0, keySize)
         if (db.get(dbTxn, keyE, valueE, LockMode.DEFAULT) == SUCCESS) {
-          val in = new DataInput(valueE.getData, valueE.getOffset, valueE.getSize)
+          val in = DataInput(valueE.getData, valueE.getOffset, valueE.getSize)
           Some(valueFun(in))
         } else {
           None
@@ -151,11 +151,11 @@ object BerkeleyDB {
 
         out.reset()
         keyFun(out)
-        val keySize = out.getBufferLength
-        val data    = out.getBufferBytes
+        val keySize = out.size
+        val data    = out.buffer
         keyE.setData(data, 0, keySize)
         if (db.get(dbTxn, keyE, valueE, LockMode.DEFAULT) == SUCCESS) {
-          val in = new DataInput(valueE.getData, valueE.getOffset, valueE.getSize)
+          val in = DataInput(valueE.getData, valueE.getOffset, valueE.getSize)
           valueFun(in)
         } else {
           None
@@ -171,8 +171,8 @@ object BerkeleyDB {
 
         out.reset()
         keyFun(out)
-        val keySize   = out.getBufferLength
-        val data      = out.getBufferBytes
+        val keySize   = out.size
+        val data      = out.buffer
         keyE.setData(data, 0, keySize)
         db.get(dbTxn, keyE, partialE, LockMode.READ_UNCOMMITTED) == SUCCESS
       }
@@ -185,8 +185,8 @@ object BerkeleyDB {
 
         out.reset()
         keyFun(out)
-        val keySize   = out.getBufferLength
-        val data      = out.getBufferBytes
+        val keySize   = out.size
+        val data      = out.buffer
         keyE.setData(data, 0, keySize)
         db.delete(dbTxn, keyE) == SUCCESS
       }
@@ -254,7 +254,7 @@ object BerkeleyDB {
     val keyE      = new DatabaseEntry()
     val valueE    = new DatabaseEntry()
     val partialE  = new DatabaseEntry()
-    val out       = new DataOutput()
+    val out       = DataOutput()
 
     partialE.setPartial(0, 0, true)
   }

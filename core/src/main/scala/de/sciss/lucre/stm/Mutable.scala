@@ -26,6 +26,8 @@
 package de.sciss.lucre
 package stm
 
+import io.{DataOutput, Writable}
+
 object Mutable {
   trait Impl[S <: Sys[S]] extends Mutable[S#ID, S#Tx] {
     final def dispose()(implicit tx: S#Tx) {

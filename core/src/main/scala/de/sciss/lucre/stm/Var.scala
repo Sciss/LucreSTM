@@ -68,6 +68,6 @@ trait LocalVar[-Tx, @spec(ialized) A] extends Sink[Tx, A] with Source[Tx, A] {
   def isInitialized(implicit tx: Tx): Boolean
 }
 
-trait Var[-Tx, @spec(ialized) A] extends Sink[Tx, A] with Source[Tx, A] with Writable with Disposable[Tx] {
+trait Var[-Tx, @spec(ialized) A] extends Sink[Tx, A] with Source[Tx, A] with io.Writable with Disposable[Tx] {
   def transform(f: A => A)(implicit tx: Tx): Unit
 }

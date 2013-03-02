@@ -1,6 +1,6 @@
 name := "LucreSTM"
 
-version in ThisBuild := "1.7.0"
+version in ThisBuild := "1.8.0"
 
 organization in ThisBuild := "de.sciss"
 
@@ -13,6 +13,10 @@ licenses in ThisBuild := Seq("GPL v2+" -> url( "http://www.gnu.org/licenses/gpl-
 scalaVersion in ThisBuild := "2.10.0"
 
 // crossScalaVersions in ThisBuild := Seq( "2.10.0", "2.9.2" )
+
+libraryDependencies in ThisBuild ++= Seq(
+  "org.scalatest" %% "scalatest" % "1.9.1" % "test"
+)
 
 retrieveManaged in ThisBuild := true
 

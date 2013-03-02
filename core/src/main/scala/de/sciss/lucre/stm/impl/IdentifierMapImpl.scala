@@ -28,6 +28,7 @@ package stm
 package impl
 
 import concurrent.stm.TMap
+import io.DataOutput
 
 object IdentifierMapImpl {
   def newInMemoryIntMap[ID, Tx <: TxnLike, A](id: ID)(implicit intView: ID => Int): IdentifierMap[ID, Tx, A] =

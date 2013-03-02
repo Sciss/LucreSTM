@@ -28,6 +28,7 @@ package stm
 
 import scala.{specialized => spec}
 import stm.{Var => _Var, SpecGroup => ialized}
+import io.Serializer
 import language.higherKinds
 
 /**

@@ -33,6 +33,7 @@ import scala.{specialized => spec}
 import stm.{SpecGroup => ialized}
 import util.hashing.MurmurHash3
 import language.implicitConversions
+import io.{DataInput, DataOutput, Serializer}
 
 /**
  * A simple confluent system implementation for testing purposes only. It is not really
@@ -131,7 +132,7 @@ object ConfluentSkel {
           }
       }
       require(best != null, "No value for path " + acc)
-      val in = new DataInput(best)
+      val in = DataInput(best)
       (in, acc drop bestLen)
     }
 
@@ -301,7 +302,7 @@ object ConfluentSkel {
     protected def readValue(in: DataInput, postfix: Acc)(implicit tx: S#Tx): A
 
     final def store(v: A)(implicit tx: S#Tx) {
-      val out = new DataOutput()
+      val out   = DataOutput()
       writeValue(v, out)
       val bytes = out.toByteArray
       system.storage += id.seminal -> (system.storage.getOrElse(id.seminal,

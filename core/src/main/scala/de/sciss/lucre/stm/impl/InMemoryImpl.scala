@@ -30,6 +30,7 @@ package impl
 import concurrent.stm.{Ref => ScalaRef, TxnExecutor, InTxn}
 import scala.{specialized => spec}
 import stm.{Var => _Var, SpecGroup => ialized}
+import io.{DataInput, DataOutput, Serializer}
 
 object InMemoryImpl {
   private type S = InMemory

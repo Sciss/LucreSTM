@@ -1,15 +1,20 @@
-package de.sciss.lucre.stm
+package de.sciss.lucre
+package stm
 package store
+
+import io.{DataInput, DataOutput}
 
 object Example extends App {
    import de.sciss.lucre._
    import stm.{Durable => S, _}
 
+//  showLog = true
+
    object Person {
       implicit object ser extends MutableSerializer[ S, Person ] {
          def readData( in: DataInput, _id: S#ID )( implicit tx: S#Tx ) : Person = new Person with Mutable.Impl[ S ] {
             val id      = _id
-            val name    = in.readString()
+            val name    = in.readUTF()
             val friends = tx.readVar[ List[ Person ]]( id, in )
          }
       }
@@ -19,7 +24,7 @@ object Example extends App {
       def friends: S#Var[ List[ Person ]]
       protected def disposeData()( implicit tx: S#Tx ) { friends.dispose() }
       protected def writeData( out: DataOutput ) {
-         out.writeString( name )
+         out.writeUTF( name )
          friends.write( out )
       }
    }

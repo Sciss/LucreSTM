@@ -1,5 +1,5 @@
 /*
- *  PersistentStore.scala
+ *  Serializer.scala
  *  (LucreSTM)
  *
  *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
@@ -26,16 +26,17 @@
 package de.sciss.lucre
 package stm
 
-import io.{DataInput, DataOutput}
+trait MutableSerializer[S <: Sys[S], M <: Mutable[S#ID, S#Tx]]
+  extends io.Serializer[S#Tx, S#Acc, M] {
 
-trait DataStore {
-  def put(   keyFun: DataOutput => Unit)(valueFun: DataOutput => Unit)(implicit tx: TxnLike): Unit
-  def get[A](keyFun: DataOutput => Unit)(valueFun: DataInput => A)(    implicit tx: TxnLike): Option[A]
-  def contains(keyFun: DataOutput => Unit)(implicit tx: TxnLike): Boolean
-  def remove(  keyFun: DataOutput => Unit)(implicit tx: TxnLike): Boolean
+  final def write(m: M, out: io.DataOutput) {
+    m.write(out)
+  }
 
-  def flatGet[A](keyFun: DataOutput => Unit)(valueFun: DataInput => Option[A])(implicit tx: TxnLike) : Option[A]
+  final def read(in: io.DataInput, access: S#Acc)(implicit tx: S#Tx): M = {
+    val id = tx.readID(in, access)
+    readData(in, id)
+  }
 
-  def numEntries(implicit tx: TxnLike): Int
-  def close(): Unit
+  protected def readData(in: io.DataInput, id: S#ID)(implicit tx: S#Tx): M
 }
