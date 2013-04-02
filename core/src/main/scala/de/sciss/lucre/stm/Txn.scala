@@ -23,11 +23,12 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 
 import concurrent.stm.InTxn
-import io.{DataInput, Serializer}
+import serial.{DataInput, Serializer}
 
 sealed trait TxnLike {
   /**

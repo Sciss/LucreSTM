@@ -23,10 +23,11 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 
-import io.{DataInput, DataOutput}
+import serial.{DataInput, DataOutput}
 
 trait DataStore {
   def put(   keyFun: DataOutput => Unit)(valueFun: DataOutput => Unit)(implicit tx: TxnLike): Unit

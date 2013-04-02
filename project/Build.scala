@@ -6,8 +6,8 @@ object Build extends sbt.Build {
   lazy val root: Project = Project(
     id            = "lucrestm",
     base          = file("."),
-    aggregate     = Seq(serial, core, bdb),
-    dependencies  = Seq(serial, core, bdb), // i.e. root = full sub project. if you depend on root, will draw all sub modules.
+    aggregate     = Seq(core, bdb),
+    dependencies  = Seq(core, bdb), // i.e. root = full sub project. if you depend on root, will draw all sub modules.
     settings      = Project.defaultSettings ++ Seq(
       publishArtifact in (Compile, packageBin) := false, // there are no binaries
       publishArtifact in (Compile, packageDoc) := false, // there are no javadocs
@@ -15,20 +15,14 @@ object Build extends sbt.Build {
     )
   )
 
-  lazy val serial = Project(
-    id        = "lucrestm-serial",
-    base      = file("serial"),
-    settings  = Project.defaultSettings ++ Seq(
-      licenses := Seq("LGPL v2.1+" -> url("http://www.gnu.org/licenses/lgpl-2.1.txt"))
-    )
-  )
-
   lazy val core = Project(
     id            = "lucrestm-core",
     base          = file("core"),
-    dependencies  = Seq(serial),
     settings      = Project.defaultSettings ++ buildInfoSettings ++ Seq(
-      libraryDependencies += "org.scala-stm" %% "scala-stm" % "0.7",
+      libraryDependencies ++= Seq(
+        "org.scala-stm" %% "scala-stm" % "0.7",
+        "de.sciss" %% "serial" % "1.0.+"
+      ),
       // buildInfoSettings
       sourceGenerators in Compile <+= buildInfo,
       buildInfoKeys := Seq(name, organization, version, scalaVersion, description,

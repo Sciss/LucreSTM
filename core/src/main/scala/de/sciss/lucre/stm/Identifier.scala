@@ -23,7 +23,8 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 
-trait Identifier[-Tx] extends Disposable[Tx] with io.Writable
+trait Identifier[-Tx] extends Disposable[Tx] with serial.Writable

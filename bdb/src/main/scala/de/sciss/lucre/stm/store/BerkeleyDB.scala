@@ -23,13 +23,14 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 package store
 
 import java.util.concurrent.ConcurrentLinkedQueue
 import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
-import io.{DataInput, DataOutput}
+import serial.{DataInput, DataOutput}
 import com.sleepycat.je.{Transaction, OperationStatus, LockMode, DatabaseEntry, Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
 import java.io.{File, FileNotFoundException}
 import OperationStatus.SUCCESS

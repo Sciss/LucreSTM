@@ -23,10 +23,6 @@ The following dependency is necessary:
 
     "de.sciss" %% "lucrestm" % v
 
-Or just for the serialization module:
-
-    "de.sciss" %% "lucrestm-serial" % v
-
 Or just for the core module:
 
     "de.sciss" %% "lucrestm-core" % v
@@ -37,7 +33,7 @@ And for the database backend:
     
     "de.sciss" %% "lucrestm-bdb" % v
 
-The current version `v` is `"1.8.+`".
+The current version `v` is `"2.0.+`".
 
 ## documentation
 
@@ -72,8 +68,8 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
 ```scala
 
     import de.sciss.lucre._
+    import de.sciss.serial._
     import stm.{Durable => S, _}
-    import io._
 
     object Person {
       implicit object ser extends MutableSerializer[S, Person] {

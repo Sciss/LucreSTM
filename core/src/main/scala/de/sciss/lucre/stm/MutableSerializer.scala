@@ -23,20 +23,23 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 
-trait MutableSerializer[S <: Sys[S], M <: Mutable[S#ID, S#Tx]]
-  extends io.Serializer[S#Tx, S#Acc, M] {
+import serial.{Serializer, DataInput, DataOutput}
 
-  final def write(m: M, out: io.DataOutput) {
+trait MutableSerializer[S <: Sys[S], M <: Mutable[S#ID, S#Tx]]
+  extends Serializer[S#Tx, S#Acc, M] {
+
+  final def write(m: M, out: DataOutput) {
     m.write(out)
   }
 
-  final def read(in: io.DataInput, access: S#Acc)(implicit tx: S#Tx): M = {
+  final def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): M = {
     val id = tx.readID(in, access)
     readData(in, id)
   }
 
-  protected def readData(in: io.DataInput, id: S#ID)(implicit tx: S#Tx): M
+  protected def readData(in: DataInput, id: S#ID)(implicit tx: S#Tx): M
 }

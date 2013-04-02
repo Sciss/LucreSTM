@@ -1,8 +1,9 @@
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 package store
 
-import io.{DataInput, DataOutput}
+import serial.{DataInput, DataOutput}
 
 object Example extends App {
    import de.sciss.lucre._

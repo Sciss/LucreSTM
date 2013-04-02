@@ -23,10 +23,11 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 
-import io.{DataOutput, Writable}
+import serial.{DataOutput, Writable}
 
 object Mutable {
   trait Impl[S <: Sys[S]] extends Mutable[S#ID, S#Tx] {

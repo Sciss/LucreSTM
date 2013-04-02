@@ -23,11 +23,12 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 
 import stm.{Var => _Var, Txn => _Txn, SpecGroup => ialized}
-import io.{DataInput, DataOutput, Serializer}
+import serial.{DataInput, DataOutput, Serializer}
 import concurrent.stm.InTxn
 import impl.{DurableImpl => Impl}
 import language.implicitConversions

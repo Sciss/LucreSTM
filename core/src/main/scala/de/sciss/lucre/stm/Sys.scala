@@ -23,12 +23,13 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 
 import scala.{specialized => spec}
 import stm.{Var => _Var, SpecGroup => ialized}
-import io.Serializer
+import serial.Serializer
 import language.higherKinds
 
 /**

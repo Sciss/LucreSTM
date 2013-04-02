@@ -23,7 +23,8 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 package impl
 
@@ -33,7 +34,7 @@ import scala.{specialized => spec}
 import stm.{SpecGroup => ialized}
 import util.hashing.MurmurHash3
 import language.implicitConversions
-import io.{DataInput, DataOutput, Serializer}
+import serial.{DataInput, DataOutput, Serializer}
 
 /**
  * A simple confluent system implementation for testing purposes only. It is not really

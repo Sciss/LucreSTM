@@ -23,7 +23,8 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 package impl
 
@@ -31,7 +32,7 @@ import concurrent.stm.{Ref, InTxn, TxnExecutor}
 import annotation.elidable
 import scala.{specialized => spec}
 import stm.{SpecGroup => ialized}
-import io.{DataInput, DataOutput, Serializer}
+import serial.{DataInput, DataOutput, Serializer}
 
 object DurableImpl {
   private type D[S <: DurableLike[S]] = DurableLike[S]

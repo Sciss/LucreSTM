@@ -23,12 +23,13 @@
  *  contact@sciss.de
  */
 
-package de.sciss.lucre
+package de.sciss
+package lucre
 package stm
 package impl
 
 import concurrent.stm.TMap
-import io.DataOutput
+import serial.DataOutput
 
 object IdentifierMapImpl {
   def newInMemoryIntMap[ID, Tx <: TxnLike, A](id: ID)(implicit intView: ID => Int): IdentifierMap[ID, Tx, A] =
