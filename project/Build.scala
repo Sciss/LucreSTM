@@ -3,6 +3,10 @@ import Keys._
 import sbtbuildinfo.Plugin._
 
 object Build extends sbt.Build {
+  def sleepyVersion   = "5.0.73" // = Berkeley DB Java Edition
+  def serialVersion   = "1.0.+"
+  def scalaSTMVersion = "0.7"
+
   lazy val root: Project = Project(
     id            = "lucrestm",
     base          = file("."),
@@ -20,8 +24,8 @@ object Build extends sbt.Build {
     base          = file("core"),
     settings      = Project.defaultSettings ++ buildInfoSettings ++ Seq(
       libraryDependencies ++= Seq(
-        "org.scala-stm" %% "scala-stm" % "0.7",
-        "de.sciss" %% "serial" % "1.0.+"
+        "org.scala-stm" %% "scala-stm" % scalaSTMVersion,
+        "de.sciss"      %% "serial"    % serialVersion
       ),
       // buildInfoSettings
       sourceGenerators in Compile <+= buildInfo,
@@ -43,7 +47,7 @@ object Build extends sbt.Build {
     dependencies  = Seq(core),
     settings      = Project.defaultSettings ++ Seq(
       resolvers += "Oracle Repository" at "http://download.oracle.com/maven", // required for sleepycat
-      libraryDependencies += "com.sleepycat" % "je" % "5.0.58" // = Berkeley DB Java Edition
+      libraryDependencies += "com.sleepycat" % "je" % sleepyVersion
     )
   )
 }
