@@ -114,7 +114,7 @@ object BerkeleyDB {
 
         out.reset()
         keyFun(out)
-        val keySize = out.size
+        val keySize = out.position // size
         valueFun(out)
         val valueSize = out.size - keySize
         val data = out.buffer
@@ -136,7 +136,7 @@ object BerkeleyDB {
         val data = out.buffer
         keyE.setData(data, 0, keySize)
         if (db.get(dbTxn, keyE, valueE, LockMode.DEFAULT) == SUCCESS) {
-          val in = DataInput(valueE.getData, valueE.getOffset, valueE.getSize)
+          val in = DataInput(valueE.getData, valueE.getOffset, valueE.getSize)  // XXX TODO: could also recycle with queue
           Some(valueFun(in))
         } else {
           None
