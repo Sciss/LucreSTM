@@ -101,7 +101,7 @@ object InMemoryImpl {
     override def hashCode: Int = id.##
 
     override def equals(that: Any) = that.isInstanceOf[InMemoryLike.ID[_]] &&
-      (that.asInstanceOf[InMemoryLike.ID[_]].id == id)
+      that.asInstanceOf[InMemoryLike.ID[_]].id == id
   }
 
   private final class TxnImpl(val system: InMemory, val peer: InTxn)

@@ -45,14 +45,15 @@ object Mutable {
     protected def writeData(out: DataOutput): Unit
 
     // note: microbenchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
-    override def equals(that: Any): Boolean =
-       if     (that.isInstanceOf[Mutable[_, _]]) {
-         id == that.asInstanceOf[Mutable[_, _]].id
-       } else super.equals(that)
+    override def equals(that: Any): Boolean = that match {
+      case m: Mutable[_, _] =>
+        id == m.id
+      case _ => super.equals(that)
+    }
 
-     override def hashCode = id.hashCode()
+    override def hashCode = id.hashCode()
 
-     override def toString = super.toString + id.toString
-   }
+    override def toString = super.toString + id.toString
+  }
 }
 trait Mutable[+ID, -Tx] extends Identifiable[ID] with Writable with Disposable[Tx]

@@ -139,7 +139,7 @@ object ConfluentSkel {
 
     def fromPath[A](path: Acc)(fun: Tx => A): A = {
       TxnExecutor.defaultAtomic[A] { itx =>
-        pathVar = path :+ (pathVar.lastOption.getOrElse(-1) + 1)
+        pathVar = path :+ pathVar.lastOption.getOrElse(-1) + 1
         fun(new TxnImpl(this, itx))
       }
     }
@@ -148,7 +148,7 @@ object ConfluentSkel {
 
     def step[A](fun: S#Tx => A): A = {
       TxnExecutor.defaultAtomic[A] { itx =>
-        pathVar :+= (pathVar.lastOption.getOrElse(-1) + 1)
+        pathVar :+= pathVar.lastOption.getOrElse(-1) + 1
         fun(new TxnImpl(this, itx))
       }
     }
@@ -288,7 +288,7 @@ object ConfluentSkel {
     protected def system: System
 
     protected final def toString(pre: String) = pre + id + ": " +
-      (system.storage.getOrElse(id.seminal, Map.empty).map(_._1)).mkString(", ")
+      system.storage.getOrElse(id.seminal, Map.empty).map(_._1).mkString(", ")
 
     final def update(v: A)(implicit tx: S#Tx) {
       store(v)

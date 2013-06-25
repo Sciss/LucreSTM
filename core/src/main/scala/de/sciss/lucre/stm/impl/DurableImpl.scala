@@ -269,7 +269,7 @@ object DurableImpl {
     override def hashCode: Int = id
 
     override def equals(that: Any): Boolean = {
-      that.isInstanceOf[IDImpl[_]] && (id == that.asInstanceOf[IDImpl[_]].id)
+      that.isInstanceOf[IDImpl[_]] && id == that.asInstanceOf[IDImpl[_]].id
     }
 
     def dispose()(implicit tx: S#Tx) {
