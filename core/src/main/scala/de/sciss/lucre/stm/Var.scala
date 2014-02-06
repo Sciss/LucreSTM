@@ -2,7 +2,7 @@
  *  Var.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -37,17 +37,14 @@ object Sink {
   private final class Map[Tx, A, B](in: Sink[Tx, A], fun: B => A)
     extends Sink[Tx, B] {
 
-    override def toString = "Sink.map(" + in + ")"
+    override def toString = s"Sink.map($in)"
 
-    def update(v: B)(implicit tx: Tx) {
-      in() = fun(v)
-    }
+    def update(v: B)(implicit tx: Tx): Unit = in() = fun(v)
   }
 }
 
 trait Sink[-Tx, @spec(ialized) -A] {
   def update(v: A)(implicit tx: Tx): Unit
-//  final def set(v: A)(implicit tx: Tx) { update(v) }
 }
 
 object Source {
@@ -55,7 +52,7 @@ object Source {
 
   private final class Map[Tx, A, B](in: Source[Tx, A], fun: A => B)
     extends Source[Tx, B] {
-    override def toString = "Source.map(" + in + ")"
+    override def toString = s"Source.map($in)"
 
     def apply()(implicit tx: Tx): B = fun(in())
   }
@@ -63,7 +60,6 @@ object Source {
 
 trait Source[-Tx, @spec(ialized) +A] {
   def apply()(implicit tx: Tx): A
-//  final def get(implicit tx: Tx): A = apply()
 }
 
 trait LocalVar[-Tx, @spec(ialized) A] extends Sink[Tx, A] with Source[Tx, A] {

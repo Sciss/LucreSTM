@@ -2,7 +2,7 @@
  *  BasicTxnImpl.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -31,11 +31,9 @@ import concurrent.stm.Txn
 trait BasicTxnImpl[S <: Sys[S]] extends Txn[S] {
   _: S#Tx =>
 
-  def beforeCommit(fun: S#Tx => Unit) {
+  def beforeCommit(fun: S#Tx => Unit): Unit =
     Txn.beforeCommit(_ => fun(this))(peer)
-  }
 
-  def afterCommit(code: => Unit) {
+  def afterCommit(code: => Unit): Unit =
     Txn.afterCommit(_ => code)(peer)
-  }
 }

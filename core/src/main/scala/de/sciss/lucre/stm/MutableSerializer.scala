@@ -2,7 +2,7 @@
  *  Serializer.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -32,9 +32,7 @@ import serial.{Serializer, DataInput, DataOutput}
 trait MutableSerializer[S <: Sys[S], M <: Mutable[S#ID, S#Tx]]
   extends Serializer[S#Tx, S#Acc, M] {
 
-  final def write(m: M, out: DataOutput) {
-    m.write(out)
-  }
+  final def write(m: M, out: DataOutput): Unit = m.write(out)
 
   final def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): M = {
     val id = tx.readID(in, access)

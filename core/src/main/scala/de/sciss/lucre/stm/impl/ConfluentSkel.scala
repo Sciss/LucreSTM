@@ -2,7 +2,7 @@
  *  ConfluentSkel.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -104,7 +104,7 @@ object ConfluentSkel {
       }
     }
 
-    def close() {}
+    def close(): Unit = ()
 
     def inPath[Z](path: Acc)(block: Tx => Z): Z = {
       TxnExecutor.defaultAtomic[Z] { itx =>
@@ -195,7 +195,7 @@ object ConfluentSkel {
   }
 
   private final class IDImpl(val seminal: Int, val path: Acc) extends ID {
-    def write(out: DataOutput) {
+    def write(out: DataOutput): Unit = {
       out.writeInt(seminal)
       out.writeInt(path.size)
       path.foreach(out.writeInt(_))
@@ -203,7 +203,7 @@ object ConfluentSkel {
 
     override def toString = "<" + seminal + path.mkString(" @ ", ",", ">")
 
-    def dispose()(implicit tx: Txn) {}
+    def dispose()(implicit tx: Txn) = ()
   }
 
   private final class IDMapImpl[A](val id: S#ID)(implicit serializer: Serializer[S#Tx, S#Acc, A])
@@ -211,14 +211,12 @@ object ConfluentSkel {
 
     def get(id: S#ID)(implicit tx: S#Tx): Option[A] = ???
     def getOrElse(id: S#ID, default: => A)(implicit tx: S#Tx): A = ???
-    def put(id: S#ID, value: A)(implicit tx: S#Tx) { ??? }
+    def put(id: S#ID, value: A)(implicit tx: S#Tx): Unit = ???
     def contains(id: S#ID)(implicit tx: S#Tx): Boolean = ???
-    def remove(id: S#ID)(implicit tx: S#Tx) { ??? }
-    def write(out: DataOutput) { ??? }
+    def remove(id: S#ID)(implicit tx: S#Tx): Unit = ???
+    def write(out: DataOutput): Unit = ???
 
-    def dispose()(implicit tx: S#Tx) {
-      id.dispose()
-    }
+    def dispose()(implicit tx: S#Tx): Unit = id.dispose()
 
     override def toString = "IdentifierMap" + id // <" + id + ">"
   }
@@ -290,19 +288,15 @@ object ConfluentSkel {
     protected final def toString(pre: String) = pre + id + ": " +
       system.storage.getOrElse(id.seminal, Map.empty).map(_._1).mkString(", ")
 
-    final def update(v: A)(implicit tx: S#Tx) {
-      store(v)
-    }
+    final def update(v: A)(implicit tx: S#Tx): Unit = store(v)
 
-    final def write(out: DataOutput) {
-      out.writeInt(id.seminal)
-    }
+    final def write(out: DataOutput): Unit = out.writeInt(id.seminal)
 
     protected def writeValue(v: A, out: DataOutput): Unit
 
     protected def readValue(in: DataInput, postfix: Acc)(implicit tx: S#Tx): A
 
-    final def store(v: A)(implicit tx: S#Tx) {
+    final def store(v: A)(implicit tx: S#Tx): Unit = {
       val out   = DataOutput()
       writeValue(v, out)
       val bytes = out.toByteArray
@@ -317,11 +311,9 @@ object ConfluentSkel {
       readValue(in, acc1)
     }
 
-    final def transform(f: A => A)(implicit tx: S#Tx) {
-      this() = f(this())
-    }
+    final def transform(f: A => A)(implicit tx: S#Tx): Unit = this() = f(this())
 
-    final def dispose()(implicit tx: S#Tx) {}
+    final def dispose()(implicit tx: S#Tx) = ()
   }
 
   private final class VarImpl[A](val id: ID, val system: System, ser: Serializer[S#Tx, S#Acc, A])
@@ -329,9 +321,7 @@ object ConfluentSkel {
 
     override def toString = toString("Var")
 
-    protected def writeValue(v: A, out: DataOutput) {
-      ser.write(v, out)
-    }
+    protected def writeValue(v: A, out: DataOutput): Unit = ser.write(v, out)
 
     protected def readValue(in: DataInput, postfix: S#Acc)(implicit tx: S#Tx): A = {
       ser.read(in, postfix)

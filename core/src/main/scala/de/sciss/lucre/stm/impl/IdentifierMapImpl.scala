@@ -2,7 +2,7 @@
  *  IdentifierMapImpl.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -44,20 +44,17 @@ object IdentifierMapImpl {
 
     def getOrElse(id: ID, default: => A)(implicit tx: Tx): A = get(id).getOrElse(default)
 
-    def put(id: ID, value: A)(implicit tx: Tx) {
+    def put(id: ID, value: A)(implicit tx: Tx): Unit =
       peer.put(intView(id), value)(tx.peer)
-    }
 
     def contains(id: ID)(implicit tx: Tx): Boolean = peer.contains(intView(id))(tx.peer)
 
-    def remove(id: ID)(implicit tx: Tx) {
+    def remove(id: ID)(implicit tx: Tx): Unit =
       peer.remove(intView(id))(tx.peer)
-    }
 
     override def toString = "IdentifierMap"
 
-    def write(out: DataOutput) {}
-    def dispose()(implicit tx: Tx) {}
+    def write(out: DataOutput): Unit = ()
+    def dispose()(implicit tx: Tx): Unit = ()
   }
-
 }

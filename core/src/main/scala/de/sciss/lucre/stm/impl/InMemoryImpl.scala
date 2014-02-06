@@ -2,7 +2,7 @@
  *  InMemoryImpl.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -55,7 +55,7 @@ object InMemoryImpl {
       }
     }
 
-    final def close() {}
+    final def close(): Unit = ()
 
     // ---- cursor ----
 
@@ -75,29 +75,29 @@ object InMemoryImpl {
 
     def apply()(implicit tx: S#Tx): A = peer.get(tx.peer)
 
-    def update(v: A)(implicit tx: S#Tx) {
+    def update(v: A)(implicit tx: S#Tx): Unit = {
       peer.set(v)(tx.peer)
       // tx.markDirty()
     }
 
-    def transform(f: A => A)(implicit tx: S#Tx) {
+    def transform(f: A => A)(implicit tx: S#Tx): Unit = {
       peer.transform(f)(tx.peer)
       // tx.markDirty()
     }
 
-    def write(out: DataOutput) {}
+    def write(out: DataOutput): Unit = ()
 
-    def dispose()(implicit tx: S#Tx) {
+    def dispose()(implicit tx: S#Tx): Unit = {
       peer.set(null.asInstanceOf[A])(tx.peer)
       // tx.markDirty()
     }
   }
 
   private final class IDImpl[S <: InMemoryLike[S]](val id: Int) extends InMemoryLike.ID[S] {
-    def write(out: DataOutput) {}
-    def dispose()(implicit tx: S#Tx) {}
+    def write(out: DataOutput): Unit = ()
+    def dispose()(implicit tx: S#Tx): Unit = ()
 
-    override def toString = "<" + id + ">"
+    override def toString = s"<$id>"
     override def hashCode: Int = id.##
 
     override def equals(that: Any) = that.isInstanceOf[InMemoryLike.ID[_]] &&
@@ -106,7 +106,8 @@ object InMemoryImpl {
 
   private final class TxnImpl(val system: InMemory, val peer: InTxn)
     extends TxnMixin[InMemory] {
-    override def toString = "InMemory.Txn@" + hashCode.toHexString
+
+    override def toString = s"InMemory.Txn@${hashCode.toHexString}"
   }
 
   trait TxnMixin[S <: InMemoryLike[S]] extends BasicTxnImpl[S] {
@@ -183,7 +184,7 @@ object InMemoryImpl {
   private final class System extends Mixin[InMemory] with InMemory {
     private type S = InMemory
 
-    override def toString = "InMemory@" + hashCode.toHexString
+    override def toString = s"InMemory@${hashCode.toHexString}"
 
     def wrap(itx: InTxn): S#Tx = new TxnImpl(this, itx)
   }

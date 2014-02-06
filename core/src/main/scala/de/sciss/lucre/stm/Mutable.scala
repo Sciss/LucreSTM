@@ -2,7 +2,7 @@
  *  Mutable.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -31,12 +31,12 @@ import serial.{DataOutput, Writable}
 
 object Mutable {
   trait Impl[S <: Sys[S]] extends Mutable[S#ID, S#Tx] {
-    final def dispose()(implicit tx: S#Tx) {
+    final def dispose()(implicit tx: S#Tx): Unit = {
       id.dispose()
       disposeData()
     }
 
-    final def write(out: DataOutput) {
+    final def write(out: DataOutput): Unit = {
       id.write(out)
       writeData(out)
     }
@@ -44,7 +44,7 @@ object Mutable {
     protected def disposeData()(implicit tx: S#Tx): Unit
     protected def writeData(out: DataOutput): Unit
 
-    // note: microbenchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
+    // note: micro benchmark shows that an initial this eq that.asInstanceOf[AnyRef] doesn't improve performance at all
     override def equals(that: Any): Boolean = that match {
       case m: Mutable[_, _] =>
         id == m.id

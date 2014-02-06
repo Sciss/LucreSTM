@@ -4,7 +4,7 @@
 
 LucreSTM provides a software transactional memory with persistent backend for the Scala programming language. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project.
 
-LucreSTM is (C)opyright 2011&ndash;2013 by Hanns Holger Rutz. All rights reserved. It is released under the [GNU General Public License](https://raw.github.com/Sciss/LucreSTM/master/licenses/LucreSTM-License.txt) and comes with absolutely no warranties. The submodule `serial` is licensed under the [GNU Lesser General Public License](https://raw.github.com/Sciss/LucreSTM/master/licenses/LucreSTM-Serial-License.txt). To contact the author, send an email to `contact at sciss.de`
+LucreSTM is (C)opyright 2011&ndash;2014 by Hanns Holger Rutz. All rights reserved. It is released under the [GNU General Public License](https://raw.github.com/Sciss/LucreSTM/master/licenses/LucreSTM-License.txt) and comes with absolutely no warranties. The submodule `serial` is licensed under the [GNU Lesser General Public License](https://raw.github.com/Sciss/LucreSTM/master/licenses/LucreSTM-Serial-License.txt). To contact the author, send an email to `contact at sciss.de`
 
 Further reading:
 
@@ -33,7 +33,7 @@ And for the database backend:
     
     "de.sciss" %% "lucrestm-bdb" % v
 
-The current version `v` is `"2.0.+`".
+The current version `v` is `"2.0.1+`".
 
 ## documentation
 

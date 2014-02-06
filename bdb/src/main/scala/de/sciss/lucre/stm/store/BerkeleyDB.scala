@@ -2,7 +2,7 @@
  *  BerkeleyDB.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -106,7 +106,7 @@ object BerkeleyDB {
 
   private final class Impl(txe: TxEnv, db: Database)
     extends BerkeleyDB {
-    def put(keyFun: DataOutput => Unit)(valueFun: DataOutput => Unit)(implicit tx: TxnLike) {
+    def put(keyFun: DataOutput => Unit)(valueFun: DataOutput => Unit)(implicit tx: TxnLike): Unit =
       txe.withIO { (io, dbTxn) =>
         val out     = io.out
         val keyE    = io.keyE
@@ -122,7 +122,6 @@ object BerkeleyDB {
         valueE.setData(data, keySize, valueSize)
         db.put(dbTxn, keyE, valueE)
       }
-    }
 
     def get[A](keyFun: DataOutput => Unit)(valueFun: DataInput => A)(implicit tx: TxnLike): Option[A] = {
       txe.withIO { (io, dbTxn) =>
@@ -193,9 +192,7 @@ object BerkeleyDB {
       }
     }
 
-    def close() {
-      db.close()
-    }
+    def close(): Unit = db.close()
 
     def numEntries(implicit tx: TxnLike): Int = db.count().toInt
   }

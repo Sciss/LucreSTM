@@ -2,7 +2,7 @@
  *  package.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -34,17 +34,13 @@ package object stm {
   private lazy val logHeader = new SimpleDateFormat("[d MMM yyyy, HH:mm''ss.SSS] 'Lucre' - 'stm' ", Locale.US)
   var showLog = false
 
-  @elidable(CONFIG) private[lucre] def log(what: => String) {
-    if (showLog) {
-      println(logHeader.format(new Date()) + what)
-    }
-  }
+  @elidable(CONFIG) private[lucre] def log(what: => String): Unit =
+    if (showLog) println(logHeader.format(new Date()) + what)
 
-  /**
-   * Specialization group consisting of all specializable types except `Byte` and `Short`.
-   *
-   * (AnyRef specialization seems currently disabled in Scala)
-   */
+  /** Specialization group consisting of all specializable types except `Byte` and `Short`.
+    *
+    * (AnyRef specialization seems currently disabled in Scala)
+    */
   val SpecGroup = new Specializable.Group((
       scala.Int,  scala.Long,    scala.Float, scala.Double,
       scala.Char, scala.Boolean, scala.Unit /* , scala.AnyRef */

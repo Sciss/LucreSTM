@@ -2,7 +2,7 @@
  *  LocalVarImpl.scala
  *  (LucreSTM)
  *
- *  Copyright (c) 2011-2013 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
  *  This software is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -33,7 +33,7 @@ final class LocalVarImpl[S <: Sys[S], A](init: S#Tx => A)
 
   private val peer = TxnLocal[A]()
 
-  override def toString = "TxnLocal<" + hashCode().toHexString + ">"
+  override def toString = s"TxnLocal<${hashCode().toHexString}>"
 
   def apply()(implicit tx: S#Tx): A = {
     implicit val itx = tx.peer
@@ -45,9 +45,8 @@ final class LocalVarImpl[S <: Sys[S], A](init: S#Tx => A)
     }
   }
 
-  def update(v: A)(implicit tx: S#Tx) {
+  def update(v: A)(implicit tx: S#Tx): Unit =
     peer.set(v)(tx.peer)
-  }
 
   def isInitialized(implicit tx: S#Tx): Boolean = peer.isInitialized(tx.peer)
 }
