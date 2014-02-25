@@ -4,7 +4,7 @@ import sbtbuildinfo.Plugin._
 
 object Build extends sbt.Build {
   def sleepyVersion   = "5.0.73" // = Berkeley DB Java Edition
-  def serialVersion   = "1.0.+"
+  def serialVersion   = "1.0.1+"
   def scalaSTMVersion = "0.7"
 
   lazy val root: Project = Project(

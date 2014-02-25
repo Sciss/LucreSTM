@@ -1,6 +1,6 @@
 name                       := "LucreSTM"
 
-version       in ThisBuild := "2.0.1"
+version       in ThisBuild := "2.0.2-SNAPSHOT"
 
 organization  in ThisBuild := "de.sciss"
 
@@ -10,13 +10,13 @@ homepage      in ThisBuild := Some(url("https://github.com/Sciss/" + name.value)
 
 licenses      in ThisBuild := Seq("GPL v2+" -> url( "http://www.gnu.org/licenses/gpl-2.0.txt"))
 
-scalaVersion  in ThisBuild := "2.10.1"
+scalaVersion  in ThisBuild := "2.10.3"
 
 libraryDependencies in ThisBuild ++= Seq(
-  "org.scalatest" %% "scalatest" % "1.9.1" % "test"
+  "org.scalatest" %% "scalatest" % "2.0" % "test"
 )
 
-retrieveManaged in ThisBuild  := true
+// retrieveManaged in ThisBuild  := true
 
 scalacOptions   in ThisBuild ++= Seq("-deprecation", "-unchecked", "-feature")
 
