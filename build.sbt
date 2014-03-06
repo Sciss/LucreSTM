@@ -10,10 +10,12 @@ homepage      in ThisBuild := Some(url("https://github.com/Sciss/" + name.value)
 
 licenses      in ThisBuild := Seq("GPL v2+" -> url( "http://www.gnu.org/licenses/gpl-2.0.txt"))
 
-scalaVersion  in ThisBuild := "2.10.3"
+scalaVersion  in ThisBuild := "2.11.0-RC1"
+
+crossScalaVersions in ThisBuild := Seq("2.11.0-RC1", "2.10.3")
 
 libraryDependencies in ThisBuild ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.0" % "test"
+  "org.scalatest" %% "scalatest" % "2.1.0" % "test"
 )
 
 // retrieveManaged in ThisBuild  := true
