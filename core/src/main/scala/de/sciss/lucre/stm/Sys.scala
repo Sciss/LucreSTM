@@ -53,20 +53,11 @@ trait Sys[S <: Sys[S]] {
     */
   type Acc
 
-  /** An entry is similar to a variable in that it can be transactionally read and written.
-    * However, in a confluently persistent system, a data structure can only be
-    * correctly read and written, if any element in that structure was reached by
-    * starting from an `Entry` access point.
-    *
-    * @tparam A   the type of the value stored and updated in the access
-    */
-  type Entry[A] <: _Var[S#Tx, A]
-
   /** Reads the root object representing the stored data structure,
     * or provides a newly initialized one via the `init` argument,
     * if no root has been stored yet.
     */
-  def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Entry[A]
+  def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A]
 
   /** Closes the underlying database (if the system is durable). The STM cannot be used beyond this call.
     * An in-memory system should have a no-op implementation.
