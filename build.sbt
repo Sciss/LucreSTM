@@ -10,7 +10,7 @@ homepage      in ThisBuild := Some(url("https://github.com/Sciss/" + name.value)
 
 licenses      in ThisBuild := Seq("GPL v2+" -> url( "http://www.gnu.org/licenses/gpl-2.0.txt"))
 
-scalaVersion  in ThisBuild := "2.11.0-RC1"
+scalaVersion  in ThisBuild := "2.10.3"
 
 crossScalaVersions in ThisBuild := Seq("2.11.0-RC1", "2.10.3")
 
