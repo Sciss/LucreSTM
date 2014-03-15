@@ -52,7 +52,8 @@ object List {
       import in.<<
       implicit val peer = << ("A", peerM)
       // val headOption    = tx.readVar[Option[List.Cell[S#Tx, A]]]("head", in, access)
-      val headOption  = << [Var[S#Tx, Option[List.Cell[S#Tx, A]]]]("head")
+      // val headOption  = << [Var[S#Tx, Option[List.Cell[S#Tx, A]]]]("head")
+      val headOption  = << [S#Var[Option[List.Cell[S#Tx, A]]]]("head")
       ??? // new List.Impl[S, A](headOption)
     }
 

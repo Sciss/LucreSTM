@@ -80,7 +80,7 @@ case object NoSerializer extends MaybeSerializer[Any, Any, Any, Nothing] {
 
   val isDefined = false
 
-  def read(in: DataInput[Any, Any], access: Any)(implicit tx: Any): Nothing = throw new NoSuchElementException
+  def read(in: DataInput[Any, Any])(implicit tx: Any): Nothing = throw new NoSuchElementException
 
   def write(value: Any, out: DataOutput): Unit = throw new NoSuchElementException
 }
@@ -120,7 +120,7 @@ trait DataInput[+Tx, +Acc] {
 
   // def resolve[Tx, Acc, A](m: MaybeSerializer[Tx, Acc, A, A]): Serializer[Tx, Acc, A] = ???
 
-  def << [A](name: String, m: MaybeSerializer[Tx, Acc, A, A]): Serializer[Tx, Acc, A] = ???
+  def << [Tx1 >: Tx, Acc1 >: Acc, A](name: String, m: MaybeSerializer[Tx, Acc, A, A]): Serializer[Tx1, Acc1, A] = ???
 
   def << [A](name: String)(implicit ser: Serializer[Tx, Acc, A]): A
 }
