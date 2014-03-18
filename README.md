@@ -33,7 +33,7 @@ And for the database backend:
     
     "de.sciss" %% "lucrestm-bdb" % v
 
-The current version `v` is `"2.0.1+`".
+The current version `v` is `"2.0.2+`".
 
 ## documentation
 
