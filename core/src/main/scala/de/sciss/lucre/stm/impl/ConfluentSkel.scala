@@ -274,7 +274,7 @@ object ConfluentSkel {
     protected def system: System
 
     protected final def toString(pre: String) = pre + id + ": " +
-      system.storage.getOrElse(id.seminal, Map.empty).map(_._1).mkString(", ")
+      system.storage.getOrElse(id.seminal, Map.empty).keys.mkString(", ")
 
     final def update(v: A)(implicit tx: S#Tx): Unit = store(v)
 
