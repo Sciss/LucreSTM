@@ -14,10 +14,9 @@
 package de.sciss.lucre
 package stm
 
-import stm.{Var => _Var, Txn => _Txn, SpecGroup => ialized}
+import stm.{Var => _Var, Txn => _Txn}
 import concurrent.stm.InTxn
 import impl.{InMemoryImpl => Impl}
-import scala.{specialized => spec}
 
 object InMemoryLike {
   trait ID[S <: InMemoryLike[S]] extends Identifier[S#Tx] {
@@ -25,10 +24,10 @@ object InMemoryLike {
   }
 }
 trait InMemoryLike[S <: InMemoryLike[S]] extends Sys[S] with Cursor[S] {
-  final type Var[@spec(ialized) A]  = _Var[S#Tx, A]
-  final type Entry[A]               = _Var[S#Tx, A]
-  final type ID                     = InMemoryLike.ID[S]
-  final type Acc                    = Unit
+  final type Var[A]   = _Var[S#Tx, A]
+  final type Entry[A] = _Var[S#Tx, A]
+  final type ID       = InMemoryLike.ID[S]
+  final type Acc      = Unit
 
   private[stm] def newID(peer: InTxn): S#ID
   def wrap(peer: InTxn) : S#Tx
@@ -37,9 +36,7 @@ trait InMemoryLike[S <: InMemoryLike[S]] extends Sys[S] with Cursor[S] {
 object InMemory {
   def apply(): InMemory = Impl()
 }
-/**
- * A thin in-memory (non-durable) wrapper around Scala-STM.
- */
+/** A thin in-memory (non-durable) wrapper around Scala-STM. */
 trait InMemory extends InMemoryLike[InMemory] {
   final type Tx = _Txn[InMemory]
 }

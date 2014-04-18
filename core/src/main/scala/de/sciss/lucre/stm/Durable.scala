@@ -15,12 +15,11 @@ package de.sciss
 package lucre
 package stm
 
-import stm.{Var => _Var, Txn => _Txn, SpecGroup => ialized}
+import stm.{Var => _Var, Txn => _Txn}
 import serial.{DataInput, DataOutput, Serializer}
 import concurrent.stm.InTxn
 import impl.{DurableImpl => Impl}
 import language.implicitConversions
-import scala.{specialized => spec}
 
 object Durable {
   private type S = Durable
@@ -51,30 +50,27 @@ object DurableLike {
   }
 }
 trait DurableLike[S <: DurableLike[S]] extends Sys[S] with Cursor[S] {
-  final type Var[@spec(ialized) A]  = _Var[S#Tx, A]
-  final type ID                     = DurableLike.ID[S]
-  final type Acc                    = Unit
-  final type Entry[A]               = _Var[S#Tx, A]
-  type Tx                          <: DurableLike.Txn[S]
-  type I                           <: InMemoryLike[I]
+  final type Var[A]      = _Var[S#Tx, A]
+  final type ID          = DurableLike.ID[S]
+  final type Acc         = Unit
+  final type Entry[A]    = _Var[S#Tx, A]
+  type Tx               <: DurableLike.Txn[S]
+  type I                <: InMemoryLike[I]
 
-  /**
-   * Reports the current number of records stored in the database.
-   */
+  /** Reports the current number of records stored in the database. */
   def numRecords(implicit tx: S#Tx): Int
 
-  /**
-   * Reports the current number of user records stored in the database.
-   * That is the number of records minus those records used for
-   * database maintenance.
-   */
+  /** Reports the current number of user records stored in the database.
+    * That is the number of records minus those records used for
+    * database maintenance.
+    */
   def numUserRecords(implicit tx: S#Tx): Int
 
   def debugListUserRecords()(implicit tx: S#Tx): Seq[S#ID]
 
-  private[stm] def read[@spec(ialized) A](id: Int)(valueFun: DataInput => A)(implicit tx: S#Tx): A
+  private[stm] def read[A](id: Int)(valueFun: DataInput => A)(implicit tx: S#Tx): A
 
-  private[stm] def tryRead[A](id: Long)(valueFun: DataInput => A)(implicit tx: S#Tx): Option[A] // Option currently not specialized?
+  private[stm] def tryRead[A](id: Long)(valueFun: DataInput => A)(implicit tx: S#Tx): Option[A]
 
   private[stm] def write(id: Int)(valueFun: DataOutput => Unit)(implicit tx: S#Tx): Unit
 

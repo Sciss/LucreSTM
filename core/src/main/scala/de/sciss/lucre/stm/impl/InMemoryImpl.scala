@@ -17,8 +17,7 @@ package stm
 package impl
 
 import concurrent.stm.{Ref => ScalaRef, TxnExecutor, InTxn}
-import scala.{specialized => spec}
-import stm.{Var => _Var, SpecGroup => ialized}
+import stm.{Var => _Var}
 import serial.{DataInput, DataOutput, Serializer}
 
 object InMemoryImpl {
@@ -56,7 +55,7 @@ object InMemoryImpl {
 
   private def opNotSupported(name: String): Nothing = sys.error("Operation not supported: " + name)
 
-  private final class VarImpl[S <: InMemoryLike[S], @spec(ialized) A](peer: ScalaRef[A])
+  private final class VarImpl[S <: InMemoryLike[S], A](peer: ScalaRef[A])
     extends _Var[S#Tx, A] {
 
     override def toString = "Var<" + hashCode().toHexString + ">"

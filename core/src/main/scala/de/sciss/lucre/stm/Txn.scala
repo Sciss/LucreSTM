@@ -47,17 +47,15 @@ trait TxnLike {
 }
 
 trait Txn[S <: Sys[S]] extends TxnLike {
-  /**
-   * Back link to the underlying system
-   */
+  /** Back link to the underlying system. */
   def system: S
 
   def newID(): S#ID
 
-  def newVar[A](id: S#ID, init: A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
+  def newVar[A]    (id: S#ID, init: A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
   def newBooleanVar(id: S#ID, init: Boolean): S#Var[Boolean]
-  def newIntVar(id: S#ID, init: Int): S#Var[Int]
-  def newLongVar(id: S#ID, init: Long): S#Var[Long]
+  def newIntVar    (id: S#ID, init: Int    ): S#Var[Int]
+  def newLongVar   (id: S#ID, init: Long   ): S#Var[Long]
 
   def newVarArray[A](size: Int): Array[S#Var[A]]
 
@@ -89,10 +87,10 @@ trait Txn[S <: Sys[S]] extends TxnLike {
     */
   def newInMemoryIDMap[A]: IdentifierMap[S#ID, S#Tx, A]
 
-  def readVar[A](id: S#ID, in: DataInput)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
+  def readVar[A]    (id: S#ID, in: DataInput)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
   def readBooleanVar(id: S#ID, in: DataInput): S#Var[Boolean]
-  def readIntVar(id: S#ID, in: DataInput): S#Var[Int]
-  def readLongVar(id: S#ID, in: DataInput): S#Var[Long]
+  def readIntVar    (id: S#ID, in: DataInput): S#Var[Int]
+  def readLongVar   (id: S#ID, in: DataInput): S#Var[Long]
 
   def readPartialVar[A](id: S#ID, in: DataInput)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Var[A]
 

@@ -1,6 +1,6 @@
 name                       := "LucreSTM"
 
-version       in ThisBuild := "2.0.3"
+version       in ThisBuild := "2.0.4"
 
 organization  in ThisBuild := "de.sciss"
 
@@ -10,19 +10,16 @@ homepage      in ThisBuild := Some(url("https://github.com/Sciss/" + name.value)
 
 licenses      in ThisBuild := Seq("GPL v2+" -> url( "http://www.gnu.org/licenses/gpl-2.0.txt"))
 
-scalaVersion  in ThisBuild := "2.10.4"
+scalaVersion  in ThisBuild := "2.11.0"
 
-crossScalaVersions in ThisBuild := Seq("2.11.0-RC3", "2.10.4")
+crossScalaVersions in ThisBuild := Seq("2.11.0", "2.10.4")
 
-libraryDependencies in ThisBuild ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.1.2" % "test"
-)
+libraryDependencies in ThisBuild +=
+  "org.scalatest" %% "scalatest" % "2.1.3" % "test"
 
 retrieveManaged in ThisBuild  := true
 
-scalacOptions   in ThisBuild ++= Seq("-deprecation", "-unchecked", "-feature")
-
-scalacOptions   in ThisBuild  += "-no-specialization"  // never use this shit. will give you runtime IllegalAccessErrors in random places of the future. do _not_ use specialization. ever. don't diminish your life expectancy.
+scalacOptions   in ThisBuild ++= Seq("-deprecation", "-unchecked", "-feature", "-Xfuture")
 
 scalacOptions   in ThisBuild ++= Seq("-Xelide-below", "INFO")     // elide debug logging!
 

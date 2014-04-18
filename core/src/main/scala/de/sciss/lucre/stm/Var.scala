@@ -15,8 +15,6 @@ package de.sciss
 package lucre
 package stm
 
-//import scala.{specialized => spec}
-//import stm.{SpecGroup => ialized}
 import serial.Writable
 
 object Sink {

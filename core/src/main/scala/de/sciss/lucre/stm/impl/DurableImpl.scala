@@ -18,8 +18,6 @@ package impl
 
 import concurrent.stm.{Ref, InTxn, TxnExecutor}
 import annotation.elidable
-import scala.{specialized => spec}
-import stm.{SpecGroup => ialized}
 import serial.{DataInput, DataOutput, Serializer}
 
 object DurableImpl {
@@ -118,7 +116,7 @@ object DurableImpl {
       store.get(_.writeLong(id))(valueFun)
     }
 
-    def read[@specialized A](id: Int)(valueFun: DataInput => A)(implicit tx: S#Tx): A = {
+    def read[A](id: Int)(valueFun: DataInput => A)(implicit tx: S#Tx): A = {
       log("read  <" + id + ">")
       store.get(_.writeInt(id))(valueFun).getOrElse(sys.error("Key not found " + id))
     }
@@ -300,7 +298,7 @@ object DurableImpl {
       require(tx.system.exists(id), "trying to write disposed ref " + id)
   }
 
-  private sealed trait BasicVar[S <: D[S], @spec(ialized) A] extends BasicSource[S, A] {
+  private sealed trait BasicVar[S <: D[S], A] extends BasicSource[S, A] {
     protected def ser: Serializer[S#Tx, S#Acc, A]
 
     final def apply()(implicit tx: S#Tx): A = tx.system.read[A](id)(ser.read(_, ()))
@@ -309,8 +307,8 @@ object DurableImpl {
       tx.system.write(id)(ser.write(v, _))
   }
 
-  private final class VarImpl[S <: D[S], @spec(ialized) A](protected val id: Int,
-                                                           protected val ser: Serializer[S#Tx, S#Acc, A])
+  private final class VarImpl[S <: D[S], A](protected val id: Int,
+                                            protected val ser: Serializer[S#Tx, S#Acc, A])
     extends BasicVar[S, A] {
 
     def update(v: A)(implicit tx: S#Tx): Unit = {
@@ -323,8 +321,8 @@ object DurableImpl {
     override def toString = s"Var($id)"
   }
 
-  private final class CachedVarImpl[S <: D[S], @spec(ialized) A](protected val id: Int, peer: Ref[A],
-                                                                 ser: Serializer[S#Tx, S#Acc, A])
+  private final class CachedVarImpl[S <: D[S], A](protected val id: Int, peer: Ref[A],
+                                                  ser: Serializer[S#Tx, S#Acc, A])
     extends BasicSource[S, A] {
 
     def apply()(implicit tx: S#Tx): A = peer.get(tx.peer)

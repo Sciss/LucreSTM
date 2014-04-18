@@ -13,7 +13,7 @@ Further reading:
 
 ## requirements / installation
 
-LucreSTM builds with sbt 0.12 against Scala 2.10. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.7.
+LucreSTM builds with sbt 0.12 against Scala 2.11, 2.10. It depends on [Scala-STM](http://nbronson.github.com/scala-stm/) 0.7.
 
 ## linking to LucreSTM
 
@@ -33,7 +33,7 @@ And for the database backend:
     
     "de.sciss" %% "lucrestm-bdb" % v
 
-The current version `v` is `"2.0.3+`".
+The current version `v` is `"2.0.4+`".
 
 ## documentation
 
@@ -83,8 +83,8 @@ This is taken from the test sources. For conciseness, disposal is not demonstrat
     trait Person extends Mutable[S] {
       def name: String
       def friends: S#Var[List[Person]]
-      protected def disposeData()(implicit tx: S#Tx) { friends.dispose() }
-      protected def writeData(out: DataOutput) {
+      protected def disposeData()(implicit tx: S#Tx): Unit = friends.dispose()
+      protected def writeData(out: DataOutput): Unit = {
         out.writeString(name)
         friends.write(out)
       }

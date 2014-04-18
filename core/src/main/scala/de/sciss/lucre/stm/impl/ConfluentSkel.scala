@@ -16,34 +16,31 @@ package lucre
 package stm
 package impl
 
-import collection.immutable.{IndexedSeq => IIdxSeq, IntMap}
+import collection.immutable.{IndexedSeq => Vec, IntMap}
 import concurrent.stm.{InTxn, TxnExecutor}
-import scala.{specialized => spec}
-import stm.{SpecGroup => ialized}
 import util.hashing.MurmurHash3
 import language.implicitConversions
 import serial.{DataInput, DataOutput, Serializer}
 
-/**
- * A simple confluent system implementation for testing purposes only. It is not really
- * transactional (atomic), nor any thread safe, nor does it have particular performance
- * guarantees. Use it exclusively for trying out if things work under confluent semantics,
- * but don't expect wonders. For a production quality system, see the separate
- * TemporalObjects project instead.
- */
+/** A simple confluent system implementation for testing purposes only. It is not really
+  * transactional (atomic), nor any thread safe, nor does it have particular performance
+  * guarantees. Use it exclusively for trying out if things work under confluent semantics,
+  * but don't expect wonders. For a production quality system, see the separate
+  * TemporalObjects project instead.
+  */
 sealed trait ConfluentSkel extends Sys[ConfluentSkel] with Cursor[ConfluentSkel] {
-  final type Var[@spec(ialized) A]  = ConfluentSkel.Var[A]
-  final type ID                     = ConfluentSkel.ID
-  final type Tx                     = ConfluentSkel.Txn
-  final type Acc                    = IIdxSeq[Int]
-  final type Entry[A]               = ConfluentSkel.Var[A]
+  final type Var[A]   = ConfluentSkel.Var[A]
+  final type ID       = ConfluentSkel.ID
+  final type Tx       = ConfluentSkel.Txn
+  final type Acc      = Vec[Int]
+  final type Entry[A] = ConfluentSkel.Var[A]
 
   def inPath[A]  (_path: Acc)(fun: Tx => A): A
   def fromPath[A](_path: Acc)(fun: Tx => A): A
 }
 
 object ConfluentSkel {
-  private type Acc = IIdxSeq[Int]
+  private type Acc = Vec[Int]
   private type S = ConfluentSkel
 
   private type M = Map[Acc, Array[Byte]]
@@ -81,7 +78,7 @@ object ConfluentSkel {
 
   private final class System extends ConfluentSkel {
     private var cnt = 0
-    private var pathVar = IIdxSeq.empty[Int]
+    private var pathVar = Vec.empty[Int]
 
     var storage = IntMap.empty[M]
     val inMemory = InMemory()
@@ -160,7 +157,7 @@ object ConfluentSkel {
   private object IDImpl {
     def readPath(in: DataInput): Acc = {
       val sz = in.readInt()
-      IIdxSeq.fill(sz)(in.readInt())
+      Vec.fill(sz)(in.readInt())
     }
 
     def readAndAppend(id: Int, postfix: Acc, in: DataInput): ID = {
@@ -176,7 +173,7 @@ object ConfluentSkel {
 
     def readAndUpdate(id: Int, accessPath: Acc, in: DataInput): ID = {
       val sz      = in.readInt()
-      val path    = IIdxSeq.fill(sz)(in.readInt())
+      val path    = Vec.fill(sz)(in.readInt())
       val newPath = path :+ accessPath.last
       new IDImpl(id, newPath)
     }

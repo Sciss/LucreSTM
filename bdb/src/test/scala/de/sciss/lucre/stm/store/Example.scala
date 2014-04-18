@@ -20,15 +20,19 @@ object Example extends App {
          }
       }
    }
-   trait Person extends Mutable[ S#ID, S#Tx ] {
-      def name: String
-      def friends: S#Var[ List[ Person ]]
-      protected def disposeData()( implicit tx: S#Tx ) { friends.dispose() }
-      protected def writeData( out: DataOutput ) {
-         out.writeUTF( name )
-         friends.write( out )
-      }
-   }
+
+  trait Person extends Mutable[S#ID, S#Tx] {
+    def name: String
+
+    def friends: S#Var[List[Person]]
+
+    protected def disposeData()(implicit tx: S#Tx): Unit = friends.dispose()
+
+    protected def writeData(out: DataOutput): Unit = {
+      out.writeUTF(name)
+      friends.write(out)
+    }
+  }
 
    val pre  = IndexedSeq( "Adal", "Bern", "Chlod", "Diet", "Eg",   "Fried" )
    val post = IndexedSeq( "bert", "hard", "wig",   "mar",  "mund", "helm"  )
