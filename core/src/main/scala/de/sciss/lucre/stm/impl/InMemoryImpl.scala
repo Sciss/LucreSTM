@@ -1,10 +1,10 @@
 /*
  *  InMemoryImpl.scala
- *  (LucreSTM)
+ *  (LucreSTM-Core)
  *
  *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
- *  This software is published under the GNU General Public License v2+
+ *  This software is published under the GNU Lesser General Public License v2.1+
  *
  *
  *  For further information, please contact Hanns Holger Rutz at
@@ -36,11 +36,10 @@ object InMemoryImpl {
       new IDImpl[S](res)
     }
 
-    final def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Entry[A] = {
+    final def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] =
       step { implicit tx =>
         tx.newVar[A](tx.newID(), init(tx))
       }
-    }
 
     final def close(): Unit = ()
 
@@ -93,6 +92,8 @@ object InMemoryImpl {
 
   private final class TxnImpl(val system: InMemory, val peer: InTxn)
     extends TxnMixin[InMemory] {
+
+    implicit def inMemory = this
 
     override def toString = s"InMemory.Txn@${hashCode.toHexString}"
   }
@@ -170,6 +171,9 @@ object InMemoryImpl {
 
   private final class System extends Mixin[InMemory] with InMemory {
     private type S = InMemory
+
+    def inMemory: I = this
+    def inMemoryTx(tx: Tx): Tx = tx
 
     override def toString = s"InMemory@${hashCode.toHexString}"
 

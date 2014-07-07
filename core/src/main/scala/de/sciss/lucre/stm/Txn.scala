@@ -1,10 +1,10 @@
 /*
  *  Txn.scala
- *  (LucreSTM)
+ *  (LucreSTM-Core)
  *
  *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
- *  This software is published under the GNU General Public License v2+
+ *  This software is published under the GNU Lesser General Public License v2.1+
  *
  *
  *  For further information, please contact Hanns Holger Rutz at
@@ -48,7 +48,9 @@ trait TxnLike {
 
 trait Txn[S <: Sys[S]] extends TxnLike {
   /** Back link to the underlying system. */
-  def system: S
+  val system: S
+
+  implicit def inMemory: S#I#Tx
 
   def newID(): S#ID
 
@@ -112,4 +114,5 @@ trait Txn[S <: Sys[S]] extends TxnLike {
   def newHandle[A](value: A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A]
 
   def beforeCommit(fun: S#Tx => Unit): Unit
+  def afterCommit (fun:      => Unit): Unit
 }

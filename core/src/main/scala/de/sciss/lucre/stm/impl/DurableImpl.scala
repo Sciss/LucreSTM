@@ -1,10 +1,10 @@
 /*
  *  DurableImpl.scala
- *  (LucreSTM)
+ *  (LucreSTM-Core)
  *
  *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
- *  This software is published under the GNU General Public License v2+
+ *  This software is published under the GNU Lesser General Public License v2.1+
  *
  *
  *  For further information, please contact Hanns Holger Rutz at
@@ -38,7 +38,7 @@ object DurableImpl {
       new CachedIntVar[S](0, _idCnt)
     }
 
-    def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Entry[A] = {
+    def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] = {
       val rootID = 2 // 1 == reaction map!!!
       step { implicit tx =>
         if (exists(rootID)) {
@@ -466,6 +466,8 @@ object DurableImpl {
     private type S = Durable
 
     val inMemory: InMemory = InMemory()
+
+    def inMemoryTx(tx: Tx): I#Tx = tx.inMemory
 
     override def toString = s"Durable@${hashCode.toHexString}"
 

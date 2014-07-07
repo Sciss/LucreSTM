@@ -1,6 +1,6 @@
 name                       := "LucreSTM"
 
-version       in ThisBuild := "2.0.4"
+version       in ThisBuild := "2.1.0-SNAPSHOT"
 
 organization  in ThisBuild := "de.sciss"
 
@@ -8,14 +8,12 @@ description   in ThisBuild := "Extension of Scala-STM, adding optional durabilit
 
 homepage      in ThisBuild := Some(url("https://github.com/Sciss/" + name.value))
 
-licenses      in ThisBuild := Seq("GPL v2+" -> url( "http://www.gnu.org/licenses/gpl-2.0.txt"))
+scalaVersion  in ThisBuild := "2.11.1"
 
-scalaVersion  in ThisBuild := "2.11.0"
-
-crossScalaVersions in ThisBuild := Seq("2.11.0", "2.10.4")
+crossScalaVersions in ThisBuild := Seq("2.11.1", "2.10.4")
 
 libraryDependencies in ThisBuild +=
-  "org.scalatest" %% "scalatest" % "2.1.3" % "test"
+  "org.scalatest" %% "scalatest" % "2.2.0" % "test"
 
 retrieveManaged in ThisBuild  := true
 

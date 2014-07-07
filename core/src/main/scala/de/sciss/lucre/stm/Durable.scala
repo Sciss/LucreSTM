@@ -1,10 +1,10 @@
 /*
  *  Durable.scala
- *  (LucreSTM)
+ *  (LucreSTM-Core)
  *
  *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
- *  This software is published under the GNU General Public License v2+
+ *  This software is published under the GNU Lesser General Public License v2.1+
  *
  *
  *  For further information, please contact Hanns Holger Rutz at
@@ -28,10 +28,10 @@ object Durable {
 
   def apply(factory: DataStoreFactory[DataStore], name: String = "data"): S = Impl(factory, name)
 
-  implicit def inMemory(tx: Durable#Tx): InMemory#Tx = tx.inMemory
+  // implicit def inMemory(tx: Durable#Tx): InMemory#Tx = tx.inMemory
 
   trait Txn extends DurableLike.Txn[Durable] {
-    private[Durable] def inMemory: InMemory#Tx
+    // private[Durable] def inMemory: InMemory#Tx
   }
 }
 
@@ -53,9 +53,9 @@ trait DurableLike[S <: DurableLike[S]] extends Sys[S] with Cursor[S] {
   final type Var[A]      = _Var[S#Tx, A]
   final type ID          = DurableLike.ID[S]
   final type Acc         = Unit
-  final type Entry[A]    = _Var[S#Tx, A]
+  // final type Entry[A]    = _Var[S#Tx, A]
   type Tx               <: DurableLike.Txn[S]
-  type I                <: InMemoryLike[I]
+  // type I                <: InMemoryLike[I]
 
   /** Reports the current number of records stored in the database. */
   def numRecords(implicit tx: S#Tx): Int
@@ -88,7 +88,7 @@ trait DurableLike[S <: DurableLike[S]] extends Sys[S] with Cursor[S] {
 
   def wrap(peer: InTxn): S#Tx  // XXX TODO this might go in Cursor?
 
-  def inMemory: I
+  // def inMemory: I
 }
 
 trait Durable extends DurableLike[Durable] {

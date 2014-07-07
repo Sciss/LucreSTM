@@ -1,10 +1,10 @@
 /*
  *  InMemory.scala
- *  (LucreSTM)
+ *  (LucreSTM-Core)
  *
  *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
- *  This software is published under the GNU General Public License v2+
+ *  This software is published under the GNU Lesser General Public License v2.1+
  *
  *
  *  For further information, please contact Hanns Holger Rutz at
@@ -25,7 +25,7 @@ object InMemoryLike {
 }
 trait InMemoryLike[S <: InMemoryLike[S]] extends Sys[S] with Cursor[S] {
   final type Var[A]   = _Var[S#Tx, A]
-  final type Entry[A] = _Var[S#Tx, A]
+  // final type Entry[A] = _Var[S#Tx, A]
   final type ID       = InMemoryLike.ID[S]
   final type Acc      = Unit
 
@@ -39,4 +39,5 @@ object InMemory {
 /** A thin in-memory (non-durable) wrapper around Scala-STM. */
 trait InMemory extends InMemoryLike[InMemory] {
   final type Tx = _Txn[InMemory]
+  final type I  = InMemory
 }

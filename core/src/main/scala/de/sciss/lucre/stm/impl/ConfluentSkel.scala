@@ -1,10 +1,10 @@
 /*
  *  ConfluentSkel.scala
- *  (LucreSTM)
+ *  (LucreSTM-Core)
  *
  *  Copyright (c) 2011-2014 Hanns Holger Rutz. All rights reserved.
  *
- *  This software is published under the GNU General Public License v2+
+ *  This software is published under the GNU Lesser General Public License v2.1+
  *
  *
  *  For further information, please contact Hanns Holger Rutz at
@@ -28,15 +28,17 @@ import serial.{DataInput, DataOutput, Serializer}
   * but don't expect wonders. For a production quality system, see the separate
   * TemporalObjects project instead.
   */
-sealed trait ConfluentSkel extends Sys[ConfluentSkel] with Cursor[ConfluentSkel] {
+trait ConfluentSkel extends Sys[ConfluentSkel] with Cursor[ConfluentSkel] {
   final type Var[A]   = ConfluentSkel.Var[A]
   final type ID       = ConfluentSkel.ID
   final type Tx       = ConfluentSkel.Txn
   final type Acc      = Vec[Int]
-  final type Entry[A] = ConfluentSkel.Var[A]
+  // final type Entry[A] = ConfluentSkel.Var[A]
 
   def inPath[A]  (_path: Acc)(fun: Tx => A): A
   def fromPath[A](_path: Acc)(fun: Tx => A): A
+
+  type I = InMemory
 }
 
 object ConfluentSkel {
@@ -44,8 +46,6 @@ object ConfluentSkel {
   private type S = ConfluentSkel
 
   private type M = Map[Acc, Array[Byte]]
-
-  implicit def inMemory(tx: ConfluentSkel#Tx): InMemory#Tx = tx.inMemory
 
   sealed trait ID extends Identifier[Txn] {
     private[ConfluentSkel] def seminal: Int
@@ -68,8 +68,8 @@ object ConfluentSkel {
       }
   }
 
-  sealed trait Txn extends stm.Txn[S] {
-    private[stm] def inMemory: InMemory#Tx
+  trait Txn extends stm.Txn[S] {
+    // private[stm] def inMemory: InMemory#Tx
   }
 
   type Var[A] = stm.Var[Txn, A]
@@ -80,18 +80,19 @@ object ConfluentSkel {
     private var cnt = 0
     private var pathVar = Vec.empty[Int]
 
-    var storage = IntMap.empty[M]
-    val inMemory = InMemory()
+    var storage   = IntMap.empty[M]
+    val inMemory  = InMemory()
 
-    def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): S#Entry[A] = {
+    def inMemoryTx(tx: Tx): I#Tx = tx.inMemory
+
+    def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] =
       step { implicit tx =>
         tx.newVar[A](tx.newID(), init(tx))
       }
-    }
 
     def close(): Unit = ()
 
-    def inPath[Z](path: Acc)(block: Tx => Z): Z = {
+    def inPath[Z](path: Acc)(block: Tx => Z): Z =
       TxnExecutor.defaultAtomic[Z] { itx =>
         val oldPath = pathVar
         try {
@@ -101,7 +102,6 @@ object ConfluentSkel {
           pathVar = oldPath
         }
       }
-    }
 
     def access(id: Int, acc: S#Acc)(implicit tx: Txn): (DataInput, S#Acc) = {
       var best: Array[Byte] = null
@@ -207,7 +207,7 @@ object ConfluentSkel {
   }
 
   private final class TxnImpl(val system: System, val peer: InTxn) extends Txn with BasicTxnImpl[S] {
-    lazy val inMemory: InMemory#Tx = system.inMemory.wrap(peer)
+    lazy val inMemory: InMemory#Tx = system.inMemoryTx(this) // .wrap(peer)
 
     def newID(): ID = system.newID()(this)
 
