@@ -41,11 +41,17 @@ object InMemoryImpl {
         tx.newVar[A](tx.newID(), init(tx))
       }
 
+    // may nest
+    def rootJoin[A](init: S#Tx => A)(implicit tx: TxnLike, serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] =
+      root(init)
+
     final def close(): Unit = ()
 
     // ---- cursor ----
 
     final def step[A](fun: S#Tx => A): A = {
+      // note: in-memory has no problem with nested
+      // transactions, so we do not need to check that condition.
       TxnExecutor.defaultAtomic(itx => fun(wrap(itx))) // new TxnImpl( this, itx )))
     }
 

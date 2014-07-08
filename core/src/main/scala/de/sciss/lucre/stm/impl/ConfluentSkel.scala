@@ -90,6 +90,10 @@ object ConfluentSkel {
         tx.newVar[A](tx.newID(), init(tx))
       }
 
+    // may nest
+    def rootJoin[A](init: S#Tx => A)(implicit tx: TxnLike, serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] =
+      root(init)
+
     def close(): Unit = ()
 
     def inPath[Z](path: Acc)(block: Tx => Z): Z =

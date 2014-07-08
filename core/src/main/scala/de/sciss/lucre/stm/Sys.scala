@@ -67,6 +67,9 @@ trait Sys[S <: Sys[S]] {
     */
   def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A]
 
+  private[lucre] def rootJoin[A](init: S#Tx => A)
+                                (implicit tx: TxnLike, serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A]
+
   /** Closes the underlying database (if the system is durable). The STM cannot be used beyond this call.
     * An in-memory system should have a no-op implementation.
     */

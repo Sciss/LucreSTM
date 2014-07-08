@@ -16,7 +16,7 @@ package lucre
 package stm
 package impl
 
-import concurrent.stm.{Ref, InTxn, TxnExecutor}
+import scala.concurrent.stm.{Txn, Ref, InTxn, TxnExecutor}
 import annotation.elidable
 import serial.{DataInput, DataOutput, Serializer}
 
@@ -38,34 +38,44 @@ object DurableImpl {
       new CachedIntVar[S](0, _idCnt)
     }
 
-    def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] = {
-      val rootID = 2 // 1 == reaction map!!!
+    def root[A](init: S#Tx => A)(implicit serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] =
       step { implicit tx =>
-        if (exists(rootID)) {
-          new VarImpl[S, A](rootID, serializer)
+        rootBody(init)
+      }
 
-        } else {
-          val id = newIDValue()
-          require(id == rootID, "Root can only be initialized on an empty database (expected id count is " + rootID + " but found " + id + ")")
-          val res = new VarImpl[S, A](id, serializer)
-          res.setInit(init(tx))
-          res
-        }
+    def rootJoin[A](init: S#Tx => A)(implicit tx: TxnLike, serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] =
+      rootBody(init)(wrap(tx.peer), serializer)
+
+    private def rootBody[A](init: S#Tx => A)
+                           (implicit tx: S#Tx, serializer: Serializer[S#Tx, S#Acc, A]): Source[S#Tx, A] = {
+      val rootID = 2 // 1 == reaction map!!!
+      if (exists(rootID)) {
+        new VarImpl[S, A](rootID, serializer)
+      } else {
+        val id = newIDValue()
+        require(id == rootID,
+          s"Root can only be initialized on an empty database (expected id count is $rootID but found $id)")
+        val res = new VarImpl[S, A](id, serializer)
+        res.setInit(init(tx))
+        res
       }
     }
 
     // ---- cursor ----
 
     def step[A](fun: S#Tx => A): A = {
+      if (Txn.findCurrent.isDefined)
+        throw new IllegalStateException("Nested transactions not supported yet by Durable system.")
+
       TxnExecutor.defaultAtomic(itx => fun(wrap(itx)))
     }
 
     def position(implicit tx: S#Tx): S#Acc = ()
 
     def debugListUserRecords()(implicit tx: S#Tx): Seq[ID] = {
-      val b = Seq.newBuilder[ID]
+      val b   = Seq.newBuilder[ID]
       val cnt = idCntVar()
-      var i = 1
+      var i   = 1
       while (i <= cnt) {
         if (exists(i)) b += new IDImpl(i)
         i += 1
