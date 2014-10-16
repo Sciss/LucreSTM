@@ -1,6 +1,6 @@
 name                       := "LucreSTM"
 
-version       in ThisBuild := "2.1.0"
+version       in ThisBuild := "2.1.1-SNAPSHOT"
 
 organization  in ThisBuild := "de.sciss"
 
@@ -8,16 +8,16 @@ description   in ThisBuild := "Extension of Scala-STM, adding optional durabilit
 
 homepage      in ThisBuild := Some(url("https://github.com/Sciss/" + name.value))
 
-scalaVersion  in ThisBuild := "2.11.1"
+scalaVersion  in ThisBuild := "2.11.2"
 
-crossScalaVersions in ThisBuild := Seq("2.11.1", "2.10.4")
+crossScalaVersions in ThisBuild := Seq("2.11.2", "2.10.4")
 
 libraryDependencies in ThisBuild +=
-  "org.scalatest" %% "scalatest" % "2.2.0" % "test"
+  "org.scalatest" %% "scalatest" % "2.2.2" % "test"
 
-retrieveManaged in ThisBuild  := true
+// retrieveManaged in ThisBuild  := true
 
-scalacOptions   in ThisBuild ++= Seq("-deprecation", "-unchecked", "-feature", "-Xfuture")
+scalacOptions   in ThisBuild ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture")
 
 scalacOptions   in ThisBuild ++= Seq("-Xelide-below", "INFO")     // elide debug logging!
 

@@ -16,51 +16,110 @@ package lucre
 package stm
 package store
 
-import java.util.concurrent.ConcurrentLinkedQueue
-import concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
-import serial.{DataInput, DataOutput}
-import com.sleepycat.je.{Transaction, OperationStatus, LockMode, DatabaseEntry, Database, Environment, DatabaseConfig, TransactionConfig, EnvironmentConfig}
 import java.io.{File, FileNotFoundException}
-import OperationStatus.SUCCESS
-import concurrent.stm.Txn.ExternalDecider
-import util.control.NonFatal
+import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
+
+import com.sleepycat.je.OperationStatus.SUCCESS
+import com.sleepycat.je.{Database, DatabaseConfig, DatabaseEntry, Environment, EnvironmentConfig, LockMode, Transaction, TransactionConfig}
+import de.sciss.serial.{DataInput, DataOutput}
+
+import scala.concurrent.duration.Duration
+import scala.concurrent.stm.Txn.ExternalDecider
+import scala.concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
+import scala.language.implicitConversions
+import scala.util.control.NonFatal
 
 object BerkeleyDB {
   sealed trait LogLevel
   case object LogOff extends LogLevel { override def toString = "OFF" }
   case object LogAll extends LogLevel { override def toString = "ALL" }
 
+  sealed trait ConfigLike {
+    def logLevel    : LogLevel
+
+    def readOnly    : Boolean
+    def allowCreate : Boolean
+    def sharedCache : Boolean
+
+    def txnTimeout  : Duration
+    def lockTimeout : Duration
+  }
+  object Config {
+    def apply(): ConfigBuilder = new ConfigBuilder()
+    implicit def build(b: ConfigBuilder): Config = b.build
+  }
+  trait Config extends ConfigLike
+  final class ConfigBuilder private[BerkeleyDB] () extends ConfigLike {
+    var logLevel    : LogLevel = LogOff
+
+    var readOnly    : Boolean  = false
+    var allowCreate : Boolean  = true
+    var sharedCache : Boolean  = false
+
+    var txnTimeout  : Duration = Duration(  0, TimeUnit.MILLISECONDS)
+    var lockTimeout : Duration = Duration(500, TimeUnit.MILLISECONDS)
+
+    def build: Config = new ConfigImpl(logLevel = logLevel, readOnly = readOnly, allowCreate = allowCreate,
+                                       sharedCache = sharedCache, txnTimeout = txnTimeout, lockTimeout = lockTimeout)
+  }
+  private final case class ConfigImpl(logLevel: LogLevel, readOnly: Boolean, allowCreate: Boolean,
+                                      sharedCache: Boolean, txnTimeout: Duration, lockTimeout: Duration)
+    extends Config
+
   def tmp(logLevel: LogLevel = LogOff): DataStoreFactory[BerkeleyDB] = {
+    val config = Config()
+    config.logLevel  = logLevel
+    tmp(config.build)
+  }
+
+  def tmp(config: Config): DataStoreFactory[BerkeleyDB] = {
     val dir = File.createTempFile("sleepycat_", "db")
     dir.delete()
-    BerkeleyDB.factory(dir, logLevel = logLevel)
+    BerkeleyDB.factory(dir, config)
   }
 
   def factory(dir: File, createIfNecessary: Boolean = true,
               logLevel: LogLevel = LogOff): DataStoreFactory[BerkeleyDB] = {
+    val config = Config()
+    config.allowCreate  = createIfNecessary
+    factory(dir, config.build)
+  }
 
+  def factory(dir: File, config: Config): DataStoreFactory[BerkeleyDB] = {
     val exists = dir.isDirectory
-    if (!exists && !createIfNecessary) throw new FileNotFoundException(dir.toString)
+    if (!exists && !config.allowCreate) throw new FileNotFoundException(dir.toString)
     if (!exists) dir.mkdirs()
-    new Factory(dir, createIfNecessary, logLevel)
+    new Factory(dir, config)
   }
 
   def open(dir: File, name: String = "data", createIfNecessary: Boolean = true,
            logLevel: LogLevel = LogOff): BerkeleyDB =
     factory(dir, createIfNecessary, logLevel).open(name)
 
-  private final class Factory(dir: File, createIfNecessary: Boolean, logLevel: LogLevel)
+  private final class Factory(dir: File, config: Config)
     extends DataStoreFactory[BerkeleyDB] {
+
+    // legacy
+    def this(dir: File, allowCreate: Boolean, logLevel: LogLevel) = this(dir, {
+      val config = Config()
+      config.logLevel    = logLevel
+      config.allowCreate = allowCreate
+      config.build
+    })
 
     private /* lazy */ val txe: TxEnv = {
       val envCfg = new EnvironmentConfig()
       val txnCfg = new TransactionConfig()
 
       envCfg.setTransactional(true)
-      envCfg.setAllowCreate(createIfNecessary)
+      envCfg.setAllowCreate(config.allowCreate)
+      envCfg.setReadOnly   (config.readOnly   )
+      envCfg.setSharedCache(config.sharedCache)
+      envCfg.setTxnTimeout (config.txnTimeout .length, config .txnTimeout.unit)
+      envCfg.setLockTimeout(config.lockTimeout.length, config.lockTimeout.unit)
 
       //    envCfg.setConfigParam( EnvironmentConfig.FILE_LOGGING_LEVEL, "ALL" )
-      envCfg.setConfigParam(EnvironmentConfig.CONSOLE_LOGGING_LEVEL, logLevel.toString)
+      envCfg.setConfigParam(EnvironmentConfig.CONSOLE_LOGGING_LEVEL, config.logLevel.toString)
       val env = new Environment(dir, envCfg)
       new TxEnv(env, txnCfg)
     }
@@ -72,12 +131,13 @@ object BerkeleyDB {
 
       val dbCfg = new DatabaseConfig()
       dbCfg.setTransactional(true)
-      dbCfg.setAllowCreate(createIfNecessary)
+      dbCfg.setAllowCreate(config.allowCreate)
+      dbCfg.setReadOnly   (config.readOnly   )
 
       val e = txe.env
       val txn = e.beginTransaction(null, txe.txnCfg)
       try {
-        txn.setName("Open '" + name + "'")
+        txn.setName(s"Open '$name'")
         if (overwrite && e.getDatabaseNames.contains(name)) {
           e.truncateDatabase(txn, name, false)
         }
@@ -191,10 +251,10 @@ object BerkeleyDB {
       ScalaTxn.setExternalDecider(this)
       val res = env.beginTransaction(null, txnCfg)
       val id  = res.getId
-      log("txn begin  <" + id + ">")
+      log(s"txn begin  <$id>")
       ScalaTxn.afterRollback {
         case ScalaTxn.RolledBack(cause) =>
-          log("txn rollback <" + id + ">")
+          log(s"txn rollback <$id>")
           // currently, it seems Scala-STM swallows the uncaught exception as soon
           // as we have registered this afterRollback handler. As a remedy, we'll
           // explicitly print that exception trace.
@@ -212,13 +272,13 @@ object BerkeleyDB {
     def shouldCommit(implicit txn: InTxnEnd): Boolean = {
       val dbTxn = dbTxnRef()
       try {
-        log("txn commit <" + dbTxn.getId + ">")
+        log(s"txn commit <${dbTxn.getId}>")
         dbTxn.commit()
         true
       } catch {
         case NonFatal(e) =>
           e.printStackTrace()
-          log("txn abort <" + dbTxn.getId + ">")
+          log(s"txn abort <${dbTxn.getId}>")
           dbTxn.abort()
           false
       }
