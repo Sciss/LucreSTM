@@ -3,18 +3,22 @@ import Keys._
 import sbtbuildinfo.Plugin._
 
 object Build extends sbt.Build {
-  def sleepyVersion   = "5.0.104" // = Berkeley DB Java Edition; note: version 6 requires Java 7
+  def sleepyVersion5  = "5.0.104" // = Berkeley DB Java Edition; note: version 6 requires Java 7
+  def sleepyVersion6  = "6.2.7"
   def serialVersion   = "1.0.2"
   def scalaSTMVersion = "0.7"
 
   lazy val lgpl = "LGPL v2.1+" -> url("http://www.gnu.org/licenses/lgpl-2.1.txt")
   lazy val gpl  = "GPL v2+"    -> url("http://www.gnu.org/licenses/gpl-2.0.txt" )
 
+  lazy val baseName  = "LucreSTM"
+  lazy val baseNameL = baseName.toLowerCase
+
   lazy val root: Project = Project(
-    id            = "lucrestm",
+    id            = baseNameL,
     base          = file("."),
-    aggregate     = Seq(core, bdb),
-    dependencies  = Seq(core, bdb), // i.e. root = full sub project. if you depend on root, will draw all sub modules.
+    aggregate     = Seq(core, bdb, bdb6),
+    dependencies  = Seq(core, bdb, bdb6), // i.e. root = full sub project. if you depend on root, will draw all sub modules.
     settings      = Project.defaultSettings ++ Seq(
       licenses := Seq(gpl),
       publishArtifact in (Compile, packageBin) := false, // there are no binaries
@@ -24,7 +28,7 @@ object Build extends sbt.Build {
   )
 
   lazy val core = Project(
-    id            = "lucrestm-core",
+    id            = s"$baseNameL-core",
     base          = file("core"),
     settings      = Project.defaultSettings ++ buildInfoSettings ++ Seq(
       licenses := Seq(lgpl),
@@ -47,13 +51,24 @@ object Build extends sbt.Build {
   )
 
   lazy val bdb = Project(
-    id            = "lucrestm-bdb",
+    id            = s"$baseNameL-bdb",
     base          = file("bdb"),
     dependencies  = Seq(core),
     settings      = Project.defaultSettings ++ Seq(
       licenses := Seq(gpl),
       resolvers += "Oracle Repository" at "http://download.oracle.com/maven", // required for sleepycat
-      libraryDependencies += "com.sleepycat" % "je" % sleepyVersion
+      libraryDependencies += "com.sleepycat" % "je" % sleepyVersion5
+    )
+  )
+
+  lazy val bdb6 = Project(
+    id           = s"$baseNameL-bdb6",
+    base         = file("bdb6"),
+    dependencies = Seq(core),
+    settings     = Project.defaultSettings ++ Seq(
+      licenses := Seq(gpl),
+      resolvers += "Oracle Repository" at "http://download.oracle.com/maven",
+      libraryDependencies += "com.sleepycat" % "je" % sleepyVersion6
     )
   )
 }
