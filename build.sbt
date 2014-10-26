@@ -19,7 +19,11 @@ libraryDependencies in ThisBuild +=
 
 scalacOptions   in ThisBuild ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture")
 
-scalacOptions   in ThisBuild ++= Seq("-Xelide-below", "INFO")     // elide debug logging!
+lazy val loggingEnabled = false  // only effective for snapshot versions
+
+scalacOptions   in ThisBuild ++= {
+  if (loggingEnabled && isSnapshot.value) Nil else Seq("-Xelide-below", "INFO")     // elide debug logging!
+}
 
 testOptions     in Test       += Tests.Argument("-oDF")   // ScalaTest: durations and full stack traces
 

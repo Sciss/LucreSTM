@@ -20,7 +20,7 @@ import java.io.{File, FileNotFoundException}
 import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 
 import com.sleepycat.je.OperationStatus.SUCCESS
-import com.sleepycat.je.{Database, DatabaseConfig, DatabaseEntry, Environment, EnvironmentConfig, LockMode, Transaction, TransactionConfig}
+import com.sleepycat.je.{LockMode, DatabaseEntry, Transaction, Database, DatabaseConfig, Environment, EnvironmentConfig, TransactionConfig}
 import de.sciss.serial.{DataInput, DataOutput}
 
 import scala.concurrent.duration.Duration
@@ -134,9 +134,15 @@ object BerkeleyDB {
       envCfg.setTxnTimeout (config.txnTimeout .length, config .txnTimeout.unit)
       envCfg.setLockTimeout(config.lockTimeout.length, config.lockTimeout.unit)
 
+      // val mCfg = new EnvironmentMutableConfig()
+      // mCfg.set
+
+      envCfg.setConfigParam(EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION, "33")
+
       //    envCfg.setConfigParam( EnvironmentConfig.FILE_LOGGING_LEVEL, "ALL" )
       envCfg.setConfigParam(EnvironmentConfig.CONSOLE_LOGGING_LEVEL, config.logLevel.toString)
       val env = new Environment(dir, envCfg)
+
       new TxEnv(env, txnCfg)
     }
 
@@ -147,15 +153,17 @@ object BerkeleyDB {
 
       val dbCfg = new DatabaseConfig()
       dbCfg.setTransactional(true)
-      dbCfg.setAllowCreate(config.allowCreate)
+      dbCfg.setAllowCreate(config.allowCreate || overwrite)
       dbCfg.setReadOnly   (config.readOnly   )
+      // if (overwrite) dbCfg.setTemporary(true)
 
-      val e = txe.env
+      val e   = txe.env
       val txn = e.beginTransaction(null, txe.txnCfg)
       try {
         txn.setName(s"Open '$name'")
         if (overwrite && e.getDatabaseNames.contains(name)) {
-          e.truncateDatabase(txn, name, false)
+          // e.truncateDatabase(txn, name, false)
+          e.removeDatabase(txn, name)
         }
         val db = e.openDatabase(txn, name, dbCfg)
         txn.commit()
