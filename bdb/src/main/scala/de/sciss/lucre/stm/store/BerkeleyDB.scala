@@ -49,6 +49,13 @@ object BerkeleyDB {
     implicit def build(b: ConfigBuilder): Config = b.build
   }
   trait Config extends ConfigLike
+  object ConfigBuilder {
+    def apply(config: Config): ConfigBuilder = {
+      val b = new ConfigBuilder
+      b.read(config)
+      b
+    }
+  }
   final class ConfigBuilder private[BerkeleyDB] () extends ConfigLike {
     var logLevel    : LogLevel = LogOff
 
@@ -58,6 +65,15 @@ object BerkeleyDB {
 
     var txnTimeout  : Duration = Duration(  0, TimeUnit.MILLISECONDS)
     var lockTimeout : Duration = Duration(500, TimeUnit.MILLISECONDS)
+
+    def read(config: Config): Unit = {
+      this.logLevel     = config.logLevel
+      this.readOnly     = config.readOnly
+      this.allowCreate  = config.allowCreate
+      this.sharedCache  = config.sharedCache
+      this.txnTimeout   = config.txnTimeout
+      this.lockTimeout  = config.lockTimeout
+    }
 
     def build: Config = new ConfigImpl(logLevel = logLevel, readOnly = readOnly, allowCreate = allowCreate,
                                        sharedCache = sharedCache, txnTimeout = txnTimeout, lockTimeout = lockTimeout)
