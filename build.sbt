@@ -1,6 +1,6 @@
 name                       := "LucreSTM"
 
-version       in ThisBuild := "2.1.1-SNAPSHOT"
+version       in ThisBuild := "2.1.1"
 
 organization  in ThisBuild := "de.sciss"
 
@@ -34,7 +34,7 @@ parallelExecution in Test := false
 publishMavenStyle in ThisBuild := true
 
 publishTo in ThisBuild :=
-  Some(if (version.value endsWith "-SNAPSHOT")
+  Some(if (isSnapshot.value)
     "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
   else
     "Sonatype Releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2"
