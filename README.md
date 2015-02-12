@@ -1,5 +1,8 @@
 # LucreSTM
 
+[![Flattr this](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=sciss&url=https%3A%2F%2Fgithub.com%2FSciss%2FLucreSTM&title=LucreSTM&language=Scala&tags=github&category=software)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/de.sciss/lucrestm_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/de.sciss/lucrestm_2.11)
+
 ## statement
 
 LucreSTM provides a software transactional memory with persistent backend for the Scala programming language. The STM is basically a wrapper around Scala-STM, but with an API which supports custom persistence and which can be extended to support confluent and quasi-retroactive persistent as implemented by the [TemporalObjects](https://github.com/Sciss/TemporalObjects) project.
