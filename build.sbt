@@ -8,12 +8,12 @@ description   in ThisBuild := "Extension of Scala-STM, adding optional durabilit
 
 homepage      in ThisBuild := Some(url("https://github.com/Sciss/" + name.value))
 
-scalaVersion  in ThisBuild := "2.11.5"
+scalaVersion  in ThisBuild := "2.11.6"
 
-crossScalaVersions in ThisBuild := Seq("2.11.5", "2.10.4")
+crossScalaVersions in ThisBuild := Seq("2.11.6", "2.10.5")
 
 libraryDependencies in ThisBuild +=
-  "org.scalatest" %% "scalatest" % "2.2.2" % "test"
+  "org.scalatest" %% "scalatest" % "2.2.4" % "test"
 
 // retrieveManaged in ThisBuild  := true
 
