@@ -31,7 +31,7 @@ import scala.language.implicitConversions
 import scala.util.control.NonFatal
 
 object BerkeleyDB {
-  sealed trait LogLevel
+  sealed trait LogLevells -la
   case object LogOff extends LogLevel { override def toString = "OFF" }
   case object LogAll extends LogLevel { override def toString = "ALL" }
 

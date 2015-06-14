@@ -12,7 +12,7 @@ lazy val commonSettings = Seq(
   version             := projectVersion,
   organization        := "de.sciss",
   description         := "Extension of Scala-STM, adding optional durability layer, and providing API for confluent and reactive event layers",
-  homepage            := Some(url(s"https://github.com/Sciss/${name.value}")),
+  homepage            := Some(url(s"https://github.com/Sciss/$baseName")),
   scalaVersion        := "2.11.6",
   crossScalaVersions  := Seq("2.11.6", "2.10.5"),
   scalacOptions      ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture"),
@@ -83,7 +83,7 @@ lazy val loggingEnabled = false  // only effective for snapshot versions
 
 lazy val publishSettings = Seq(
   publishMavenStyle := true,
-  publishTo in ThisBuild := {
+  publishTo := {
     Some(if (isSnapshot.value)
       "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
     else
@@ -91,11 +91,11 @@ lazy val publishSettings = Seq(
     )
   },
   publishArtifact in Test := false,
-  pomIncludeRepository in ThisBuild := { _ => false },
-  pomExtra in ThisBuild := { val n = name.value
+  pomIncludeRepository := { _ => false },
+  pomExtra := {
 <scm>
-  <url>git@github.com:Sciss/{n}.git</url>
-  <connection>scm:git:git@github.com:Sciss/{n}.git</connection>
+  <url>git@github.com:Sciss/{baseName}.git</url>
+  <connection>scm:git:git@github.com:Sciss/{baseName}.git</connection>
 </scm>
 <developers>
    <developer>
@@ -104,7 +104,7 @@ lazy val publishSettings = Seq(
       <url>http://www.sciss.de</url>
    </developer>
 </developers>
-}
+  }
 )
 
 // ---- ls.implicit.ly ----
