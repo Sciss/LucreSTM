@@ -23,6 +23,7 @@ import com.sleepycat.je.OperationStatus.SUCCESS
 import com.sleepycat.je.{LockMode, DatabaseEntry, Transaction, Database, DatabaseConfig, Environment, EnvironmentConfig, TransactionConfig}
 import de.sciss.serial.{DataInput, DataOutput}
 
+import scala.annotation.meta.field
 import scala.concurrent.duration.Duration
 import scala.concurrent.stm.Txn.ExternalDecider
 import scala.concurrent.stm.{InTxnEnd, TxnLocal, Txn => ScalaTxn}
@@ -123,7 +124,7 @@ object BerkeleyDB {
       config.build
     })
 
-    private /* lazy */ val txe: TxEnv = {
+    private[this] /* lazy */ val txe: TxEnv = {
       val envCfg = new EnvironmentConfig()
       val txnCfg = new TransactionConfig()
 
@@ -270,8 +271,8 @@ object BerkeleyDB {
   }
 
   private final class TxEnv(val env: Environment, val txnCfg: TransactionConfig) extends ExternalDecider {
-    private val ioQueue   = new ConcurrentLinkedQueue[IO]
-    private val dbTxnRef  = TxnLocal(initialValue = { implicit tx =>
+    @field private[this] val ioQueue   = new ConcurrentLinkedQueue[IO]
+    @field private[this] val dbTxnRef  = TxnLocal(initialValue = { implicit tx =>
       ScalaTxn.setExternalDecider(this)
       val res = env.beginTransaction(null, txnCfg)
       val id  = res.getId
@@ -321,10 +322,10 @@ object BerkeleyDB {
   }
 
   private[BerkeleyDB] final class IO {
-    val keyE      = new DatabaseEntry()
-    val valueE    = new DatabaseEntry()
-    val partialE  = new DatabaseEntry()
-    val out       = DataOutput()
+    @field val keyE      = new DatabaseEntry()
+    @field val valueE    = new DatabaseEntry()
+    @field val partialE  = new DatabaseEntry()
+    @field val out       = DataOutput()
 
     partialE.setPartial(0, 0, true)
   }
