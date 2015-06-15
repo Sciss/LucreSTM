@@ -200,7 +200,7 @@ object DurableImpl {
       new IDMapImpl[S, A](newID())
 
     final def readVar[A](pid: S#ID, in: DataInput)(implicit ser: Serializer[S#Tx, S#Acc, A]): S#Var[A] = {
-      val id = in.readPackedInt() // readInt()
+      val id = in./* PACKED */ readInt()
       new VarImpl[S, A](id, ser)
     }
 
@@ -208,50 +208,50 @@ object DurableImpl {
       readVar(pid, in)
 
     final def readCachedVar[A](in: DataInput)(implicit ser: Serializer[S#Tx, S#Acc, A]): S#Var[A] = {
-      val id = in.readPackedInt() // readInt()
+      val id = in./* PACKED */ readInt()
       val res = new CachedVarImpl[S, A](id, Ref.make[A](), ser)
       res.readInit()(this)
       res
     }
 
     final def readBooleanVar(pid: S#ID, in: DataInput): S#Var[Boolean] = {
-      val id = in.readPackedInt() // readInt()
+      val id = in./* PACKED */ readInt()
       new BooleanVar(id)
     }
 
     final def readIntVar(pid: S#ID, in: DataInput): S#Var[Int] = {
-      val id = in.readPackedInt() // readInt()
+      val id = in./* PACKED */ readInt()
       new IntVar(id)
     }
 
     final def readCachedIntVar(in: DataInput): S#Var[Int] = {
-      val id = in.readPackedInt() // readInt()
+      val id = in./* PACKED */ readInt()
       val res = new CachedIntVar[S](id, Ref(0))
       res.readInit()(this)
       res
     }
 
     final def readLongVar(pid: S#ID, in: DataInput): S#Var[Long] = {
-      val id = in.readPackedInt() // readInt()
+      val id = in./* PACKED */ readInt()
       new LongVar(id)
     }
 
     final def readCachedLongVar(in: DataInput): S#Var[Long] = {
-      val id = in.readPackedInt() // readInt()
+      val id = in./* PACKED */ readInt()
       val res = new CachedLongVar[S](id, Ref(0L))
       res.readInit()(this)
       res
     }
 
     final def readID(in: DataInput, acc: S#Acc): S#ID = {
-      val base = in.readPackedInt() // in.readInt()
+      val base = in./* PACKED */ readInt()
       new IDImpl(base)
     }
 
     final def readPartialID(in: DataInput, acc: S#Acc): S#ID = readID(in, acc)
 
     final def readDurableIDMap[A](in: DataInput)(implicit serializer: Serializer[S#Tx, S#Acc, A]): IdentifierMap[S#ID, S#Tx, A] = {
-      val base  = in.readPackedInt()  // in.readInt()
+      val base  = in./* PACKED */ readInt()
       val mapID = new IDImpl[S](base)
       new IDMapImpl[S, A](mapID)
     }
@@ -261,7 +261,7 @@ object DurableImpl {
   }
 
   private final class IDImpl[S <: D[S]](@field val id: Int) extends DurableLike.ID[S] {
-    def write(out: DataOutput): Unit = out.writePackedInt(id) // writeInt(id)
+    def write(out: DataOutput): Unit = out./* PACKED */ writeInt(id)
 
     override def hashCode: Int = id
 
@@ -306,7 +306,7 @@ object DurableImpl {
   private sealed trait BasicSource[S <: D[S], A] extends Var[S#Tx, A] {
     protected def id: Int
 
-    final def write(out: DataOutput): Unit = out.writePackedInt(id) // out.writeInt(id)
+    final def write(out: DataOutput): Unit = out./* PACKED */ writeInt(id)
 
     def dispose()(implicit tx: S#Tx): Unit = tx.system.remove(id)
 

@@ -1,6 +1,7 @@
 # LucreSTM
 
 [![Flattr this](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=sciss&url=https%3A%2F%2Fgithub.com%2FSciss%2FLucreSTM&title=LucreSTM&language=Scala&tags=github&category=software)
+[![Build Status](https://travis-ci.org/Sciss/LucreSTM.svg?branch=master)](https://travis-ci.org/Sciss/LucreSTM)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/de.sciss/lucrestm_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/de.sciss/lucrestm_2.11)
 
 ## statement
@@ -39,7 +40,7 @@ And for the database backend:
     
 Note that the file format of BDB JE v6 is not backward compatible with v5. Also BDB JE v6 requires Java 1.7, whereas BDB v5 works with Java 1.6.
 
-The current version `v` is `"2.1.1`".
+The current version `v` is `"2.1.2`".
 
 ## documentation
 

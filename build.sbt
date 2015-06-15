@@ -1,10 +1,10 @@
 lazy val baseName         = "LucreSTM"
 lazy val baseNameL        = baseName.toLowerCase
-lazy val projectVersion   = "2.2.0-SNAPSHOT"
+lazy val projectVersion   = "2.1.2"
 
 lazy val sleepyVersion5   = "5.0.104" // = Berkeley DB Java Edition; note: version 6 requires Java 7
 lazy val sleepyVersion6   = "6.2.7"
-lazy val serialVersion    = "1.1.0-SNAPSHOT"
+lazy val serialVersion    = "1.0.2"
 lazy val scalaSTMVersion  = "0.7"
 lazy val scalaTestVersion = "2.2.5"
 
