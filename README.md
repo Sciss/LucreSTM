@@ -1,6 +1,5 @@
 # LucreSTM
 
-[![Flattr this](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=sciss&url=https%3A%2F%2Fgithub.com%2FSciss%2FLucreSTM&title=LucreSTM&language=Scala&tags=github&category=software)
 [![Build Status](https://travis-ci.org/Sciss/LucreSTM.svg?branch=master)](https://travis-ci.org/Sciss/LucreSTM)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/de.sciss/lucrestm_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/de.sciss/lucrestm_2.11)
 
